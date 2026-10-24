@@ -1,0 +1,76 @@
+mod config;
+mod http;
+mod platform;
+
+use anyhow::Context;
+use config::Config;
+use platform::state::AppState;
+use sqlx::postgres::PgPoolOptions;
+use tokio::net::TcpListener;
+use tracing::info;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    init_tracing();
+
+    let config = Config::from_env()?;
+    let pool = PgPoolOptions::new()
+        .max_connections(config.database_max_connections)
+        .connect(&config.database_url)
+        .await
+        .context("failed to connect to PostgreSQL")?;
+
+    sqlx::migrate!("../../migrations")
+        .run(&pool)
+        .await
+        .context("failed to apply database migrations")?;
+
+    let listener = TcpListener::bind(config.bind_address)
+        .await
+        .context("failed to bind HTTP listener")?;
+    let local_address = listener.local_addr()?;
+    let app = http::router(AppState::new(pool));
+
+    info!(%local_address, "ERP Next API listening");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .context("HTTP server failed")?;
+
+    Ok(())
+}
+
+fn init_tracing() {
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "erp_next_api=info,tower_http=info".into()),
+        )
+        .init();
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install terminate handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {},
+        () = terminate => {},
+    }
+}
+

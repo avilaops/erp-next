@@ -5,6 +5,11 @@ node_modules/
 target/
 .sqlx/
 coverage/
+test-results/
+playwright-report/
+.playwright-mcp/
+artifacts/
+var/
 *.log
 .DS_Store
 Thumbs.db

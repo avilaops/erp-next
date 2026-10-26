@@ -17,10 +17,7 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
-        .layer(SetRequestIdLayer::new(
-            request_id_header,
-            MakeRequestUuid,
-        ))
+        .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
 }
 
 #[cfg(test)]
@@ -49,4 +46,3 @@ mod tests {
         assert_eq!(response.status(), axum::http::StatusCode::OK);
     }
 }
-

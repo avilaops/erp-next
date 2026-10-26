@@ -10,4 +10,3 @@ impl AppState {
         Self { database }
     }
 }
-

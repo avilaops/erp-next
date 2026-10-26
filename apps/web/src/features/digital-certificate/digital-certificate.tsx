@@ -1,0 +1,30 @@
+"use client"
+
+import { useRef, useState } from "react"
+import { AlertTriangle, CalendarClock, CheckCircle2, FileKey2, LockKeyhole, ShieldAlert, Upload } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+
+type ScreenState = "configured" | "expiring" | "expired" | "empty" | "forbidden"
+
+export function DigitalCertificate() {
+  const [state, setState] = useState<ScreenState>("configured")
+  const [fileName, setFileName] = useState("")
+  const [password, setPassword] = useState("")
+  const [message, setMessage] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function prepare() { setPassword(""); if (!fileName) { setMessage("Selecione um arquivo A1 antes de continuar."); return } setMessage("Arquivo preparado apenas nesta sessão. O envio permanece desabilitado.") }
+  if (state === "forbidden") return <div className="mx-auto max-w-xl px-4 py-20 text-center"><ShieldAlert className="mx-auto size-9 text-muted-foreground" /><h1 className="mt-4 text-2xl font-semibold">Sem permissão</h1><p className="mt-2 text-sm text-muted-foreground">A gestão do certificado exige autorização administrativa.</p><Button className="mt-5" variant="outline" onClick={() => setState("configured")}>Voltar à simulação</Button></div>
+
+  return <div className="mx-auto max-w-5xl px-4 pb-24 pt-8 lg:px-6">
+    <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between"><div><p className="mb-2 text-sm font-medium text-primary">Preferências / Certificado digital</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Certificado digital</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Consulte a situação do certificado A1 da empresa e prepare uma substituição local.</p></div><label className="grid gap-1 text-xs text-muted-foreground">Simular situação<select className="h-9 rounded-lg border border-input bg-background px-3 text-sm" value={state} onChange={(event) => setState(event.target.value as ScreenState)}><option value="configured">Válido</option><option value="expiring">Próximo do vencimento</option><option value="expired">Expirado</option><option value="empty">Não configurado</option><option value="forbidden">Sem permissão</option></select></label></header>
+    <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
+      <main className="space-y-5"><CertificateState state={state} />{state !== "empty" && <section className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary"><FileKey2 className="size-5" /></span><div><h2 className="font-semibold">Certificado A1</h2><p className="mt-1 text-sm text-muted-foreground">Dados demonstrativos e mascarados</p></div></div><dl className="mt-6 grid gap-5 sm:grid-cols-2"><Info label="Titular" value="LUDUS EQUIPAMENTOS PARA MUSCULAÇÃO LTDA" /><Info label="Documento" value="66.***.***/****-08" /><Info label="Emissor" value="Autoridade certificadora ••••" /><Info label="Início" value="15/02/2026" /><Info label="Validade" value={state === "expired" ? "20/10/2026" : state === "expiring" ? "30/10/2026" : "15/02/2027"} /><Info label="Armazenamento" value="Referência segura no backend" /></dl></section>}</main>
+      <aside className="rounded-2xl border border-border bg-card p-5 sm:p-6"><h2 className="font-semibold">Preparar substituição</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">O arquivo e a senha permanecem somente nesta página. Nenhum dado será transmitido.</p><div className="mt-5 space-y-4"><input ref={inputRef} className="sr-only" type="file" accept=".pfx,.p12" onChange={(event) => { setFileName(event.target.files?.[0]?.name ?? ""); setMessage("") }} /><Button className="w-full" type="button" variant="outline" onClick={() => inputRef.current?.click()}><Upload />Selecionar arquivo A1</Button><p className="break-all text-xs text-muted-foreground">{fileName || "Nenhum arquivo selecionado"}</p><label className="grid gap-2 text-sm font-medium">Senha do certificado<Input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><Button className="w-full" type="button" disabled={!password} onClick={prepare}>Preparar localmente</Button>{message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}</div><div className="mt-6 flex gap-3 border-t border-border pt-5 text-xs leading-5 text-muted-foreground"><LockKeyhole className="mt-0.5 size-4 shrink-0" /><p>A senha é apagada após a ação e nunca reaparece na interface.</p></div></aside>
+    </div>
+  </div>
+}
+
+function CertificateState({ state }: { state: Exclude<ScreenState, "forbidden"> }) { const map = { configured: { icon: CheckCircle2, title: "Certificado válido", text: "Validade demonstrativa até 15/02/2027.", style: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" }, expiring: { icon: CalendarClock, title: "Validade próxima", text: "O certificado demonstrativo vence em menos de 30 dias.", style: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400" }, expired: { icon: AlertTriangle, title: "Certificado expirado", text: "Operações fiscais permaneceriam indisponíveis até a substituição.", style: "border-destructive/20 bg-destructive/10 text-destructive" }, empty: { icon: FileKey2, title: "Nenhum certificado configurado", text: "Selecione um arquivo A1 para preparar a configuração local.", style: "border-border bg-card text-foreground" } }[state]; const Icon = map.icon; return <section className={`flex gap-3 rounded-2xl border p-5 ${map.style}`}><Icon className="mt-0.5 size-5 shrink-0" /><div><h2 className="font-semibold">{map.title}</h2><p className="mt-1 text-sm opacity-80">{map.text}</p></div></section> }
+function Info({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 text-sm">{value}</dd></div> }

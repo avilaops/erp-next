@@ -13,7 +13,7 @@ services:
       timeout: 3s
       retries: 10
     volumes:
-      - erp-next-postgres:/var/lib/postgresql/data
+      - erp-next-postgres:/var/lib/postgresql
 
 volumes:
   erp-next-postgres:

@@ -73,4 +73,3 @@ async fn shutdown_signal() {
         () = terminate => {},
     }
 }
-

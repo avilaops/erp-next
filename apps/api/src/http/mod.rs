@@ -8,9 +8,9 @@ mod danfe_tests;
 mod domain_tests;
 #[cfg(test)]
 mod fiscal_tests;
+mod health;
 #[cfg(test)]
 mod onboarding_tests;
-mod health;
 mod openapi;
 #[cfg(test)]
 mod operations_tests;
@@ -26,12 +26,16 @@ use tower_http::{
 };
 
 use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
-use crate::platform::{access, access_management, auth, company, state::AppState};
+use crate::platform::{access, access_management, auth, company, onboarding, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/companies",
+            get(onboarding::list).post(onboarding::create),
+        )
         .merge(fiscal::routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))

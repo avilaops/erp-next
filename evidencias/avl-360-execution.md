@@ -23,3 +23,8 @@ health_alias_uses_readiness, health_alias_returns_ready_for_existing_database (4
 Formatting differences in tests also observed and corrected.
 Ruling: inherit main's bounded jobs unchanged — existing CI is now split by AVL343 — cost: workflow elapsed time includes dependencies/queue, each job retains its existing limit.
 T2 GREEN implementation submitted for CI; not yet declared passed.
+
+2026-10-28: usuário autorizou automatizar merge e exclusão da branch.
+T2 initial GREEN: CI40658296271 rust job76 passed/0 failed, web/browser succeeded.
+Ruling: add one operational cleanup workflow scoped to merged PR13 and its exact branch — explicitly requested by user, not a validation-job expansion — cost: contents:write confined to post-merge cleanup without checkout; branch is preserved if its SHA differs from merged head.
+Native repository allow_auto_merge=false/delete_branch_on_merge=false observed.

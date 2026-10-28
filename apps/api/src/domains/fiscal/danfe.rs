@@ -8,6 +8,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use roxmltree::{Document, Node};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use utoipa::ToSchema;
 
 use super::{FiscalError, input, problem};
@@ -31,8 +32,14 @@ pub struct DanfeInput {
 pub struct AuthorizedXml {
     pub key: String,
     pub issuer: String,
+    pub issuer_name: String,
     pub recipient: Option<String>,
     pub environment: String,
+    pub number: i64,
+    pub series: i32,
+    pub issued_at: OffsetDateTime,
+    pub total_cents: i64,
+    pub item_count: i32,
 }
 
 fn child<'a>(
@@ -123,9 +130,36 @@ pub fn inspect(xml: &str) -> Result<AuthorizedXml, &'static str> {
     if !["1", "2"].contains(&environment) {
         return Err("Ambiente da NF-e inválido");
     }
-    let issuer = value(child(info, NFE, "emit")?, NFE, "CNPJ")?;
+    let issuer_node = child(info, NFE, "emit")?;
+    let issuer = value(issuer_node, NFE, "CNPJ")?;
     if !digits(issuer, 14) || &key[6..20] != issuer {
         return Err("Emitente incompatível com a chave da NF-e");
+    }
+    let issuer_name = value(issuer_node, NFE, "xNome")?.trim();
+    if issuer_name.is_empty() || issuer_name.chars().count() > 200 {
+        return Err("Nome do emitente inválido");
+    }
+    let number = value(ide, NFE, "nNF")?
+        .parse::<i64>()
+        .ok()
+        .filter(|value| (1..=999_999_999).contains(value))
+        .ok_or("Número da NF-e inválido")?;
+    let series = value(ide, NFE, "serie")?
+        .parse::<i32>()
+        .ok()
+        .filter(|value| (0..=999).contains(value))
+        .ok_or("Série da NF-e inválida")?;
+    let issued_at = OffsetDateTime::parse(value(ide, NFE, "dhEmi")?, &Rfc3339)
+        .map_err(|_| "Data de emissão da NF-e inválida")?;
+    let total = child(child(info, NFE, "total")?, NFE, "ICMSTot")?;
+    let total_cents = crate::domains::fixed(value(total, NFE, "vNF")?, 2)
+        .map_err(|_| "Valor total da NF-e inválido")?;
+    let item_count = info
+        .children()
+        .filter(|node| node.has_tag_name((NFE, "det")))
+        .count();
+    if !(1..=990).contains(&item_count) {
+        return Err("Quantidade de itens da NF-e inválida");
     }
     let destination = child(info, NFE, "dest")?;
     let recipient = match (
@@ -189,8 +223,14 @@ pub fn inspect(xml: &str) -> Result<AuthorizedXml, &'static str> {
     Ok(AuthorizedXml {
         key: key.to_owned(),
         issuer: issuer.to_owned(),
+        issuer_name: issuer_name.to_owned(),
         recipient: recipient.map(str::to_owned),
         environment: environment.to_owned(),
+        number,
+        series,
+        issued_at,
+        total_cents,
+        item_count: item_count as i32,
     })
 }
 

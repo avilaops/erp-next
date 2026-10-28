@@ -57,7 +57,7 @@ pub(super) async fn setup_with_danfe(
           ('88888888-8888-4888-8888-888888888888', '99999999-9999-4999-8999-999999999999');
     "#).execute(admin).await.unwrap();
     let role = format!("erp_test_{}", Uuid::now_v7().simple());
-    sqlx::raw_sql(&format!("CREATE ROLE {role} NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT USAGE ON SCHEMA public TO {role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role};"))
+    sqlx::raw_sql(&format!("CREATE ROLE {role} NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT USAGE ON SCHEMA public TO {role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role}; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {role};"))
         .execute(admin).await.unwrap();
     let role_for_connection = role.clone();
     let application = PgPoolOptions::new()

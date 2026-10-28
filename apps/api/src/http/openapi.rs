@@ -6,7 +6,7 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
-use crate::platform::{access, access_management, company};
+use crate::platform::{access, access_management, company, service_auth};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -29,7 +29,10 @@ use crate::platform::{access, access_management, company};
         finance::list, finance::get, finance::pay, finance::reverse,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
-        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue),
+        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue,
+        fiscal::received::import, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
+        service_auth::revoke),
     modifiers(&Security),
     tags((name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -41,6 +44,10 @@ impl Modify for Security {
         if let Some(components) = doc.components.as_mut() {
             components.add_security_scheme(
                 "bearerAuth",
+                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            );
+            components.add_security_scheme(
+                "serviceKey",
                 SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
             );
         }
@@ -58,7 +65,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 38);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 44);
         for resource in [
             "product-categories",
             "financial-categories",

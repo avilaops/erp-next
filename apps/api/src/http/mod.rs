@@ -26,13 +26,14 @@ use tower_http::{
 };
 
 use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
-use crate::platform::{access, access_management, auth, company, state::AppState};
+use crate::platform::{access, access_management, auth, company, service_auth, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
         .merge(fiscal::routes())
+        .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
@@ -99,10 +100,16 @@ pub fn router(state: AppState) -> Router {
             auth::require_auth,
         ));
 
+    let service = fiscal::service_routes().layer(middleware::from_fn_with_state(
+        state.clone(),
+        service_auth::require_service_auth,
+    ));
+
     Router::new()
         .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
+        .merge(service)
         .merge(protected)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))

@@ -71,6 +71,31 @@ impl DanfeClient {
         protocol: &str,
         message: Value,
     ) -> Result<Value, RenderError> {
+        let name = match message["params"]["name"].as_str() {
+            Some("fiscal_validar_xml_fiscal") => Some("fiscal_validar_xml_fiscal"),
+            Some("fiscal_validar_assinatura_nfe") => Some("fiscal_validar_assinatura_nfe"),
+            Some("fiscal_gerar_danfe") => Some("fiscal_gerar_danfe"),
+            _ => None,
+        };
+        let operation = self.rpc_untraced(session, protocol, message);
+        match name {
+            Some(name) => crate::platform::langfuse::observe(
+                name,
+                "tool",
+                operation,
+                |result| result["isError"] == true,
+            )
+            .await,
+            None => operation.await,
+        }
+    }
+
+    async fn rpc_untraced(
+        &self,
+        session: &mut Option<HeaderValue>,
+        protocol: &str,
+        message: Value,
+    ) -> Result<Value, RenderError> {
         let id = message.get("id").cloned();
         let mut request = self
             .client
@@ -156,6 +181,16 @@ impl DanfeClient {
     }
 
     pub async fn render(&self, xml: &str, key: &str) -> Result<Vec<u8>, RenderError> {
+        crate::platform::langfuse::observe(
+            "render-danfe",
+            "span",
+            self.render_untraced(xml, key),
+            |_| false,
+        )
+        .await
+    }
+
+    async fn render_untraced(&self, xml: &str, key: &str) -> Result<Vec<u8>, RenderError> {
         let mut session = None;
         let mut protocol = PROTOCOL.to_owned();
         let result = tokio::time::timeout(Duration::from_secs(50), async {

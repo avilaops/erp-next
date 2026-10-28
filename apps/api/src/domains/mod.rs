@@ -4,8 +4,11 @@ pub mod fiscal;
 pub mod inventory;
 pub mod parties;
 mod party_complements;
+pub mod payables;
+pub mod purchasing;
 pub mod reference_data;
 pub mod sales;
+mod settlements;
 pub mod staff;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};

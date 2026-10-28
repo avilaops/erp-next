@@ -1,7 +1,4 @@
-use super::{
-    DomainChange, DomainError, authorized, command_key, db, decimal, fixed, record, remember,
-    replay, response, revision, sales,
-};
+use super::{DomainChange, DomainError, authorized, db, decimal, fixed, record, response, sales};
 use crate::platform::{access::AccessError, auth::AuthenticatedIdentity, state::AppState};
 use axum::{
     Extension, Json,
@@ -54,16 +51,16 @@ pub struct Receivable {
 
 // Totals come from the append-only ledger, not a second mutable balance.
 const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((r.amount_cents-totals.received)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM receivables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
-#[derive(FromRow, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, FromRow, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Payment {
-    id: Uuid,
-    kind: String,
-    amount: String,
-    method: String,
-    reference: String,
-    occurred_on: String,
-    reverses_id: Option<Uuid>,
+    pub(super) id: Uuid,
+    pub(super) kind: String,
+    pub(super) amount: String,
+    pub(super) method: String,
+    pub(super) reference: String,
+    pub(super) occurred_on: String,
+    pub(super) reverses_id: Option<Uuid>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -86,17 +83,17 @@ pub struct ReceivableList {
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct PaymentInput {
-    amount: String,
-    method: String,
-    reference: String,
-    occurred_on: String,
+    pub(super) amount: String,
+    pub(super) method: String,
+    pub(super) reference: String,
+    pub(super) occurred_on: String,
 }
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ReversalInput {
-    payment_id: Uuid,
-    reason: String,
-    occurred_on: String,
+    pub(super) payment_id: Uuid,
+    pub(super) reason: String,
+    pub(super) occurred_on: String,
 }
 
 async fn load(
@@ -129,16 +126,6 @@ async fn load(
         payments,
     })
 }
-fn reference(raw: &str) -> Result<String, DomainError> {
-    let value = raw.trim();
-    if !(3..=200).contains(&value.chars().count()) || value.chars().any(char::is_control) {
-        return Err(DomainError::Invalid(
-            "Referência ou motivo exige de 3 a 200 caracteres sem controles",
-        ));
-    }
-    Ok(value.to_owned())
-}
-
 #[utoipa::path(get,path="/api/v1/receivables",tag="Finance",security(("bearerAuth"=[])),params(sales::OrderQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ReceivableList),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
 pub async fn list(
     State(state): State<AppState>,
@@ -218,88 +205,17 @@ pub async fn pay(
     Path(id): Path<Uuid>,
     payload: Result<Json<PaymentInput>, JsonRejection>,
 ) -> Result<Response, DomainError> {
-    let key = command_key(&headers)?;
-    let expected = revision(&headers)?;
-    let (tenant, mut tx, _) = authorized(
-        &state,
-        &headers,
-        &identity,
-        "finance.receivables.read",
-        "finance.receivables.manage",
-        true,
+    super::settlements::pay(
+        super::settlements::Kind::Receivable,
+        state,
+        identity,
+        headers,
+        id,
+        payload,
     )
-    .await?;
-    let Json(mut input) =
-        payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
-    let amount = fixed(&input.amount, 2)?;
-    if amount <= 0 {
-        return Err(DomainError::Invalid("Recebimento exige valor positivo"));
-    }
-    let occurred = sales::date(&input.occurred_on)?;
-    input.reference = reference(&input.reference)?;
-    if !["cash", "bank_transfer", "card", "other"].contains(&input.method.as_str()) {
-        return Err(DomainError::Invalid("Meio de recebimento inválido"));
-    }
-    let request = serde_json::json!({"id":id,"revision":expected,"input":input});
-    if let Some(previous) = replay(
-        &mut tx,
-        tenant,
-        &identity.subject,
-        key,
-        "receivable.pay",
-        &request,
-    )
-    .await?
-    {
-        let rev = previous["data"]["revision"].as_i64();
-        tx.commit().await.map_err(db)?;
-        return Ok(response(StatusCode::OK, rev, previous));
-    }
-    let current = load(&mut tx, tenant, id, true).await?;
-    if current.data.revision != expected {
-        return Err(DomainError::StaleRevision);
-    }
-    let outstanding = fixed(&current.data.outstanding_amount, 2)?;
-    if current.data.status != "open" || amount > outstanding {
-        return Err(DomainError::Conflict(
-            "O recebimento não pode ultrapassar o saldo restante de uma conta em aberto",
-        ));
-    }
-    let remaining = outstanding
-        .checked_sub(amount)
-        .ok_or(AccessError::Internal)?;
-    let paid = remaining == 0;
-    let payment = Uuid::now_v7();
-    let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
-    sqlx::query("INSERT INTO receivable_payments(id,tenant_id,receivable_id,kind,amount_cents,method,reference,occurred_on) VALUES($1,$2,$3,'receipt',$4,$5,$6,$7)")
-        .bind(payment).bind(tenant).bind(id).bind(amount).bind(&input.method).bind(&input.reference).bind(occurred).execute(&mut *tx).await.map_err(db)?;
-    sqlx::query(
-        "UPDATE receivables SET status=$3,payment_id=$4,revision=$5 WHERE tenant_id=$1 AND id=$2",
-    )
-    .bind(tenant)
-    .bind(id)
-    .bind(if paid { "paid" } else { "open" })
-    .bind(paid.then_some(payment))
-    .bind(next)
-    .execute(&mut *tx)
     .await
-    .map_err(db)?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"receivable",id,event:if paid { "receivable.paid" } else { "receivable.payment_recorded" },details:serde_json::json!({"paymentId":payment,"amount":decimal(amount,2),"outstandingAmount":decimal(remaining,2),"previousRevision":expected,"revision":next,"source":"manual_declaration"})}).await?;
-    let value = serde_json::to_value(load(&mut tx, tenant, id, true).await?)
-        .map_err(|_| AccessError::Internal)?;
-    remember(
-        &mut tx,
-        tenant,
-        &identity.subject,
-        key,
-        "receivable.pay",
-        &request,
-        &value,
-    )
-    .await?;
-    tx.commit().await.map_err(db)?;
-    Ok(response(StatusCode::OK, Some(next), value))
 }
+
 #[utoipa::path(post,path="/api/v1/receivables/{id}/reverse-payment",tag="Finance",request_body=ReversalInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=ReceivableSnapshot),(status=403,description="Sem permissão"),(status=409,description="Pagamento ou estado em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Estorno inválido"),(status=428,description="Precondições obrigatórias")))]
 pub async fn reverse(
     State(state): State<AppState>,
@@ -308,82 +224,30 @@ pub async fn reverse(
     Path(id): Path<Uuid>,
     payload: Result<Json<ReversalInput>, JsonRejection>,
 ) -> Result<Response, DomainError> {
-    let key = command_key(&headers)?;
-    let expected = revision(&headers)?;
-    let (tenant, mut tx, _) = authorized(
-        &state,
-        &headers,
-        &identity,
-        "finance.receivables.read",
-        "finance.receivables.manage",
-        true,
+    super::settlements::reverse(
+        super::settlements::Kind::Receivable,
+        state,
+        identity,
+        headers,
+        id,
+        payload,
     )
-    .await?;
-    let Json(mut input) =
-        payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
-    input.reason = reference(&input.reason)?;
-    let occurred = sales::date(&input.occurred_on)?;
-    let request = serde_json::json!({"id":id,"revision":expected,"input":input});
-    if let Some(previous) = replay(
-        &mut tx,
-        tenant,
-        &identity.subject,
-        key,
-        "receivable.reverse",
-        &request,
-    )
-    .await?
-    {
-        let rev = previous["data"]["revision"].as_i64();
-        tx.commit().await.map_err(db)?;
-        return Ok(response(StatusCode::OK, rev, previous));
-    }
-    let current = load(&mut tx, tenant, id, true).await?;
-    if current.data.revision != expected {
-        return Err(DomainError::StaleRevision);
-    }
-    if current
-        .payments
-        .iter()
-        .any(|p| p.reverses_id == Some(input.payment_id))
-    {
-        return Err(DomainError::Conflict("Este recebimento já foi estornado"));
-    }
-    let original = current
-        .payments
-        .iter()
-        .find(|p| p.id == input.payment_id && p.kind == "receipt")
-        .ok_or(DomainError::Conflict(
-            "Selecione um recebimento ativo desta conta para estornar",
-        ))?;
-    let original_amount = fixed(&original.amount, 2)?;
-    let received = fixed(&current.data.received_amount, 2)?;
-    if original_amount > received {
-        return Err(AccessError::Internal.into());
-    }
-    if occurred < sales::date(&original.occurred_on)? {
-        return Err(DomainError::Invalid(
-            "Estorno não pode anteceder a data do recebimento",
-        ));
-    }
-    let payment = Uuid::now_v7();
-    let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
-    sqlx::query("INSERT INTO receivable_payments(id,tenant_id,receivable_id,kind,amount_cents,method,reference,occurred_on,reverses_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8)")
-        .bind(payment).bind(tenant).bind(id).bind(original_amount).bind(&original.method).bind(&input.reason).bind(occurred).bind(input.payment_id).execute(&mut *tx).await.map_err(db)?;
-    sqlx::query("UPDATE receivables SET status='open',payment_id=NULL,revision=$3 WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).bind(next).execute(&mut *tx).await.map_err(db)?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"receivable",id,event:"receivable.payment_reversed",details:serde_json::json!({"paymentId":payment,"reversesId":input.payment_id,"previousRevision":expected,"revision":next})}).await?;
-    let value = serde_json::to_value(load(&mut tx, tenant, id, true).await?)
-        .map_err(|_| AccessError::Internal)?;
-    remember(
-        &mut tx,
-        tenant,
-        &identity.subject,
-        key,
-        "receivable.reverse",
-        &request,
-        &value,
-    )
-    .await?;
-    tx.commit().await.map_err(db)?;
-    Ok(response(StatusCode::OK, Some(next), value))
+    .await
+}
+
+pub(super) async fn settlement_snapshot(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+) -> Result<super::settlements::Snapshot, DomainError> {
+    let current = load(tx, tenant, id, true).await?;
+    let snapshot = super::settlements::Snapshot {
+        revision: current.data.revision,
+        status: current.data.status.clone(),
+        outstanding: fixed(&current.data.outstanding_amount, 2)?,
+        settled: fixed(&current.data.received_amount, 2)?,
+        payments: current.payments.clone(),
+        value: serde_json::to_value(current).map_err(|_| AccessError::Internal)?,
+    };
+    Ok(snapshot)
 }

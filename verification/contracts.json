@@ -4259,7 +4259,8 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/finance.rs"
+        "apps/api/src/domains/finance.rs",
+        "apps/api/src/domains/settlements.rs"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4361,7 +4362,8 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/finance.rs"
+        "apps/api/src/domains/finance.rs",
+        "apps/api/src/domains/settlements.rs"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -6157,6 +6159,1330 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-api-v1-purchase-orders",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-orders"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset 0..100000; limit 1..100"
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "draft/confirmed/partially_received/received/cancelled/closed",
+        "to": "Consulta paginada sem escrita"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          422,
+          500,
+          503
+        ],
+        "action": "Consulta paginada sem escrita"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-orders",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-orders"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "type": "PurchaseInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "inexistente → draft",
+        "to": "Gravar compra e snapshots sem estoque ou obrigação antecipada"
+      },
+      "effects": {
+        "writes": [
+          "Compra/itens/estado/revisão, auditoria/outbox e comando para POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Gravar compra e snapshots sem estoque ou obrigação antecipada"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-purchase-orders-id",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-orders/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "estado persistido",
+        "to": "Consultar compra, itens e contagem de recebimentos"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar compra, itens e contagem de recebimentos"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-purchase-orders-id",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/purchase-orders/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "PurchaseInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412"
+      ],
+      "transition": {
+        "from": "draft → nova revisão draft",
+        "to": "Substituir rascunho e seus itens; não alterar compra confirmada"
+      },
+      "effects": {
+        "writes": [
+          "Compra/itens/estado/revisão, auditoria/outbox e comando para POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Substituir rascunho e seus itens; não alterar compra confirmada"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-orders-id-confirm",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-orders/{id}/confirm"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "CommandInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "draft → confirmed",
+        "to": "Revalidar origens e confirmar sem movimentar saldo ou financeiro"
+      },
+      "effects": {
+        "writes": [
+          "Compra/itens/estado/revisão, auditoria/outbox e comando para POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Revalidar origens e confirmar sem movimentar saldo ou financeiro"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-orders-id-cancel",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-orders/{id}/cancel"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "CommandInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "draft/confirmed sem recebimentos → cancelled",
+        "to": "Cancelar compra ainda não recebida com motivo"
+      },
+      "effects": {
+        "writes": [
+          "Compra/itens/estado/revisão, auditoria/outbox e comando para POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Cancelar compra ainda não recebida com motivo"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-orders-id-close",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-orders/{id}/close"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "CommandInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "partially_received → closed",
+        "to": "Encerrar apenas saldo restante; preservar efeitos já originados"
+      },
+      "effects": {
+        "writes": [
+          "Compra/itens/estado/revisão, auditoria/outbox e comando para POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Encerrar apenas saldo restante; preservar efeitos já originados"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-purchase-orders-id-receipts",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-orders/{id}/receipts"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": "offset 0..100000; limit 1..100"
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "recebimentos imutáveis",
+        "to": "Consultar histórico paginado e origens sem nova escrita"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar histórico paginado e origens sem nova escrita"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-orders-id-receipts",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-orders/{id}/receipts"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.receipts.create",
+        "inventory.stock.manage",
+        "finance.payables.originate"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "ReceiptInput",
+          "source": "apps/api/src/domains/purchasing.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando",
+        "Compra confirmada com saldo pendente; produto ativo e unidade preservada; referência única no pedido",
+        "Custo da parcela é diferença entre valores acumulados arredondados; parcela zero não gera título"
+      ],
+      "transition": {
+        "from": "confirmed/partially_received → partially_received/received",
+        "to": "Recebimento, entrada no estoque e obrigação financeira na mesma transação"
+      },
+      "effects": {
+        "writes": [
+          "Recebimento e itens, quantidades recebidas/revisão da compra, movimento/saldo de estoque, obrigação positiva, auditoria/outbox/comando atomicamente"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Recebimento, entrada no estoque e obrigação financeira na mesma transação"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-purchase-receipts-id",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-receipts/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "recebimento imutável",
+        "to": "Consultar itens, valor e vínculo com obrigação"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar itens, valor e vínculo com obrigação"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-payables",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/payables"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset 0..100000; limit 1..100"
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "open/paid",
+        "to": "Consultar obrigações originadas por recebimento de compra"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar obrigações originadas por recebimento de compra"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-payables-id",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/payables/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float"
+      ],
+      "transition": {
+        "from": "open/paid",
+        "to": "Consultar saldo e livro financeiro numa leitura consistente"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar saldo e livro financeiro numa leitura consistente"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-payables-id-payments",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/payables/{id}/payments"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read",
+        "finance.payables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "PaymentInput",
+          "source": "apps/api/src/domains/finance.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "open → open/paid",
+        "to": "Registrar pagamento declarado parcial/integral até saldo, sem executar banco"
+      },
+      "effects": {
+        "writes": [
+          "Livro financeiro append-only, situação/revisão/saldo derivado, auditoria/outbox/comando"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Registrar pagamento declarado parcial/integral até saldo, sem executar banco"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-payables-id-reverse-payment",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/payables/{id}/reverse-payment"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read",
+        "finance.payables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "ReversalInput",
+          "source": "apps/api/src/domains/finance.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando"
+      ],
+      "transition": {
+        "from": "open/paid → open",
+        "to": "Estornar integralmente um lançamento próprio ainda ativo; não desfazer recebimento físico"
+      },
+      "effects": {
+        "writes": [
+          "Livro financeiro append-only, situação/revisão/saldo derivado, auditoria/outbox/comando"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem UI nova/BFF, execução bancária, emissão/importação fiscal ou deploy",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Estornar integralmente um lançamento próprio ainda ativo; não desfazer recebimento físico"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Backend apenas, conforme instrução vigente; consumidor poderá conectar depois"
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "pendingFlows": [
@@ -6288,41 +7614,16 @@
       "planningReference": "e4309570-83db-466e-8fd0-fee69f1567a3"
     },
     {
-      "id": "pending-7",
-      "title": "Pedidos de compra",
-      "status": "needs_definition",
-      "intent": "Criar/editar rascunho, aprovar/confirmar, cancelar, acompanhar recebimento",
-      "proposedEndpoints": [
-        "/api/v1/purchase-orders",
-        "/{id}"
-      ],
-      "openDecisions": [
-        "Aprovar pedido não aumenta saldo nem comprova obrigação financeira; definir recebimento parcial e tolerâncias"
-      ],
-      "requiredFields": [
-        "actor",
-        "permissions",
-        "input",
-        "preconditions",
-        "transition",
-        "effects",
-        "response",
-        "recovery",
-        "acceptanceCriteria"
-      ],
-      "planningReference": "e4309570-83db-466e-8fd0-fee69f1567a3"
-    },
-    {
       "id": "pending-8",
       "title": "Recebimento de compra/XML de entrada",
       "status": "needs_definition",
-      "intent": "Importar documento, conferir fornecedor/itens, registrar recebimento e divergência",
+      "intent": "Recebimento físico e originação de estoque/conta definidos na cadeia; vínculo/importação de documento fiscal e divergências XML permanecem pendentes",
       "proposedEndpoints": [
         "/api/v1/purchase-receipts",
         "/api/v1/inbound-documents"
       ],
       "openDecisions": [
-        "Validar vínculo fiscal; estoque apenas por recebimento confirmado; conta a pagar só pelo evento acordado; não lançar XML repetido"
+        "Definir validação/vínculo fiscal e deduplicação do documento importado; não confundir XML com recebimento físico confirmado"
       ],
       "requiredFields": [
         "actor",
@@ -6471,32 +7772,6 @@
       ],
       "openDecisions": [
         "Reusar escopo AVL-319; SLA, evidências e efeitos financeiros/estoque precisam de estado e autorização claros"
-      ],
-      "requiredFields": [
-        "actor",
-        "permissions",
-        "input",
-        "preconditions",
-        "transition",
-        "effects",
-        "response",
-        "recovery",
-        "acceptanceCriteria"
-      ],
-      "planningReference": "e4309570-83db-466e-8fd0-fee69f1567a3"
-    },
-    {
-      "id": "pending-15",
-      "title": "Contas a pagar",
-      "status": "needs_definition",
-      "intent": "Originar/listar/detalhar, registrar pagamento parcial/integral e estorno",
-      "proposedEndpoints": [
-        "/api/v1/payables",
-        "/{id}/payments",
-        "/{id}/reverse-payment"
-      ],
-      "openDecisions": [
-        "Origem auditável; não exceder saldo; não duplicar pagamento; não presumir execução bancária"
       ],
       "requiredFields": [
         "actor",

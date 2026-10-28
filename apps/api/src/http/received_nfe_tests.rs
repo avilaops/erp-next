@@ -192,17 +192,37 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
         .execute(&admin)
         .await
         .unwrap();
-    let first = request(
-        &router,
-        "POST",
-        "/api/v1/fiscal/received-nfes/import",
-        Some("editor"),
-        Some(TENANT),
-        Some(json!({"xml":FIXTURE})),
-    )
-    .await;
-    assert_eq!(first.0, StatusCode::CREATED, "{}", json_body(&first.2));
-    let saved = json_body(&first.2);
+    let (first, concurrent) = tokio::join!(
+        request(
+            &router,
+            "POST",
+            "/api/v1/fiscal/received-nfes/import",
+            Some("editor"),
+            Some(TENANT),
+            Some(json!({"xml":FIXTURE})),
+        ),
+        request(
+            &router,
+            "POST",
+            "/api/v1/fiscal/received-nfes/import",
+            Some("editor"),
+            Some(TENANT),
+            Some(json!({"xml":FIXTURE})),
+        )
+    );
+    assert!(
+        (first.0 == StatusCode::CREATED && concurrent.0 == StatusCode::OK)
+            || (first.0 == StatusCode::OK && concurrent.0 == StatusCode::CREATED),
+        "first={} concurrent={}",
+        first.0,
+        concurrent.0
+    );
+    let created = if first.0 == StatusCode::CREATED {
+        &first
+    } else {
+        &concurrent
+    };
+    let saved = json_body(&created.2);
     let id = saved["id"].as_i64().unwrap();
     assert_eq!(saved["accessKey"], KEY);
     assert_eq!(saved["number"], 1);
@@ -210,7 +230,7 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
     assert_eq!(saved["totalCents"], 1000);
     assert_eq!(saved["itemCount"], 1);
 
-    let second = request(
+    let replay = request(
         &router,
         "POST",
         "/api/v1/fiscal/received-nfes/import",
@@ -219,9 +239,9 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
         Some(json!({"xml":FIXTURE})),
     )
     .await;
-    assert_eq!(second.0, StatusCode::OK);
-    assert_eq!(second.1["idempotency-replayed"], "true");
-    assert_eq!(json_body(&second.2)["id"], id);
+    assert_eq!(replay.0, StatusCode::OK);
+    assert_eq!(replay.1["idempotency-replayed"], "true");
+    assert_eq!(json_body(&replay.2)["id"], id);
 
     let changed = format!("{FIXTURE}\n");
     assert_eq!(
@@ -259,6 +279,20 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
         .unwrap(),
         1
     );
+    let mut isolated = application.begin().await.unwrap();
+    sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+        .bind(OTHER_TENANT)
+        .execute(&mut *isolated)
+        .await
+        .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_received_nfes")
+            .fetch_one(&mut *isolated)
+            .await
+            .unwrap(),
+        0
+    );
+    isolated.commit().await.unwrap();
 
     drop(router);
     cleanup(&admin, application, auth, &role).await;
@@ -286,6 +320,13 @@ async fn lojas_lists_and_downloads_exact_xml_and_generated_danfe(admin: PgPool) 
     .await;
     assert_eq!(imported.0, StatusCode::CREATED);
     let id = json_body(&imported.2)["id"].as_i64().unwrap();
+    let other_key = format!("erp_{OTHER_TENANT}_{}", "a".repeat(64));
+    sqlx::query("INSERT INTO service_api_keys(id,tenant_id,name,key_prefix,key_hash,created_by_identity_id) VALUES(gen_random_uuid(),$1::uuid,'Outra integração','erp_other_fixture_1234',$2,'33333333-3333-4333-8333-333333333333')")
+        .bind(OTHER_TENANT)
+        .bind(Sha256::digest(other_key.as_bytes()).to_vec())
+        .execute(&admin)
+        .await
+        .unwrap();
 
     let listed = request(
         &router,
@@ -343,6 +384,19 @@ async fn lojas_lists_and_downloads_exact_xml_and_generated_danfe(admin: PgPool) 
     assert_eq!(pdf.1["content-type"], "application/pdf");
     assert_eq!(pdf.1["cache-control"], "no-store");
     assert_eq!(pdf.2, STANDARD.decode(PDF.trim()).unwrap());
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            &format!("/api/v1/notas-recebidas/{id}/xml"),
+            Some(&other_key),
+            None,
+            None,
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
 
     for uri in [
         "/api/v1/notas-recebidas/999999/xml",

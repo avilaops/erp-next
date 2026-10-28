@@ -1,7 +1,7 @@
 # Integração fiscal ERP-Next → Lojas: entrega vertical
 
 Data: 2026-10-28. Referências: AVL-360, AVL-359, AVL-254.
-Estado: recorte escolhido pelo usuário; desenho proposto para aprovação.
+Estado: recorte e desenho aprovados expressamente pelo usuário em 28/10/2026.
 Não constitui evidência de implementação, testes, homologação ou autorização de deploy.
 
 ## Intenção e decisão
@@ -248,4 +248,5 @@ Nada de dados de cliente, chaves ou XML reais nos artefatos de CI.
 Builder check independente concluído em 28/10/2026. As duas lacunas encontradas
 foram resolvidas como escolhas técnicas propostas: serviço restrito a produção;
 credencial vinculada ao CNPJ de criação e recusada após alteração cadastral.
-Continuam sujeitas à aprovação deste desenho; não são decisões atribuídas ao usuário.
+Essas escolhas integram o desenho aprovado expressamente pelo usuário em 28/10/2026.
+A aprovação não libera a P0 nem autoriza operações em produção.

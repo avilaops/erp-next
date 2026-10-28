@@ -66,26 +66,30 @@ fn company() -> Value {
 #[sqlx::test(migrations = "../../migrations")]
 async fn creates_company_atomically_and_retries_without_duplicate_effects(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    let (status, initial) = call(&router, "GET", "new-owner", None, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    // Matching email does not inherit the existing reader's membership.
+    assert_eq!(initial["data"], json!([]));
     let key = "aaaaaaaa-1111-4111-8111-111111111111";
     assert_eq!(
-        call(&router, "POST", "reader", None, company()).await.0,
+        call(&router, "POST", "new-owner", None, company()).await.0,
         StatusCode::PRECONDITION_REQUIRED
     );
     assert_eq!(
-        call(&router, "POST", "reader", Some("bad"), company())
+        call(&router, "POST", "new-owner", Some("bad"), company())
             .await
             .0,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        call(&router, "POST", "reader", Some(key), json!({}))
+        call(&router, "POST", "new-owner", Some(key), json!({}))
             .await
             .0,
         StatusCode::UNPROCESSABLE_ENTITY
     );
     let ((status, result), (retry_status, retry)) = tokio::join!(
-        call(&router, "POST", "reader", Some(key), company()),
-        call(&router, "POST", "reader", Some(key), company())
+        call(&router, "POST", "new-owner", Some(key), company()),
+        call(&router, "POST", "new-owner", Some(key), company())
     );
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(retry_status, StatusCode::CREATED);
@@ -94,7 +98,9 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
     let mut changed = company();
     changed["legalName"] = json!("Outra");
     assert_eq!(
-        call(&router, "POST", "reader", Some(key), changed).await.0,
+        call(&router, "POST", "new-owner", Some(key), changed)
+            .await
+            .0,
         StatusCode::CONFLICT
     );
     assert_eq!(
@@ -127,7 +133,7 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
     }
     let request = Request::builder()
         .uri("/api/v1/me")
-        .header("authorization", "Bearer reader")
+        .header("authorization", "Bearer new-owner")
         .header("x-tenant-id", tenant)
         .body(Body::empty())
         .unwrap();

@@ -1,9 +1,12 @@
 # Experiment tracing
 
 Tracing is optional and disabled by default. Configure the experiment process
-through its secret manager with `LANGFUSE_TRACING_ENABLED=true`,
+through its secret manager with `LANGFUSE_ENABLED=true`,
 `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL`.
-The base URL must use HTTPS without embedded credentials. Restart after changes.
+The base URL must use HTTPS without embedded credentials, query or fragment.
+`LANGFUSE_TRACING_ENABLED` remains a compatibility alias; `LANGFUSE_ENABLED`
+takes precedence. Restart after changes. Safe environment/release labels can be
+provided as `LANGFUSE_TRACING_ENVIRONMENT` and `LANGFUSE_RELEASE`.
 Never commit keys or paste them into chat.
 
 Requires Langfuse Cloud v4 or self-hosted Langfuse >= 4.59.0 (JS SDK 6.0.2).
@@ -18,7 +21,10 @@ token counts or costs. Tool tracing belongs to the standalone experiments packag
 this embedded version has no registered tool executor.
 
 Call `await flushObservability()` before exiting short-lived library consumers.
-The SDK also shuts down on `beforeExit`. Telemetry failures preserve application
+The API drains telemetry on SIGTERM/SIGINT after draining requests. The SDK also
+shuts down on `beforeExit`. Export HTTP timeout is three seconds, media upload is
+disabled, and only known operation names from the Langfuse SDK are exported.
+Telemetry failures preserve application
 results and never retry dispatched business operations.
 
 Run `npm ci --no-audit --no-fund` and `npm test` from `experiments/` exclusively

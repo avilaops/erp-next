@@ -97,7 +97,7 @@ pub async fn list(
 ) -> Response {
     let mut tx = match service_auth::transaction(&state, &identity).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let rows = match sqlx::query_as::<_, NoteRow>(
         "SELECT id,access_key,number,series,issued_at,total_cents,item_count,issuer_document,issuer_name FROM fiscal_received_nfes ORDER BY issued_at DESC,id DESC",
@@ -133,7 +133,7 @@ async fn document(
     state: &AppState,
     identity: &ServiceIdentity,
     id: i64,
-) -> Result<StoredDocument, Response> {
+) -> Result<StoredDocument, Box<Response>> {
     let mut tx = service_auth::transaction(state, identity).await?;
     let document = sqlx::query_as::<_, StoredDocument>(
         "SELECT access_key,environment,xml,xml_sha256 FROM fiscal_received_nfes WHERE id=$1",
@@ -141,17 +141,17 @@ async fn document(
     .bind(id)
     .fetch_optional(&mut *tx)
     .await
-    .map_err(|error| db(error).into_response())?;
+    .map_err(|error| Box::new(db(error).into_response()))?;
     tx.commit()
         .await
-        .map_err(|error| db(error).into_response())?;
+        .map_err(|error| Box::new(db(error).into_response()))?;
     document.ok_or_else(|| {
-        problem(
+        Box::new(problem(
             StatusCode::NOT_FOUND,
             "received_nfe_not_found",
             "Nota fiscal não encontrada nesta empresa",
             serde_json::json!({}),
-        )
+        ))
     })
 }
 
@@ -167,7 +167,7 @@ pub async fn download_xml(
 ) -> Response {
     let document = match document(&state, &identity, id).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let mut result = Response::new(axum::body::Body::from(document.xml));
     for (name, value) in [
@@ -207,7 +207,7 @@ pub async fn download_danfe(
 ) -> Response {
     let document = match document(&state, &identity, id).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(client) = state.danfe.as_ref() else {
         return problem(
@@ -238,7 +238,7 @@ pub async fn download_danfe(
     };
     let recheck = match service_auth::transaction(&state, &identity).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if let Err(error) = recheck.commit().await {
         return db(error).into_response();

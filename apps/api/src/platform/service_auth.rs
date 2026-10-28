@@ -128,10 +128,10 @@ async fn authenticate(
 pub async fn transaction<'a>(
     state: &'a AppState,
     identity: &ServiceIdentity,
-) -> Result<Transaction<'a, Postgres>, Response> {
+) -> Result<Transaction<'a, Postgres>, Box<Response>> {
     let mut tx = access::tenant_transaction(state, identity.tenant_id)
         .await
-        .map_err(|error| error.into_response())?;
+        .map_err(|error| Box::new(error.into_response()))?;
     let valid: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM service_api_keys WHERE id=$1 AND tenant_id=$2 AND key_hash=$3 AND revoked_at IS NULL)",
     )
@@ -142,10 +142,10 @@ pub async fn transaction<'a>(
     .await
     .map_err(|error| {
         tracing::error!(%error, "service key revalidation failed");
-        ServiceAuthFailure::Internal.into_response()
+        Box::new(ServiceAuthFailure::Internal.into_response())
     })?;
     if !valid {
-        return Err(ServiceAuthFailure::Invalid.into_response());
+        return Err(Box::new(ServiceAuthFailure::Invalid.into_response()));
     }
     Ok(tx)
 }

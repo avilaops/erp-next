@@ -91,5 +91,15 @@ mod tests {
                 .get("bearerAuth")
                 .is_some()
         );
+        for path in [
+            "/api/v1/integrations/service-keys",
+            "/api/v1/integrations/service-keys/{id}",
+            "/api/v1/fiscal/received-nfes/import",
+            "/api/v1/notas-recebidas",
+            "/api/v1/notas-recebidas/{id}/xml",
+            "/api/v1/notas-recebidas/{id}/danfe",
+        ] {
+            assert!(doc["paths"].get(path).is_some(), "missing {path}");
+        }
     }
 }

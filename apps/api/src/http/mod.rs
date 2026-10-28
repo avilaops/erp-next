@@ -15,6 +15,8 @@ mod operations_tests;
 #[cfg(test)]
 mod parties_tests;
 #[cfg(test)]
+mod received_nfe_tests;
+#[cfg(test)]
 mod reference_tests;
 
 use axum::{Router, middleware, routing::get};

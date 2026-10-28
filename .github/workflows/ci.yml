@@ -122,11 +122,12 @@ jobs:
           BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: timeout 30s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
       - run: bash scripts/contracts/install-oasdiff.sh
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
       - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
       - name: Check fixed company consumer
         working-directory: scripts/contracts/consumer
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
           npm run generate
           npm run check
           npm test

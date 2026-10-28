@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { validateOpenApi } from './consumer/openapi-validation.mjs';
 
 export async function readOpenApi(file) {
   const bytes = await readFile(file);
@@ -17,6 +18,7 @@ export async function readOpenApi(file) {
     for (const item of Object.values(value)) check(item);
   }
   check(document);
+  await validateOpenApi(document);
   return { document, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 

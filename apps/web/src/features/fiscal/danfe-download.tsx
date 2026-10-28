@@ -1,19 +1,19 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 
 async function digest(bytes: ArrayBuffer) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
+const subscribeHydration = () => () => {}
 export function DanfeDownload({ tenantId }: { tenantId: string }) {
-  const [ready, setReady] = useState(false)
+  const ready = useSyncExternalStore(subscribeHydration, () => true, () => false)
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [download, setDownload] = useState<{ url: string; filename: string; xmlHash: string; pdfHash: string; environment: string } | null>(null)
   const activeRequest = useRef<AbortController | null>(null)
-  useEffect(() => { setReady(true) }, [])
   useEffect(() => () => activeRequest.current?.abort(), [])
   useEffect(() => () => { if (download) URL.revokeObjectURL(download.url) }, [download])
   async function generate() {

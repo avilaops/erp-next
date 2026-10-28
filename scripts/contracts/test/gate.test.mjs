@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -19,7 +20,9 @@ async function compare(mutate, options = {}) {
     const baseline=document(),candidate=structuredClone(baseline);mutate(candidate);
     await writeFile(path.join(directory,'base.json'),JSON.stringify(baseline));
     await writeFile(path.join(directory,'candidate.json'),JSON.stringify(candidate));
-    return await adapter.compareContracts({baseline:path.join(directory,'base.json'),candidate:path.join(directory,'candidate.json'),output:directory,...options});
+    const {before, ...settings}=options;
+    if (before) await before(directory);
+    return await adapter.compareContracts({baseline:path.join(directory,'base.json'),candidate:path.join(directory,'candidate.json'),output:directory,...settings});
   } finally { await rm(directory,{recursive:true,force:true}); }
 }
 test('identical contract is compatible', async()=> assert.equal((await compare(()=>{})).compatible,true));
@@ -33,6 +36,19 @@ test('new authentication requirement is incompatible', async()=>assert.equal((aw
 test('invalid document fails closed', async()=>assert.rejects(compare(d=>{delete d.openapi;}),/INVALID_OPENAPI/));
 test('parseable document with missing required info fails closed', async()=>assert.rejects(compare(d=>{d.info={};}),/INVALID_OPENAPI/));
 test('external references are refused before invoking the comparator', async()=>assert.rejects(compare(d=>{d.components.schemas={Remote:{$ref:'https://example.invalid/schema.json'}};}),/INVALID_OPENAPI_EXTERNAL_REF/));
+test('capture digests must match the exact compared documents',async()=>assert.rejects(compare(()=>{}, {before:async directory=>{
+  await writeFile(path.join(directory,'capture.json'),JSON.stringify({schemaVersion:'erp-openapi-capture/1',initialContract:true,captures:[{label:'baseline',sha256:'0'.repeat(64)},{label:'candidate',sha256:'0'.repeat(64)}]}));
+}}),/CAPTURE_HASH_MISMATCH/));
+test('initial contract never claims event-base historical compatibility',async()=>{
+  const report=await compare(()=>{}, {before:async directory=>{
+    const captures=[];
+    for(const [label,file] of [['baseline','base.json'],['candidate','candidate.json']]) captures.push({label,sha256:createHash('sha256').update(await readFile(path.join(directory,file))).digest('hex')});
+    await writeFile(path.join(directory,'capture.json'),JSON.stringify({schemaVersion:'erp-openapi-capture/1',initialContract:true,captures}));
+  }});
+  assert.equal(report.compatible,true);
+  assert.equal(report.comparisonScope,'initial_contract');
+  assert.equal(report.eventBaseCompatibilityVerified,false);
+});
 test('comparator process failure fails closed', async()=>{
   assert.ok(adapter,'OpenAPI gate is not implemented');
   await assert.rejects(compare(()=>{}, {executable:'/nonexistent/oasdiff'}),/COMPARATOR_FAILED/);

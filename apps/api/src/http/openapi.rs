@@ -9,7 +9,7 @@ use crate::domains::{
     catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
     staff,
 };
-use crate::platform::{access, access_management, company, onboarding};
+use crate::platform::{access, access_management, company, onboarding, service_auth};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -32,7 +32,10 @@ use crate::platform::{access, access_management, company, onboarding};
         finance::list, finance::get, finance::pay, finance::reverse,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
-        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue),
+        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue,
+        fiscal::received::import, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
+        service_auth::revoke),
     modifiers(&Security),
     tags((name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -75,6 +78,10 @@ impl Modify for Security {
         if let Some(components) = doc.components.as_mut() {
             components.add_security_scheme(
                 "bearerAuth",
+                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            );
+            components.add_security_scheme(
+                "serviceKey",
                 SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
             );
         }
@@ -169,5 +176,15 @@ mod tests {
                 .get("bearerAuth")
                 .is_some()
         );
+        for path in [
+            "/api/v1/integrations/service-keys",
+            "/api/v1/integrations/service-keys/{id}",
+            "/api/v1/fiscal/received-nfes/import",
+            "/api/v1/notas-recebidas",
+            "/api/v1/notas-recebidas/{id}/xml",
+            "/api/v1/notas-recebidas/{id}/danfe",
+        ] {
+            assert!(doc["paths"].get(path).is_some(), "missing {path}");
+        }
     }
 }

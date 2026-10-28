@@ -18,6 +18,7 @@ mod operations_tests;
 mod parties_tests;
 #[cfg(test)]
 mod purchase_chain_tests;
+mod received_nfe_tests;
 #[cfg(test)]
 mod reference_tests;
 #[cfg(test)]
@@ -33,7 +34,7 @@ use crate::domains::{
     catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
     staff,
 };
-use crate::platform::{access, access_management, auth, company, onboarding, state::AppState};
+use crate::platform::{access, access_management, auth, company, onboarding, service_auth, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
@@ -84,6 +85,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/staff", get(staff::list).post(staff::create))
         .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))
         .merge(fiscal::routes())
+        .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
@@ -150,10 +152,16 @@ pub fn router(state: AppState) -> Router {
             auth::require_auth,
         ));
 
+    let service = fiscal::service_routes().layer(middleware::from_fn_with_state(
+        state.clone(),
+        service_auth::require_service_auth,
+    ));
+
     Router::new()
         .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
+        .merge(service)
         .merge(protected)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))

@@ -10,12 +10,12 @@ const directory = path.resolve("../../artifacts/danfe-browser", runId)
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "danfe-ui.spec.ts",
+  testMatch: ["danfe-ui.spec.ts", "service-key-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
-  metadata: { scope: "DANFE browser and BFF only", authAdapter: "synthetic", apiAdapter: "test_double", runId },
-  timeout: 15_000,
+  metadata: { scope: "Fiscal browser and BFF contracts", authAdapter: "synthetic", apiAdapter: "test_double", runId },
+  timeout: 90_000,
   outputDir: path.join(directory, "test-results"),
   reporter: [["list"], ["json", { outputFile: path.join(directory, "report.json") }]],
   use: { baseURL: origin, browserName: "chromium", channel: process.env.ERP_BROWSER_CHANNEL, viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },

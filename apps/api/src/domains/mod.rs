@@ -2,6 +2,7 @@ pub mod catalog;
 pub mod finance;
 pub mod fiscal;
 pub mod inventory;
+pub mod legacy;
 pub mod parties;
 mod party_complements;
 pub mod payables;

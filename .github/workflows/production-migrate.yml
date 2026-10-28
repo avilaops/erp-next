@@ -1,0 +1,59 @@
+name: Production data migration
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Validated source commit
+        required: true
+        type: string
+      release_run:
+        description: Successful Production release run
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: erp-production-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DATABASE_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
+      ERP_LEGACY_DATABASE_URL: ${{ secrets.ERP_LEGACY_DATABASE_URL }}
+      ERP_BOOTSTRAP_SUB: ${{ secrets.ERP_BOOTSTRAP_SUB }}
+      ERP_BOOTSTRAP_TENANT: ${{ secrets.ERP_BOOTSTRAP_TENANT }}
+      ERP_BOOTSTRAP_EMAIL: nicolas@avilaops.com
+      SOURCE_REF: ${{ inputs.source_ref }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Require approved images
+        run: |
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .conclusion)" = success
+          gh run download "$RELEASE_RUN" --repo "$GITHUB_REPOSITORY" --name "erp-api-$SOURCE_REF"
+          docker load --input api-image.tar.gz
+      - name: Open restricted database tunnel
+        env:
+          SSH_KEY: ${{ secrets.ERP_DB_TUNNEL_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ERP_DB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.ERP_DB_SSH_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/erp-db
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
+      - name: Apply destination migrations
+        run: docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$SOURCE_REF" migrate
+      - name: Provision initial membership
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
+      - name: Import and reconcile the complete legacy database
+        run: python3 scripts/import-legacy.py

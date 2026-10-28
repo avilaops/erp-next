@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const modules = [
+  ["Histórico importado", "/historico"],
   ["Início", "/"], ["Dashboards", "/dashboards"], ["Cadastros", "/cadastros"],
   ["Vendas", "/vendas"], ["Estoque", "/estoque"], ["Compras", "/compras"],
   ["Financeiro", "/financeiro"], ["Fiscal", "/fiscal"], ["Logística", "/logistica"],

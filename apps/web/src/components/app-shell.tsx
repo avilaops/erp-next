@@ -78,6 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <nav className="hidden h-full items-center xl:flex" aria-label="Módulos do ERP">
             <Link className="top-nav-link" href="/">Visão geral</Link>
+            <Link className="top-nav-link" href="/historico">Histórico importado</Link>
             {menus.map((menu) => (
               <details className="group relative h-full" key={menu.label}>
                 <summary className="top-nav-link h-full cursor-pointer list-none gap-1">{menu.label}<ChevronDown className="size-3.5 transition group-open:rotate-180" /></summary>

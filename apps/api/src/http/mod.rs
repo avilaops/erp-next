@@ -12,6 +12,8 @@ mod health;
 #[cfg(test)]
 mod health_tests;
 #[cfg(test)]
+mod legacy_tests;
+#[cfg(test)]
 mod onboarding_tests;
 mod openapi;
 #[cfg(test)]
@@ -45,6 +47,11 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route("/api/v1/legacy-history", get(crate::domains::legacy::list))
+        .route(
+            "/api/v1/legacy-history/files/{id}",
+            get(crate::domains::legacy::file),
+        )
         .route(
             "/api/v1/purchase-orders",
             get(purchasing::list).post(purchasing::create),

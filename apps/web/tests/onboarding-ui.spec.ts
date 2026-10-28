@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
 
+test.setTimeout(10_000)
+
 const origin = "http://127.0.0.1:33118"
 const secret = "danfe-browser-fixture-not-a-real-service-secret"
 const tenant = "11111111-1111-4111-8111-111111111111"

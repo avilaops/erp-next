@@ -384,8 +384,8 @@ export function RecordsOverview() {
         description="Registros fundamentais compartilhados pelos módulos do ERP."
       />
       <div className="mb-6 rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
-        Produtos, clientes e fornecedores usam a API da empresa autenticada.
-        Os demais cadastros desta central ainda apresentam dados demonstrativos.
+        Os cadastros conectados consultam os registros da sua empresa.
+        Os demais estão identificados como demonstração.
       </div>
       <section
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"

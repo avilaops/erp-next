@@ -185,7 +185,7 @@ fn staff_error(error: sqlx::Error) -> DomainError {
     }
 }
 
-#[utoipa::path(get,path="/api/v1/staff",tag="Catalog",security(("bearerAuth"=[])),params(StaffQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=StaffList),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
+#[utoipa::path(get,path="/api/v1/staff",tag="Catalog",security(("bearerAuth"=[])),params(StaffQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=StaffList),(status=400,description="Empresa, identificador ou precondição inválidos"),(status=500,description="Erro interno"),(status=503,description="Auth indisponível"),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -242,7 +242,7 @@ pub async fn list(
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/staff/{id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=StaffSnapshot),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=404,description="Cadastro não encontrado")))]
+#[utoipa::path(get,path="/api/v1/staff/{id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=StaffSnapshot),(status=400,description="Empresa, identificador ou precondição inválidos"),(status=500,description="Erro interno"),(status=503,description="Auth indisponível"),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=404,description="Cadastro não encontrado")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -271,7 +271,7 @@ pub async fn get(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/staff",tag="Catalog",request_body=StaffInput,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=StaffSnapshot),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=409,description="Código ou chave em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
+#[utoipa::path(post,path="/api/v1/staff",tag="Catalog",request_body=StaffInput,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=StaffSnapshot),(status=400,description="Empresa, identificador ou precondição inválidos"),(status=500,description="Erro interno"),(status=503,description="Auth indisponível"),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=409,description="Código ou chave em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
 pub async fn create(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -333,7 +333,7 @@ pub async fn create(
     Ok(response(StatusCode::CREATED, Some(1), result))
 }
 
-#[utoipa::path(put,path="/api/v1/staff/{id}",tag="Catalog",request_body=StaffInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=StaffSnapshot),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=404,description="Cadastro não encontrado"),(status=409,description="Código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão obrigatória")))]
+#[utoipa::path(put,path="/api/v1/staff/{id}",tag="Catalog",request_body=StaffInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=StaffSnapshot),(status=400,description="Empresa, identificador ou precondição inválidos"),(status=500,description="Erro interno"),(status=503,description="Auth indisponível"),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=404,description="Cadastro não encontrado"),(status=409,description="Código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão obrigatória")))]
 pub async fn update(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

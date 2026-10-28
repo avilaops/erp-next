@@ -1,7 +1,9 @@
 # Received NF-e and Lojas Integration Design
 
-**Issue:** AVL-360  
-**Date:** 2026-10-28  
+**Issue:** AVL-360
+
+**Date:** 2026-10-28
+
 **Status:** Approved for implementation
 
 ## Goal

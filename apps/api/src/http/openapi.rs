@@ -52,13 +52,20 @@ impl Modify for Security {
                 ("patch", &mut item.patch),
                 ("trace", &mut item.trace),
             ] {
-                if let Some(operation) = operation
-                    && matches!(
+                if let Some(operation) = operation {
+                    if matches!(
                         operation.operation_id.as_deref(),
                         Some("list" | "create" | "get" | "update")
-                    )
-                {
-                    operation.operation_id = Some(format!("{method}:{path}"));
+                    ) {
+                        operation.operation_id = Some(format!("{method}:{path}"));
+                    }
+                    for (status, response) in &mut operation.responses.responses {
+                        if let utoipa::openapi::RefOr::T(response) = response
+                            && response.description.is_empty()
+                        {
+                            response.description = format!("Resposta HTTP {status}");
+                        }
+                    }
                 }
             }
         }
@@ -94,6 +101,11 @@ mod tests {
                 }
                 let id = operation["operationId"].as_str().unwrap();
                 assert!(ids.insert(id), "duplicate operation ID: {id}");
+                for response in operation["responses"].as_object().unwrap().values() {
+                    if response.get("$ref").is_none() {
+                        assert!(!response["description"].as_str().unwrap().is_empty());
+                    }
+                }
                 if let Some(parameters) = operation["parameters"].as_array() {
                     for parameter in parameters {
                         if parameter["in"] == "path" {

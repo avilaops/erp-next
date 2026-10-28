@@ -52,5 +52,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const [baseline, candidate, output] = process.argv.slice(2);
   if (!baseline || !candidate || !output) { console.error('Usage: gate.mjs BASE CANDIDATE OUTPUT'); process.exitCode = 2; }
   else try { const report = await compareContracts({ baseline, candidate, output }); console.log(JSON.stringify({ compatible: report.compatible, findings: report.findings.length })); if (!report.compatible) process.exitCode = 1; }
-  catch (error) { console.error(error.message); process.exitCode = 2; }
+  catch (error) { console.error(error.message); if (error.details) console.error(JSON.stringify(error.details.slice(0,12))); process.exitCode = 2; }
 }

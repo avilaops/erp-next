@@ -6,5 +6,9 @@ export async function validateOpenApi(document) {
       resolve: { file: false, http: false },
       dereference: { circular: 'ignore' },
     });
-  } catch { throw new Error('INVALID_OPENAPI'); }
+  } catch (error) {
+    const failure = new Error('INVALID_OPENAPI');
+    failure.details = Array.isArray(error.details) ? error.details.map(({instancePath,keyword,schemaPath})=>({instancePath,keyword,schemaPath})) : [];
+    throw failure;
+  }
 }

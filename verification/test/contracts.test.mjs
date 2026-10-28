@@ -64,3 +64,15 @@ test('catalogue changes are part of source provenance and read preconditions are
   assert.ok(movement.preconditions.some(value => value.includes('Revisão de saldo no corpo')));
   assert.equal(movement.input.headers.includes('If-Match'), false);
 });
+
+test('auxiliary catalogue contracts preserve filter, not-found, conflict and precondition failures', () => {
+  for (const resource of ['product-categories', 'financial-categories', 'financial-accounts', 'payment-methods']) {
+    for (const [method, suffix, expected] of [
+      ['GET', '', [422]], ['GET', '/{id}', [404]],
+      ['POST', '', [409, 422, 428]], ['PUT', '/{id}', [400, 404, 409, 412, 422, 428]],
+    ]) {
+      const action = catalogue.actions.find(item => item.operation.method === method && item.operation.path === `/api/v1/${resource}${suffix}`);
+      for (const status of expected) assert.ok(action.response.errorStatuses.includes(status), `${method} ${resource}${suffix}: missing ${status}`);
+    }
+  }
+});

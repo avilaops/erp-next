@@ -52,7 +52,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
       }}>
         <label className="min-w-0 space-y-2">Buscar nome ou código<Input name="q" maxLength={160} placeholder="Código ou nome" /></label>
         <label className="min-w-0 space-y-2">Função<select name="role" defaultValue={kind === "funcionarios" ? "employee" : "seller"} className={selectClass}><option value="">Todos</option><option value="employee">Funcionários</option><option value="seller">Vendedores</option></select></label>
-        <label className="min-w-0 space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><Link className={linkClass} href="/entrar">Entrar com Ávila Ops</Link><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
@@ -155,7 +155,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/${id}/editar`}>Editar cadastro</Link>}
         </> : <form className="space-y-5" onSubmit={save}>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
-            <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
+            <label className="min-w-0 space-y-2">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
             {([ ["name", "Nome", 200], ["jobTitle", "Cargo", 120], ["code", "Código", 40], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "name" || field === "code"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "name" || field === "code" ? "" : null))} /></label>)}
             <div className="min-w-0 space-y-3"><p className="font-medium">Funções na empresa</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isEmployee} onChange={event => change("isEmployee", event.target.checked)} />Funcionário</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSeller} onChange={event => change("isSeller", event.target.checked)} />Vendedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos uma função.</p></div>
           </fieldset>

@@ -5775,7 +5775,7 @@
         ],
         "pathParameters": [],
         "body": null,
-        "query": "Consultar parâmetros de paginação/filtro no contrato OpenAPI e handler da fonte."
+        "query": "q até 160 caracteres; role employee/seller; status active/archived; offset 0..100000 e limit 1..100"
       },
       "preconditions": [
         "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
@@ -5797,16 +5797,18 @@
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+        "rule": "Leitura autorizada em transação com contexto da empresa e RLS forçada"
       },
       "response": {
         "successStatuses": [
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           422,
+          500,
           503
         ],
         "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
@@ -5897,18 +5899,20 @@
       "concurrency": {
         "revision": false,
         "idempotency": true,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+        "rule": "Lock da empresa e revalidação de direitos; mesma chave/corpo retorna resultado original, corpo diferente retorna 409"
       },
       "response": {
         "successStatuses": [
           201
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
           422,
           428,
+          500,
           503
         ],
         "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
@@ -5971,7 +5975,7 @@
           "id"
         ],
         "body": null,
-        "query": "Consultar parâmetros de paginação/filtro no contrato OpenAPI e handler da fonte."
+        "query": null
       },
       "preconditions": [
         "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
@@ -5993,16 +5997,18 @@
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+        "rule": "Leitura autorizada em transação com contexto da empresa e RLS forçada"
       },
       "response": {
         "successStatuses": [
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
+          500,
           503
         ],
         "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
@@ -6095,7 +6101,7 @@
       "concurrency": {
         "revision": true,
         "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+        "rule": "Lock da empresa e revisão If-Match obrigatória; revisão antiga retorna 412 sem gravação"
       },
       "response": {
         "successStatuses": [
@@ -6110,6 +6116,7 @@
           412,
           422,
           428,
+          500,
           503
         ],
         "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"

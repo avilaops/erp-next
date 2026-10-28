@@ -1,2 +1,2 @@
-import { PurchasingScreen } from "@/features/purchasing/purchasing-screen"
-export default function Page(){return <PurchasingScreen kind="overview"/>}
+import { PurchaseAccess } from "@/features/purchasing/purchase-access"
+export default function Page() { return <PurchaseAccess view="overview" /> }

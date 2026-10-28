@@ -129,15 +129,13 @@ test("listagens demonstrativas expõem ações e paginação honestas", async ({
   await page.getByLabel("Por página").selectOption("50")
 })
 
-test("formulários restauram coleções locais ao cancelar", async ({ page }) => {
-  await page.goto("/compras/pedidos/novo")
-  const save = page.getByRole("button", { name: "Salvar demonstração" })
-  await expect(save).toBeDisabled()
-  await page.getByRole("button", { name: "Adicionar" }).click()
-  await expect(save).toBeEnabled()
-  await page.getByRole("button", { name: "Cancelar" }).click()
-  await expect(page.getByLabel("Descrição do item 2")).toHaveCount(0)
-  await expect(save).toBeDisabled()
+test("compras conectadas exigem acesso antes de editar", async ({ page }) => {
+  for (const route of ["/compras/pedidos", "/compras/pedidos/novo", "/compras/recebimentos", "/financeiro/contas-pagar"]) {
+    await page.goto(route)
+    await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
+    await expect(page.getByRole("button", { name: "Salvar demonstração", exact: true })).toHaveCount(0)
+    await expect(page.getByText("Aço Forte Distribuidora", { exact: true })).toHaveCount(0)
+  }
 })
 
 test.describe("cadastros navegam entre listagem, criação, detalhe e edição", () => {
@@ -173,19 +171,13 @@ test.describe("cadastros navegam entre listagem, criação, detalhe e edição",
 
 test("compras e estoque navegam para seus fluxos operacionais", async ({ page }) => {
   const purchaseFlows = [
-    ["/compras/pedidos", "/compras/pedidos/pc-00482"],
     ["/compras/notas-entrada", "/compras/notas-entrada/000184322"],
-    ["/compras/recebimentos", "/compras/recebimentos/rec-00215"],
     ["/compras/sugestoes", "/compras/sugestoes/sug-00118"],
   ] as const
   for (const [route, detail] of purchaseFlows) {
     await page.goto(route)
     await expect(page.locator(`a[href="${detail}"]`)).toBeVisible()
   }
-
-  await page.goto("/compras/pedidos/pc-00482")
-  await page.getByRole("button", { name: "Aprovar" }).click()
-  await expect(page.getByRole("status")).toContainText(/aprovado/i)
 
   const inventoryFlows = [
     ["/estoque/inventarios", "/estoque/inventarios/novo", "/estoque/inventarios/INV-2026-004"],
@@ -276,14 +268,11 @@ test("serviços executa fluxos específicos por operação", async ({ page }) =>
   await expect(page.getByLabel("Técnico")).toBeVisible()
 })
 
-test("financeiro protege ações e expõe formulário contextual", async ({ page }) => {
+test("contas a pagar não apresentam obrigações simuladas sem acesso", async ({ page }) => {
   await page.goto("/financeiro/contas-pagar")
-  await page.getByRole("button", { name: /CP-2841/ }).click()
-  await expect(page.getByRole("button", { name: "Registrar baixa" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Estornar baixa" })).toBeVisible()
-  await page.getByRole("button", { name: "Nova obrigação" }).click()
-  await expect(page.getByLabel("Fornecedor")).toBeVisible()
-  await expect(page.getByLabel("Valor")).toBeVisible()
+  await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
+  await expect(page.getByRole("button", { name: /CP-2841/ })).toHaveCount(0)
+  await expect(page.getByLabel("Valor do pagamento", { exact: true })).toHaveCount(0)
 })
 
 test("relatórios compara, agrupa e detalha dados", async ({ page }) => {

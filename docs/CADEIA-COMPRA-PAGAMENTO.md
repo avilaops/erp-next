@@ -1,7 +1,9 @@
 # Cadeia de compra até pagamento
 
 Contrato definido no Linear antes da migration: `9e356b9a-5662-41e5-90f7-c80d22d6b7b1`.
-Tarefa: AVL-370. Entrega exclusivamente backend, sem novas telas ou BFF.
+Tarefa: AVL-370. Entrega inicial exclusivamente backend, sem novas telas ou BFF.
+A extensão posterior de [interface de compras e contas a pagar](COMPRAS-CONTAS-PAGAR-INTERFACE.md)
+conecta esse contrato às telas do ERP sem alterar os efeitos transacionais.
 
 Compra em rascunho pode ser editada e confirmada. A confirmação preserva os
 snapshots do fornecedor/produtos, unidade e custo negociado. Recebimentos

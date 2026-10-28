@@ -1,2 +1,2 @@
-import { PurchaseOrderForm } from "@/features/purchasing/purchase-order-form"
-export default function Page(){return <PurchaseOrderForm/>}
+import { PurchaseAccess } from "@/features/purchasing/purchase-access"
+export default function Page() { return <PurchaseAccess view="create" /> }

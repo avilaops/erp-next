@@ -4,7 +4,9 @@ export async function forwardErp(request: Request, resource: string) {
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)(?:\/[a-f0-9-]{36})?$/i.test(resource)
   const serviceKeyResource = /^\/integrations\/service-keys(?:\/[a-f0-9-]{36})?$/i.test(resource)
-  if (!referenceResource && !serviceKeyResource && !/^\/(?:me|company|companies|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  const purchaseCollection = /^\/(?:purchase-orders|payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
+  const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/payables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
+  if (!referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = resource === "/companies" ? await currentIdentitySession() : await currentSession()
@@ -33,9 +35,9 @@ export async function forwardErp(request: Request, resource: string) {
     const commandKey = request.headers.get("idempotency-key")
     if (commandKey) headers.set("Idempotency-Key", commandKey)
     const upstream = new URL(`${config.api}/api/v1${resource}`)
-    if (referenceCollection || ["/staff", "/products", "/stock", "/stock/movements", "/parties", "/orders", "/receivables"].includes(resource)) {
+    if (referenceCollection || purchaseResource || ["/staff", "/products", "/stock", "/stock/movements", "/parties", "/orders", "/receivables"].includes(resource)) {
       const query = new URL(request.url).searchParams
-      const allowed = resource === "/stock/movements" ? ["productId", "offset", "limit"] : ["/parties", "/staff"].includes(resource) ? ["q", "status", "role", "offset", "limit"] : ["/orders", "/receivables"].includes(resource) ? ["offset", "limit"] : ["q", "status", "offset", "limit"]
+      const allowed = purchaseResource ? purchaseCollection ? ["offset", "limit"] : [] : resource === "/stock/movements" ? ["productId", "offset", "limit"] : ["/parties", "/staff"].includes(resource) ? ["q", "status", "role", "offset", "limit"] : ["/orders", "/receivables"].includes(resource) ? ["offset", "limit"] : ["q", "status", "offset", "limit"]
       for (const [key, value] of query) {
         if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key, value)

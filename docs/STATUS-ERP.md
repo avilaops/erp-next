@@ -2,6 +2,12 @@
 
 ## Consolidação local de 28/10/2026
 
+A [interface de compras e contas a pagar](COMPRAS-CONTAS-PAGAR-INTERFACE.md)
+conecta pedidos, recebimentos parciais, cancelamento/encerramento e registros
+de pagamento/estorno ao backend existente. Notas de entrada e sugestões de
+reposição continuam demonstrativas. As contagens históricas abaixo antecedem
+essa extensão do BFF.
+
 As branches de desenvolvimento foram reunidas na `main`, incluindo cadastro
 autônomo de empresas, endereços/contatos, funcionários/vendedores, cadeia de
 compras e pagamentos, integração de recebidas/Lojas, recuperação SEFAZ e

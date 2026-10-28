@@ -93,7 +93,7 @@ const helpTopics = [
     guidance: "Selecione um cliente ativo e os produtos do pedido. Enquanto estiver em rascunho, é possível alterar cliente, vencimento e itens; os itens mantidos preservam os preços registrados. Confirmar reserva estoque. Concluir registra a saída e gera a conta a receber. As propostas continuam demonstrativas.",
     links: [["Pedidos de venda", "/vendas/pedidos"], ["Novo pedido", "/vendas/pedidos/novo"]] },
   { title: "Estoque e compras", summary: "Confira saldos físicos, reservas e movimentos antes de registrar uma operação.",
-    guidance: "O saldo disponível considera as reservas de pedidos. Entradas, saídas e estornos manuais precisam de motivo e confirmação. Depósitos, inventários, produção e o fluxo de compras ainda têm superfícies demonstrativas.",
+    guidance: "O saldo disponível considera as reservas de pedidos. Compras permitem criar e confirmar pedidos, registrar recebimentos parciais e gerar entrada de estoque e conta a pagar. Cancelar antes de receber ou encerrar o saldo preserva os registros existentes. Depósitos, inventários, produção, notas de entrada e sugestões de compra continuam demonstrativos.",
     links: [["Saldos e movimentos", "/estoque/saldos"], ["Compras", "/compras"]] },
   { title: "Fiscal", summary: "Revise documentos e eventos sem transmissão aos serviços oficiais.",
     guidance: "As telas fiscais e os rascunhos não representam documentos autorizados. Emissão, assinatura, transmissão e geração de DANFE ainda dependem da implementação da integração fiscal.",

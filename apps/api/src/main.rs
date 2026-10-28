@@ -14,7 +14,13 @@ use tracing::info;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_tracing();
+    platform::langfuse::init();
+    let result = run().await;
+    platform::langfuse::shutdown().await;
+    result
+}
 
+async fn run() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     let pool = PgPoolOptions::new()
         .max_connections(config.database_max_connections)

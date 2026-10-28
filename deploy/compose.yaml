@@ -19,6 +19,7 @@ services:
       ERP_API_URL: http://127.0.0.1:8080
       ERP_WEB_ORIGIN: https://erp.avilaops.com
       AUTH_ISSUER: https://auth.avilaops.com
+      ERP_RELEASE_SHA: ${ERP_RELEASE_SHA:?CI revision required}
     depends_on:
       api:
         condition: service_healthy

@@ -1,28 +1,32 @@
 # ERP Next em produção
 
-Imagens são construídas somente pelo GitHub CI, no dispatch `release=true`,
+Imagens são construídas somente pelo GitHub CI, pelo workflow
+`production-release.yml`, com `source_ref` fixado no commit completo,
 depois das verificações de cada componente. PRs não reempacotam imagens.
 A implantação exige o resultado completo da execução aprovado.
 Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
 
-Todos os jobs têm timeout de um minuto, abaixo do teto de 90 segundos pedido.
-Cache frio ou operações que não caibam nesse limite falham; não autorizam build
-no servidor ou a retirada de testes. Os navegadores usam Chrome do runner.
+O workflow de release tem timeout de 20 minutos para API e 15 para web.
+Falhas não autorizam build no servidor ou a retirada de testes.
+Os navegadores usam Chrome do runner.
 
-O dispatch opcional `provision=true`, com `release_run` apontando para uma
-execução já aprovada, executa somente migrations/bootstrap **no runner GitHub**,
+O workflow `production-migrate.yml`, com `release_run` apontando para uma
+execução já aprovada, executa migrations/bootstrap e importação **no runner GitHub**,
 conectado ao PostgreSQL por túnel SSH restrito a `172.17.0.1:5432`, sujeito a
 autenticação SCRAM em vez das regras trust de loopback. A chave do
 túnel não permite sessão ou execução de comandos. Os segredos são configurados
 no GitHub: `ERP_MIGRATION_DATABASE_URL`, `ERP_DB_TUNNEL_KEY`,
 `ERP_DB_KNOWN_HOSTS`, `ERP_DB_SSH_HOST`, `ERP_BOOTSTRAP_SUB` e
-`ERP_BOOTSTRAP_TENANT`. Nunca executar o comando `migrate` no servidor.
+`ERP_BOOTSTRAP_TENANT` e `ERP_LEGACY_DATABASE_URL`. Nunca executar o comando
+`migrate` no servidor. O importador recusa um destino que já contém os schemas
+legados; não repetir o fluxo após a importação concluída.
 Antes de usar a imagem, confere que a revisão de origem possui os mesmos fontes
 Rust, lockfile e migrations da revisão que está fazendo o provisionamento.
 
 O bootstrap cria uma empresa com cadastro fiscal pendente e associa a identidade
 real confirmada de `nicolas@avilaops.com` ao papel de administrador. O banco é
-novo e independente do legado. A conexão de runtime usa papel sem superusuário,
+independente do legado e recebe a cópia e projeção dos dados após o bootstrap.
+A conexão de runtime usa papel sem superusuário,
 sem BYPASSRLS e sem propriedade das tabelas.
 
 O diretório de release recebe somente `compose.yaml`, imagens prontas e arquivos
@@ -30,7 +34,7 @@ privados `api.env`, `web.env` e `.env`. `api.env` contém `DATABASE_URL`,
 `AUTH_ISSUER=https://auth.avilaops.com` e `NFE_PRODUCTION_ENABLED=false`.
 `web.env` contém `ERP_AUTH_CLIENT_ID`, `ERP_AUTH_CLIENT_SECRET`,
 `ERP_SESSION_SECRET` e `ERP_DEFAULT_TENANT_ID`. `.env` fixa `ERP_API_IMAGE` e
-`ERP_WEB_IMAGE`. Não versionar esses arquivos preenchidos.
+`ERP_WEB_IMAGE` e `ERP_RELEASE_SHA`. Não versionar esses arquivos preenchidos.
 
 Web e API compartilham o namespace de rede do serviço API; o BFF usa
 `http://127.0.0.1:8080`. Isso mantém a exigência existente de HTTPS ou loopback,

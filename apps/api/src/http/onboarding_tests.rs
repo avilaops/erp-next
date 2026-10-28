@@ -44,6 +44,10 @@ async fn company_discovery_requires_auth_and_only_returns_active_memberships(adm
         call(&router, "GET", "", None, Value::Null).await.0,
         StatusCode::UNAUTHORIZED
     );
+    assert_eq!(
+        call(&router, "POST", "", None, company()).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     let (status, body) = call(&router, "GET", "reader", None, Value::Null).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["data"].as_array().unwrap().len(), 1);
@@ -52,6 +56,15 @@ async fn company_discovery_requires_auth_and_only_returns_active_memberships(adm
         "11111111-1111-4111-8111-111111111111"
     );
     let (status, body) = call(&router, "GET", "disabled", None, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["data"], json!([]));
+    sqlx::query(
+        "UPDATE tenants SET status = 'suspended' WHERE id = '11111111-1111-4111-8111-111111111111'",
+    )
+    .execute(&admin)
+    .await
+    .unwrap();
+    let (status, body) = call(&router, "GET", "reader", None, Value::Null).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["data"], json!([]));
     super::company_tests::cleanup(&admin, application, server, &role).await;
@@ -158,6 +171,12 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
         router.clone().oneshot(request).await.unwrap().status(),
         StatusCode::FORBIDDEN
     );
+    let mut other_company = company();
+    other_company["personType"] = json!("fisica");
+    other_company["taxId"] = json!("11144477735");
+    let (status, other) = call(&router, "POST", "editor", Some(key), other_company).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_ne!(other["tenantId"], result["tenantId"]);
     // No identity context survives the transaction on pooled connections.
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM tenants")
         .fetch_one(&application)

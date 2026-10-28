@@ -8,6 +8,8 @@ mod danfe_tests;
 mod domain_tests;
 #[cfg(test)]
 mod fiscal_tests;
+#[cfg(test)]
+mod onboarding_tests;
 mod health;
 mod openapi;
 #[cfg(test)]

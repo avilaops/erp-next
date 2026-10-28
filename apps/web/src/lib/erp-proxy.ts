@@ -3,7 +3,8 @@ import { currentSession, erpConfiguration } from "@/lib/erp-session"
 export async function forwardErp(request: Request, resource: string) {
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)(?:\/[a-f0-9-]{36})?$/i.test(resource)
-  if (!referenceResource && !/^\/(?:me|company|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  const serviceKeyResource = /^\/integrations\/service-keys(?:\/[a-f0-9-]{36})?$/i.test(resource)
+  if (!referenceResource && !serviceKeyResource && !/^\/(?:me|company|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = await currentSession()

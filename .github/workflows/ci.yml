@@ -35,6 +35,8 @@ jobs:
         with:
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: |
           remaining=$((ERP_CI_DEADLINE - $(date +%s)))
           (( remaining > 0 ))

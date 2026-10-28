@@ -73,3 +73,32 @@ fn received_refuses_dtd_and_oversize() {
     let xml = format!("{}{}", super::super::danfe::FIXTURE, " ".repeat(900 * 1024));
     assert!(inspect_received(&xml, RECIPIENT).is_err());
 }
+
+#[test]
+fn received_requires_cnpj_element_not_just_matching_digits() {
+    let xml = super::super::danfe::FIXTURE
+        .replace("<CNPJ>19131243000197</CNPJ>", "<CPF>19131243000197</CPF>");
+    assert!(inspect_received(&xml, RECIPIENT).is_err());
+}
+
+#[test]
+fn received_refuses_split_scalar_content() {
+    for (from, to) in [
+        ("<nNF>1</nNF>", "<nNF>1<!--split-->2</nNF>"),
+        ("<vNF>10.00</vNF>", "<vNF>10.00<?split value?>1</vNF>"),
+        (
+            "<xNome>EMITENTE DE TESTE SEM VALOR FISCAL</xNome>",
+            "<xNome>EMITENTE<!--split--> DE TESTE SEM VALOR FISCAL</xNome>",
+        ),
+    ] {
+        let xml = super::super::danfe::FIXTURE.replace(from, to);
+        assert!(inspect_received(&xml, RECIPIENT).is_err());
+    }
+}
+
+#[test]
+fn received_requires_iso_datetime_separator() {
+    let xml = super::super::danfe::FIXTURE
+        .replace("2026-10-27T12:00:00-03:00", "2026-10-27X12:00:00-03:00");
+    assert!(inspect_received(&xml, RECIPIENT).is_err());
+}

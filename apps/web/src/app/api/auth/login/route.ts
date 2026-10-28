@@ -6,7 +6,7 @@ import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, uuidP
 export async function GET(request: Request) {
   try {
     const config = erpConfiguration()
-    const tenantId = new URL(request.url).searchParams.get("tenant") || process.env.ERP_DEFAULT_TENANT_ID || ""
+    const tenantId = new URL(request.url).searchParams.get("tenant") || ""
     if (tenantId && !uuidPattern.test(tenantId)) return Response.json({ title: "Selecione uma empresa válida" }, { status: 400 })
     if (!config.clientId || !config.clientSecret) return Response.json({ title: "Acesso corporativo não configurado neste ambiente" }, { status: 503 })
     const endpoints = await authEndpoints()

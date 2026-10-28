@@ -37,7 +37,7 @@ export function CompanySignup() {
   const [busy, setBusy] = useState(false)
   // Retain the key across ambiguous network failures; changing the payload gets a new key.
   const command = useRef<{ body: string; key: string } | null>(null)
-  const created = useRef<string | null>(null)
+  const [created, setCreated] = useState<string | null>(null)
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true); setStatus("Salvando cadastro…")
@@ -46,13 +46,15 @@ export function CompanySignup() {
     const body = JSON.stringify({ ...data, segments: values.getAll("segments") })
     if (!command.current || command.current.body !== body) command.current = { body, key: crypto.randomUUID() }
     try {
-      if (!created.current) {
+      let tenantId = created
+      if (!tenantId) {
         const response = await fetch("/api/erp/companies", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": command.current.key }, body })
         const result = await response.json()
         if (!response.ok) throw new Error([result.title, ...(result.errors || []).map((error: { field: string; message: string }) => `${error.field}: ${error.message}`)].join(". "))
-        created.current = result.tenantId
+        tenantId = result.tenantId
+        setCreated(tenantId)
       }
-      const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: created.current }) })
+      const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
       if (!selected.ok) throw new Error("Empresa cadastrada. Acesse Suas empresas para selecioná-la")
       window.location.assign("/preferencias/empresa/dados")
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }
@@ -60,7 +62,7 @@ export function CompanySignup() {
   const fields = [["legalName", "Nome empresarial"], ["tradeName", "Nome fantasia"], ["taxId", "CPF ou CNPJ"], ["postalCode", "CEP"], ["city", "Cidade"], ["street", "Rua"], ["number", "Número"], ["district", "Bairro"], ["email", "E-mail da empresa"]]
   return <form onSubmit={submit} className="form-section space-y-4">
     <p>Cadastre sua empresa com sua conta Ávila Ops. Você será o administrador desta empresa.</p>
-    <fieldset disabled={busy || Boolean(created.current)} className="grid gap-4 sm:grid-cols-2">
+    <fieldset disabled={busy || Boolean(created)} className="grid gap-4 sm:grid-cols-2">
       {fields.map(([name, label]) => <label className="field" key={name}>{label}<input name={name} maxLength={300} type={name === "email" ? "email" : "text"} required={!["tradeName", "email"].includes(name)} /></label>)}
       <label className="field">Tipo de pessoa<select name="personType" defaultValue="juridica"><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
       <label className="field">Regime tributário<select name="taxRegime" required defaultValue=""><option value="" disabled>Selecione</option><option value="simples">Simples Nacional</option><option value="presumido">Lucro presumido</option><option value="real">Lucro real</option></select></label>
@@ -68,7 +70,7 @@ export function CompanySignup() {
       <label className="field">Segmento<select name="segments" required defaultValue=""><option value="" disabled>Selecione</option>{["Comércio", "E-commerce", "Serviços", "Indústria"].map(segment => <option key={segment}>{segment}</option>)}</select></label>
     </fieldset>
     <p role="status" aria-live="polite">{status}</p>
-    <button type="submit" disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-primary-foreground">{busy ? "Salvando…" : created.current ? "Acessar empresa cadastrada" : "Cadastrar empresa"}</button>
+    <button type="submit" disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-primary-foreground">{busy ? "Salvando…" : created ? "Acessar empresa cadastrada" : "Cadastrar empresa"}</button>
     <Link href="/empresas" className="ml-4 underline">Suas empresas</Link>
   </form>
 }

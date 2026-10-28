@@ -160,3 +160,45 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
     assert_eq!(count, 0);
     super::company_tests::cleanup(&admin, application, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn onboarding_rolls_back_all_writes_when_an_effect_fails(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    sqlx::raw_sql("CREATE FUNCTION refuse_company_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture failure'; END; $$; CREATE TRIGGER refuse_company_event BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION refuse_company_event();")
+        .execute(&admin).await.unwrap();
+    let key = "aaaaaaaa-1111-4111-8111-111111111111";
+    assert_eq!(
+        call(&router, "POST", "reader", Some(key), company())
+            .await
+            .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM tenants WHERE tax_id = '12ABC34501DE35'")
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action = 'company.created'")
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM company_creation_commands")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+    sqlx::query("DROP TRIGGER refuse_company_event ON outbox_events")
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&router, "POST", "reader", Some(key), company())
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}

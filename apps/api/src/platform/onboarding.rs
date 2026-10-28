@@ -76,7 +76,7 @@ pub async fn create(
     Extension(identity): Extension<AuthenticatedIdentity>,
     headers: axum::http::HeaderMap,
     payload: Result<Json<super::CompanyData>, axum::extract::rejection::JsonRejection>,
-) -> Result<Response, Response> {
+) -> Result<Response, OnboardingError> {
     let key = headers
         .get("idempotency-key")
         .ok_or_else(|| {
@@ -95,8 +95,11 @@ pub async fn create(
             "JSON inválido ou campos desconhecidos",
         )
     })?;
-    data.validate()
-        .map_err(|errors| super::company::CompanyError::Validation(errors).into_response())?;
+    data.validate().map_err(|errors| {
+        OnboardingError(Box::new(
+            super::company::CompanyError::Validation(errors).into_response(),
+        ))
+    })?;
     let request = serde_json::to_value(&data).map_err(|_| internal())?;
     let mut tx = state.database.begin().await.map_err(db)?;
     sqlx::query(
@@ -207,22 +210,32 @@ fn created(value: serde_json::Value) -> Response {
         .into_response()
 }
 
-fn problem(status: StatusCode, title: &str) -> Response {
-    (
-        status,
-        [
-            (header::CACHE_CONTROL, "no-store"),
-            (header::CONTENT_TYPE, "application/problem+json"),
-        ],
-        Json(serde_json::json!({"title":title,"status":status.as_u16()})),
-    )
-        .into_response()
+fn problem(status: StatusCode, title: &str) -> OnboardingError {
+    OnboardingError(Box::new(
+        (
+            status,
+            [
+                (header::CACHE_CONTROL, "no-store"),
+                (header::CONTENT_TYPE, "application/problem+json"),
+            ],
+            Json(serde_json::json!({"title":title,"status":status.as_u16()})),
+        )
+            .into_response(),
+    ))
 }
 
-fn internal() -> Response {
+fn internal() -> OnboardingError {
     problem(StatusCode::INTERNAL_SERVER_ERROR, "Erro interno")
 }
 
-fn db(error: sqlx::Error) -> Response {
-    access::database_error(error).into_response()
+fn db(error: sqlx::Error) -> OnboardingError {
+    OnboardingError(Box::new(access::database_error(error).into_response()))
+}
+
+pub struct OnboardingError(Box<Response>);
+
+impl IntoResponse for OnboardingError {
+    fn into_response(self) -> Response {
+        *self.0
+    }
 }

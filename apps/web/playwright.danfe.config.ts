@@ -24,6 +24,6 @@ export default defineConfig({
     url: `${origin}/entrar`,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
+    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_DEFAULT_TENANT_ID: "99999999-9999-4999-8999-999999999999", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
   },
 })

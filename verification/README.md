@@ -7,6 +7,19 @@ um agente que altera o ERP automaticamente.
 
 ## Executar
 
+O catálogo [contracts.json](contracts.json) descreve as 62 operações Rust
+existentes, suas precondições, estados, permissões, efeitos e recuperação, além
+das ações dinâmicas do BFF e das 28 famílias de fluxos que ainda exigem definição.
+O verificador cruza essas fichas com os métodos/rotas/páginas descobertos. Rota
+sem ficha, método divergente ou contrato apontando para rota ausente produz erro.
+O relatório mostra a cobertura contratual separada do resultado de execução.
+`p0Ready=false` permanece enquanto houver decisões contratuais pendentes.
+
+Este catálogo documenta os tipos Rust existentes em vez de duplicar seus campos
+em outro schema. Os testes conferem que as referências de tipos e fontes existem.
+As oito dimensões de aceite não são resultados de testes. Veja o
+[escopo e a matriz de ações](../docs/CONTRATOS-ACOES-P0.md).
+
 Com as dependências web já instaladas:
 
 ```powershell
@@ -126,6 +139,11 @@ este coletor e pode conter dados sensíveis da execução.
 - Callbacks vazios e alvos ausentes são achados com arquivo e linha para revisão.
 - O scanner Rust cobre registros literais `.route(...)`, excluindo módulos
   `cfg(test)`. Composição dinâmica e macros exigem outro adaptador/revisão.
+- A descoberta segue módulos externos convencionais a partir de `main.rs` e
+  `lib.rs`; arquivos de teste continuam nos hashes, sem serem rotas de produção.
+  Projetos sem esses pontos de entrada mantêm a varredura de arquivos do modo
+  anterior. `#[path]`, módulos externos declarados dentro de módulos inline,
+  macros e outras condições `cfg` exigem revisão; não há análise de compilação Rust.
 - Aliases TypeScript cobertos: relativos e `@/` para `apps/web/src`, conforme a
   configuração atual. Mudanças de convenção exigem atualização do resolvedor.
 - Mudança de código durante a execução impede tratar a evidência como uma

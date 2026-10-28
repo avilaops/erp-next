@@ -51,6 +51,25 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
           ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
+      - name: Route database connections through the restricted tunnel
+        run: |
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit, urlunsplit
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              for name in ("DATABASE_URL", "ERP_LEGACY_DATABASE_URL"):
+                  value = os.environ[name]
+                  if any(character in value for character in ("\n", "\r")):
+                      raise ValueError(f"Invalid database URL in {name}")
+                  parsed = urlsplit(value)
+                  if parsed.scheme not in ("postgres", "postgresql") or not parsed.username:
+                      raise ValueError(f"Invalid database URL in {name}")
+                  credentials = parsed.netloc.rsplit("@", 1)[0]
+                  tunneled = urlunsplit(parsed._replace(netloc=credentials + "@127.0.0.1:15435"))
+                  print("::add-mask::" + tunneled)
+                  output.write(name + "=" + tunneled + "\n")
+          PY
       - name: Apply destination migrations
         run: docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$SOURCE_REF" migrate
       - name: Provision initial membership

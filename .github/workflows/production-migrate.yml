@@ -10,6 +10,10 @@ on:
         description: Successful Production release run
         required: true
         type: string
+      schema_only:
+        description: Apply schema without bootstrap or legacy reimport
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: read
@@ -73,6 +77,11 @@ jobs:
       - name: Apply destination migrations
         run: docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$SOURCE_REF" migrate
       - name: Provision initial membership
+        if: ${{ !inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
+      - name: Grant invitation storage to the existing runtime role
+        if: ${{ inputs.schema_only }}
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_invitations TO erp_next_app'
       - name: Import and reconcile the complete legacy database
+        if: ${{ !inputs.schema_only }}
         run: python3 scripts/import-legacy.py

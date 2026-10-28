@@ -12,6 +12,8 @@ mod health;
 #[cfg(test)]
 mod health_tests;
 #[cfg(test)]
+mod invitation_tests;
+#[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
 mod onboarding_tests;
@@ -40,7 +42,8 @@ use crate::domains::{
     staff,
 };
 use crate::platform::{
-    access, access_management, auth, company, onboarding, service_auth, state::AppState,
+    access, access_management, auth, company, invitations, onboarding, service_auth,
+    state::AppState,
 };
 
 pub fn router(state: AppState) -> Router {
@@ -144,6 +147,18 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/me", get(access::current_access))
         .route("/api/v1/users", get(access::list_users))
+        .route(
+            "/api/v1/invitations",
+            get(invitations::list).post(invitations::create),
+        )
+        .route(
+            "/api/v1/invitations/{id}/resend",
+            axum::routing::post(invitations::resend),
+        )
+        .route(
+            "/api/v1/invitations/{id}/revoke",
+            axum::routing::post(invitations::revoke),
+        )
         .route("/api/v1/permissions", get(access::list_permissions))
         .route(
             "/api/v1/roles",

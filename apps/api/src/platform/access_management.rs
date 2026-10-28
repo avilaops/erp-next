@@ -47,7 +47,7 @@ pub struct RoleDetail {
     name: String,
     description: String,
     revision: i64,
-    permissions: Vec<String>,
+    pub(super) permissions: Vec<String>,
 }
 
 #[derive(FromRow, Serialize, ToSchema)]
@@ -97,7 +97,7 @@ impl IntoResponse for ManagementError {
             Self::CommandKeyRequired => (
                 StatusCode::PRECONDITION_REQUIRED,
                 "idempotency_required",
-                "Informe uma chave de idempotência para criar o papel",
+                "Informe uma chave de idempotência para esta operação",
             ),
             Self::InvalidRevision => (
                 StatusCode::BAD_REQUEST,
@@ -144,7 +144,7 @@ fn response<T: Serialize>(status: StatusCode, revision: i64, value: T) -> Respon
     response
 }
 
-async fn authorized<'a>(
+pub(super) async fn authorized<'a>(
     state: &'a AppState,
     headers: &HeaderMap,
     identity: &AuthenticatedIdentity,
@@ -166,7 +166,10 @@ async fn authorized<'a>(
     Ok((tenant, tx, rights))
 }
 
-async fn role(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<RoleDetail, ManagementError> {
+pub(super) async fn role(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+) -> Result<RoleDetail, ManagementError> {
     sqlx::query_as("SELECT r.id, r.code, r.name, r.description, r.revision, COALESCE(array_agg(p.permission_code ORDER BY p.permission_code) FILTER (WHERE p.permission_code IS NOT NULL), '{}') AS permissions FROM roles r LEFT JOIN role_permissions p ON p.role_id = r.id WHERE r.id = $1 GROUP BY r.id")
         .bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(ManagementError::NotFound)
 }
@@ -179,7 +182,10 @@ async fn member(
         .bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(ManagementError::NotFound)
 }
 
-fn within_authority(rights: &AccessRow, permissions: &[String]) -> Result<(), ManagementError> {
+pub(super) fn within_authority(
+    rights: &AccessRow,
+    permissions: &[String],
+) -> Result<(), ManagementError> {
     if permissions
         .iter()
         .any(|code| !rights.permissions.contains(code))

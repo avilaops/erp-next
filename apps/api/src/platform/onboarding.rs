@@ -31,7 +31,11 @@ pub struct CompaniesResponse {
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
+    Extension(verified): Extension<super::auth::VerifiedEmail>,
 ) -> Result<Response, access::AccessError> {
+    if verified.0 {
+        super::invitations::accept_for_identity(&state, &identity).await?;
+    }
     let mut transaction = state
         .database
         .begin()

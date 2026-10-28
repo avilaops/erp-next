@@ -8,6 +8,7 @@ pub struct Config {
     pub auth_userinfo_url: String,
     pub database_url: String,
     pub database_max_connections: u32,
+    pub invitations: Option<crate::platform::invitations::ProvisioningClient>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
 }
 
@@ -44,6 +45,7 @@ impl Config {
             auth_userinfo_url,
             database_url,
             database_max_connections,
+            invitations: crate::platform::invitations::ProvisioningClient::from_env(&auth_issuer)?,
             danfe: danfe_configuration()?,
         })
     }

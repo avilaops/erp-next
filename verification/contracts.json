@@ -13,6 +13,7 @@
     "response"
   ],
   "dispatches": [
+    { "path": "/api/erp/invitations/[id]/[action]", "method": "POST", "actions": ["resend", "revoke"] },
     {
       "path": "/api/erp/purchase-orders/[id]/[action]",
       "method": "GET",
@@ -73,6 +74,389 @@
     }
   ],
   "actions": [
+    {
+      "id": "list-invitations",
+      "flow": "users",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/invitations"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.users.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Validar empresa ativa, identidade e permissões no servidor.",
+        "Conceder somente papéis da empresa e permissões dentro da autoridade do ator.",
+        "Ativar associação somente pelo e-mail confirmado no Auth; revalidar autoridade e teto de permissões."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "consulta sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não devolve links de recuperação nem concede acesso global a outras empresas."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Criação serializada por empresa e repetida pela mesma chave; reenvio exige intervalo mínimo de um minuto. Cancelamento serializa com aceitação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar convites e situação do envio"
+      },
+      "recovery": "Conferir o estado persistido na lista. Envio incerto não comprova entrega; reenvio é uma ação explícita. Convite expirado deve ser cancelado e substituído.",
+      "ui": {
+        "pages": [
+          "/preferencias/usuarios",
+          "/preferencias/usuarios/novo"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/invitations"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/platform/invitations.rs",
+        "migrations/202610280007_user_invitations.sql",
+        "apps/web/src/features/access/invitation-editor.tsx",
+        "apps/web/src/features/access/users-manager.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "create-invitation",
+      "flow": "users",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/invitations"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.users.read",
+        "platform.users.manage",
+        "platform.roles.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/invitations.rs",
+          "type": "InvitationInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Validar empresa ativa, identidade e permissões no servidor.",
+        "Conceder somente papéis da empresa e permissões dentro da autoridade do ator.",
+        "Ativar associação somente pelo e-mail confirmado no Auth; revalidar autoridade e teto de permissões."
+      ],
+      "transition": {
+        "from": "convite válido ou nova intenção autorizada",
+        "to": "pendente; envio confirmado, falho ou incerto"
+      },
+      "effects": {
+        "writes": [
+          "Registro do convite, auditoria e outbox."
+        ],
+        "external": [
+          "Provisionamento do aplicativo ERP e envio de e-mail pelo Auth após persistir o convite."
+        ],
+        "excludes": [
+          "Não devolve links de recuperação nem concede acesso global a outras empresas."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Criação serializada por empresa e repetida pela mesma chave; reenvio exige intervalo mínimo de um minuto. Cancelamento serializa com aceitação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Registrar convite e solicitar envio ao Auth"
+      },
+      "recovery": "Conferir o estado persistido na lista. Envio incerto não comprova entrega; reenvio é uma ação explícita. Convite expirado deve ser cancelado e substituído.",
+      "ui": {
+        "pages": [
+          "/preferencias/usuarios",
+          "/preferencias/usuarios/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/invitations"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/platform/invitations.rs",
+        "migrations/202610280007_user_invitations.sql",
+        "apps/web/src/features/access/invitation-editor.tsx",
+        "apps/web/src/features/access/users-manager.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "resend-invitation",
+      "flow": "users",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/invitations/{id}/resend"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.users.read",
+        "platform.users.manage",
+        "platform.roles.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Validar empresa ativa, identidade e permissões no servidor.",
+        "Conceder somente papéis da empresa e permissões dentro da autoridade do ator.",
+        "Ativar associação somente pelo e-mail confirmado no Auth; revalidar autoridade e teto de permissões."
+      ],
+      "transition": {
+        "from": "convite válido ou nova intenção autorizada",
+        "to": "pendente; envio confirmado, falho ou incerto"
+      },
+      "effects": {
+        "writes": [
+          "Registro do convite, auditoria e outbox."
+        ],
+        "external": [
+          "Provisionamento do aplicativo ERP e envio de e-mail pelo Auth após persistir o convite."
+        ],
+        "excludes": [
+          "Não devolve links de recuperação nem concede acesso global a outras empresas."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Criação serializada por empresa e repetida pela mesma chave; reenvio exige intervalo mínimo de um minuto. Cancelamento serializa com aceitação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Reenviar convite válido respeitando intervalo e autoridade"
+      },
+      "recovery": "Conferir o estado persistido na lista. Envio incerto não comprova entrega; reenvio é uma ação explícita. Convite expirado deve ser cancelado e substituído.",
+      "ui": {
+        "pages": [
+          "/preferencias/usuarios",
+          "/preferencias/usuarios/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/invitations/[id]/[action]",
+          "action": "resend"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/platform/invitations.rs",
+        "migrations/202610280007_user_invitations.sql",
+        "apps/web/src/features/access/invitation-editor.tsx",
+        "apps/web/src/features/access/users-manager.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "revoke-invitation",
+      "flow": "users",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/invitations/{id}/revoke"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.users.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Validar empresa ativa, identidade e permissões no servidor.",
+        "Conceder somente papéis da empresa e permissões dentro da autoridade do ator.",
+        "Ativar associação somente pelo e-mail confirmado no Auth; revalidar autoridade e teto de permissões."
+      ],
+      "transition": {
+        "from": "convite válido ou nova intenção autorizada",
+        "to": "revogado"
+      },
+      "effects": {
+        "writes": [
+          "Registro do convite, auditoria e outbox."
+        ],
+        "external": [],
+        "excludes": [
+          "Não devolve links de recuperação nem concede acesso global a outras empresas."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Criação serializada por empresa e repetida pela mesma chave; reenvio exige intervalo mínimo de um minuto. Cancelamento serializa com aceitação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Cancelar convite pendente sem revogar acessos a outras empresas"
+      },
+      "recovery": "Conferir o estado persistido na lista. Envio incerto não comprova entrega; reenvio é uma ação explícita. Convite expirado deve ser cancelado e substituído.",
+      "ui": {
+        "pages": [
+          "/preferencias/usuarios",
+          "/preferencias/usuarios/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/invitations/[id]/[action]",
+          "action": "revoke"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/platform/invitations.rs",
+        "migrations/202610280007_user_invitations.sql",
+        "apps/web/src/features/access/invitation-editor.tsx",
+        "apps/web/src/features/access/users-manager.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-api-v1-legacy-history",
       "flow": "legacy-history",

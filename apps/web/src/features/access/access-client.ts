@@ -4,6 +4,10 @@ export type Access = { tenant: { id: string; legalName: string }; permissions: s
 export type Role = { id: string; code: string; name: string; description: string; revision: number; permissions: string[] }
 export type User = { id: string; name: string; email: string; status: string; roles: string[] }
 export type Member = Omit<User, "roles"> & { revision: number; roleIds: string[] }
+export type Invitation = { id: string; name: string; email: string; status: "pending" | "expired" | "accepted" | "revoked"; delivery: "sending" | "sent" | "failed" | "unknown" | "limited"; expiresAt: string; roles: string[] }
+export type Invitations = { data: Invitation[]; enabled: boolean }
+export const invitationStatus = (status: Invitation["status"]) => ({ pending: "Aguardando primeiro acesso", expired: "Expirado", accepted: "Aceito", revoked: "Cancelado" })[status]
+export const invitationDelivery = (delivery: Invitation["delivery"]) => ({ sending: "Envio ainda não confirmado. Confira a caixa de entrada antes de reenviar.", sent: "E-mail enviado pelo Auth.", failed: "O Auth não enviou o e-mail. Tente reenviar o convite.", unknown: "Não foi possível confirmar o envio. Confira a caixa de entrada antes de reenviar.", limited: "Limite de envio atingido. Aguarde antes de tentar novamente." })[delivery]
 export type Permission = { code: string; description: string }
 export type Snapshot<T> = { data: T; etag: string }
 

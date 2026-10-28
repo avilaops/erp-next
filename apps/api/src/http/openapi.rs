@@ -9,12 +9,13 @@ use crate::domains::{
     catalog, finance, fiscal, inventory, legacy, parties, payables, purchasing, reference_data,
     sales, staff,
 };
-use crate::platform::{access, access_management, company, onboarding, service_auth};
+use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
 
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+        invitations::list, invitations::create, invitations::resend, invitations::revoke,
         legacy::list, legacy::file, access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,
         access_management::delete_role, access_management::get_member, access_management::update_member,

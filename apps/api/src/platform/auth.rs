@@ -29,7 +29,12 @@ struct UserInfoResponse {
     sub: String,
     email: String,
     name: Option<String>,
+    #[serde(default)]
+    email_verified: bool,
 }
+
+#[derive(Clone)]
+pub struct VerifiedEmail(pub bool);
 
 impl AuthClient {
     pub fn new(userinfo_url: String) -> Self {
@@ -48,7 +53,7 @@ impl AuthClient {
     async fn authenticate(
         &self,
         headers: &HeaderMap,
-    ) -> Result<AuthenticatedIdentity, AuthFailure> {
+    ) -> Result<(AuthenticatedIdentity, VerifiedEmail), AuthFailure> {
         let token = bearer_token(headers)?;
         let response = self
             .http
@@ -87,11 +92,14 @@ impl AuthClient {
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| email.clone());
 
-        Ok(AuthenticatedIdentity {
-            subject,
-            email,
-            name,
-        })
+        Ok((
+            AuthenticatedIdentity {
+                subject,
+                email,
+                name,
+            },
+            VerifiedEmail(profile.email_verified),
+        ))
     }
 }
 
@@ -101,8 +109,9 @@ pub async fn require_auth(
     next: Next,
 ) -> Response {
     match state.auth.authenticate(request.headers()).await {
-        Ok(identity) => {
+        Ok((identity, verified_email)) => {
             request.extensions_mut().insert(identity);
+            request.extensions_mut().insert(verified_email);
             next.run(request).await
         }
         Err(failure) => failure.into_response(),

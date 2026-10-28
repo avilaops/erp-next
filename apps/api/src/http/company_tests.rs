@@ -85,8 +85,8 @@ pub(super) async fn setup_with_danfe(
     let server = tokio::spawn(async move {
         axum::serve(listener, Router::new().route("/userinfo", get(|headers: HeaderMap| async move {
             let subject = headers.get("authorization").and_then(|h| h.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).unwrap_or("");
-            if !["editor", "reader", "disabled"].contains(&subject) { return Err(StatusCode::UNAUTHORIZED); }
-            Ok(axum::Json(json!({"sub":subject,"email":format!("{subject}@example.test"),"name":subject})))
+            if !["editor", "reader", "disabled", "new-owner"].contains(&subject) { return Err(StatusCode::UNAUTHORIZED); }
+            Ok(axum::Json(json!({"sub":subject,"email":if subject == "new-owner" { "reader@example.test".to_owned() } else { format!("{subject}@example.test") },"name":subject})))
         }))).await.unwrap();
     });
     let router = super::router(

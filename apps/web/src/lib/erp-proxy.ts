@@ -1,16 +1,16 @@
-import { currentSession, erpConfiguration } from "@/lib/erp-session"
+import { currentIdentitySession, currentSession, erpConfiguration } from "@/lib/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)(?:\/[a-f0-9-]{36})?$/i.test(resource)
-  if (!referenceResource && !/^\/(?:me|company|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!referenceResource && !/^\/(?:me|company|companies|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
-    const session = await currentSession()
+    const session = resource === "/companies" ? await currentIdentitySession() : await currentSession()
     if (!session) return Response.json({ title: "Entre para acessar os dados da empresa" }, { status: 401, headers: { "Cache-Control": "no-store" } })
     if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ title: "Origem não autorizada" }, { status: 403 })
-    if (request.method !== "GET" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
-    const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": session.tenantId, Accept: "application/json" })
+    if (request.method !== "GET" && resource !== "/companies" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
+    const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, ...(session.tenantId && resource !== "/companies" ? { "X-Tenant-Id": session.tenantId } : {}), Accept: "application/json" })
     let body: string | undefined
     if (request.method === "PUT" || request.method === "POST") {
       if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ title: "Envie JSON" }, { status: 415 })

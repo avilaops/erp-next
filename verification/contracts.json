@@ -35,20 +35,26 @@
     {
       "path": "/api/auth/login",
       "method": "GET",
-      "action": "Iniciar OIDC com state/PKCE e seleção da empresa",
+      "action": "Iniciar OIDC com state/PKCE sem exigir código manual da empresa",
       "recovery": "Reiniciar login se a tentativa expirar; não expor verifier ou segredo."
     },
     {
       "path": "/api/auth/callback",
       "method": "GET",
-      "action": "Trocar código, confirmar acesso à empresa e criar sessão cifrada",
-      "recovery": "Recusar state/código inválido; não criar sessão sem acesso à empresa."
+      "action": "Trocar código e verificar Auth na API; descobrir empresas ou validar seleção explícita; criar sessão cifrada",
+      "recovery": "Recusar state/código inválido; zero empresas permite apenas onboarding e não concede acesso a empresa existente"
     },
     {
       "path": "/api/auth/logout",
       "method": "POST",
       "action": "Encerrar sessão local; não revogar sessão global do Auth",
       "recovery": "Exigir origem válida; a próxima operação autenticada precisa entrar novamente."
+    },
+    {
+      "path": "/api/auth/company",
+      "method": "POST",
+      "action": "Validar vínculo na API e selecionar empresa na sessão cifrada sem prolongar expiração",
+      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; preservar sessão anterior"
     }
   ],
   "actions": [
@@ -5544,6 +5550,181 @@
       "sources": [
         "apps/api/src/http/mod.rs",
         "apps/api/src/http/openapi.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-companies",
+      "flow": "company_onboarding",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/companies"
+      },
+      "actor": "authenticated_identity",
+      "permissions": [],
+      "input": {
+        "headers": [
+          "Authorization"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": []
+      },
+      "preconditions": [
+        "Identidade confirmada no userinfo do Auth",
+        "Não exige empresa selecionada previamente"
+      ],
+      "transition": {
+        "from": "identidade autenticada",
+        "to": "empresas ativas do próprio usuário listadas"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem vínculo automático por e-mail ou documento",
+          "Sem emissão fiscal ou envio de convites"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem escrita, políticas RLS por identidade"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          500,
+          503
+        ],
+        "action": "Exibir somente empresas com vínculo ativo"
+      },
+      "recovery": "Refazer login ou tentar novamente sem expor outras empresas",
+      "ui": {
+        "pages": [
+          "/empresas"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/companies"
+        },
+        "gap": "Ativação de produção aguarda conclusão do backend"
+      },
+      "sources": [
+        "apps/api/src/platform/onboarding.rs",
+        "migrations/202610280001_company_onboarding.sql",
+        "apps/web/src/components/company-onboarding.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-companies",
+      "flow": "company_onboarding",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/companies"
+      },
+      "actor": "authenticated_identity",
+      "permissions": [],
+      "input": {
+        "headers": [
+          "Authorization",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/company_data.rs",
+          "type": "CompanyData"
+        },
+        "query": []
+      },
+      "preconditions": [
+        "Identidade confirmada no userinfo do Auth",
+        "Não exige empresa selecionada previamente",
+        "CompanyData válido e chave UUID obrigatória"
+      ],
+      "transition": {
+        "from": "identidade autenticada",
+        "to": "empresa criada e administrador local vinculado"
+      },
+      "effects": {
+        "writes": [
+          "tenant, profile, identity, membership, admin role, permissions, audit, outbox, command ledger"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem vínculo automático por e-mail ou documento",
+          "Sem emissão fiscal ou envio de convites"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Transação e advisory lock por sub/chave; repetição retorna original e dados divergentes geram 409"
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Persistir cadastro e selecionar empresa"
+      },
+      "recovery": "Repetir mesma chave e dados após falha de rede; documento duplicado nunca concede vínculo",
+      "ui": {
+        "pages": [
+          "/cadastro/empresa"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/companies"
+        },
+        "gap": "Ativação de produção aguarda conclusão do backend"
+      },
+      "sources": [
+        "apps/api/src/platform/onboarding.rs",
+        "migrations/202610280001_company_onboarding.sql",
+        "apps/web/src/components/company-onboarding.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",

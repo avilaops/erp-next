@@ -76,3 +76,11 @@ test('auxiliary catalogue contracts preserve filter, not-found, conflict and pre
     }
   }
 });
+
+test('mandatory command keys cannot silently lose their 428 failure contract', async () => {
+  const inventory = await discover(fileURLToPath(root));
+  const changed = structuredClone(catalogue);
+  const action = changed.actions.find(item => item.operation.method === 'POST' && item.operation.path === '/api/v1/financial-accounts');
+  action.response.errorStatuses = action.response.errorStatuses.filter(status => status !== 428);
+  assert.ok(assessContracts(changed, inventory).findings.some(finding => finding.code === 'missing_precondition_failure'));
+});

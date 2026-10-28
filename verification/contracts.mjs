@@ -53,8 +53,12 @@ export function assessContracts(catalogue, inventory) {
     for (const [flag, header] of [['revision', 'If-Match'], ['idempotency', 'Idempotency-Key']]) {
       if (action.concurrency?.[flag] !== action.input?.headers?.includes(header)) fail('contract_header_mismatch', target, `Precondição ${header} inconsistente com a ficha.`);
     }
+    const requiredStatuses = action.concurrency?.revision ? [400, 412, 428] : action.concurrency?.idempotency ? [428] : [];
+    if (requiredStatuses.some(status => !action.response?.errorStatuses?.includes(status))) {
+      fail('missing_precondition_failure', target, 'Revisão/chave obrigatória precisa declarar as respostas de recusa correspondentes.');
+    }
     if (action.input?.body && (!text(action.input.body.source) || !text(action.input.body.type))) fail('invalid_body_reference', target, 'O corpo precisa referenciar o tipo e a fonte reais.');
-    for (const page of action.ui?.pages || []) {
+    for (const page of Array.isArray(action.ui?.pages) ? action.ui.pages : []) {
       if (!text(page) || !pages.has(normalizedRoute(page))) fail('contract_without_page', target, 'Página referenciada não encontrada.');
     }
     const proxy = action.ui?.bff;
@@ -65,8 +69,8 @@ export function assessContracts(catalogue, inventory) {
       coveredBff.add(key(proxy));
       let expected = proxy.path.replace('/api/erp/', '/api/v1/').replace('[id]', '{id}');
       if (proxy.path.includes('[action]')) {
-        const dispatch = catalogue.dispatches.find(item => item.path === proxy.path && item.method === proxy.method);
-        if (!text(proxy.action) || !dispatch?.actions?.includes(proxy.action)) fail('undefined_dispatch_action', target, 'Ação dinâmica não especificada no catálogo.');
+        const dispatch = catalogue.dispatches.find(item => item?.path === proxy.path && item.method === proxy.method);
+        if (!text(proxy.action) || !Array.isArray(dispatch?.actions) || !dispatch.actions.includes(proxy.action)) fail('undefined_dispatch_action', target, 'Ação dinâmica não especificada no catálogo.');
         expected = expected.replace('[action]', proxy.action || '');
       }
       if (operation.method !== proxy.method || normalizedRoute(expected) !== normalizedRoute(operation.path)) fail('wrong_bff_target', target, 'O BFF declarado não corresponde à operação desta ficha.');

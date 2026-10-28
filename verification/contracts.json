@@ -283,6 +283,7 @@
         "errorStatuses": [
           401,
           403,
+          422,
           503
         ],
         "action": "Listar/pesquisar contas financeiras"
@@ -372,6 +373,9 @@
         "errorStatuses": [
           401,
           403,
+          409,
+          422,
+          428,
           503
         ],
         "action": "Criar contas financeiras com validações do domínio"
@@ -454,6 +458,7 @@
         "errorStatuses": [
           401,
           403,
+          404,
           503
         ],
         "action": "Consultar detalhe de contas financeiras"
@@ -545,8 +550,14 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
+          404,
+          409,
+          412,
+          422,
+          428,
           503
         ],
         "action": "Alterar contas financeiras com revisão e autorização"
@@ -627,6 +638,7 @@
         "errorStatuses": [
           401,
           403,
+          422,
           503
         ],
         "action": "Listar/pesquisar categorias financeiras"
@@ -716,6 +728,9 @@
         "errorStatuses": [
           401,
           403,
+          409,
+          422,
+          428,
           503
         ],
         "action": "Criar categorias financeiras com validações do domínio"
@@ -798,6 +813,7 @@
         "errorStatuses": [
           401,
           403,
+          404,
           503
         ],
         "action": "Consultar detalhe de categorias financeiras"
@@ -889,8 +905,14 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
+          404,
+          409,
+          412,
+          422,
+          428,
           503
         ],
         "action": "Alterar categorias financeiras com revisão e autorização"
@@ -1054,6 +1076,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
@@ -1482,6 +1505,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
@@ -1569,6 +1593,7 @@
       "response": {
         "successStatuses": [],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
@@ -2084,6 +2109,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
@@ -2183,6 +2209,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
@@ -2281,6 +2308,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
@@ -2379,6 +2407,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
@@ -2746,6 +2775,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
@@ -2837,6 +2867,7 @@
         "errorStatuses": [
           401,
           403,
+          422,
           503
         ],
         "action": "Listar/pesquisar formas de pagamento"
@@ -2926,6 +2957,9 @@
         "errorStatuses": [
           401,
           403,
+          409,
+          422,
+          428,
           503
         ],
         "action": "Criar formas de pagamento com validações do domínio"
@@ -3008,6 +3042,7 @@
         "errorStatuses": [
           401,
           403,
+          404,
           503
         ],
         "action": "Consultar detalhe de formas de pagamento"
@@ -3099,8 +3134,14 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
+          404,
+          409,
+          412,
+          422,
+          428,
           503
         ],
         "action": "Alterar formas de pagamento com revisão e autorização"
@@ -3264,6 +3305,7 @@
         "errorStatuses": [
           401,
           403,
+          422,
           503
         ],
         "action": "Listar/pesquisar categorias de produtos"
@@ -3353,6 +3395,9 @@
         "errorStatuses": [
           401,
           403,
+          409,
+          422,
+          428,
           503
         ],
         "action": "Criar categorias de produtos com validações do domínio"
@@ -3435,6 +3480,7 @@
         "errorStatuses": [
           401,
           403,
+          404,
           503
         ],
         "action": "Consultar detalhe de categorias de produtos"
@@ -3526,8 +3572,14 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
+          404,
+          409,
+          412,
+          422,
+          428,
           503
         ],
         "action": "Alterar categorias de produtos com revisão e autorização"
@@ -3885,6 +3937,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           404,
@@ -4157,6 +4210,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,
@@ -4258,6 +4312,7 @@
           200
         ],
         "errorStatuses": [
+          400,
           401,
           403,
           409,

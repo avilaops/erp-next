@@ -6,6 +6,7 @@ pub mod parties;
 mod party_complements;
 pub mod reference_data;
 pub mod sales;
+pub mod staff;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};
 use axum::{

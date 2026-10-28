@@ -1,2 +1,1 @@
-export function generateStaticParams() { return [{ id: "VEN-001" }] }
-export default function SellerRecordLayout({ children }: { children: React.ReactNode }) { return children }
+export default function Layout({ children }: { children: React.ReactNode }) { return children }

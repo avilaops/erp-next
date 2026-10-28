@@ -5755,35 +5755,411 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-api-v1-staff",
+      "flow": "staff",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/staff"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.staff.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q até 160 caracteres; role employee/seller; status active/archived; offset 0..100000 e limit 1..100"
+      },
+      "preconditions": [
+        "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
+        "Código único por empresa, inclusive arquivado; ao menos uma função employee/seller; campos e filtros validados"
+      ],
+      "transition": {
+        "from": "cadastro inexistente ou consulta autorizada",
+        "to": "dados da equipe da própria empresa retornados"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Não cria conta Auth, vínculo automático por nome/e-mail, comissão, folha, estoque ou financeiro"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura autorizada em transação com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
+      },
+      "recovery": "Repetir criação com mesma chave/corpo; preservar edição recusada e recarregar somente com descarte explícito; acesso alheio negado",
+      "ui": {
+        "pages": [
+          "/cadastros/funcionarios",
+          "/cadastros/funcionarios/novo",
+          "/cadastros/funcionarios/[id]",
+          "/cadastros/funcionarios/[id]/editar",
+          "/cadastros/vendedores",
+          "/cadastros/vendedores/novo",
+          "/cadastros/vendedores/[id]",
+          "/cadastros/vendedores/[id]/editar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/staff"
+        },
+        "gap": "Comissões, folha e vínculos com pedidos pertencem aos módulos consumidores; nenhum efeito automático"
+      },
+      "sources": [
+        "apps/api/src/domains/staff.rs",
+        "migrations/202610280003_staff.sql",
+        "apps/web/src/features/staff/staff-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-staff",
+      "flow": "staff",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/staff"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.staff.read",
+        "catalog.staff.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/staff.rs",
+          "type": "StaffInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
+        "Código único por empresa, inclusive arquivado; ao menos uma função employee/seller; campos e filtros validados",
+        "Idempotency-Key UUID obrigatório"
+      ],
+      "transition": {
+        "from": "cadastro inexistente ou consulta autorizada",
+        "to": "cadastro criado com funções"
+      },
+      "effects": {
+        "writes": [
+          "staff e revisão, auditoria/outbox; comando de criação idempotente quando POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Não cria conta Auth, vínculo automático por nome/e-mail, comissão, folha, estoque ou financeiro"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; mesma chave/corpo retorna resultado original, corpo diferente retorna 409"
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
+      },
+      "recovery": "Repetir criação com mesma chave/corpo; preservar edição recusada e recarregar somente com descarte explícito; acesso alheio negado",
+      "ui": {
+        "pages": [
+          "/cadastros/funcionarios",
+          "/cadastros/funcionarios/novo",
+          "/cadastros/funcionarios/[id]",
+          "/cadastros/funcionarios/[id]/editar",
+          "/cadastros/vendedores",
+          "/cadastros/vendedores/novo",
+          "/cadastros/vendedores/[id]",
+          "/cadastros/vendedores/[id]/editar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/staff"
+        },
+        "gap": "Comissões, folha e vínculos com pedidos pertencem aos módulos consumidores; nenhum efeito automático"
+      },
+      "sources": [
+        "apps/api/src/domains/staff.rs",
+        "migrations/202610280003_staff.sql",
+        "apps/web/src/features/staff/staff-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-staff-id",
+      "flow": "staff",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/staff/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.staff.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
+        "Código único por empresa, inclusive arquivado; ao menos uma função employee/seller; campos e filtros validados"
+      ],
+      "transition": {
+        "from": "cadastro inexistente ou consulta autorizada",
+        "to": "dados da equipe da própria empresa retornados"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Não cria conta Auth, vínculo automático por nome/e-mail, comissão, folha, estoque ou financeiro"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura autorizada em transação com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
+      },
+      "recovery": "Repetir criação com mesma chave/corpo; preservar edição recusada e recarregar somente com descarte explícito; acesso alheio negado",
+      "ui": {
+        "pages": [
+          "/cadastros/funcionarios",
+          "/cadastros/funcionarios/novo",
+          "/cadastros/funcionarios/[id]",
+          "/cadastros/funcionarios/[id]/editar",
+          "/cadastros/vendedores",
+          "/cadastros/vendedores/novo",
+          "/cadastros/vendedores/[id]",
+          "/cadastros/vendedores/[id]/editar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/staff/[id]"
+        },
+        "gap": "Comissões, folha e vínculos com pedidos pertencem aos módulos consumidores; nenhum efeito automático"
+      },
+      "sources": [
+        "apps/api/src/domains/staff.rs",
+        "migrations/202610280003_staff.sql",
+        "apps/web/src/features/staff/staff-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-staff-id",
+      "flow": "staff",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/staff/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.staff.read",
+        "catalog.staff.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/staff.rs",
+          "type": "StaffInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Membro ativo da empresa da sessão e permissões catalog.staff.read/manage conforme operação",
+        "Código único por empresa, inclusive arquivado; ao menos uma função employee/seller; campos e filtros validados",
+        "If-Match obrigatório com revisão atual; arquivar/reativar sem excluir"
+      ],
+      "transition": {
+        "from": "revisão atual active/archived",
+        "to": "nova revisão active/archived"
+      },
+      "effects": {
+        "writes": [
+          "staff e revisão, auditoria/outbox; comando de criação idempotente quando POST"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Não cria conta Auth, vínculo automático por nome/e-mail, comissão, folha, estoque ou financeiro"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "Lock da empresa e revisão If-Match obrigatória; revisão antiga retorna 412 sem gravação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Consultar ou persistir cadastro operacional da equipe com código/revisão e funções"
+      },
+      "recovery": "Repetir criação com mesma chave/corpo; preservar edição recusada e recarregar somente com descarte explícito; acesso alheio negado",
+      "ui": {
+        "pages": [
+          "/cadastros/funcionarios",
+          "/cadastros/funcionarios/novo",
+          "/cadastros/funcionarios/[id]",
+          "/cadastros/funcionarios/[id]/editar",
+          "/cadastros/vendedores",
+          "/cadastros/vendedores/novo",
+          "/cadastros/vendedores/[id]",
+          "/cadastros/vendedores/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/staff/[id]"
+        },
+        "gap": "Comissões, folha e vínculos com pedidos pertencem aos módulos consumidores; nenhum efeito automático"
+      },
+      "sources": [
+        "apps/api/src/domains/staff.rs",
+        "migrations/202610280003_staff.sql",
+        "apps/web/src/features/staff/staff-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "pendingFlows": [
-    {
-      "id": "pending-1",
-      "title": "Funcionários e vendedores",
-      "status": "needs_definition",
-      "intent": "Listar/criar/consultar/editar/inativar e vincular à empresa",
-      "proposedEndpoints": [
-        "/api/v1/employees",
-        "/api/v1/sellers",
-        "/{id}"
-      ],
-      "openDecisions": [
-        "Separar identidade Auth de cadastro profissional; desligamento não apaga histórico; regras de comissão em contrato próprio"
-      ],
-      "requiredFields": [
-        "actor",
-        "permissions",
-        "input",
-        "preconditions",
-        "transition",
-        "effects",
-        "response",
-        "recovery",
-        "acceptanceCriteria"
-      ],
-      "planningReference": "e4309570-83db-466e-8fd0-fee69f1567a3"
-    },
     {
       "id": "pending-2",
       "title": "Preços e catálogo completo",

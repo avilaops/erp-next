@@ -12,9 +12,9 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 64);
-  assert.equal(assessment.bffOperations, 54);
-  assert.equal(assessment.pendingFlows, 28);
+  assert.equal(assessment.apiOperations, 68);
+  assert.equal(assessment.bffOperations, 58);
+  assert.equal(assessment.pendingFlows, 27);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
   for (const action of catalogue.actions) {

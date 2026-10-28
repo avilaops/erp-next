@@ -9,6 +9,10 @@ export function summary(report) {
     browserTestFiles: inventory.browserTests.length, findings: countBy(report.findings, 'severity'),
     probes: countBy(report.runtime, 'verdict'), suites: report.suites.map(({ id, verdict }) => ({ id, verdict })),
     flows: report.suites.flatMap(suite => suite.flow ? [{ id: suite.flow.id, verdict: suite.flow.verdict, checks: countBy(suite.flow.checks, 'status') }] : []),
+    contracts: report.contracts ? { status: report.contracts.status, apiOperations: report.contracts.apiOperations,
+      cataloguedOperations: report.contracts.cataloguedOperations, bffOperations: report.contracts.bffOperations,
+      pendingFlows: report.contracts.pendingFlows, p0Ready: report.contracts.p0Ready,
+      runtimeVerdict: report.contracts.runtimeVerdict } : { status: 'not_collected' },
     sourceChangedDuringRun: report.sourceHashAfter !== inventory.sourceHash };
 }
 
@@ -19,6 +23,8 @@ export function markdown(report) {
     `Páginas: ${data.pages}; handlers Next.js: ${data.nextHandlers}; caminhos Rust: ${data.rustPaths}; operações Rust: ${data.rustOperations}.`,
     `Arquivos de testes de navegador encontrados: ${data.browserTestFiles}. Encontrar um arquivo não comprova sua execução.`,
     `Código mudou durante a coleta: ${data.sourceChangedDuringRun ? 'sim; resultados não formam uma verificação de uma única versão' : 'não detectado nos arquivos observados'}.`, '',
+    '## Contratos de ações', '', `Definição/cobertura estática: ${JSON.stringify(data.contracts)}.`,
+    'Um contrato catalogado não é teste aprovado. Fluxos com decisões pendentes impedem considerar a P0 concluída.', '',
     '## Execução', '', `Probes: ${JSON.stringify(data.probes)}.`, `Suítes: ${JSON.stringify(data.suites)}.`, `ML: ${report.ml.status}.`, '',
     '## Fluxos com evidência associada', '',
     ...report.suites.flatMap(suite => suite.flow ? [
@@ -54,6 +60,7 @@ export function html(report) {
 <main><h1>Verificação do ERP-Next</h1><p class="muted">${escape(report.startedAt)} · ${escape(report.runId)}</p>
 <p class="notice">Inventário de código e evidências de execução. Existência de rota, import ou arquivo de teste não comprova funcionamento.</p>
 <section><h2>Coleta</h2><p>${data.pages} páginas · ${data.nextHandlers} handlers Next.js · ${data.rustPaths} caminhos na API · ${data.rustOperations} operações</p><p>Probes: ${escape(JSON.stringify(data.probes))}. Suítes: ${escape(JSON.stringify(data.suites))}.</p><p>ML: ${escape(report.ml.status)}. Mudança de código durante a coleta: ${data.sourceChangedDuringRun ? 'detectada' : 'não detectada'}.</p><details><summary>Proveniência e análise de anomalias</summary><pre>${escape(JSON.stringify({ sourceHash: report.inventory.sourceHash, sourceHashAfter: report.sourceHashAfter, git: report.git, ml: report.ml, history: report.comparison }, null, 2))}</pre></details></section>
+<section><h2>Contratos de ações</h2><p class="notice">Definição e cobertura estáticas não aprovam a execução de um fluxo. Pendências contratuais mantêm a P0 incompleta.</p><pre>${escape(JSON.stringify(data.contracts, null, 2))}</pre></section>
 ${flowSections}
 <section><h2>Achados estáticos (${report.findings.length})</h2><ul>${report.findings.map(item => `<li><strong>${escape(item.severity)} · ${escape(item.code)}</strong> <code>${escape(item.path)}</code><br>${escape(item.detail)}<br><small>${escape(item.evidence.join(', '))}</small></li>`).join('') || '<li>Nenhuma inconsistência reconhecida pelas regras desta versão.</li>'}</ul></section>
 <section><h2>Rotas e ligações possíveis</h2><label for="filter">Filtrar por caminho ou módulo</label><p><input id="filter" type="search" placeholder="Ex.: produtos, estoque, financeiro"></p><p id="visible"></p><div class="scroll"><table id="routes"><thead><tr><th>Rota</th><th>Módulo</th><th>Refs. HTTP</th><th>Ações vazias</th><th>Fluxo</th><th>Evidência</th></tr></thead><tbody>${rows}</tbody></table></div></section>

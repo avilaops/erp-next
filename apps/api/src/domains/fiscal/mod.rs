@@ -347,6 +347,7 @@ pub struct DraftPage {
     next_cursor: Option<Uuid>,
 }
 #[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Page {
     cursor: Option<Uuid>,

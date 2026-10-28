@@ -171,6 +171,7 @@ pub struct PartyList {
     limit: u32,
 }
 #[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct PartyQuery {
     q: Option<String>,

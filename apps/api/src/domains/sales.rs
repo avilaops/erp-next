@@ -63,6 +63,7 @@ pub struct OrderSnapshot {
     items: Vec<OrderLine>,
 }
 #[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct OrderQuery {
     pub offset: Option<u32>,

@@ -126,6 +126,7 @@ pub struct ProductList {
     limit: u32,
 }
 #[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct ProductQuery {
     pub q: Option<String>,

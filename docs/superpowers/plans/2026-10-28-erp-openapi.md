@@ -15,14 +15,14 @@ do candidato como baseline. Não executar testes/builds nos servidores.
 
 ## Entrega
 
-1. [x] Testes de incompatibilidade primeiro, RED observado na CI existente.
-2. [x] Helper Rust de exportação e captura de base/candidato, com hashes.
-3. [ ] Gate oasdiff: remoção de operação/resposta, entrada mais restritiva,
+1. Testes de incompatibilidade primeiro, RED observado na CI existente.
+2. Helper Rust de exportação e captura de base/candidato, com hashes.
+3. Gate oasdiff: remoção de operação/resposta, entrada mais restritiva,
    mudança de autorização e erros de ferramenta não podem ser aprovação.
-4. [ ] Consumidor TypeScript fixado, exemplos da operação company e mutações
+4. Consumidor TypeScript fixado, exemplos da operação company e mutações
    que provem rejeição; indicar políticas e testes reais relacionados.
-5. [ ] CI existente preserva OpenAPI base/candidato, relatório, fontes e duração.
-6. [ ] Revisão independente, CI completa aprovada e registro no Linear/PR.
+5. CI existente preserva OpenAPI base/candidato, relatório, fontes e duração.
+6. Revisão independente, CI completa aprovada e registro no Linear/PR.
 
 ## Verificação
 
@@ -60,3 +60,9 @@ comparador deve interromper. Nenhum upload a serviço de revisão externo.
 - Ruling: captura da base no próprio job CI exclusivo, em vez de worktree com
   outro caminho, para reutilizar compilação dentro do teto. Há guarda de CI e
   árvore limpa; a revisão e as duas fontes instrumentadas são restauradas no fim.
+- O teto também exigiu separar compilação Rust e execução da suíte. Os binários
+  vêm da saída JSON do Cargo, recebem hashes e ficam vinculados ao SHA. O job de
+  execução confere ambos; a embalagem rejeita novos tipos de alvo para não omitir
+  doctests futuros. O gate final falha se qualquer job falhar, cancelar ou pular.
+- Os resultados do SHA final e o fechamento dos critérios acima serão registrados
+  no PR #11 e na AVL-343 após consulta pontual da CI; este ledger não presume CI verde.

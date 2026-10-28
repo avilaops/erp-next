@@ -32,8 +32,11 @@ inicia a aplicação, não lê configuração de produção e não conecta ao ba
 descobrir o contrato. As fontes das duas revisões, os contratos e a duração de
 captura recebem hashes e ficam no artefato `erp-openapi-<sha>-<attempt>`.
 
-`cargo test --workspace --locked` continua verificando os handlers e PostgreSQL
-isolados. O teste de company preserva, opcionalmente, exemplos sintéticos reais
+`cargo test --workspace --locked --no-run` compila a suíte completa. O job seguinte
+confere SHA de revisão e hashes dos executáveis, e roda todos os testes com
+PostgreSQL isolado. Este workspace tem somente um alvo binário; a embalagem
+recusa novos tipos de alvo até revisar testes e doctests, em vez de omiti-los.
+O teste de company preserva, opcionalmente, exemplos sintéticos reais
 da requisição, resposta após gravação e releitura por usuário sem edição. O Auth
 desse teste é um servidor sintético e não autenticação de produção.
 
@@ -77,8 +80,10 @@ Exceder o tempo reprova a CI. O agente acompanha por consultas pontuais, sem
 `gh run watch`. A política não autoriza remover testes ou mover builds para os
 servidores. A revisão final precisa distinguir timeout de falha funcional.
 
-Lint Rust, testes Rust, regressões de contrato, comparação/consumidor, build web,
-lint web e testes de navegador são jobs separados. O navegador usa o build do
+Compilação Rust, lint Rust, execução Rust, captura de baseline, regressões de
+contrato, comparação/consumidor, build web, lint web e navegador são jobs separados.
+O gate final exige sucesso de todos, inclusive dependências; jobs pulados ou
+cancelados não são promovidos a aprovação. O navegador usa o build do
 mesmo SHA e o Chrome instalado no runner; não reconstrói a aplicação. O cache
 Rust existente da main foi identificado pela API e usa o mesmo compilador 1.99.1.
 Seu hash antigo também contava um toolchain 1.99.0 instalado, portanto a primeira

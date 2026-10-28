@@ -6,6 +6,11 @@ import shutil
 import subprocess
 
 output = Path("artifacts/rust-tests")
+metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--no-deps", "--format-version=1"]))
+members = set(metadata["workspace_members"])
+for package in metadata["packages"]:
+    if package["id"] in members and any(target["kind"] != ["bin"] for target in package["targets"]):
+        raise ValueError("NEW_WORKSPACE_TARGET_REQUIRES_REVIEW_OF_TEST_AND_DOCTEST_PACKAGING")
 output.mkdir(parents=True, exist_ok=False)
 executables = []
 for line in Path("artifacts/rust-build.jsonl").read_text().splitlines():

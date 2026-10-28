@@ -1,5 +1,26 @@
 # Experiments 0.3.0
 
+Esta cópia integra o laboratório independente `avilaops/experiments` no ERP.
+A [nota de integração](docs/INTEGRACAO-ERP.md) registra as revisões de origem,
+os arquivos preservados e a verificação pelo GitHub CI.
+
+O [setup e ponto de continuidade](SETUP.md) registra as decisões e o estado atual.
+O [caderno de políticas](POLICIES.md) organiza regras, fontes e evidências por produto.
+A [coleta automática do Siscomex](docs/SISCOMEX-COLLECTION.md) arquiva a documentação
+pública, inventaria contratos e gera propostas de integração com fontes e hashes.
+O [contrato fiscal experimental](docs/FISCAL-INPUT-CONTRACT.md) define o primeiro
+JSON de contexto com validador e exemplos, sem cálculo ou autorização fiscal.
+O [planejamento de execução fiscal](docs/FISCAL-EXECUTION-CONTRACT.md) acrescenta
+rotas condicionais e cenários sintéticos para o pathFidelity.
+O [executor local de referências](docs/FISCAL-REFERENCE-EXECUTOR.md) confere
+arquivos, hashes, intervalos e vínculo ao contexto antes de produzir uma resolução.
+O [executor instrumentado de ferramentas](docs/TOOL-EXECUTION.md) registra chamadas
+reais locais, autorização e efeitos, com payloads redigidos e repetição controlada.
+As [reservas persistentes](docs/TOOL-OPERATION-STORE.md) conservam resultados
+desconhecidos após reinício e permitem reconciliação por recibos do domínio.
+O [inventário de rotas do ERP](docs/ERP-FLOW-VERIFICATION.md) captura fontes e
+contrato, aponta ambiguidades e mantém a verificação funcional separada.
+
 Pacote local para experimentos versionados, avaliadores explícitos e relatórios
 comparáveis. Requer Node.js 24 ou superior. Não executa deploys.
 
@@ -100,6 +121,9 @@ execute `npm run api` e abra <http://127.0.0.1:3300/>. A implantação do painel
 React/BFF e da exportação MDX está descrita em [DEPLOYMENT.md](DEPLOYMENT.md).
 
 O isolamento atual é por cópia de valores JSON em memória; não é uma sandbox.
+Os avaliadores nativos e seus parâmetros são imutáveis. Para criar um avaliador
+adaptado, declare outro objeto com identidade e versão próprias; alterar os
+metadados de um avaliador nativo não modifica seus critérios de execução.
 A aprovação dos testes não basta para autorizar um deploy. Os exemplos são de
 desenvolvimento, sem conexão real com ERP, Annif, Ultralytics ou Langfuse.
 

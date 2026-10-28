@@ -5,6 +5,8 @@ import { ApiError, parseDraft, positiveInteger, record, runId, type SuiteDraft }
 import { LabStore } from "./store.js";
 import { OPENAPI } from "./openapi.js";
 import { LANDING_HTML } from "./landing.js";
+import { PolicyStore, parsePolicyUpdate } from "./policies.js";
+import { ROUTE_PRODUCTS, RouteInventoryStore } from "./route-inventories.js";
 
 export interface ApiOptions {
   dataDirectory: string;
@@ -16,7 +18,7 @@ export interface ApiOptions {
 const MAX_BODY = 1024 * 1024;
 
 function respond(response: ServerResponse, status: number, value: unknown, headers: Record<string, string> = {}) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...headers });
+  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store, no-transform", "X-Content-Type-Options": "nosniff", ...headers });
   response.end(status === 204 ? undefined : JSON.stringify(value));
 }
 
@@ -68,6 +70,9 @@ export async function createApiServer(options: ApiOptions): Promise<Server> {
   const tokenHash = options.token === undefined ? null : createHash("sha256").update(options.token).digest();
   const store = new LabStore(options.dataDirectory);
   await store.initialize(options.seed);
+  const policies = new PolicyStore(options.dataDirectory);
+  await policies.initialize();
+  const routeInventories = new RouteInventoryStore(options.dataDirectory);
 
   const server = createServer((request, response) => {
     void (async () => {
@@ -112,6 +117,55 @@ export async function createApiServer(options: ApiOptions): Promise<Server> {
         if (!timingSafeEqual(tokenHash, createHash("sha256").update(supplied).digest())) {
           throw new ApiError(401, "UNAUTHORIZED", "Token de acesso necessário.");
         }
+      }
+      if (url.pathname === "/api/v1/policies/import/preview" && request.method === "POST") {
+        const input = record(await readJson(request), "preview");
+        exactFields(input, ["document"]);
+        const preview = await policies.previewImport(input.document);
+        respond(response, 200, preview, { ETag: `"${preview.revision}"` });
+        return;
+      }
+      if (url.pathname === "/api/v1/policies/import" && request.method === "POST") {
+        const match = request.headers["if-match"];
+        if (match === undefined) throw new ApiError(428, "REVISION_REQUIRED", "Envie If-Match com a revisão da prévia.");
+        if (typeof match !== "string" || !/^"[1-9][0-9]*"$/.test(match)) throw new ApiError(400, "INVALID_INPUT", "If-Match inválido.");
+        const input = record(await readJson(request), "import");
+        exactFields(input, ["document", "changeNote"]);
+        const result = await policies.importPolicies(input.document, input.changeNote, positiveInteger(Number(match.slice(1, -1)), "revision"));
+        respond(response, 200, result, { ETag: `"${result.catalog.revision}"` });
+        return;
+      }
+      if (url.pathname === "/api/v1/route-inventories" && request.method === "GET") {
+        respond(response, 200, { products: ROUTE_PRODUCTS });
+        return;
+      }
+      const inventoryMatch = url.pathname.match(/^\/api\/v1\/route-inventories\/([a-z]+)$/);
+      if (inventoryMatch && request.method === "GET") {
+        const result = await routeInventories.get(inventoryMatch[1]!);
+        respond(response, 200, result, { ETag: `"${result.revision}"` });
+        return;
+      }
+      if (inventoryMatch && request.method === "PUT") {
+        const match = request.headers["if-match"];
+        if (match === undefined) throw new ApiError(428, "REVISION_REQUIRED", "Envie If-Match com a revisão do inventário.");
+        if (typeof match !== "string" || !/^"(?:0|[1-9][0-9]*)"$/.test(match) || !Number.isSafeInteger(Number(match.slice(1, -1)))) throw new ApiError(400, "INVALID_INPUT", "If-Match inválido.");
+        const result = await routeInventories.save(inventoryMatch[1]!, await readJson(request), Number(match.slice(1, -1)));
+        respond(response, 200, result, { ETag: `"${result.revision}"` });
+        return;
+      }
+      if (url.pathname === "/api/v1/policies" && request.method === "GET") {
+        const catalog = await policies.catalog();
+        respond(response, 200, catalog, { ETag: `"${catalog.revision}"` });
+        return;
+      }
+      if (url.pathname === "/api/v1/policies" && request.method === "PUT") {
+        const match = request.headers["if-match"];
+        if (match === undefined) throw new ApiError(428, "REVISION_REQUIRED", "Envie If-Match com a revisão do caderno.");
+        if (typeof match !== "string" || !/^"[1-9][0-9]*"$/.test(match)) throw new ApiError(400, "INVALID_INPUT", "If-Match inválido.");
+        const update = parsePolicyUpdate(await readJson(request));
+        const catalog = await policies.update(update.policy, update.changeNote, positiveInteger(Number(match.slice(1, -1)), "revision"));
+        respond(response, 200, catalog, { ETag: `"${catalog.revision}"` });
+        return;
       }
       if (url.pathname === "/api/v1/suite" && request.method === "GET") {
         const suite = await store.suite();

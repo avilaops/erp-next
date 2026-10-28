@@ -9,6 +9,41 @@ permissions:
   contents: read
 
 jobs:
+  experiments:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: experiments
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            experiments/package-lock.json
+            experiments/dashboard/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm ci --no-audit --no-fund
+        working-directory: experiments/dashboard
+      - run: npm run build
+        working-directory: experiments/dashboard
+      - run: npm test
+        working-directory: experiments/dashboard
+      - run: npx playwright install --with-deps chromium
+        working-directory: experiments/dashboard
+      - run: npm run test:ui
+        working-directory: experiments/dashboard
+      - run: node scripts/ui-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: experiments-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: experiments/reports/ui-check/
+          if-no-files-found: ignore
+
   rust:
     runs-on: ubuntu-latest
     services:

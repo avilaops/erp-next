@@ -79,13 +79,12 @@ impl DanfeClient {
         };
         let operation = self.rpc_untraced(session, protocol, message);
         match name {
-            Some(name) => crate::platform::langfuse::observe(
-                name,
-                "tool",
-                operation,
-                |result| result["isError"] == true,
-            )
-            .await,
+            Some(name) => {
+                crate::platform::langfuse::observe(name, "tool", operation, |result| {
+                    result["isError"] == true
+                })
+                .await
+            }
             None => operation.await,
         }
     }

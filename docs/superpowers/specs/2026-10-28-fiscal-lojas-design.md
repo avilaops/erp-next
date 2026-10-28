@@ -58,7 +58,7 @@ Nenhum papel recebe permissão nova implicitamente.
 
 Serviço Lojas: token opaco com prefixo próprio e 32 bytes aleatórios de segredo.
 Mostrar uma vez; guardar apenas SHA-256 do segredo, identificador público,
-tenant fixo, escopos, criador, criação, expiração e revogação.
+tenant fixo, CNPJ cadastrado na emissão, escopos, criador, criação, expiração e revogação.
 Escopos fixos desta integração: notas:read, xml:read, danfe:read.
 Não guardar segredo em auditoria, logs, catálogo de idempotência ou respostas
 de listagem. Não usar credenciais pessoais dos conectores como token runtime.
@@ -71,7 +71,10 @@ Consulta de credencial não pode exigir papel superuser/BYPASSRLS nem acesso
 irrestrito a tabelas: contrato de resolução mínimo retorna apenas identidade e
 escopos necessários. Modelo físico e mecanismo exato dependem da liberação P0.
 
-Revalidar revogação, expiração e vínculo empresarial em cada leitura. Falha de
+Revalidar revogação, expiração e vínculo empresarial em cada leitura.
+Se o CNPJ atual do tenant diferir do CNPJ registrado na credencial, responder
+401 credential_company_changed; só nova credencial permite acesso. Alterar o
+CNPJ não transfere a autorização existente para outra empresa. Falha de
 banco é 503, nunca autenticação liberada. Token ausente/inválido/expirado/revogado
 é 401; escopo insuficiente é 403. IDs de outro tenant respondem 404.
 
@@ -142,6 +145,10 @@ fornecedor {documento, nome, vinculado:false, id:null}, itens inteiro,
 compra_id:null. Não fabricar vínculo com cadastro ou compra.
 Precisão monetária interna decimal; número JSON é projeção exigida pelo Lojas,
 não base de cálculos contábeis. ID não é UUID nem bigint acima de 2^53−1.
+O contrato de serviço é restrito a ambiente de produção (tpAmb=1), inclusive
+nos downloads; IDs de homologação respondem 404. Não há parâmetro de serviço
+para incluir homologação. XML de homologação pode ser importado e consultado
+pela UI humana em seção explícita, sem projetá-lo como nota operacional no Lojas.
 Ordenação determinística por ID. Sem alteração de estado.
 Limite inicial proposto: 1000 notas por resposta. Buscar limite+1; acima disso
 responder 409 pagination_required, nunca 200 incompleto.
@@ -210,7 +217,9 @@ Casos mínimos:
 - retry, concorrência, corpo conflitante, falha antes/depois do commit;
 - comparação byte a byte XML/PDF e SHA-256; download não chama gerador;
 - contrato real de parser do Lojas, números seguros, vazio e excesso de coleção;
-- revogação/CNPJ alterados durante operação; ausência de segredo nas respostas;
+- revogação/CNPJ alterados durante operação; token antigo rejeitado após troca
+  de CNPJ; homologação não aparece nem pode ser baixada pelo Lojas;
+- ausência de segredo nas respostas;
 - UI/BFF real, origem, troca de tenant e tela móvel;
 - health alias readiness e regressões de autenticação/DANFE existentes.
 
@@ -233,3 +242,10 @@ Nada de dados de cliente, chaves ou XML reais nos artefatos de CI.
 6. Após operação autorizada: provisionar credencial no tenant correto e
    segredos do Lojas, validar 401/lista/XML/PDF reais, registrar evidências na
    AVL-360 e AVL-254. Não encerrar incidente com base apenas em testes.
+
+## Revisão do desenho
+
+Builder check independente concluído em 28/10/2026. As duas lacunas encontradas
+foram resolvidas como escolhas técnicas propostas: serviço restrito a produção;
+credencial vinculada ao CNPJ de criação e recusada após alteração cadastral.
+Continuam sujeitas à aprovação deste desenho; não são decisões atribuídas ao usuário.

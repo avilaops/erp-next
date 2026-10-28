@@ -1,0 +1,7 @@
+{
+  "name": "erp-company-contract-consumer",
+  "private": true,
+  "type": "module",
+  "scripts": {"generate": "openapi-typescript ../../../artifacts/contracts/candidate.json --output generated.d.ts", "check": "tsc --noEmit", "test": "node verify.mjs"},
+  "devDependencies": {"openapi-typescript": "7.13.0", "typescript": "5.9.3", "ajv": "8.20.0", "ajv-formats": "3.0.1"}
+}

@@ -206,6 +206,19 @@ async fn company_persists_and_enforces_permissions_and_tenant_isolation(admin: P
         .2;
     assert_eq!(reread["data"], saved["data"]);
     assert_eq!(reread["canEdit"], false);
+    if let Some(output) = std::env::var_os("ERP_COMPANY_CONTRACT_OUTPUT") {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(output)
+            .expect("create a new synthetic company contract example");
+        serde_json::to_writer_pretty(
+            &file,
+            &json!({"synthetic": true, "request": company(), "saved": saved, "read": reread}),
+        )
+        .expect("serialize synthetic company contract example");
+        file.sync_all().expect("sync company contract example");
+    }
     assert_eq!(
         call(&router, "PUT", TENANT, "editor", Some("\"0\""), company())
             .await

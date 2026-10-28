@@ -12,14 +12,14 @@ function document() {
     }}}}, responses: {'200': {description:'ok',content:{'application/json':{schema:{type:'object',properties:{id:{type:'string'}},required:['id']}}}}}}}},
     components:{securitySchemes:{bearer:{type:'http',scheme:'bearer'}}}};
 }
-async function compare(mutate) {
+async function compare(mutate, options = {}) {
   assert.ok(adapter, 'OpenAPI gate is not implemented');
   const directory = await mkdtemp(path.join(os.tmpdir(),'erp-contract-'));
   try {
     const baseline=document(),candidate=structuredClone(baseline);mutate(candidate);
     await writeFile(path.join(directory,'base.json'),JSON.stringify(baseline));
     await writeFile(path.join(directory,'candidate.json'),JSON.stringify(candidate));
-    return await adapter.compareContracts({baseline:path.join(directory,'base.json'),candidate:path.join(directory,'candidate.json'),output:directory});
+    return await adapter.compareContracts({baseline:path.join(directory,'base.json'),candidate:path.join(directory,'candidate.json'),output:directory,...options});
   } finally { await rm(directory,{recursive:true,force:true}); }
 }
 test('identical contract is compatible', async()=> assert.equal((await compare(()=>{})).compatible,true));
@@ -33,5 +33,5 @@ test('new authentication requirement is incompatible', async()=>assert.equal((aw
 test('invalid document fails closed', async()=>assert.rejects(compare(d=>{delete d.openapi;}),/INVALID_OPENAPI/));
 test('comparator process failure fails closed', async()=>{
   assert.ok(adapter,'OpenAPI gate is not implemented');
-  await assert.rejects(adapter.compareContracts({baseline:'missing',candidate:'missing',output:os.tmpdir(),executable:'/nonexistent/oasdiff'}));
+  await assert.rejects(compare(()=>{}, {executable:'/nonexistent/oasdiff'}),/COMPARATOR_FAILED/);
 });

@@ -35,6 +35,9 @@ use crate::platform::{access, access_management, company};
 )]
 struct ApiDoc;
 
+#[cfg(test)]
+include!("openapi_export.rs");
+
 struct Security;
 impl Modify for Security {
     fn modify(&self, doc: &mut utoipa::openapi::OpenApi) {

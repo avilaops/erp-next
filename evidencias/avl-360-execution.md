@@ -40,3 +40,25 @@ Final: Ruling: PR4 catalog integration remains pending — preserve unmerged wor
 Final: Ruling: accept standard GET-ref→DELETE-ref cleanup race after merged-branch SHA check — user authorized deletion; do not push to merged branch — cost: a concurrent push in that interval could be deleted, with commits still recoverable from PR/history.
 Final: Ruling: merge requires CI+inventory for final head, not previous success — cost: queued checks can postpone merge.
 No deferred minors.
+
+Task 2: complete (de152575..5edf182; GitHub CI40659258353):
+79 Rust tests passed,0 failed/ignored in13.40s; rust-build/rust-lint/web/web-lint/
+contract-tests/web-browser succeeded. Inventory40659258296 succeeded.
+Final: fixed scalar truncation — received_refuses_split_scalar_content RED→GREEN.
+Final: fixed CPF14 masquerading as CNPJ — received_requires_cnpj_element_not_just_matching_digits RED→GREEN.
+Final: fixed datetime separator — received_requires_iso_datetime_separator RED→GREEN.
+Each fix belongs to the single final fix pass; whole Rust suite79/79 green.
+Full workflow gate/baseline/contracts still pending at this record; latest final-SHA
+CI+inventory success remains a mandatory condition before automated merge.
+
+Task 1: complementary action fichas complete; PR4 central-catalog integration pending.
+T3–T6: blocked by AVL359; no model, migration, grant, persistence/service token,
+received-note API, XML/PDF downloads or production work implemented here.
+T7: partial review/evidence complete; operational homologation not authorized.
+
+Merge/cleanup authorization: user explicitly requested automatic merge and branch
+deletion. Hourly condition watch created, scoped only PR13 and exact reviewed SHA
+published by AVL360_MERGE_READY PR comment. It must require final-SHA CI+inventory,
+honor required checks/reviews, merge squash, verify cleanup workflow and branch
+absence, then pause itself. Native auto_merge/delete settings remain false;
+no global settings changed. No validation job or timeout added by this branch.

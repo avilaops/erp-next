@@ -35,8 +35,8 @@
 - [x] Desenho aprovado e revisão independente incorporada.
 - [x] Inspecionados middleware OIDC, roteamento, DANFE/MCP, transações e comandos existentes.
 - [x] Revisão do plano e execução direta aprovadas pelo usuário.
-- [ ] T1: fichas complementares P0.
-- [ ] T2: componentes puros e saúde, sem banco novo.
+- [x] T1: fichas complementares versionadas; integração ao catálogo central aguarda PR #4.
+- [x] T2: componentes puros e saúde validados; 79 testes Rust na CI, sem banco novo.
 - [ ] Liberação integral da AVL-359: atualmente 28 famílias pendentes, p0Ready=false.
 - [ ] T3–T7: persistência, integração e evidências, condicionadas aos portões abaixo.
 
@@ -61,14 +61,14 @@ Não tentar fechar as outras 28 famílias da AVL-359 dentro desta integração f
 **Files:** criar `apps/api/src/domains/fiscal/received_model.rs`; modificar `apps/api/src/domains/fiscal/mod.rs`, `apps/api/src/http/health.rs`, `apps/api/src/http/mod.rs`, `apps/api/src/http/openapi.rs`.
 **Interfaces:** `inspect_received(xml: &str, recipient_cnpj: &str) -> Result<ReceivedMetadata, &'static str>`; ReceivedMetadata contém chave, ambiente, emitente/nome, destinatário, número, série, data com offset, valor em centavos e contagem de itens. Reusar `danfe::inspect`; não reimplementar XMLDSig/XSD.
 
-- [ ] Testar `received_requires_exact_recipient`: fixture aceita para CNPJ destinatário, recusada para emitente e terceiro; resNFe e CPF recusados.
-- [ ] Testar `received_metadata_is_exact`: 0.01 → 1 centavo; datas sem offset, overflow, números de nota/série divergentes da chave, itens duplicados e monetários inválidos são recusados.
-- [ ] Rodar testes novos na CI antes da implementação e registrar falha esperada; sem SQL, banco ou MCP real.
-- [ ] Implementar inspeção limitada a 900 KiB, namespace oficial, metadados sem ambiguidades; erros nunca ecoam XML.
-- [ ] Testar `health_alias_uses_readiness`: /api/health dá 503 com banco indisponível, /health/live continua 200; sucesso 200 de readiness será coberto no banco efêmero existente da CI.
-- [ ] Registrar alias no router/OpenAPI e reusar handler de readiness, sem duplicar lógica.
-- [ ] CI: `cargo test -p erp-next-api received_`, teste do alias, fmt/clippy e build existentes; nenhuma ampliação de pipeline. Testes que precisem de PostgreSQL usam apenas schema existente.
-- [ ] Commit: `feat(fiscal): validate received-note metadata and expose readiness alias`.
+- [x] Testar `received_requires_exact_recipient`: fixture aceita para CNPJ destinatário, recusada para emitente e terceiro; resNFe e CPF recusados.
+- [x] Testar `received_metadata_is_exact`: 0.01 → 1 centavo; datas sem offset, overflow, números de nota/série divergentes da chave, itens duplicados e monetários inválidos são recusados.
+- [x] Rodar testes novos na CI antes da implementação e registrar falha esperada; sem SQL, banco ou MCP real.
+- [x] Implementar inspeção limitada a 900 KiB, namespace oficial, metadados sem ambiguidades; erros nunca ecoam XML.
+- [x] Testar `health_alias_uses_readiness`: /api/health dá 503 com banco indisponível, /health/live continua 200; sucesso 200 de readiness será coberto no banco efêmero existente da CI.
+- [x] Registrar alias no router/OpenAPI e reusar handler de readiness, sem duplicar lógica.
+- [x] CI: `cargo test -p erp-next-api received_`, teste do alias, fmt/clippy e build existentes; nenhuma ampliação de pipeline. Testes que precisem de PostgreSQL usam apenas schema existente.
+- [x] Commit: `feat(fiscal): validate received-note metadata and expose readiness alias`.
 
 ## Portão de persistência — obrigatório antes de T3
 

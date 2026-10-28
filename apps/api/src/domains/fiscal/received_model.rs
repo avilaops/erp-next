@@ -21,7 +21,9 @@ pub struct ReceivedMetadata {
 }
 
 fn child<'a>(node: Node<'a, 'a>, name: &str) -> Result<Node<'a, 'a>, &'static str> {
-    let mut matches = node.children().filter(|item| item.has_tag_name((NFE, name)));
+    let mut matches = node
+        .children()
+        .filter(|item| item.has_tag_name((NFE, name)));
     let value = matches.next().ok_or("Campo obrigatório ausente")?;
     if matches.next().is_some() {
         return Err("Campo fiscal duplicado");
@@ -47,10 +49,7 @@ fn unsigned(value: &str) -> Result<u32, &'static str> {
     value.parse().map_err(|_| "Número fiscal fora do limite")
 }
 
-pub fn inspect_received(
-    xml: &str,
-    recipient_cnpj: &str,
-) -> Result<ReceivedMetadata, &'static str> {
+pub fn inspect_received(xml: &str, recipient_cnpj: &str) -> Result<ReceivedMetadata, &'static str> {
     let envelope = super::danfe::inspect(xml)?;
     if recipient_cnpj.len() != 14
         || !recipient_cnpj.bytes().all(|byte| byte.is_ascii_digit())
@@ -80,16 +79,23 @@ pub fn inspect_received(
     let issued_at = text(ide, "dhEmi")?;
     let issued = OffsetDateTime::parse(issued_at, &Rfc3339)
         .map_err(|_| "Data de emissão inválida ou sem fuso")?;
-    if format!("{:02}{:02}", issued.year().rem_euclid(100), u8::from(issued.month()))
-        != envelope.key[2..6]
+    if format!(
+        "{:02}{:02}",
+        issued.year().rem_euclid(100),
+        u8::from(issued.month())
+    ) != envelope.key[2..6]
     {
         return Err("Data de emissão não corresponde à chave");
     }
     let issuer_name = text(child(info, "emit")?, "xNome")?.to_owned();
-    let total_cents = crate::domains::fixed(text(child(child(info, "total")?, "ICMSTot")?, "vNF")?, 2)
-        .map_err(|_| "Total fiscal inválido")?;
+    let total_cents =
+        crate::domains::fixed(text(child(child(info, "total")?, "ICMSTot")?, "vNF")?, 2)
+            .map_err(|_| "Total fiscal inválido")?;
     let mut items = std::collections::BTreeSet::new();
-    for item in info.children().filter(|node| node.has_tag_name((NFE, "det"))) {
+    for item in info
+        .children()
+        .filter(|node| node.has_tag_name((NFE, "det")))
+    {
         let raw = item.attribute("nItem").ok_or("Item sem número")?;
         let index = unsigned(raw)?;
         if !(1..=990).contains(&index) || !items.insert(index) {

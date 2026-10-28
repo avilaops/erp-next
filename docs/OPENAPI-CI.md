@@ -87,5 +87,6 @@ cancelados não são promovidos a aprovação. O navegador usa o build do
 mesmo SHA e o Chrome instalado no runner; não reconstrói a aplicação. O cache
 Rust existente da main foi identificado pela API e usa o mesmo compilador 1.99.1.
 Seu hash antigo também contava um toolchain 1.99.0 instalado, portanto a primeira
-restauração é explícita; Cargo continua validando as dependências antes de usar
-os artefatos. Cache ausente não transforma um timeout em sucesso.
+restauração é explícita e única por job; Cargo continua validando as dependências
+antes de usar os artefatos. Não se sobrepõe um segundo cache parcial ao cache
+restaurado. Cache ausente não transforma um timeout em sucesso.

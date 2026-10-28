@@ -12,6 +12,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
 jobs:
   rust-build:
     timeout-minutes: 1
@@ -29,10 +33,6 @@ jobs:
             /home/runner/.cargo/git
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: rust
-          save-if: false
       - name: Compile complete Rust test suite
         run: |
           mkdir -p artifacts
@@ -99,10 +99,6 @@ jobs:
             /home/runner/.cargo/git
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: rust
-          cache-on-failure: true
       - run: cargo fmt --all --check
       - run: timeout 35s cargo clippy --workspace --all-targets -- -D warnings
 
@@ -138,10 +134,6 @@ jobs:
             /home/runner/.cargo/git
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: rust
-          cache-on-failure: true
       - uses: actions/download-artifact@v4
         with:
           name: erp-openapi-candidate-${{ github.sha }}

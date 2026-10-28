@@ -494,3 +494,135 @@ async fn party_outbox_failure_rolls_back_record_audit_command_and_revision(admin
     );
     cleanup(&admin, app, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn party_complements_roundtrip_preserve_omitted_fields_and_remove_explicitly(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    let mut body = input();
+    body["addresses"] = json!([{"label":"Entrega","postalCode":"01001-000","state":"SP","city":"São Paulo","street":"Praça","number":"1","district":"Centro","complement":"Sala 2","primary":true}]);
+    body["contacts"] = json!([{"name":" Maria ","role":"Compras","email":"maria@example.test","phone":null,"primary":true}]);
+    let key = Uuid::now_v7();
+    let (status, _, created) = call(
+        &router,
+        "POST",
+        "/api/v1/parties",
+        TENANT,
+        "editor",
+        None,
+        Some(key),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["data"]["addresses"][0]["postalCode"], "01001000");
+    assert_eq!(created["data"]["contacts"][0]["name"], "Maria");
+    let uri = format!(
+        "/api/v1/parties/{}",
+        created["data"]["id"].as_str().unwrap()
+    );
+    let replayed = call(
+        &router,
+        "POST",
+        "/api/v1/parties",
+        TENANT,
+        "editor",
+        None,
+        Some(key),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(replayed.0, StatusCode::CREATED);
+    assert_eq!(replayed.2, created);
+    let (status, _, updated) = call(
+        &router,
+        "PUT",
+        &uri,
+        TENANT,
+        "editor",
+        Some("\"1\""),
+        None,
+        input(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(updated["data"]["contacts"], created["data"]["contacts"]);
+    assert_eq!(updated["data"]["addresses"], created["data"]["addresses"]);
+    body["addresses"] = json!([]);
+    body["contacts"] = json!([]);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "reader",
+            Some("\"2\""),
+            None,
+            body.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &uri,
+            OTHER,
+            "editor",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (status, _, removed) = call(
+        &router,
+        "PUT",
+        &uri,
+        TENANT,
+        "editor",
+        Some("\"2\""),
+        None,
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(removed["data"]["contacts"], json!([]));
+    assert_eq!(removed["data"]["addresses"], json!([]));
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "editor",
+            Some("\"2\""),
+            None,
+            body
+        )
+        .await
+        .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &uri,
+            TENANT,
+            "reader",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .2,
+        removed
+    );
+    cleanup(&admin, application, server, &role).await;
+}

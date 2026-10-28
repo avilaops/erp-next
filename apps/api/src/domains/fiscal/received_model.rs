@@ -66,7 +66,20 @@ pub fn inspect_received(xml: &str, recipient_cnpj: &str) -> Result<ReceivedMetad
         },
     )
     .map_err(|_| "XML fiscal inválido")?;
+    // The envelope inspector uses borrowed scalar text. Refuse comments/PIs in
+    // every scalar, including inherited protocol/identity fields, so no first
+    // text node can hide additional fiscal content.
+    for node in document.descendants().filter(|node| node.is_element()) {
+        if !node.children().any(|child| child.is_element())
+            && node.children().any(|child| !child.is_text())
+        {
+            return Err("Campo fiscal com comentário ou instrução de processamento");
+        }
+    }
     let info = child(child(document.root_element(), "NFe")?, "infNFe")?;
+    if text(child(info, "dest")?, "CNPJ")? != recipient_cnpj {
+        return Err("Destinatário deve ser identificado por CNPJ");
+    }
     let ide = child(info, "ide")?;
     let number = unsigned(text(ide, "nNF")?)?;
     let series = unsigned(text(ide, "serie")?)?;
@@ -77,6 +90,9 @@ pub fn inspect_received(xml: &str, recipient_cnpj: &str) -> Result<ReceivedMetad
         return Err("Número ou série não corresponde à chave");
     }
     let issued_at = text(ide, "dhEmi")?;
+    if issued_at.as_bytes().get(10) != Some(&b'T') {
+        return Err("Data de emissão deve usar separador ISO T");
+    }
     let issued = OffsetDateTime::parse(issued_at, &Rfc3339)
         .map_err(|_| "Data de emissão inválida ou sem fuso")?;
     if format!(

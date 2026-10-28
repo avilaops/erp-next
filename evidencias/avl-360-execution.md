@@ -28,3 +28,15 @@ T2 GREEN implementation submitted for CI; not yet declared passed.
 T2 initial GREEN: CI40658296271 rust job76 passed/0 failed, web/browser succeeded.
 Ruling: add one operational cleanup workflow scoped to merged PR13 and its exact branch — explicitly requested by user, not a validation-job expansion — cost: contents:write confined to post-merge cleanup without checkout; branch is preserved if its SHA differs from merged head.
 Native repository allow_auto_merge=false/delete_branch_on_merge=false observed.
+
+Final review by independent reviewer (fiscal_code_review): no critical/minor findings;
+three Important findings (scalar truncation, CPF14 tag, non-ISO datetime separator).
+RED reproduced in1e47847/CI40658911555:76 passed/3 failed, all named regressions.
+Fix pass: reject comment/PI content in every scalar including inherited fields;
+require actual dest/CNPJ; require lexical T separator before date parser.
+Final: Ruling: T3/T5 old-token/CNPJ, T4 receipts/atomicity, T5 PDF-corruption and T6 UI-switch criteria are explicitly not implemented — P0 gate prevents them — cost: no operational fiscal integration yet.
+Final: Ruling: XSD/XMLDSig/MCP/SEFAZ attestation remains separate — this is structural inspection only — cost: no fiscal-authenticity claim from pure tests.
+Final: Ruling: PR4 catalog integration remains pending — preserve unmerged work — cost: complementary fichas not yet centrally validated.
+Final: Ruling: accept standard GET-ref→DELETE-ref cleanup race after merged-branch SHA check — user authorized deletion; do not push to merged branch — cost: a concurrent push in that interval could be deleted, with commits still recoverable from PR/history.
+Final: Ruling: merge requires CI+inventory for final head, not previous success — cost: queued checks can postpone merge.
+No deferred minors.

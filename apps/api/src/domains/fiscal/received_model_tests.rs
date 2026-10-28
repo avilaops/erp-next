@@ -85,6 +85,11 @@ fn received_requires_cnpj_element_not_just_matching_digits() {
 fn received_refuses_split_scalar_content() {
     for (from, to) in [
         ("<nNF>1</nNF>", "<nNF>1<!--split-->2</nNF>"),
+        ("<tpAmb>2</tpAmb>", "<tpAmb>2<!--split-->1</tpAmb>"),
+        (
+            "<CNPJ>04252011000110</CNPJ>",
+            "<CNPJ>04252011000110<!--split-->1</CNPJ>",
+        ),
         ("<vNF>10.00</vNF>", "<vNF>10.00<?split value?>1</vNF>"),
         (
             "<xNome>EMITENTE DE TESTE SEM VALOR FISCAL</xNome>",

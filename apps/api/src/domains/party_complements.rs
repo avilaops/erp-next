@@ -104,15 +104,14 @@ pub fn validate(
                     "Contato precisa de e-mail ou telefone",
                 ));
             }
-            if let Some(email) = &item.email {
-                if !email.is_ascii()
+            if item.email.as_ref().is_some_and(|email| {
+                !email.is_ascii()
                     || email.chars().any(char::is_whitespace)
                     || !email.split_once('@').is_some_and(|(local, domain)| {
                         !local.is_empty() && domain.contains('.') && !domain.contains('@')
                     })
-                {
-                    return Err(DomainError::Invalid("E-mail do contato inválido"));
-                }
+            }) {
+                return Err(DomainError::Invalid("E-mail do contato inválido"));
             }
         }
     }

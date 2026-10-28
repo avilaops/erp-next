@@ -452,6 +452,20 @@ mod tests {
     }
 
     #[test]
+    fn omitted_collections_are_preserved_but_null_is_not_a_collection() {
+        let original = input();
+        assert!(original.addresses.is_none());
+        let mut json = serde_json::to_value(original).unwrap();
+        assert!(json.get("addresses").is_none());
+        for field in ["addresses", "contacts"] {
+            json[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<PartyInput>(json.clone()).is_err());
+            json[field] = serde_json::json!([]);
+        }
+        assert!(serde_json::from_value::<PartyInput>(json).is_ok());
+    }
+
+    #[test]
     fn identity_and_roles_are_validated_without_external_registration_claims() {
         let mut party = input();
         party.validate().unwrap();

@@ -1,2 +1,5 @@
-import { RecordsList } from "@/features/records/records-module"
-export default function SellersPage() { return <RecordsList module="vendedores" /> }
+import { Suspense } from "react"
+import { StaffAccess } from "@/features/staff/staff-access"
+export default function Page() {
+  return <Suspense fallback={<p role="status">Carregando cadastro…</p>}><StaffAccess kind="vendedores" /></Suspense>
+}

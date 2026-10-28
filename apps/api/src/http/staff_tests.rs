@@ -232,3 +232,257 @@ async fn staff_roundtrip_functions_archive_reactivation_and_revisions(admin: PgP
     );
     cleanup(&admin, application, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn staff_concurrent_commands_and_edits_are_isolated_and_atomic(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    let key = Uuid::now_v7();
+    let (first, second) = tokio::join!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "editor",
+            None,
+            Some(key),
+            input()
+        ),
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "editor",
+            None,
+            Some(key),
+            input()
+        )
+    );
+    assert_eq!(first.0, StatusCode::CREATED);
+    assert_eq!(second.0, StatusCode::CREATED);
+    assert_eq!(first.2, second.2);
+    for table in [
+        "staff",
+        "audit_log WHERE entity_type='staff'",
+        "outbox_events WHERE aggregate_type='staff'",
+        "domain_commands WHERE scope='staff.create'",
+    ] {
+        let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+        assert_eq!(count, 1, "{table}");
+    }
+    let mut changed = input();
+    changed["name"] = json!("Outra pessoa");
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "editor",
+            None,
+            Some(key),
+            changed.clone()
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let uri = format!("/api/v1/staff/{}", first.2["data"]["id"].as_str().unwrap());
+    let (first_edit, second_edit) = tokio::join!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "editor",
+            Some("\"1\""),
+            None,
+            changed
+        ),
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "editor",
+            Some("\"1\""),
+            None,
+            input()
+        )
+    );
+    let statuses = [first_edit.0, second_edit.0];
+    assert_eq!(statuses.iter().filter(|s| **s == StatusCode::OK).count(), 1);
+    assert_eq!(
+        statuses
+            .iter()
+            .filter(|s| **s == StatusCode::PRECONDITION_FAILED)
+            .count(),
+        1
+    );
+    sqlx::raw_sql("CREATE FUNCTION fail_staff_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture failure'; END $$; CREATE TRIGGER fail_staff_outbox BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION fail_staff_outbox();").execute(&admin).await.unwrap();
+    let mut failed = input();
+    failed["name"] = json!("Não deve persistir");
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "editor",
+            Some("\"2\""),
+            None,
+            failed.clone()
+        )
+        .await
+        .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let saved = call(
+        &router,
+        "GET",
+        &uri,
+        TENANT,
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await
+    .2;
+    assert_eq!(saved["data"]["revision"], 2);
+    assert_ne!(saved["data"]["name"], json!("Não deve persistir"));
+    failed["code"] = json!("EQ-FAILED");
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            failed
+        )
+        .await
+        .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM staff")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    let mut tx = application.begin().await.unwrap();
+    sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+        .bind(OTHER)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM staff")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+    sqlx::query("INSERT INTO staff(id,tenant_id,code,name,is_employee,is_seller,status) VALUES($1,$2::uuid,'EQ-001','Outra empresa',true,false,'active')").bind(Uuid::now_v7()).bind(OTHER).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let identities: i64 = sqlx::query_scalar("SELECT count(*) FROM identities")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(identities, 3);
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn staff_refuses_invalid_payloads_filters_and_missing_preconditions(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "editor",
+            None,
+            None,
+            input()
+        )
+        .await
+        .0,
+        StatusCode::PRECONDITION_REQUIRED
+    );
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/staff",
+            TENANT,
+            "reader",
+            None,
+            Some(Uuid::now_v7()),
+            input()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    for query in [
+        "limit=0",
+        "offset=100001",
+        "role=admin",
+        "status=unknown",
+        "unknown=x",
+    ] {
+        assert_eq!(
+            call(
+                &router,
+                "GET",
+                &format!("/api/v1/staff?{query}"),
+                TENANT,
+                "editor",
+                None,
+                None,
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    for (field, value) in [
+        ("code", json!("bad/code")),
+        ("name", json!("")),
+        ("email", json!("bad@@example.test")),
+        ("tenantId", json!(OTHER)),
+    ] {
+        let mut invalid = input();
+        invalid[field] = value;
+        assert_eq!(
+            call(
+                &router,
+                "POST",
+                "/api/v1/staff",
+                TENANT,
+                "editor",
+                None,
+                Some(Uuid::now_v7()),
+                invalid
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM staff")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+    cleanup(&admin, application, server, &role).await;
+}

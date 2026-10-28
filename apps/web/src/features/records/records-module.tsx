@@ -62,16 +62,16 @@ export const recordModules = [
   {
     href: "/cadastros/vendedores",
     title: "Vendedores",
-    description: "Metas, comissões e vínculos empresariais",
+    description: "Cadastro comercial e funções na empresa",
     icon: UserRound,
-    count: 6,
+    count: null,
   },
   {
     href: "/cadastros/funcionarios",
     title: "Funcionários",
-    description: "Funções, equipes e estado do acesso",
+    description: "Cadastro operacional e contatos da equipe",
     icon: UsersRound,
-    count: 19,
+    count: null,
   },
   {
     href: "/cadastros/contas-financeiras",

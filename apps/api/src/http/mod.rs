@@ -27,7 +27,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
+use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales, staff};
 use crate::platform::{access, access_management, auth, company, onboarding, state::AppState};
 
 pub fn router(state: AppState) -> Router {
@@ -38,6 +38,8 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )
+        .route("/api/v1/staff", get(staff::list).post(staff::create))
+        .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))
         .merge(fiscal::routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))

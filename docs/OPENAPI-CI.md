@@ -18,8 +18,8 @@ Essa instrumentação aparece em `baselineInstrumented`, junto ao hash do helper
 
 A primeira main, `1569e8f`, já continha IDs de operação duplicados e filtros
 query declarados como path, impedindo gerar um consumidor completo. A revisão
-`cfe5790` corrige essas declarações, sem alterar os handlers. Ela é a baseline
-inicial explícita em `scripts/contracts/initial-baseline.json`, aceita somente
+fixada em `scripts/contracts/initial-baseline.json` corrige essas declarações e
+as descrições obrigatórias de resposta, sem alterar os handlers. Essa baseline é aceita somente
 para aquele SHA-base anterior ao gate e quando for ancestral do candidato.
 O relatório identifica `comparisonScope: initial_contract` e
 `eventBaseCompatibilityVerified: false`: não afirma compatibilidade histórica

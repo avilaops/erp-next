@@ -53,7 +53,7 @@ comparador deve interromper. Nenhum upload a serviço de revisão externo.
   falharam. Correções: validação completa por Swagger Parser 13.1.0 sem resolvers
   externos e validador separado da resposta PUT. Hidratação usa snapshot SSR/cliente
   de useSyncExternalStore, preservando a regra react-hooks/set-state-in-effect.
-- Ruling: baseline inicial explícita cfe5790 para a base pré-gate 1569e8f,
+- Ruling: baseline inicial explícita em initial-baseline.json para a base pré-gate 1569e8f,
   pois IDs repetidos impediam compilar os tipos e filtros query estavam em path.
   Isso custa a ausência de afirmação histórica de compatibilidade com a main
   anterior; o relatório declara initial_contract e não mascara essa lacuna.
@@ -66,3 +66,7 @@ comparador deve interromper. Nenhum upload a serviço de revisão externo.
   doctests futuros. O gate final falha se qualquer job falhar, cancelar ou pular.
 - Os resultados do SHA final e o fechamento dos critérios acima serão registrados
   no PR #11 e na AVL-343 após consulta pontual da CI; este ledger não presume CI verde.
+- CI 40650562263 confirmou todos os testes, builds, navegador e captura dentro
+  de um minuto por job; o gate recusou corretamente descrições obrigatórias
+  ausentes no documento Utoipa. O modifier agora emite descrições HTTP factuais
+  para respostas sem descrição; não inventa schema ou sucesso de negócio.

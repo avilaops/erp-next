@@ -9,6 +9,8 @@ mod domain_tests;
 #[cfg(test)]
 mod fiscal_tests;
 mod health;
+#[cfg(test)]
+mod health_tests;
 mod openapi;
 #[cfg(test)]
 mod operations_tests;

@@ -3,6 +3,7 @@ pub mod danfe_client;
 #[cfg(test)]
 pub(crate) mod danfe_test_support;
 pub mod model;
+pub mod received_model;
 
 use axum::{
     Extension, Json, Router,

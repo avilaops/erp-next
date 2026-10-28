@@ -161,7 +161,7 @@ async fn fractional_receipts_reconcile_exactly_and_zero_value_receipts_do_not_cr
     let (router, app, server, role) = setup(&admin).await;
     seed(&admin).await;
     let mut input = order();
-    input["items"][0]["quantity"] = json!("1");
+    input["items"][0]["quantity"] = json!("1.000000");
     input["items"][0]["unitCost"] = json!("0.01");
     let uri = confirmed(&router, input).await;
     let first_key = Uuid::now_v7();
@@ -496,7 +496,7 @@ async fn cancellation_and_partial_closure_preserve_realized_effects(admin: PgPoo
         .fetch_one(&admin)
         .await
         .unwrap();
-    assert_eq!(call(&router,"POST","/api/v1/stock/movements",None,Some(Uuid::now_v7()),json!({"productId":PRODUCT,"direction":"issue","quantity":"1","reason":"Não pode desfazer cadeia por fora","reversesId":movement})).await.0,StatusCode::CONFLICT);
+    assert_eq!(call(&router,"POST","/api/v1/stock/movements",None,Some(Uuid::now_v7()),json!({"productId":PRODUCT,"direction":"issue","quantity":"1.000000","reason":"Não pode desfazer cadeia por fora","reversesId":movement})).await.0,StatusCode::CONFLICT);
     let totals:(i64,i64)=sqlx::query_as("SELECT (SELECT sum(quantity_micros)::bigint FROM stock_balances),(SELECT sum(amount_cents)::bigint FROM payables)").fetch_one(&admin).await.unwrap();
     assert_eq!(totals, (1000000, 333));
     cleanup(&admin, app, server, &role).await;
@@ -752,6 +752,11 @@ fn order() -> Value {
 }
 
 fn receipt(reference: &str, quantity: &str) -> Value {
+    let quantity = if quantity.contains('.') {
+        quantity.to_owned()
+    } else {
+        format!("{quantity}.000000")
+    };
     json!({"reference":reference,"occurredOn":"2026-10-28","items":[{"productId":PRODUCT,"quantity":quantity}]})
 }
 

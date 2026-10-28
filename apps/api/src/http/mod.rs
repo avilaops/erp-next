@@ -103,6 +103,7 @@ pub fn router(state: AppState) -> Router {
         .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
+        .route("/api/health", get(health::api_health))
         .merge(protected)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))

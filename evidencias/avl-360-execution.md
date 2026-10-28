@@ -15,3 +15,11 @@ Ruling: catálogo PR4 só será alterado após integração — não duplicar im
 T1: fichas complementares escritas; atualização do catálogo bloqueada por PR4.
 T2: testes sendo preparados para RED em GitHub CI.
 T3–T6: bloqueadas; AVL359 p0Ready=false,28 famílias pendentes.
+
+T1 verification: inventory40657702330 passed; PR4 catalog integration remains pending.
+T2 RED: de152575, CI40657876380. Rust72 passed/4 failed:
+received_metadata_is_exact, received_requires_exact_recipient (unimplemented policy);
+health_alias_uses_readiness, health_alias_returns_ready_for_existing_database (401 before alias).
+Formatting differences in tests also observed and corrected.
+Ruling: inherit main's bounded jobs unchanged — existing CI is now split by AVL343 — cost: workflow elapsed time includes dependencies/queue, each job retains its existing limit.
+T2 GREEN implementation submitted for CI; not yet declared passed.

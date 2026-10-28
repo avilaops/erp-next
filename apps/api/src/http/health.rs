@@ -31,3 +31,10 @@ pub async fn ready(
             )
         })
 }
+
+#[utoipa::path(get, path = "/api/health", tag = "Health", responses((status = 200, body = HealthResponse), (status = 503, body = HealthResponse)))]
+pub async fn api_health(
+    state: State<AppState>,
+) -> Result<Json<HealthResponse>, (StatusCode, Json<HealthResponse>)> {
+    ready(state).await
+}

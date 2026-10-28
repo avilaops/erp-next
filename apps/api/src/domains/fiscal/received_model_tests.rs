@@ -11,10 +11,8 @@ fn received_requires_exact_recipient() {
     assert!(inspect_received(super::super::danfe::FIXTURE, "00000000000000").is_err());
     assert!(inspect_received(super::super::danfe::FIXTURE, "").is_err());
     assert!(inspect_received("<resNFe/>", RECIPIENT).is_err());
-    let cpf = super::super::danfe::FIXTURE.replace(
-        "<CNPJ>19131243000197</CNPJ>",
-        "<CPF>52998224725</CPF>",
-    );
+    let cpf = super::super::danfe::FIXTURE
+        .replace("<CNPJ>19131243000197</CNPJ>", "<CPF>52998224725</CPF>");
     assert!(inspect_received(&cpf, "52998224725").is_err());
 }
 
@@ -48,14 +46,20 @@ fn received_refuses_ambiguous_or_inconsistent_metadata() {
         ("<vNF>10.00</vNF>", "<vNF>01.00</vNF>"),
         ("<vNF>10.00</vNF>", "<vNF>1e2</vNF>"),
         ("<vNF>10.00</vNF>", "<vNF>10.00</vNF><vNF>20.00</vNF>"),
-        ("<xNome>EMITENTE DE TESTE SEM VALOR FISCAL</xNome>", "<xNome> </xNome>"),
+        (
+            "<xNome>EMITENTE DE TESTE SEM VALOR FISCAL</xNome>",
+            "<xNome> </xNome>",
+        ),
         ("<nNF>1</nNF>", "<nNF>1</nNF><nNF>2</nNF>"),
         ("<total><ICMSTot>", "<total><ICMSTot/><ICMSTot>"),
         ("<det nItem=\"1\">", "<det nItem=\"0\">"),
         ("</det>", "</det><det nItem=\"1\"/>"),
     ] {
         let xml = super::super::danfe::FIXTURE.replace(from, to);
-        assert!(inspect_received(&xml, RECIPIENT).is_err(), "accepted change: {from}");
+        assert!(
+            inspect_received(&xml, RECIPIENT).is_err(),
+            "accepted change: {from}"
+        );
     }
 }
 

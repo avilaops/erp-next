@@ -11,7 +11,7 @@ use crate::platform::{access, access_management, company};
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(health::live, health::ready, access::current_access, access::list_users,
+    paths(health::live, health::ready, health::api_health, access::current_access, access::list_users,
         access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,
         access_management::delete_role, access_management::get_member, access_management::update_member,
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 38);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 39);
         for resource in [
             "product-categories",
             "financial-categories",

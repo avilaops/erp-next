@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   rust:
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -38,6 +39,7 @@ jobs:
       - run: cargo test --workspace -- --test-threads=1
 
   web:
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +59,9 @@ jobs:
           pnpm --filter web build & build_pid=$!
           wait "$lint_pid"
           wait "$build_pid"
-      - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web test:danfe
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:

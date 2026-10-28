@@ -10,7 +10,7 @@ const directory = path.resolve("../../artifacts/danfe-browser", runId)
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "danfe-ui.spec.ts",
+  testMatch: ["danfe-ui.spec.ts", "onboarding-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
@@ -18,12 +18,12 @@ export default defineConfig({
   timeout: 90_000,
   outputDir: path.join(directory, "test-results"),
   reporter: [["list"], ["json", { outputFile: path.join(directory, "report.json") }]],
-  use: { baseURL: origin, browserName: "chromium", viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
+  use: { baseURL: origin, browserName: "chromium", channel: process.env.ERP_BROWSER_CHANNEL, viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
   webServer: {
     command: "pnpm start --hostname 127.0.0.1 --port 33118",
     url: `${origin}/entrar`,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret },
+    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
   },
 })

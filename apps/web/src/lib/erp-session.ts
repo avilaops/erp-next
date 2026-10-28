@@ -44,11 +44,18 @@ export function cookieName(purpose: "session" | "auth") {
 
 export const cookieOptions = (maxAge: number) => ({ httpOnly: true, sameSite: "lax" as const, secure: erpConfiguration().secure, path: "/", maxAge })
 
-export async function currentSession(): Promise<ErpSession | null> {
+export type IdentitySession = { accessToken: string; tenantId: string | null; expiresAt: number }
+
+export async function currentIdentitySession(): Promise<IdentitySession | null> {
   const jar = await cookies()
-  const session = unseal<ErpSession>(jar.get(cookieName("session"))?.value || "", "erp-session")
-  if (!session || typeof session.accessToken !== "string" || !session.accessToken || !uuidPattern.test(session.tenantId) || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) return null
+  const session = unseal<IdentitySession>(jar.get(cookieName("session"))?.value || "", "erp-session")
+  if (!session || typeof session.accessToken !== "string" || !session.accessToken || (session.tenantId !== null && (typeof session.tenantId !== "string" || !uuidPattern.test(session.tenantId))) || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) return null
   return session
+}
+
+export async function currentSession(): Promise<ErpSession | null> {
+  const session = await currentIdentitySession()
+  return session?.tenantId ? { ...session, tenantId: session.tenantId } : null
 }
 
 export async function authEndpoints() {

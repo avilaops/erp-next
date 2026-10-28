@@ -151,7 +151,9 @@ mod tests {
         assert!(doc["paths"]["/api/v1/invitations"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/invitations"]["post"]["requestBody"].is_object());
         for action in ["resend", "revoke"] {
-            assert!(doc["paths"][format!("/api/v1/invitations/{{id}}/{action}")]["post"].is_object());
+            assert!(
+                doc["paths"][format!("/api/v1/invitations/{{id}}/{action}")]["post"].is_object()
+            );
         }
         assert!(doc["paths"]["/api/v1/legacy-history"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/legacy-history/files/{id}"]["get"].is_object());

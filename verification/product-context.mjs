@@ -91,8 +91,9 @@ export function contextSourcePaths(catalogue, inventory, definitions) {
   const groups = new Set(definitions.flatMap(flow => flow.actionGroups));
   const actions = catalogue.actions.filter(action => groups.has(action.flow));
   const paths = new Set([
-    'verification/contracts.json', 'verification/product-context.mjs', 'verification/product-context-cli.mjs',
+    'verification/contracts.json', 'verification/product-context.mjs', 'verification/product-context-cli.mjs', 'verification/product-context-mcp.mjs',
     'verification/schemas/product-flow-definitions.schema.json', 'verification/schemas/product-context.schema.json',
+    'verification/mcp/central-tools.json',
     'package.json', 'pnpm-lock.yaml', 'Cargo.toml', 'Cargo.lock', 'apps/api/Cargo.toml', 'apps/web/package.json',
     ...definitions.flatMap(flow => flow.additionalSources || []),
   ]);

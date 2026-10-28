@@ -64,5 +64,49 @@ Publicação e execução permanecem `not_observed`. O consumidor futuro precisa
 registrar separadamente ambiente, versão servida e evidências de execução.
 A sincronização com o laboratório deve confirmar a importação e reconciliar
 respostas perdidas, com proteção de revisão e preservação da captura anterior.
-Este primeiro bloco não implementa essa sincronização nem a nova visão de fluxos
+O gerador de contexto não implementa essa sincronização nem a nova visão de fluxos
 no Experiments, e não modifica o importador de inventários de rotas existente.
+
+## Consumo pelo MCP central
+
+`pnpm context:erp:mcp` gera um lote para Usuários, Produtos e Compras em
+`artifacts/mcp-context/<bundleSha256>/bundle.json`. `--flow` pode ser repetido
+para selecionar outras funcionalidades. O lote contém um índice pequeno e
+capturas completas, preservando o formato `erp-product-context/1` e seus hashes.
+Todas as capturas precisam pertencer ao mesmo estado de fonte; capturas
+adulteradas ou seleções repetidas impedem a exportação.
+
+O MCP central encaminha as chamadas para o workflow `MCP - Avila Ops` no n8n.
+As duas ferramentas de leitura e os identificadores de suas tabelas estão em
+[`central-tools.json`](../verification/mcp/central-tools.json):
+
+1. `erp_contexto_listar` retorna as 20 entradas mais recentes do índice, com
+   título, funcionalidade, commit, estado do checkout e SHA-256 da captura.
+2. `erp_contexto_obter` recebe o `content_sha256` exato e retorna `context_json`.
+   O consumidor deve analisar o JSON, validar o schema e recalcular seu hash.
+   Ausência ou duplicidade de captura impede usar esse resultado como contexto.
+
+As tabelas são armazenamento de artefatos derivados, não outra definição de
+contratos. Não recebem senhas, sessões, corpos de arquivos ou dados do banco.
+Pessoas autorizadas no n8n podem editar as tabelas; elas não são um registro
+imutável nem uma assinatura da origem do conteúdo.
+
+Para importar um lote, o operador ou agente usa a conexão autenticada do n8n:
+
+1. Consulta cada hash na tabela de capturas. Se existir, confere os bytes; se
+   não existir, insere a linha de `tables.snapshots`. Não substitui divergências.
+2. Lê novamente e valida cada captura completa e o SHA-256.
+3. Só depois insere as linhas correspondentes de `tables.index`, sem duplicar
+   pares de funcionalidade e hash já registrados.
+4. Confere a leitura pelas ferramentas do MCP central. Uma resposta perdida
+   exige consultar o estado antes de repetir uma inserção.
+
+Não há transação entre as duas tabelas. Uma importação interrompida pode deixar
+capturas ainda sem índice, recuperáveis por hash. A conferência antes de inserir
+não é exclusão mútua: use um único importador por vez. O horário das linhas
+identifica a importação, não a publicação do ERP ou a execução de um fluxo.
+
+O CLI apenas gera o lote; não possui credenciais nem envia requisições ao n8n.
+A primeira importação é operacional, não uma atualização automática por commit.
+Após mudanças no ERP, é necessário gerar e importar outro lote. A automação
+dessa atualização e o consumidor visual no laboratório continuam separados.

@@ -32,6 +32,7 @@ pnpm context:erp
 pnpm context:erp --flow users
 pnpm context:erp --flow products
 pnpm context:erp --flow purchase_payment_chain
+pnpm context:erp:mcp
 ```
 
 O comando grava `context.json` e `context.md` em
@@ -56,6 +57,11 @@ Este formato novo prepara o contexto para consumo pelo laboratório. Nesta etapa
 o comando não envia dados ao Experiments nem adiciona uma tela ou endpoint ao
 laboratório. O importador existente de `route-inventory/2` continua separado;
 ele não deve receber `erp-product-context/1` como se fossem o mesmo contrato.
+
+O exportador `context:erp:mcp` prepara índice e capturas para as ferramentas
+`erp_contexto_listar` e `erp_contexto_obter` do MCP central. A importação no n8n
+é uma operação separada e confirmada por leitura; o comando não atualiza as
+tabelas automaticamente. Veja o [contrato de consumo](../docs/CONTEXTO-FUNCIONALIDADES.md).
 
 Com as dependências web já instaladas:
 

@@ -64,7 +64,8 @@ impl Modify for Security {
                         operation.operation_id.as_deref(),
                         Some("list" | "create" | "get" | "update")
                     ) || (path.starts_with("/api/v1/purchase-orders")
-                        || path.starts_with("/api/v1/payables"))
+                        || path.starts_with("/api/v1/payables")
+                        || path.starts_with("/api/v1/invitations"))
                     {
                         operation.operation_id = Some(format!("{method}:{path}"));
                     }
@@ -146,7 +147,12 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 61);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 64);
+        assert!(doc["paths"]["/api/v1/invitations"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/invitations"]["post"]["requestBody"].is_object());
+        for action in ["resend", "revoke"] {
+            assert!(doc["paths"][format!("/api/v1/invitations/{{id}}/{action}")]["post"].is_object());
+        }
         assert!(doc["paths"]["/api/v1/legacy-history"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/legacy-history/files/{id}"]["get"].is_object());
         for resource in [

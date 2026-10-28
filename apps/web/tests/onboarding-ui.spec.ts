@@ -111,3 +111,16 @@ test("company signup keeps input and command key after an ambiguous failure, the
   expect(commands[0].key).toMatch(/^[0-9a-f-]{36}$/)
   expect(await page.content()).not.toContain("onboarding-fixture-token")
 })
+
+test("signup requires a session and picker exposes only the companies returned by the verified API", async ({ page, context }) => {
+  await page.goto("/cadastro/empresa")
+  await page.waitForURL("**/entrar")
+  companyCount = 2
+  await context.addCookies([cookie()])
+  await page.goto("/empresas")
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Empresa 2", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await page.waitForURL("**/preferencias/empresa/dados")
+  expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe(tenant)
+})

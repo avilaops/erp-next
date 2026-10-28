@@ -26,10 +26,10 @@ def identifier(value):
 
 
 def command(args, *, database, sql=None):
-    env = dict(os.environ, PGDATABASE=database, PGOPTIONS="-c timezone=UTC")
+    env = dict(os.environ, PGDATABASE=database, PGOPTIONS="-c timezone=UTC", PGCLIENTENCODING="UTF8")
     if args[0] in ("psql", "pg_dump"):
         args = [args[0], "--dbname=" + database, *args[1:]]
-    result = subprocess.run(args, input=sql, text=True, capture_output=True, env=env)
+    result = subprocess.run(args, input=sql, text=True, encoding="utf-8", capture_output=True, env=env)
     if result.returncode:
         # SQL errors can contain customer data or credentials. Keep them private.
         raise RuntimeError(f"{args[0]} failed (exit {result.returncode}); no customer data logged")

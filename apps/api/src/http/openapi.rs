@@ -35,9 +35,40 @@ use crate::platform::{access, access_management, company};
 )]
 struct ApiDoc;
 
+#[cfg(test)]
+include!("openapi_export.rs");
+
 struct Security;
 impl Modify for Security {
     fn modify(&self, doc: &mut utoipa::openapi::OpenApi) {
+        for (path, item) in &mut doc.paths.paths {
+            for (method, operation) in [
+                ("get", &mut item.get),
+                ("put", &mut item.put),
+                ("post", &mut item.post),
+                ("delete", &mut item.delete),
+                ("options", &mut item.options),
+                ("head", &mut item.head),
+                ("patch", &mut item.patch),
+                ("trace", &mut item.trace),
+            ] {
+                if let Some(operation) = operation {
+                    if matches!(
+                        operation.operation_id.as_deref(),
+                        Some("list" | "create" | "get" | "update")
+                    ) {
+                        operation.operation_id = Some(format!("{method}:{path}"));
+                    }
+                    for (status, response) in &mut operation.responses.responses {
+                        if let utoipa::openapi::RefOr::T(response) = response
+                            && response.description.is_empty()
+                        {
+                            response.description = format!("Resposta HTTP {status}");
+                        }
+                    }
+                }
+            }
+        }
         if let Some(components) = doc.components.as_mut() {
             components.add_security_scheme(
                 "bearerAuth",
@@ -54,6 +85,50 @@ pub async fn document() -> Json<utoipa::openapi::OpenApi> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operation_ids_are_unique_and_path_parameters_match_templates() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let mut ids = std::collections::BTreeSet::new();
+        for (path, item) in doc["paths"].as_object().unwrap() {
+            for (method, operation) in item.as_object().unwrap() {
+                if ![
+                    "get", "put", "post", "delete", "options", "head", "patch", "trace",
+                ]
+                .contains(&method.as_str())
+                {
+                    continue;
+                }
+                let id = operation["operationId"].as_str().unwrap();
+                assert!(ids.insert(id), "duplicate operation ID: {id}");
+                for response in operation["responses"].as_object().unwrap().values() {
+                    if response.get("$ref").is_none() {
+                        assert!(!response["description"].as_str().unwrap().is_empty());
+                    }
+                }
+                if let Some(parameters) = operation["parameters"].as_array() {
+                    for parameter in parameters {
+                        if parameter["in"] == "path" {
+                            let name = parameter["name"].as_str().unwrap();
+                            assert!(
+                                path.contains(&format!("{{{name}}}")),
+                                "{method} {path}: {name}"
+                            );
+                            assert_eq!(parameter["required"], true);
+                        }
+                    }
+                }
+            }
+        }
+        let filters = doc["paths"]["/api/v1/products"]["get"]["parameters"]
+            .as_array()
+            .unwrap();
+        for name in ["q", "status", "offset", "limit"] {
+            let parameter = filters.iter().find(|value| value["name"] == name).unwrap();
+            assert_eq!(parameter["in"], "query");
+            assert_eq!(parameter["required"], false);
+        }
+    }
 
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {

@@ -1,0 +1,5 @@
+{
+  "eventBaseRevision": "1569e8f9e08300e2d22a36da80f6efc5b563a8d0",
+  "initialBaselineRevision": "65a48d8dbca5d370ca3faf5c8e068e566e85fd92",
+  "reason": "First consumable contract: unique operation IDs, query filters aligned with existing handlers and required response descriptions. No historical compatibility claim for earlier defective declarations."
+}

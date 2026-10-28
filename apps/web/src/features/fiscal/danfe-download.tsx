@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 
 async function digest(bytes: ArrayBuffer) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
+const subscribeHydration = () => () => {}
 export function DanfeDownload({ tenantId }: { tenantId: string }) {
+  const ready = useSyncExternalStore(subscribeHydration, () => true, () => false)
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -44,7 +46,7 @@ export function DanfeDownload({ tenantId }: { tenantId: string }) {
     <p>Selecione o XML completo da NF-e modelo 55, com assinatura e protocolo de autorização. O emitente ou destinatário precisa corresponder à empresa ativa.</p>
     <p className="text-sm text-muted-foreground">A geração confere o protocolo contido no arquivo, o esquema XML e a assinatura. A situação atual da nota, incluindo eventual cancelamento, depende de consulta à SEFAZ. O arquivo não é transmitido para autorização nem armazenado pelo ERP nesta operação.</p>
     <form className="space-y-4" onSubmit={event => { event.preventDefault(); void generate() }}>
-      <label className="block space-y-2">XML autorizado da NF-e<input className="block w-full rounded-lg border p-3" type="file" accept=".xml,application/xml,text/xml" disabled={busy} onChange={event => { setFile(event.target.files?.[0] || null); setDownload(null); setError("") }} /></label>
+      <label className="block space-y-2">XML autorizado da NF-e<input className="block w-full rounded-lg border p-3" type="file" accept=".xml,application/xml,text/xml" disabled={!ready || busy} onChange={event => { setFile(event.target.files?.[0] || null); setDownload(null); setError("") }} /></label>
       <Button type="submit" disabled={!file || busy}>{busy ? "Validando XML e gerando DANFE…" : "Gerar DANFE"}</Button>
     </form>
     {error && <p role="alert" className="text-destructive">{error}</p>}

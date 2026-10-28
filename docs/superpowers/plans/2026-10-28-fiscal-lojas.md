@@ -1,6 +1,6 @@
 # Integração fiscal ERP-Next e Lojas Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Método recomendado: execução nativa nesta sessão, sujeito à escolha do usuário.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Método aprovado pelo usuário em 28/10/2026: execução direta nesta sessão.
 
 **Goal:** Entregar importação explícita e leitura de NF-e recebida com XML e DANFE completos, tenant isolado e credencial de serviço.
 **Architecture:** Manter OIDC para usuários e criar autenticação separada para Lojas. Validar e renderizar na importação; persistir atomicamente os bytes e servir downloads sem chamar MCP. Persistência só depois da liberação integral da P0.
@@ -34,7 +34,7 @@
 - [x] Recorte vertical aprovado.
 - [x] Desenho aprovado e revisão independente incorporada.
 - [x] Inspecionados middleware OIDC, roteamento, DANFE/MCP, transações e comandos existentes.
-- [ ] Revisão do plano e método de execução pelo usuário.
+- [x] Revisão do plano e execução direta aprovadas pelo usuário.
 - [ ] T1: fichas complementares P0.
 - [ ] T2: componentes puros e saúde, sem banco novo.
 - [ ] Liberação integral da AVL-359: atualmente 28 famílias pendentes, p0Ready=false.

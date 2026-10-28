@@ -8,8 +8,48 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  npm_config_fetch_retries: 0
+  npm_config_fetch_timeout: 10000
+
 jobs:
+  rust-build:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            /home/runner/.cargo/bin
+            /home/runner/.cargo/.crates.toml
+            /home/runner/.cargo/.crates2.json
+            /home/runner/.cargo/registry
+            /home/runner/.cargo/git
+            ${{ github.workspace }}/target
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
+      - name: Compile complete Rust test suite
+        run: |
+          mkdir -p artifacts
+          timeout 40s cargo test --workspace --locked --no-run --message-format=json > artifacts/rust-build.jsonl
+          python3 -B scripts/contracts/package-test-binary.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-rust-tests-${{ github.sha }}
+          path: artifacts/rust-tests/
+          if-no-files-found: error
+          retention-days: 1
+
   rust:
+    needs: rust-build
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -29,15 +69,133 @@ jobs:
       DATABASE_URL: postgres://postgres:erp_next_ci_only@127.0.0.1:5432/erp_next_test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-rust-tests-${{ github.sha }}
+          path: artifacts/rust-tests/
+      - name: Test Rust and export candidate contract
+        run: timeout 40s python3 -B scripts/contracts/run-test-binaries.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-openapi-candidate-${{ github.sha }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  rust-lint:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: clippy,rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            /home/runner/.cargo/bin
+            /home/runner/.cargo/.crates.toml
+            /home/runner/.cargo/.crates2.json
+            /home/runner/.cargo/registry
+            /home/runner/.cargo/git
+            ${{ github.workspace }}/target
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace -- --test-threads=1
+      - run: timeout 35s cargo clippy --workspace --all-targets -- -D warnings
+
+  contract-tests:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: bash scripts/contracts/install-oasdiff.sh
+      - run: node --test scripts/contracts/test/*.test.mjs
+
+  baseline:
+    needs: rust
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            /home/runner/.cargo/bin
+            /home/runner/.cargo/.crates.toml
+            /home/runner/.cargo/.crates2.json
+            /home/runner/.cargo/registry
+            /home/runner/.cargo/git
+            ${{ github.workspace }}/target
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-openapi-candidate-${{ github.sha }}
+          path: artifacts/contracts/
+      - name: Capture explicit baseline
+        env:
+          BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: timeout 40s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-openapi-captured-${{ github.sha }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  contracts:
+    needs: baseline
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-openapi-captured-${{ github.sha }}
+          path: artifacts/contracts/
+      - run: bash scripts/contracts/install-oasdiff.sh
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
+      - name: Check fixed company consumer
+        working-directory: scripts/contracts/consumer
+        run: |
+          npm run generate
+          npm run check
+          npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-openapi-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  gate:
+    needs: [rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
+    if: always()
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job to succeed
+        env:
+          VALIDATION_JOBS: ${{ toJSON(needs) }}
+        run: python3 -c 'import json,os,sys; jobs=json.loads(os.environ["VALIDATION_JOBS"]); sys.exit(0 if jobs and all(job["result"] == "success" for job in jobs.values()) else 1)'
 
   web:
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,20 +207,59 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - name: Validate web
-        shell: bash
-        run: |
-          pnpm --filter web lint & lint_pid=$!
-          pnpm --filter web build & build_pid=$!
-          wait "$lint_pid"
-          wait "$build_pid"
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-      - run: pnpm --filter web test:danfe
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: timeout 40s pnpm --filter web build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-web-build-${{ github.sha }}
+          path: |
+            apps/web/.next/
+            !apps/web/.next/cache/
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  web-lint:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: timeout 35s pnpm --filter web lint
+
+  web-browser:
+    needs: web
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-web-build-${{ github.sha }}
+          path: apps/web/.next/
+      - run: timeout 40s pnpm --filter web test:danfe
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: erp-danfe-browser-${{ github.run_id }}
           path: artifacts/danfe-browser/
           if-no-files-found: warn
-

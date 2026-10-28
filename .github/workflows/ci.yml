@@ -41,7 +41,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/erp-db
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
-          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:127.0.0.1:5432 root@"$SSH_HOST"
+          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
       - name: Apply migrations from the CI image
         run: |
           gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "erp-api-$GITHUB_SHA"

@@ -5,7 +5,8 @@ componente. A implantação exige o resultado completo da execução aprovado.
 Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
 
 O dispatch opcional `provision=true` executa migrations **no runner GitHub**,
-conectado ao PostgreSQL por túnel SSH restrito a `127.0.0.1:5432`. A chave do
+conectado ao PostgreSQL por túnel SSH restrito a `172.17.0.1:5432`, sujeito a
+autenticação SCRAM em vez das regras trust de loopback. A chave do
 túnel não permite sessão ou execução de comandos. Os segredos são configurados
 no GitHub: `ERP_MIGRATION_DATABASE_URL`, `ERP_DB_TUNNEL_KEY`,
 `ERP_DB_KNOWN_HOSTS`, `ERP_DB_SSH_HOST`, `ERP_BOOTSTRAP_SUB` e

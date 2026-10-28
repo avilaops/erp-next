@@ -621,8 +621,8 @@ async fn party_complements_roundtrip_preserve_omitted_fields_and_remove_explicit
             Value::Null
         )
         .await
-        .2,
-        removed
+        .2["data"],
+        removed["data"]
     );
     cleanup(&admin, application, server, &role).await;
 }

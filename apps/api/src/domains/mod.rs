@@ -3,6 +3,7 @@ pub mod finance;
 pub mod fiscal;
 pub mod inventory;
 pub mod parties;
+mod party_complements;
 pub mod reference_data;
 pub mod sales;
 

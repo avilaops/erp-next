@@ -37,6 +37,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          key: rust-test-dependencies-v1
       - run: |
           remaining=$((ERP_CI_DEADLINE - $(date +%s)))
           (( remaining > 0 ))

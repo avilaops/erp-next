@@ -61,7 +61,7 @@ test('catalogue changes are part of source provenance and read preconditions are
   const reference = catalogue.actions.find(action => action.operation.method === 'PUT' && action.operation.path === '/api/v1/product-categories/{id}');
   assert.equal(reference.concurrency.idempotency, true);
   const movement = catalogue.actions.find(action => action.operation.method === 'POST' && action.operation.path === '/api/v1/stock/movements');
-  assert.ok(movement.preconditions.some(value => value.includes('Revisão de saldo no corpo')));
+  assert.ok(movement.preconditions.some(value => value.includes('Não exige revisão no corpo ou If-Match')));
   assert.equal(movement.input.headers.includes('If-Match'), false);
 });
 

@@ -165,14 +165,15 @@ async fn load(
     id: Uuid,
     can_edit: bool,
 ) -> Result<PurchaseSnapshot, DomainError> {
-    let data =
-        sqlx::query_as::<_, PurchaseSummary>(&format!("{SUMMARY} WHERE tenant_id=$1 AND id=$2"))
-            .bind(tenant)
-            .bind(id)
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(db)?
-            .ok_or(DomainError::NotFound)?;
+    let data = sqlx::query_as::<_, PurchaseSummary>(&format!(
+        "{SUMMARY} WHERE tenant_id=$1 AND id=$2 FOR SHARE"
+    ))
+    .bind(tenant)
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::NotFound)?;
     let items=sqlx::query_as::<_,PurchaseLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(received_micros::numeric/1000000)::numeric(19,6)::text AS received_quantity,(cost_cents::numeric/100)::numeric(16,2)::text AS unit_cost,(amount_cents::numeric/100)::numeric(16,2)::text AS amount FROM purchase_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number").bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     let receipt_count = sqlx::query_scalar(
         "SELECT count(*) FROM purchase_receipts WHERE tenant_id=$1 AND order_id=$2",
@@ -735,6 +736,7 @@ pub async fn receive(
     let rights = access::load_access(&mut tx, tenant, &identity.subject).await?;
     access::require_permission(&rights, "inventory.stock.manage")?;
     access::require_permission(&rights, "finance.payables.originate")?;
+    let can_edit = access::require_permission(&rights, "purchasing.orders.manage").is_ok();
     let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     input.reference = reference(&input.reference)?;
@@ -838,7 +840,7 @@ pub async fn receive(
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"purchase_receipt",id:receipt_id,event:"purchase.received",details:serde_json::json!({"orderId":id,"payableId":payable_id,"amount":decimal(total,2),"orderRevision":next})}).await?;
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"purchase_order",id,event:"purchase.receipt_applied",details:serde_json::json!({"receiptId":receipt_id,"previousRevision":expected,"revision":next,"status":status})}).await?;
     let result = value(ReceiptResult {
-        order: load(&mut tx, tenant, id, true).await?,
+        order: load(&mut tx, tenant, id, can_edit).await?,
         receipt: load_receipt(&mut tx, tenant, receipt_id).await?,
         payable_id,
     })?;

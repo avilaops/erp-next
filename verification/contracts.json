@@ -5038,8 +5038,9 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
-        "Revisão de saldo no corpo MovementInput; não presumir cabeçalho If-Match.",
-        "Quantidade positiva em escala fixa; não consumir reserva manualmente; estorno único e ligado ao original."
+        "Não exige revisão no corpo ou If-Match; concorrência usa lock da empresa e chave idempotente.",
+        "Quantidade positiva em escala fixa; não consumir reserva manualmente; estorno único e ligado ao original.",
+        "Estorno manual de movimento originado por pedido/recebimento de compra é recusado; devolução exige fluxo proprietário."
       ],
       "transition": {
         "from": "ausente",

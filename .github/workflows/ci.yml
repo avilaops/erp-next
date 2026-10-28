@@ -30,31 +30,99 @@ jobs:
       DATABASE_URL: postgres://postgres:erp_next_ci_only@127.0.0.1:5432/erp_next_test
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      # Bootstrap main's cache, compiled with 1.99.1. Its key also counted an
+      # installed 1.99.0 toolchain; Cargo validates artifacts before reuse.
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Test Rust and export candidate contract
+        run: |
+          mkdir -p artifacts/contracts
+          ERP_OPENAPI_OUTPUT="$GITHUB_WORKSPACE/artifacts/contracts/candidate.json" ERP_COMPANY_CONTRACT_OUTPUT="$GITHUB_WORKSPACE/artifacts/contracts/company.json" timeout 40s cargo test --workspace --locked -- --test-threads=4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-openapi-candidate-${{ github.sha }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  rust-lint:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: clippy,rustfmt
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust
+          cache-on-failure: true
+      - run: cargo fmt --all --check
+      - run: timeout 35s cargo clippy --workspace --all-targets -- -D warnings
+
+  contract-tests:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: bash scripts/contracts/install-oasdiff.sh
+      - run: node --test scripts/contracts/test/*.test.mjs
+
+  contracts:
+    needs: rust
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Test OpenAPI compatibility gate
-        run: |
-          bash scripts/contracts/install-oasdiff.sh
-          "$RUNNER_TEMP/erp-oasdiff-1.34.1/oasdiff" --version
-      - run: node --test scripts/contracts/test/*.test.mjs
       - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
         with:
-          components: clippy,rustfmt
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: |
-          mkdir -p artifacts/contracts
-          ERP_COMPANY_CONTRACT_OUTPUT="$GITHUB_WORKSPACE/artifacts/contracts/company.json" cargo test --workspace --locked -- --test-threads=1
-      - name: Capture contracts from tested revision and explicit base
+        with:
+          shared-key: rust
+          cache-on-failure: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-openapi-candidate-${{ github.sha }}
+          path: artifacts/contracts/
+      - name: Capture explicit baseline
         env:
           BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
-      - name: Compare OpenAPI with explicit baseline
-        run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
+        run: timeout 30s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
+      - run: bash scripts/contracts/install-oasdiff.sh
+      - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
       - name: Check fixed company consumer
         working-directory: scripts/contracts/consumer
         run: |
@@ -67,7 +135,7 @@ jobs:
         with:
           name: erp-openapi-${{ github.sha }}-${{ github.run_attempt }}
           path: artifacts/contracts/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   web:
@@ -84,19 +152,58 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - name: Validate web
-        shell: bash
-        run: |
-          pnpm --filter web lint & lint_pid=$!
-          pnpm --filter web build & build_pid=$!
-          wait "$lint_pid"
-          wait "$build_pid"
-      - run: pnpm --filter web exec playwright install --with-deps chromium
-      - run: pnpm --filter web test:danfe
+      - run: timeout 40s pnpm --filter web build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-web-build-${{ github.sha }}
+          path: |
+            apps/web/.next/
+            !apps/web/.next/cache/
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  web-lint:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: timeout 35s pnpm --filter web lint
+
+  web-browser:
+    needs: web
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-web-build-${{ github.sha }}
+          path: apps/web/.next/
+      - run: timeout 40s pnpm --filter web test:danfe
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: erp-danfe-browser-${{ github.run_id }}
           path: artifacts/danfe-browser/
           if-no-files-found: warn
-

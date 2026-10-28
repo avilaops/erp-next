@@ -102,6 +102,7 @@ test("mobile form fits the viewport and rejects oversized XML before the BFF", a
   await context.addCookies([cookie()])
   await page.setViewportSize({ width: 375, height: 844 })
   await page.goto("/fiscal/danfe")
+  await expect(page.getByLabel("XML autorizado da NF-e")).toBeEnabled()
   await page.getByLabel("XML autorizado da NF-e").setInputFiles({ name: "large.xml", mimeType: "application/xml", buffer: Buffer.alloc(900 * 1024 + 1, 120) })
   await page.getByRole("button", { name: "Gerar DANFE", exact: true }).click()
   await expect(page.getByRole("alert").filter({ hasText: "Selecione um XML de até 900 KiB" })).toHaveText("Selecione um XML de até 900 KiB")

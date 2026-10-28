@@ -31,6 +31,8 @@ test('removed guaranteed response property is incompatible', async()=>assert.equ
 test('removed success response is incompatible', async()=>assert.equal((await compare(d=>{d.paths['/company'].post.responses={'204':{description:'empty'}};})).compatible,false));
 test('new authentication requirement is incompatible', async()=>assert.equal((await compare(d=>{d.paths['/company'].post.security=[{bearer:[]}];})).compatible,false));
 test('invalid document fails closed', async()=>assert.rejects(compare(d=>{delete d.openapi;}),/INVALID_OPENAPI/));
+test('parseable document with missing required info fails closed', async()=>assert.rejects(compare(d=>{d.info={};}),/INVALID_OPENAPI/));
+test('external references are refused before invoking the comparator', async()=>assert.rejects(compare(d=>{d.components.schemas={Remote:{$ref:'https://example.invalid/schema.json'}};}),/INVALID_OPENAPI_EXTERNAL_REF/));
 test('comparator process failure fails closed', async()=>{
   assert.ok(adapter,'OpenAPI gate is not implemented');
   await assert.rejects(compare(()=>{}, {executable:'/nonexistent/oasdiff'}),/COMPARATOR_FAILED/);

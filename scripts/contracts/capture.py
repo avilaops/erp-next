@@ -56,7 +56,7 @@ def main():
                 baseline_source.write_text(original + include)
                 (baseline_source.parent / helper.name).write_bytes(helper_bytes)
                 manifest["baselineInstrumented"] = True
-            for label, checkout in [("baseline", baseline), ("candidate", root)]:
+            for label, checkout in [("baseline", baseline)]:
                 destination = output / f"{label}.json"
                 if destination.exists():
                     raise ValueError("ARTIFACT_ALREADY_EXISTS")
@@ -67,6 +67,8 @@ def main():
                                              "seconds": round(time.monotonic() - started, 3)})
         finally:
             run(["git", "worktree", "remove", "--force", str(baseline)], root)
+    manifest["captures"].append({"label": "candidate", "sha256": hashlib.sha256((output / "candidate.json").read_bytes()).hexdigest(),
+                                 "producer": "candidate Rust test job"})
     (output / "capture.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 

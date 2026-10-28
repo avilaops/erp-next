@@ -48,16 +48,16 @@ export const recordModules = [
   {
     href: "/cadastros/produtos",
     title: "Produtos",
-    description: "Variantes, GTIN, NCM, imagens e preços",
+    description: "SKU, unidade, preço base e classificação declarada",
     icon: Boxes,
-    count: 128,
+    count: null,
   },
   {
     href: "/cadastros/clientes-fornecedores",
     title: "Clientes e fornecedores",
-    description: "Pessoas, documentos, endereços e contatos",
+    description: "Identificação, papéis comerciais e contatos",
     icon: Building2,
-    count: 84,
+    count: null,
   },
   {
     href: "/cadastros/vendedores",
@@ -78,28 +78,28 @@ export const recordModules = [
     title: "Contas financeiras",
     description: "Bancos, caixas e contas internas",
     icon: Landmark,
-    count: 5,
+    count: null,
   },
   {
     href: "/cadastros/categorias-financeiras",
     title: "Categorias financeiras",
     description: "Classificação de receitas e despesas",
     icon: Tags,
-    count: 18,
+    count: null,
   },
   {
     href: "/cadastros/formas-pagamento",
     title: "Formas de pagamento",
     description: "Pix, dinheiro, cartões e boletos",
     icon: CreditCard,
-    count: 7,
+    count: null,
   },
   {
     href: "/cadastros/categorias-produtos",
     title: "Categorias de produtos",
     description: "Hierarquia e organização do catálogo",
     icon: FolderTree,
-    count: 23,
+    count: null,
   },
   {
     href: "/cadastros/listas-precos",
@@ -384,8 +384,8 @@ export function RecordsOverview() {
         description="Registros fundamentais compartilhados pelos módulos do ERP."
       />
       <div className="mb-6 rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
-        Dados demonstrativos da Ludus Equipamentos. Nenhuma alteração é
-        persistida sem backend.
+        Produtos, clientes e fornecedores usam a API da empresa autenticada.
+        Os demais cadastros desta central ainda apresentam dados demonstrativos.
       </div>
       <section
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
@@ -412,7 +412,7 @@ export function RecordsOverview() {
                 <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                {item.count} registros simulados
+                {item.count === null ? "Cadastro conectado · consulta exige acesso à empresa" : `${item.count} registros simulados`}
               </p>
             </Link>
           );
@@ -583,7 +583,7 @@ export function RecordsList({ module }: { module: keyof typeof configs }) {
                 </div>
                 <p className="text-sm text-muted-foreground">{item.meta}</p>
                 <span
-                  className={`w-fit rounded-full border px-2.5 py-1 text-xs ${item.status === "Ativo" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500" : item.status === "Revisar" ? "border-amber-500/20 bg-amber-500/10 text-amber-500" : "border-border bg-muted text-muted-foreground"}`}
+                  className={`w-fit rounded-full border px-2.5 py-1 text-xs ${item.status === "Ativo" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : item.status === "Revisar" ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400" : "border-border bg-muted text-muted-foreground"}`}
                 >
                   {item.status}
                 </span>

@@ -1,9 +1,11 @@
 .env
 .env.local
 .next/
+.next-*/
 node_modules/
 target/
 .sqlx/
+.venv-verification/
 coverage/
 test-results/
 playwright-report/
@@ -13,4 +15,9 @@ var/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local conversations, scratch notes and generated document previews.
+/codex-ml.md
+/Untitled-*.md
+/output/
 

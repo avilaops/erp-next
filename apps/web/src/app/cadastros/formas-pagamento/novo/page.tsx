@@ -1,4 +1,5 @@
-import { FinancialRecordForm } from "@/features/record-details/financial-record";
-export default function NewPaymentMethodPage() {
-  return <FinancialRecordForm kind="payments" />;
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
+
+export default function Page() {
+  return <ReferenceAccess kind="formas-pagamento" mode="create" />
 }

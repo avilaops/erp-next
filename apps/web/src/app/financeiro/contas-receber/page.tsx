@@ -1,2 +1,3 @@
-import { FinanceList } from "@/features/finance/finance-pages"
-export default function Page() { return <FinanceList kind="contas-receber" /> }
+import { Suspense } from "react"
+import { OperationsAccess } from "@/features/operations/operations-access"
+export default function Page() { return <Suspense fallback={<p role="status">Carregando contas…</p>}><OperationsAccess area="receivables" /></Suspense> }

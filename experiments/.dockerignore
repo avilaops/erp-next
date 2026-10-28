@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/public
+**/.public-build-*
+**/.public-build.lock
+**/.export-test-*
+var
+reports
+.git
+.env*
+*.tgz
+*.zip
+verification
+evidencias

@@ -1,5 +1,6 @@
 import Link from "next/link"
-import Image from "next/image"
+import { Suspense } from "react"
+import { CompanyWorkspace } from "@/features/company/company-workspace"
 import {
   BadgeCheck,
   Building2,
@@ -131,15 +132,7 @@ export default function CompanyPreferencesPage() {
           </label>
         </div>
 
-        <section className="company-summary" aria-labelledby="active-company-title">
-          <span className="company-logo"><Image alt="Marca Ludus" height={56} priority src="/brand/ludus-symbol.png" width={56} /></span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Empresa ativa</p><span className="status-pill success">Cadastro ativo</span></div>
-            <h2 className="mt-1 truncate text-xl font-semibold" id="active-company-title">Ludus Equipamentos</h2>
-            <p className="mt-1 text-sm text-muted-foreground">LUDUS EQUIPAMENTOS PARA MUSCULAÇÃO LTDA · 66.058.955/0001-08</p>
-          </div>
-          <div className="completion"><div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Cadastro</span><strong>78%</strong></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full w-[78%] rounded-full bg-primary" /></div></div>
-        </section>
+        <Suspense fallback={<p role="status">Carregando empresa…</p>}><CompanyWorkspace summary /></Suspense>
 
         <div className="mt-8 space-y-8">
           {settingsGroups.map((group) => (

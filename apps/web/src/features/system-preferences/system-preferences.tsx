@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -10,15 +10,12 @@ import {
   Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/theme-provider";
 
 type Theme = "light" | "dark" | "system";
 
 export function SystemPreferences() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
-    const stored = window.localStorage.getItem("erp-theme");
-    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
-  });
+  const [theme, setTheme] = useTheme();
   const [language, setLanguage] = useState("pt-BR");
   const [dateFormat, setDateFormat] = useState("dd/MM/yyyy");
   const [numberFormat, setNumberFormat] = useState("pt-BR");
@@ -42,22 +39,8 @@ export function SystemPreferences() {
     [dateFormat, numberFormat],
   );
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => document.documentElement.classList.toggle("dark", theme === "dark" || (theme === "system" && media.matches));
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [theme]);
-
   function applyTheme(next: Theme) {
     setTheme(next);
-    window.localStorage.setItem("erp-theme", next);
-    const dark =
-      next === "dark" ||
-      (next === "system" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
     setSaved(false);
   }
 

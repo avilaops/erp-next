@@ -1,2 +1,3 @@
-import { InventoryScreen } from "@/features/inventory/inventory-screen"
-export default function Page(){return <InventoryScreen kind="overview"/>}
+import { Suspense } from "react"
+import { StockAccess } from "@/features/inventory/stock-access"
+export default function Page() { return <Suspense fallback={<p role="status">Carregando estoque…</p>}><StockAccess /></Suspense> }

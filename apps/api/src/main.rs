@@ -1,9 +1,11 @@
 mod config;
+mod domains;
 mod http;
 mod platform;
 
 use anyhow::Context;
 use config::Config;
+use platform::auth::AuthClient;
 use platform::state::AppState;
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
@@ -20,16 +22,25 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("failed to connect to PostgreSQL")?;
 
-    sqlx::migrate!("../../migrations")
-        .run(&pool)
-        .await
-        .context("failed to apply database migrations")?;
+    match std::env::args().nth(1).as_deref() {
+        Some("migrate") => {
+            sqlx::migrate!("../../migrations")
+                .run(&pool)
+                .await
+                .context("failed to apply database migrations")?;
+            info!("database migrations applied");
+            return Ok(());
+        }
+        Some(_) => anyhow::bail!("usage: erp-next-api [migrate]"),
+        None => {}
+    }
 
     let listener = TcpListener::bind(config.bind_address)
         .await
         .context("failed to bind HTTP listener")?;
     let local_address = listener.local_addr()?;
-    let app = http::router(AppState::new(pool));
+    let auth = AuthClient::new(config.auth_userinfo_url);
+    let app = http::router(AppState::new(pool, auth));
 
     info!(%local_address, "ERP Next API listening");
     axum::serve(listener, app)

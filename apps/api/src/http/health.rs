@@ -3,15 +3,17 @@ use serde::Serialize;
 
 use crate::platform::state::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct HealthResponse {
     status: &'static str,
 }
 
+#[utoipa::path(get, path = "/health/live", tag = "Health", responses((status = 200, body = HealthResponse)))]
 pub async fn live() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
 }
 
+#[utoipa::path(get, path = "/health/ready", tag = "Health", responses((status = 200, body = HealthResponse), (status = 503, body = HealthResponse)))]
 pub async fn ready(
     State(state): State<AppState>,
 ) -> Result<Json<HealthResponse>, (StatusCode, Json<HealthResponse>)> {

@@ -1,2 +1,3 @@
-import { RecordsList } from "@/features/records/records-module"
-export default function PeoplePage() { return <RecordsList module="clientes-fornecedores" /> }
+import { Suspense } from "react"
+import { PartyAccess } from "@/features/parties/party-access"
+export default function PeoplePage() { return <Suspense fallback={<p role="status">Carregando pessoas…</p>}><PartyAccess /></Suspense> }

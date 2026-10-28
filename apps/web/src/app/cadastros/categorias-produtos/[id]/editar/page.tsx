@@ -1,10 +1,5 @@
-import { CatalogRecordForm } from "@/features/record-details/catalogo-record-pages";
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
 
-export default async function EditProductCategoryPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <CatalogRecordForm kind="category" mode="edit" id={id} />;
+export default function Page( { params }: { params: Promise<{ id: string }> } ) {
+  return <ReferenceAccess kind="categorias-produtos" mode="edit" params={params} />
 }

@@ -1,0 +1,34 @@
+name: ERP verification inventory
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:verification
+      - run: python3 -B -m unittest discover -s verification/ml -p 'test_*.py'
+      - run: pnpm verify:erp
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-verification-${{ github.run_id }}
+          path: artifacts/verification/
+          if-no-files-found: warn

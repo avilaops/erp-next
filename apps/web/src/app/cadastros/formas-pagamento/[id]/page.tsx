@@ -1,7 +1,5 @@
-import { FinancialRecordDetail } from "@/features/record-details/financial-record";
-export default async function PaymentMethodDetailPage({
-  params,
-}: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <FinancialRecordDetail kind="payments" recordId={id} />;
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
+
+export default function Page( { params }: { params: Promise<{ id: string }> } ) {
+  return <ReferenceAccess kind="formas-pagamento" mode="view" params={params} />
 }

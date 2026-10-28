@@ -1,19 +1,105 @@
+#[cfg(test)]
+mod access_tests;
+#[cfg(test)]
+mod company_tests;
+#[cfg(test)]
+mod domain_tests;
+#[cfg(test)]
+mod fiscal_tests;
 mod health;
+mod openapi;
+#[cfg(test)]
+mod operations_tests;
+#[cfg(test)]
+mod parties_tests;
+#[cfg(test)]
+mod reference_tests;
 
-use axum::{Router, routing::get};
+use axum::{Router, middleware, routing::get};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
 };
 
-use crate::platform::state::AppState;
+use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
+use crate::platform::{access, access_management, auth, company, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
+    let protected = Router::new()
+        .merge(fiscal::routes())
+        .merge(reference_data::routes())
+        .route("/api/v1/orders", get(sales::list).post(sales::create))
+        .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
+        .route(
+            "/api/v1/orders/{id}/confirm",
+            axum::routing::post(sales::confirm),
+        )
+        .route(
+            "/api/v1/orders/{id}/cancel",
+            axum::routing::post(sales::cancel),
+        )
+        .route(
+            "/api/v1/orders/{id}/complete",
+            axum::routing::post(sales::complete),
+        )
+        .route("/api/v1/receivables", get(finance::list))
+        .route("/api/v1/receivables/{id}", get(finance::get))
+        .route(
+            "/api/v1/receivables/{id}/payments",
+            axum::routing::post(finance::pay),
+        )
+        .route(
+            "/api/v1/receivables/{id}/reverse-payment",
+            axum::routing::post(finance::reverse),
+        )
+        .route("/api/v1/parties", get(parties::list).post(parties::create))
+        .route(
+            "/api/v1/parties/{id}",
+            get(parties::get).put(parties::update),
+        )
+        .route("/api/v1/products", get(catalog::list).post(catalog::create))
+        .route(
+            "/api/v1/products/{id}",
+            get(catalog::get).put(catalog::update),
+        )
+        .route("/api/v1/stock", get(inventory::balances))
+        .route(
+            "/api/v1/stock/movements",
+            get(inventory::history).post(inventory::post_movement),
+        )
+        .route(
+            "/api/v1/company",
+            get(company::get_company).put(company::put_company),
+        )
+        .route("/api/v1/me", get(access::current_access))
+        .route("/api/v1/users", get(access::list_users))
+        .route("/api/v1/permissions", get(access::list_permissions))
+        .route(
+            "/api/v1/roles",
+            get(access::list_roles).post(access_management::create_role),
+        )
+        .route(
+            "/api/v1/roles/{id}",
+            get(access_management::get_role)
+                .put(access_management::update_role)
+                .delete(access_management::delete_role),
+        )
+        .route(
+            "/api/v1/users/{id}",
+            get(access_management::get_member).put(access_management::update_member),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
+
     Router::new()
+        .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
+        .merge(protected)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
@@ -33,7 +119,9 @@ mod tests {
         let pool = PgPoolOptions::new()
             .connect_lazy("postgres://postgres:postgres@127.0.0.1:1/erp_next")
             .expect("valid test database URL");
-        let response = router(AppState::new(pool))
+        let auth =
+            crate::platform::auth::AuthClient::new("http://127.0.0.1:1/oauth/userinfo".to_owned());
+        let response = router(AppState::new(pool, auth))
             .oneshot(
                 Request::builder()
                     .uri("/health/live")
@@ -44,5 +132,62 @@ mod tests {
             .expect("router response");
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn protected_routes_require_a_bearer_token_before_database_access() {
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://postgres:postgres@127.0.0.1:1/erp_next")
+            .expect("valid test database URL");
+        let auth =
+            crate::platform::auth::AuthClient::new("http://127.0.0.1:1/oauth/userinfo".to_owned());
+        let response = router(AppState::new(pool, auth))
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/me")
+                    .body(Body::empty())
+                    .expect("valid request"),
+            )
+            .await
+            .expect("router response");
+
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn protected_routes_reject_tokens_refused_by_auth() {
+        let auth_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test auth listener");
+        let auth_address = auth_listener.local_addr().expect("test auth address");
+        let auth_server = tokio::spawn(async move {
+            axum::serve(
+                auth_listener,
+                Router::new().route(
+                    "/oauth/userinfo",
+                    get(|| async { axum::http::StatusCode::UNAUTHORIZED }),
+                ),
+            )
+            .await
+        });
+
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://postgres:postgres@127.0.0.1:1/erp_next")
+            .expect("valid test database URL");
+        let auth =
+            crate::platform::auth::AuthClient::new(format!("http://{auth_address}/oauth/userinfo"));
+        let response = router(AppState::new(pool, auth))
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/me")
+                    .header(axum::http::header::AUTHORIZATION, "Bearer refused")
+                    .body(Body::empty())
+                    .expect("valid request"),
+            )
+            .await
+            .expect("router response");
+        auth_server.abort();
+
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
     }
 }

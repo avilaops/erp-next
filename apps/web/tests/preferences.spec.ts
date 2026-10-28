@@ -6,13 +6,13 @@ const appDirectory = path.join(process.cwd(), "src", "app")
 const routes = collectPages(appDirectory).map((file) => {
   const relative = path.relative(appDirectory, path.dirname(file)).replaceAll("\\", "/")
   const pathname = relative ? `/${relative}` : "/"
-  return pathname.replace("[id]", "2").replace("[provider]", "mercado-livre")
+  return pathname.replace("/usuarios/[id]", "/usuarios/77777777-7777-4777-8777-777777777777").replace("[id]", "2").replace("[provider]", "mercado-livre")
 }).sort()
 const viewports = [320, 375, 768, 1024, 1440]
 const responsiveRoutes = [
   "/", "/cadastros/produtos/novo", "/estoque", "/compras/pedidos/novo", "/vendas/pdv",
   "/financeiro", "/fiscal", "/logistica", "/servicos", "/relatorios",
-  "/preferencias/empresa/dados", "/preferencias/usuarios/2",
+  "/preferencias/empresa/dados", "/preferencias/usuarios/77777777-7777-4777-8777-777777777777",
   "/vendas/pedidos/pv-1048", "/fiscal/notas-saida/NFE-000184", "/logistica/postagens/OBJ-2481",
   "/dashboards/vendas", "/eventos", "/assistente",
 ]
@@ -40,16 +40,13 @@ for (const route of responsiveRoutes) {
   })
 }
 
-test("estados comuns de usuários são acessíveis", async ({ page }) => {
+test("acessos sem configuração não exibem usuários simulados", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 844 })
-  await page.goto("/preferencias/usuarios")
-  const simulator = page.getByLabel("Simular estado")
-  await simulator.selectOption("loading")
-  await expect(page.getByLabel("Carregando usuários")).toBeVisible()
-  await simulator.selectOption("error")
-  await expect(page.getByRole("heading", { name: "Não foi possível carregar os usuários" })).toBeVisible()
-  await simulator.selectOption("forbidden")
-  await expect(page.getByRole("heading", { name: "Você não tem permissão para gerenciar acessos" })).toBeVisible()
+  for (const route of ["/preferencias/usuarios", "/preferencias/papeis"]) {
+    await page.goto(route)
+    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+    await expect(page.getByLabel("Simular estado")).toHaveCount(0)
+  }
 })
 
 test("paleta Ctrl+K abre, recebe foco e devolve foco ao fechar", async ({ page }) => {
@@ -122,8 +119,8 @@ test("PDV controla quantidade, pagamento e limpeza da venda", async ({ page }) =
   await expect(page.getByText("R$ 0,00", { exact: true })).toBeVisible()
 })
 
-test("listagens de cadastros expõem ações e paginação honestas", async ({ page }) => {
-  await page.goto("/cadastros/produtos")
+test("listagens demonstrativas expõem ações e paginação honestas", async ({ page }) => {
+  await page.goto("/cadastros/vendedores")
   await page.getByRole("button", { name: "Importar" }).click()
   await expect(page.getByRole("status")).toContainText("nenhum arquivo foi enviado")
   await page.getByRole("button", { name: "Exportar" }).click()
@@ -133,13 +130,6 @@ test("listagens de cadastros expõem ações e paginação honestas", async ({ p
 })
 
 test("formulários restauram coleções locais ao cancelar", async ({ page }) => {
-  await page.goto("/cadastros/produtos/novo")
-  await page.getByRole("button", { name: "Adicionar variante" }).click()
-  await expect(page.getByLabel("Nome da variante 2")).toBeVisible()
-  await page.getByRole("button", { name: "Cancelar" }).click()
-  await expect(page.getByLabel("Nome da variante 2")).toHaveCount(0)
-  await expect(page.getByLabel("Nome da variante 1")).toHaveValue("Padrão")
-
   await page.goto("/compras/pedidos/novo")
   const save = page.getByRole("button", { name: "Salvar demonstração" })
   await expect(save).toBeDisabled()
@@ -150,10 +140,8 @@ test("formulários restauram coleções locais ao cancelar", async ({ page }) =>
   await expect(save).toBeDisabled()
 })
 
-test("cadastros navegam entre listagem, criação, detalhe e edição", async ({ page }) => {
+test.describe("cadastros navegam entre listagem, criação, detalhe e edição", () => {
   const flows = [
-    ["produtos", "Novo produto", "PRD-001"],
-    ["clientes-fornecedores", "Nova pessoa", "PES-001"],
     ["vendedores", "Novo vendedor", "VEN-001"],
     ["funcionarios", "Novo funcionário", "FUN-001"],
     ["contas-financeiras", "Nova conta", "CTA-001"],
@@ -164,13 +152,23 @@ test("cadastros navegam entre listagem, criação, detalhe e edição", async ({
   ] as const
 
   for (const [module, createLabel, id] of flows) {
-    await page.goto(`/cadastros/${module}`)
-    await expect(page.getByRole("link", { name: createLabel })).toHaveAttribute("href", `/cadastros/${module}/novo`)
-    await expect(page.locator(`a[href="/cadastros/${module}/${id}"]`)).toBeVisible()
-    await page.goto(`/cadastros/${module}/${id}`)
-    await expect(page.locator("h1")).toBeVisible()
-    await expect(page.locator(`a[href="/cadastros/${module}/${id}/editar"]`)).toBeVisible()
+    test(module, async ({ page }) => {
+      await page.goto(`/cadastros/${module}`)
+      await expect(page.getByRole("link", { name: createLabel })).toHaveAttribute("href", `/cadastros/${module}/novo`)
+      await expect(page.locator(`a[href="/cadastros/${module}/${id}"]`)).toBeVisible()
+      await page.goto(`/cadastros/${module}/${id}`)
+      await expect(page.locator("h1")).toBeVisible()
+      await expect(page.locator(`a[href="/cadastros/${module}/${id}/editar"]`)).toBeVisible()
+    })
   }
+  test("pessoas exigem configuração de acesso", async ({ page }) => {
+    for (const route of ["/cadastros/clientes-fornecedores", "/cadastros/clientes-fornecedores/novo", "/cadastros/clientes-fornecedores/00000000-0000-0000-0000-000000000000/editar"]) {
+      await page.goto(route)
+      await expect(page.getByRole("heading", { name: "Clientes e fornecedores", exact: true })).toBeVisible()
+      await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+      await expect(page.getByText("PES-001", { exact: true })).toHaveCount(0)
+    }
+  })
 })
 
 test("compras e estoque navegam para seus fluxos operacionais", async ({ page }) => {
@@ -190,7 +188,6 @@ test("compras e estoque navegam para seus fluxos operacionais", async ({ page })
   await expect(page.getByRole("status")).toContainText(/aprovado/i)
 
   const inventoryFlows = [
-    ["/estoque/lancamentos", "/estoque/lancamentos/novo", "/estoque/lancamentos/MOV-01842"],
     ["/estoque/inventarios", "/estoque/inventarios/novo", "/estoque/inventarios/INV-2026-004"],
     ["/estoque/depositos", "/estoque/depositos/novo", "/estoque/depositos/DEP-01"],
     ["/estoque/ordens-producao", "/estoque/ordens-producao/novo", "/estoque/ordens-producao/OP-00981"],
@@ -200,11 +197,16 @@ test("compras e estoque navegam para seus fluxos operacionais", async ({ page })
     await expect(page.locator(`a[href="${create}"]`)).toBeVisible()
     await expect(page.locator(`a[href="${detail}"]`)).toBeVisible()
   }
+  for (const route of ["/estoque", "/estoque/saldos", "/estoque/lancamentos", "/estoque/lancamentos/novo"]) {
+    await page.goto(route)
+    await expect(page.getByRole("heading", { name: "Saldos e movimentos", exact: true })).toBeVisible()
+    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+    await expect(page.getByText("MOV-01842", { exact: true })).toHaveCount(0)
+  }
 })
 
 test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   const flows = [
-    ["/vendas/pedidos", "/vendas/pedidos/novo", "/vendas/pedidos/pv-1048"],
     ["/vendas/propostas", "/vendas/propostas/novo", "/vendas/propostas/pc-382"],
     ["/vendas/anuncios", "/vendas/anuncios/novo", "/vendas/anuncios/an-210"],
     ["/vendas/garantias", "/vendas/garantias/novo", "/vendas/garantias/gar-091"],
@@ -218,6 +220,10 @@ test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   await page.goto("/vendas/pdv")
   await expect(page.locator('a[href="/vendas/pdv/fechamento"]')).toBeVisible()
   await expect(page.locator('a[href="/vendas/pdv/historico"]')).toBeVisible()
+  for (const route of ["/vendas/pedidos", "/vendas/pedidos/novo", "/financeiro/contas-receber"]) {
+    await page.goto(route)
+    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+  }
 })
 
 test("fiscal navega para documentos, monitor e guias detalhados", async ({ page }) => {
@@ -302,14 +308,28 @@ test("menus expõem dashboards, central de trabalho e rotas operacionais", async
   await expect(navigation.locator('a[href="/financeiro/conta-digital"]')).toBeVisible()
 })
 
-test("home gerencia favoritos, períodos e gráficos localmente", async ({ page }) => {
+test("home gerencia atalhos sem inventar indicadores ou eventos", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "Remover Pedidos de venda" }).click()
   await expect(page.getByRole("button", { name: "Adicionar Pedidos de venda" })).toBeVisible()
   await page.getByRole("button", { name: "30D" }).click()
   await expect(page.getByRole("button", { name: "30D" })).toHaveAttribute("aria-pressed", "true")
   await page.getByRole("button", { name: "Adicionar gráfico" }).click()
-  await expect(page.getByText("120 pedidos")).toBeVisible()
+  await expect(page.getByRole("article", { name: "Gráfico Pedidos de venda", exact: true })).toContainText("A fonte de dados ainda não está conectada")
+  await expect(page.getByText("Pedido de venda #1048", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("R$ 95.835,73", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Ludus Equipamentos", { exact: true })).toHaveCount(0)
+  for (const width of [320, 375, 440, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    const dimensions = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }))
+    expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width)
+    const logistics = await page.getByRole("link", { name: "Logística Expedição, transportadoras e etiquetas" }).boundingBox()
+    expect(logistics).not.toBeNull()
+    expect(logistics!.x + logistics!.width).toBeLessThanOrEqual(width)
+  }
+  await page.setViewportSize({ width: 440, height: 956 })
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({ path: "../../evidencias/screenshots/erp-home-mobile-sem-dados-ficticios.png", fullPage: true })
 })
 
 test("central de trabalho controla eventos e notificações locais", async ({ page }) => {
@@ -334,7 +354,11 @@ test("experiência opcional mantém assistente, novidades e plano locais", async
 })
 
 test("temas claro e escuro são aplicados", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" })
+  await page.goto("/")
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.goto("/preferencias/sistema")
+  await expect(page.getByRole("radio", { name: "Claro" })).toBeChecked()
   await page.getByRole("radio", { name: "Claro" }).check()
   await expect(page.locator("html")).not.toHaveClass(/dark/)
   await page.getByRole("radio", { name: "Escuro" }).check()
@@ -342,6 +366,17 @@ test("temas claro e escuro são aplicados", async ({ page }) => {
   await page.reload()
   await expect(page.getByRole("radio", { name: "Escuro" })).toBeChecked()
   await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.goto("/")
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.goto("/preferencias/sistema")
+  await page.getByRole("radio", { name: "Sistema", exact: true }).check()
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await page.getByRole("radio", { name: "Claro" }).check()
+  await page.goto("/")
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
 })
 
 function collectPages(directory: string): string[] {

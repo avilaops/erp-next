@@ -1,24 +1,15 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
-import { UserForm } from "@/features/usuarios/user-form"
-import { Skeleton } from "@/components/ui/skeleton"
-
-const mockUserIds = ["1", "2", "3", "4", "5"]
-
-export function generateStaticParams() {
-  return mockUserIds.map((id) => ({ id }))
-}
+import { AccessWorkspace } from "@/features/access/access-workspace"
+import { PageHeader } from "@/components/page-header"
+import { uuidPattern } from "@/lib/erp-session"
 
 export default function EditUserPage({ params }: PageProps<"/preferencias/usuarios/[id]">) {
-  return <Suspense fallback={<UserFormLoading />}><ResolvedEditUser params={params} /></Suspense>
+  return <div className="mx-auto max-w-5xl px-4 pb-28 pt-8 lg:px-6"><PageHeader eyebrow="Preferências / Usuários" title="Acesso do usuário" description="Consulte a identidade central e gerencie sua associação a esta empresa." /><Suspense fallback={<p role="status">Carregando acesso…</p>}><ResolvedMember params={params} /></Suspense></div>
 }
 
-async function ResolvedEditUser({ params }: Pick<PageProps<"/preferencias/usuarios/[id]">, "params">) {
+async function ResolvedMember({ params }: Pick<PageProps<"/preferencias/usuarios/[id]">, "params">) {
   const { id } = await params
-  if (!mockUserIds.includes(id)) notFound()
-  return <UserForm userId={id} />
-}
-
-function UserFormLoading() {
-  return <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 lg:px-6" aria-label="Carregando usuário"><Skeleton className="h-8 w-44" /><Skeleton className="h-28 w-full rounded-2xl" /><Skeleton className="h-72 w-full rounded-2xl" /><Skeleton className="h-48 w-full rounded-2xl" /></div>
+  if (!uuidPattern.test(id)) notFound()
+  return <AccessWorkspace view="member" memberId={id} />
 }

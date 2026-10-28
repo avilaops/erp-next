@@ -1,0 +1,9 @@
+{
+  "public": 200,
+  "privateAnonymous": 401,
+  "privateAuthenticated": 200,
+  "initialCases": 14,
+  "desktop": true,
+  "mobile": true,
+  "consoleErrors": []
+}

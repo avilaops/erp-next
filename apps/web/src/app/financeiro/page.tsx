@@ -1,2 +1,1 @@
-import { FinanceOverview } from "@/features/finance/finance-pages"
-export default function Page() { return <FinanceOverview /> }
+export { default } from "./contas-receber/page"

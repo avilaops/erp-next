@@ -1,4 +1,5 @@
-import { FinancialRecordForm } from "@/features/record-details/financial-record";
-export default function NewFinancialCategoryPage() {
-  return <FinancialRecordForm kind="categories" />;
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
+
+export default function Page() {
+  return <ReferenceAccess kind="categorias-financeiras" mode="create" />
 }

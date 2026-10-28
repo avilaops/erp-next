@@ -1,0 +1,9 @@
+{
+  "name": "experiment-package-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@avilaops/experiments": "file:../../avilaops-experiments-0.3.0.tgz"
+  }
+}

@@ -1,7 +1,5 @@
-import { FinancialRecordForm } from "@/features/record-details/financial-record";
-export default async function EditPaymentMethodPage({
-  params,
-}: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <FinancialRecordForm kind="payments" recordId={id} />;
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
+
+export default function Page( { params }: { params: Promise<{ id: string }> } ) {
+  return <ReferenceAccess kind="formas-pagamento" mode="edit" params={params} />
 }

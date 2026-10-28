@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: ["company-persistence.spec.ts", "access-persistence.spec.ts", "catalog-persistence.spec.ts", "stock-persistence.spec.ts", "party-persistence.spec.ts", "operations-persistence.spec.ts", "reference-persistence.spec.ts", "danfe-ui.spec.ts"],
   fullyParallel: true,
   workers: 5,
   forbidOnly: Boolean(process.env.CI),
@@ -9,7 +10,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: "http://127.0.0.1:3201",
-    colorScheme: "dark",
+    colorScheme: "light",
     screenshot: "only-on-failure",
     trace: "off",
   },

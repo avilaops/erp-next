@@ -184,6 +184,7 @@ function FiscalList({ kind }: { kind: Exclude<Kind, "overview"> }) {
       back="/fiscal"
       actions={
         <>
+          {kind === "invoices" && <Link className={buttonVariants({ variant: "outline" })} href="/fiscal/danfe">DANFE de XML autorizado</Link>}
           <select
             aria-label="Simular estado"
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm"

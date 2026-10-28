@@ -1,5 +1,5 @@
-import { CatalogRecordForm } from "@/features/record-details/catalogo-record-pages";
+import { ReferenceAccess } from "@/features/reference-data/reference-access"
 
-export default function NewProductCategoryPage() {
-  return <CatalogRecordForm kind="category" mode="create" />;
+export default function Page() {
+  return <ReferenceAccess kind="categorias-produtos" mode="create" />
 }

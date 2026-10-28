@@ -1,18 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import { ImagePlus, Info, Plus, Trash2 } from "lucide-react";
+import { Info, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { brazilianStates, companyFields, type CompanyData } from "./company-types";
 
 const segments = ["Comércio", "E-commerce", "Serviços", "Indústria"];
-const initialRegistrations = [{ id: 1, state: "", value: "" }];
-
-export function CompanyDataForm() {
+export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: {
+  initial: CompanyData;
+  canEdit: boolean;
+  saving: boolean;
+  conflict: boolean;
+  onSave: (data: CompanyData) => Promise<boolean>;
+}) {
+  const initialRegistrations = initial.substituteRegistrations.length
+    ? initial.substituteRegistrations.map((registration, index) => ({ ...registration, id: index }))
+    : [{ id: 0, state: "", value: "" }];
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const [stateRegistrations, setStateRegistrations] = useState(initialRegistrations);
-  const [selectedSegments, setSelectedSegments] = useState<string[]>(["Comércio"]);
+  const [selectedSegments, setSelectedSegments] = useState<string[]>(initial.segments);
 
   useEffect(() => {
     const preventLoss = (event: BeforeUnloadEvent) => {
@@ -28,10 +35,13 @@ export function CompanyDataForm() {
     setSaved(false);
   }
 
-  function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDirty(false);
-    setSaved(true);
+    if (!canEdit || saving || conflict) return;
+    const form = new FormData(event.currentTarget);
+    const fields = Object.fromEntries(companyFields.map((field) => [field, String(form.get(field) || "")]));
+    const success = await onSave({ ...fields, segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
+    if (success) { setDirty(false); setSaved(true); }
   }
 
   function addRegistration() {
@@ -51,13 +61,14 @@ export function CompanyDataForm() {
 
   function resetLocalState() {
     setStateRegistrations(initialRegistrations);
-    setSelectedSegments(["Comércio"]);
+    setSelectedSegments(initial.segments);
     setDirty(false);
     setSaved(false);
   }
 
   return (
     <form className="space-y-6" onChange={markDirty} onSubmit={save}>
+      <fieldset className="contents" disabled={!canEdit || saving}>
       <div className="form-actions flex-wrap" aria-label="Ações do formulário">
         <span
           className="mr-auto basis-full text-sm text-muted-foreground sm:basis-auto"
@@ -65,7 +76,7 @@ export function CompanyDataForm() {
           aria-live="polite"
         >
           {saved
-            ? "Alterações salvas localmente"
+            ? "Alterações salvas no servidor"
             : dirty
               ? "Alterações não salvas"
               : "Nenhuma alteração pendente"}
@@ -77,8 +88,8 @@ export function CompanyDataForm() {
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={!dirty || selectedSegments.length === 0}>
-          Salvar alterações
+        <Button type="submit" disabled={!dirty || selectedSegments.length === 0 || conflict}>
+          {saving ? "Salvando…" : "Salvar alterações"}
         </Button>
       </div>
 
@@ -93,44 +104,44 @@ export function CompanyDataForm() {
             Nome empresarial *
             <input
               name="legalName"
-              defaultValue="LUDUS EQUIPAMENTOS PARA MUSCULAÇÃO LTDA"
+              defaultValue={initial.legalName}
               required
             />
           </label>
           <label className="field span-2">
             Nome fantasia
-            <input name="tradeName" defaultValue="Ludus Equipamentos" />
+            <input name="tradeName" defaultValue={initial.tradeName} />
           </label>
           <label className="field">
             Tipo de pessoa
-            <select name="personType" defaultValue="juridica">
+            <select name="personType" defaultValue={initial.personType}>
               <option value="juridica">Pessoa jurídica</option>
               <option value="fisica">Pessoa física</option>
             </select>
           </label>
           <label className="field">
-            CNPJ *
-            <input name="taxId" defaultValue="66.058.955/0001-08" required />
+            CPF ou CNPJ *
+            <input name="taxId" defaultValue={initial.taxId} required />
           </label>
           <label className="field">
             Inscrição estadual
-            <input name="stateRegistration" defaultValue="718.319.130.117" />
+            <input name="stateRegistration" defaultValue={initial.stateRegistration} />
           </label>
           <label className="field">
             Inscrição municipal
-            <input name="municipalRegistration" />
+            <input name="municipalRegistration" defaultValue={initial.municipalRegistration} />
           </label>
           <label className="field">
             Inscrição SUFRAMA
-            <input name="suframa" />
+            <input name="suframa" defaultValue={initial.suframa} />
           </label>
           <label className="field">
             CNAE
-            <input name="cnae" placeholder="Não informado" />
+            <input name="cnae" defaultValue={initial.cnae} placeholder="Não informado" />
           </label>
           <label className="field">
             Atividade principal
-            <select name="mainActivity" defaultValue="">
+            <select name="mainActivity" defaultValue={initial.mainActivity}>
               <option value="">Selecione</option>
               <option value="outros">Outros</option>
               <option value="comercio">Comércio</option>
@@ -139,7 +150,7 @@ export function CompanyDataForm() {
           </label>
           <label className="field">
             Regime tributário *
-            <select name="taxRegime" defaultValue="" required>
+            <select name="taxRegime" defaultValue={initial.taxRegime} required>
               <option value="">Selecione</option>
               <option value="simples">Simples Nacional</option>
               <option value="presumido">Lucro Presumido</option>
@@ -148,7 +159,7 @@ export function CompanyDataForm() {
           </label>
           <label className="field">
             Porte
-            <select name="companySize" defaultValue="">
+            <select name="companySize" defaultValue={initial.companySize}>
               <option value="">Selecione</option>
               <option value="micro">Microempresa</option>
               <option value="pequena">Pequena</option>
@@ -158,7 +169,7 @@ export function CompanyDataForm() {
           </label>
           <label className="field span-2">
             Descrição da atividade
-            <input name="activityDescription" placeholder="Não informado" />
+            <input name="activityDescription" defaultValue={initial.activityDescription} placeholder="Não informado" />
           </label>
         </div>
         <fieldset className="mt-5">
@@ -199,38 +210,36 @@ export function CompanyDataForm() {
         />
         <div className="form-grid">
           <label className="field">
-            CEP *<input name="postalCode" defaultValue="15.505-058" required />
+            CEP *<input name="postalCode" defaultValue={initial.postalCode} required />
           </label>
           <label className="field">
             UF *
-            <select name="state" defaultValue="SP" required>
-              <option>SP</option>
-              <option>MG</option>
-              <option>PR</option>
-              <option>RJ</option>
+            <select name="state" defaultValue={initial.state} required>
+              <option value="">Selecione</option>
+              {brazilianStates.map((state) => <option key={state}>{state}</option>)}
             </select>
           </label>
           <label className="field span-2">
-            Cidade *<input name="city" defaultValue="Votuporanga" required />
+            Cidade *<input name="city" defaultValue={initial.city} required />
           </label>
           <label className="field span-2">
             Endereço *
-            <input name="street" defaultValue="Rua Copacabana" required />
+            <input name="street" defaultValue={initial.street} required />
           </label>
           <label className="field">
-            Número *<input name="number" defaultValue="4108" required />
+            Número *<input name="number" defaultValue={initial.number} required />
           </label>
           <label className="field">
             Bairro *
             <input
               name="district"
-              defaultValue="Parque Santa Felícia"
+              defaultValue={initial.district}
               required
             />
           </label>
           <label className="field span-2">
             Complemento
-            <input name="complement" />
+            <input name="complement" defaultValue={initial.complement} />
           </label>
         </div>
       </section>
@@ -244,31 +253,32 @@ export function CompanyDataForm() {
         <div className="form-grid">
           <label className="field span-2">
             Pessoa de contato
-            <input name="contactName" />
+            <input name="contactName" defaultValue={initial.contactName} />
           </label>
           <label className="field">
             Telefone
-            <input name="phone" type="tel" />
+            <input name="phone" type="tel" defaultValue={initial.phone} />
           </label>
           <label className="field">
             Celular
-            <input name="mobile" type="tel" placeholder="Não informado" />
+            <input name="mobile" type="tel" defaultValue={initial.mobile} placeholder="Não informado" />
           </label>
           <label className="field">
             E-mail
-            <input name="email" type="email" placeholder="Não informado" />
+            <input name="email" type="email" defaultValue={initial.email} placeholder="Não informado" />
           </label>
           <label className="field">
             E-mail de cobrança
             <input
               name="billingEmail"
+              defaultValue={initial.billingEmail}
               type="email"
               placeholder="Não informado"
             />
           </label>
           <label className="field span-2">
             Site
-            <input name="website" type="url" placeholder="Não informado" />
+            <input name="website" type="url" defaultValue={initial.website} placeholder="Não informado" />
           </label>
         </div>
       </section>
@@ -286,18 +296,16 @@ export function CompanyDataForm() {
                 <span>Estado {index + 1}</span>
                 <select
                   aria-label={`Estado da inscrição ${index + 1}`}
-                  defaultValue=""
+                  value={registration.state}
+                  onChange={(event) => setStateRegistrations((current) => current.map((item) => item.id === registration.id ? { ...item, state: event.target.value } : item))}
                 >
                   <option value="">Selecione</option>
-                  <option>SP</option>
-                  <option>MG</option>
-                  <option>PR</option>
-                  <option>RJ</option>
+                  {brazilianStates.map((state) => <option key={state}>{state}</option>)}
                 </select>
               </label>
               <label className="field">
                 <span>Inscrição estadual</span>
-                <input aria-label={`Inscrição estadual ${index + 1}`} />
+                <input aria-label={`Inscrição estadual ${index + 1}`} value={registration.value} onChange={(event) => setStateRegistrations((current) => current.map((item) => item.id === registration.id ? { ...item, value: event.target.value } : item))} />
               </label>
               <Button
                 aria-label={`Excluir inscrição ${index + 1}`}
@@ -323,42 +331,15 @@ export function CompanyDataForm() {
         </Button>
       </section>
 
-      <section className="form-section" aria-labelledby="marca-title">
-        <SectionTitle
-          eyebrow="Identidade visual"
-          id="marca-title"
-          title="Marca da empresa"
-        />
-        <div className="brand-upload">
-          <span className="brand-preview">
-            <Image
-              alt="Logotipo Ludus"
-              height={72}
-              src="/brand/ludus-wordmark.png"
-              width={200}
-            />
-          </span>
-          <div className="min-w-0 flex-1">
-            <strong className="block text-sm">Ludus Equipamentos</strong>
-            <p className="mt-1 text-sm text-muted-foreground">
-              PNG, JPEG ou WebP. Resolução mínima de 120 × 56 pixels.
-            </p>
-          </div>
-          <Button variant="outline" type="button" onClick={markDirty}>
-            <ImagePlus />
-            Alterar imagem
-          </Button>
-        </div>
-      </section>
-
       <aside className="flex gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" />
         <p>
-          Esta interface usa dados simulados. O botão salvar demonstra o estado
-          do frontend; nenhuma informação é enviada ou persistida até a
-          integração com o backend.
+          Os dados são gravados na empresa da sua sessão. Alterações exigem
+          permissão e são registradas na auditoria. Uma revisão concorrente
+          precisa ser conferida antes de substituir sua edição.
         </p>
       </aside>
+      </fieldset>
     </form>
   );
 }

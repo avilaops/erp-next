@@ -1,0 +1,398 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ERP Next API",
+    "description": "Contrato dos endpoints atualmente implementados pela API do ERP Next. Recursos empresariais planejados permanecem fora deste documento até existirem no código.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "Desenvolvimento local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Sinais operacionais de atividade e prontidão da API."
+    },
+    {
+      "name": "Platform",
+      "description": "Identidade, empresa ativa, papéis, permissões e usuários."
+    }
+  ],
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "getLiveness",
+        "summary": "Verifica se o processo da API está ativo",
+        "description": "Não depende da disponibilidade do PostgreSQL.",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "O processo está ativo.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno inesperado."
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Verifica se a API está pronta para receber tráfego",
+        "description": "Executa uma consulta simples no PostgreSQL. Retorna indisponível quando a conexão ou a consulta falha.",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "A API está conectada ao PostgreSQL.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                },
+                "example": {
+                  "status": "ready"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "O PostgreSQL não está disponível para a API.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadyResponse"
+                },
+                "example": {
+                  "status": "unavailable"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno inesperado."
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getCurrentAccess",
+        "summary": "Consulta a identidade e o acesso na empresa ativa",
+        "tags": ["Platform"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identidade autenticada e acesso efetivo na empresa.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CurrentAccess" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/AuthUnavailable" }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "Lista usuários e acessos da empresa ativa",
+        "tags": ["Platform"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuários visíveis na empresa ativa.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UsersResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/AuthUnavailable" }
+        }
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "operationId": "listPermissions",
+        "summary": "Lista o catálogo de permissões do ERP",
+        "tags": ["Platform"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permissões disponíveis para composição dos papéis.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PermissionsResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/AuthUnavailable" }
+        }
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "summary": "Lista papéis e permissões da empresa ativa",
+        "tags": ["Platform"],
+        "parameters": [
+          { "$ref": "#/components/parameters/TenantId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Papéis visíveis na empresa ativa.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RolesResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/AuthUnavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Access token emitido pelo Auth Ávila Ops."
+      }
+    },
+    "parameters": {
+      "TenantId": {
+        "name": "X-Tenant-Id",
+        "in": "header",
+        "required": true,
+        "description": "Empresa ativa. A API confirma a associação da identidade antes de autorizar o acesso.",
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Empresa ausente ou inválida.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "Unauthorized": {
+        "description": "Access token ausente ou inválido.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "Forbidden": {
+        "description": "Identidade sem associação ativa ou sem a permissão necessária.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "InternalError": {
+        "description": "Erro interno sem exposição de detalhes sensíveis.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "AuthUnavailable": {
+        "description": "Auth Ávila Ops indisponível ou respondeu com perfil inválido.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      }
+    },
+    "headers": {
+      "XRequestId": {
+        "description": "Identificador da requisição gerado ou propagado pela API.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "LivenessResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          }
+        }
+      },
+      "UnreadyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "required": ["type", "title", "status"],
+        "properties": {
+          "type": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "format": "int32" }
+        }
+      },
+      "AuthenticatedIdentity": {
+        "type": "object",
+        "required": ["subject", "email", "name"],
+        "properties": {
+          "subject": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" }
+        }
+      },
+      "TenantSummary": {
+        "type": "object",
+        "required": ["id", "legalName"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "legalName": { "type": "string" },
+          "tradeName": { "type": "string", "nullable": true }
+        }
+      },
+      "CurrentAccess": {
+        "type": "object",
+        "required": ["identity", "tenant", "roles", "permissions"],
+        "properties": {
+          "identity": { "$ref": "#/components/schemas/AuthenticatedIdentity" },
+          "tenant": { "$ref": "#/components/schemas/TenantSummary" },
+          "roles": { "type": "array", "items": { "type": "string" } },
+          "permissions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "required": ["id", "name", "email", "status", "roles"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "status": { "type": "string", "enum": ["active", "blocked", "pending"] },
+          "roles": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UsersResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/UserSummary" } }
+        }
+      },
+      "PermissionSummary": {
+        "type": "object",
+        "required": ["code", "description"],
+        "properties": {
+          "code": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "PermissionsResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/PermissionSummary" } }
+        }
+      },
+      "RoleSummary": {
+        "type": "object",
+        "required": ["id", "code", "name", "permissions"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "permissions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "RolesResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/RoleSummary" } }
+        }
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] }
+  ]
+}

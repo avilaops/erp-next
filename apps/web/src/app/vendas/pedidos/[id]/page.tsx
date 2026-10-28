@@ -1,6 +1,8 @@
-import { SalesOrderDetail } from "@/features/sales/sales-details";
-
-export function generateStaticParams() { return [{ id: "pv-1048" }]; }
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  return <SalesOrderDetail id={(await params).id} />;
+import { Suspense } from "react"
+import { OperationsAccess } from "@/features/operations/operations-access"
+export default function Page({ params }: { params: Promise<{ id: string }> }) {
+  return <Suspense fallback={<p role="status">Carregando pedido…</p>}><Resolved params={params} /></Suspense>
+}
+async function Resolved({ params }: { params: Promise<{ id: string }> }) {
+  return <OperationsAccess area="orders" id={(await params).id} />
 }

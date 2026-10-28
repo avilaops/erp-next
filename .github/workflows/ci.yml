@@ -11,6 +11,22 @@ permissions:
 jobs:
   rust:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: erp_next_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: erp_next_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d erp_next_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:erp_next_ci_only@127.0.0.1:5432/erp_next_test
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.1
@@ -19,7 +35,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo test --workspace -- --test-threads=1
 
   web:
     runs-on: ubuntu-latest
@@ -41,4 +57,12 @@ jobs:
           pnpm --filter web build & build_pid=$!
           wait "$lint_pid"
           wait "$build_pid"
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web test:danfe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-danfe-browser-${{ github.run_id }}
+          path: artifacts/danfe-browser/
+          if-no-files-found: warn
 

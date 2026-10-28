@@ -21,6 +21,13 @@
     "test:path": "npm run build && node examples/path-policy.mjs",
     "prepack": "npm run build"
   },
+  "dependencies": {
+    "@langfuse/otel": "6.0.2",
+    "@langfuse/tracing": "6.0.2",
+    "@opentelemetry/exporter-trace-otlp-http": "0.220.0",
+    "@opentelemetry/otlp-exporter-base": "0.220.0",
+    "@opentelemetry/sdk-node": "0.220.0"
+  },
   "devDependencies": {
     "@types/node": "24.13.6",
     "typescript": "6.0.3"

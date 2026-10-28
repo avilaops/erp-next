@@ -10,6 +10,8 @@ mod domain_tests;
 mod fiscal_tests;
 mod health;
 #[cfg(test)]
+mod purchase_chain_tests;
+#[cfg(test)]
 mod onboarding_tests;
 mod openapi;
 #[cfg(test)]

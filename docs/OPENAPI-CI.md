@@ -7,12 +7,25 @@ documento inválido e erro de comparação interrompem a validação.
 
 ## Captura e baseline
 
-`scripts/contracts/capture.py` cria um checkout separado do SHA-base. Não usa
-uma cópia editável de um snapshot do candidato. Para commits anteriores à
+`scripts/contracts/capture.py` usa um job exclusivo da CI para conferir o SHA-base.
+Esse job troca temporariamente sua própria revisão e restaura o candidato ao
+terminar, preservando o caminho da compilação no cache. Não executa em checkouts
+de desenvolvimento nem usa snapshot editável como baseline. Para commits anteriores à
 existência do exportador, acrescenta somente o helper `openapi_export.rs` e um
 include protegido por `cfg(test)`. O helper chama o mesmo `ApiDoc::openapi()`;
 não modifica handlers, tipos, anotações Utoipa, dependências ou segurança da base.
 Essa instrumentação aparece em `baselineInstrumented`, junto ao hash do helper.
+
+A primeira main, `1569e8f`, já continha IDs de operação duplicados e filtros
+query declarados como path, impedindo gerar um consumidor completo. A revisão
+`cfe5790` corrige essas declarações, sem alterar os handlers. Ela é a baseline
+inicial explícita em `scripts/contracts/initial-baseline.json`, aceita somente
+para aquele SHA-base anterior ao gate e quando for ancestral do candidato.
+O relatório identifica `comparisonScope: initial_contract` e
+`eventBaseCompatibilityVerified: false`: não afirma compatibilidade histórica
+com a declaração defeituosa. Depois que a base contém o gate, compara diretamente
+com o SHA-base do evento e ignora esse bootstrap. Uma base antiga diferente exige
+revisão, em vez de cair silenciosamente no contrato inicial.
 
 A exportação executa somente o teste `export_openapi_contract_artifact`. Não
 inicia a aplicação, não lê configuração de produção e não conecta ao banco para

@@ -53,3 +53,10 @@ comparador deve interromper. Nenhum upload a serviço de revisão externo.
   falharam. Correções: validação completa por Swagger Parser 13.1.0 sem resolvers
   externos e validador separado da resposta PUT. Hidratação usa snapshot SSR/cliente
   de useSyncExternalStore, preservando a regra react-hooks/set-state-in-effect.
+- Ruling: baseline inicial explícita cfe5790 para a base pré-gate 1569e8f,
+  pois IDs repetidos impediam compilar os tipos e filtros query estavam em path.
+  Isso custa a ausência de afirmação histórica de compatibilidade com a main
+  anterior; o relatório declara initial_contract e não mascara essa lacuna.
+- Ruling: captura da base no próprio job CI exclusivo, em vez de worktree com
+  outro caminho, para reutilizar compilação dentro do teto. Há guarda de CI e
+  árvore limpa; a revisão e as duas fontes instrumentadas são restauradas no fim.

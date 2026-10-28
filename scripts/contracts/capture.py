@@ -48,6 +48,8 @@ def main():
             base = bootstrap["initialBaselineRevision"]
             if not re.fullmatch(r"[0-9a-f]{40}", base) or git(root, "rev-parse", f"{base}^{{commit}}") != base:
                 raise ValueError("INVALID_INITIAL_BASELINE")
+            if subprocess.run(["git", "merge-base", "--is-ancestor", base, revision], cwd=root).returncode != 0:
+                raise ValueError("INITIAL_BASELINE_OUTSIDE_CANDIDATE_HISTORY")
             initial = True
     output = root / "artifacts/contracts"
     output.mkdir(parents=True, exist_ok=True)

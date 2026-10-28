@@ -32,9 +32,17 @@ export async function compareContracts({ baseline, candidate, output, executable
   if (findings === null && result.status === 0) findings = [];
   if (!Array.isArray(findings) || findings.some(item => !item || typeof item !== 'object' || typeof item.id !== 'string')
       || (result.status === 1 && findings.length === 0) || (result.status === 0 && findings.length > 0)) throw new Error('COMPARATOR_INVALID_RESULT');
+  let capture;
+  try { capture = JSON.parse(await readFile(path.join(output, 'capture.json'), 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw new Error('INVALID_CAPTURE'); }
+  if (capture && (capture.schemaVersion !== 'erp-openapi-capture/1'
+      || capture.captures?.find(item => item.label === 'baseline')?.sha256 !== base.sha256
+      || capture.captures?.find(item => item.label === 'candidate')?.sha256 !== revision.sha256)) throw new Error('CAPTURE_HASH_MISMATCH');
   await mkdir(output, { recursive: true });
   const report = { schemaVersion: 'erp-openapi-compatibility/1', comparator: { name: 'oasdiff', version: '1.34.1', failOn: 'WARN' },
     baselineSha256: base.sha256, candidateSha256: revision.sha256, compatible: result.status === 0, findings,
+    comparisonScope: capture ? (capture.initialContract ? 'initial_contract' : 'event_base') : 'provided_documents',
+    eventBaseCompatibilityVerified: Boolean(capture && !capture.initialContract && result.status === 0),
     runtimeVerified: false, limitations: ['Compares declared OpenAPI structure; does not prove domain semantics, authorization or complete route coverage.'] };
   await writeFile(path.join(output, 'comparison.json'), JSON.stringify(report, null, 2));
   return report;

@@ -96,7 +96,10 @@ mod tests {
                     for parameter in parameters {
                         if parameter["in"] == "path" {
                             let name = parameter["name"].as_str().unwrap();
-                            assert!(path.contains(&format!("{{{name}}}")), "{method} {path}: {name}");
+                            assert!(
+                                path.contains(&format!("{{{name}}}")),
+                                "{method} {path}: {name}"
+                            );
                             assert_eq!(parameter["required"], true);
                         }
                     }

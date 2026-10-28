@@ -5,13 +5,16 @@ use utoipa::{
 };
 
 use super::health;
-use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
-use crate::platform::{access, access_management, company};
+use crate::domains::{
+    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
+    staff,
+};
+use crate::platform::{access, access_management, company, onboarding, service_auth};
 
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(health::live, health::ready, access::current_access, access::list_users,
+    paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,
         access_management::delete_role, access_management::get_member, access_management::update_member,
@@ -29,7 +32,10 @@ use crate::platform::{access, access_management, company};
         finance::list, finance::get, finance::pay, finance::reverse,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
-        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue),
+        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue,
+        fiscal::received::import, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
+        service_auth::revoke),
     modifiers(&Security),
     tags((name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -56,7 +62,9 @@ impl Modify for Security {
                     if matches!(
                         operation.operation_id.as_deref(),
                         Some("list" | "create" | "get" | "update")
-                    ) {
+                    ) || (path.starts_with("/api/v1/purchase-orders")
+                        || path.starts_with("/api/v1/payables"))
+                    {
                         operation.operation_id = Some(format!("{method}:{path}"));
                     }
                     for (status, response) in &mut operation.responses.responses {
@@ -72,6 +80,10 @@ impl Modify for Security {
         if let Some(components) = doc.components.as_mut() {
             components.add_security_scheme(
                 "bearerAuth",
+                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            );
+            components.add_security_scheme(
+                "serviceKey",
                 SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
             );
         }
@@ -133,7 +145,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 38);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 59);
         for resource in [
             "product-categories",
             "financial-categories",
@@ -166,5 +178,15 @@ mod tests {
                 .get("bearerAuth")
                 .is_some()
         );
+        for path in [
+            "/api/v1/integrations/service-keys",
+            "/api/v1/integrations/service-keys/{id}",
+            "/api/v1/fiscal/received-nfes/import",
+            "/api/v1/notas-recebidas",
+            "/api/v1/notas-recebidas/{id}/xml",
+            "/api/v1/notas-recebidas/{id}/danfe",
+        ] {
+            assert!(doc["paths"].get(path).is_some(), "missing {path}");
+        }
     }
 }

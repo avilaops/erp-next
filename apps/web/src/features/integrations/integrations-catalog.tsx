@@ -22,9 +22,14 @@ export function IntegrationsCatalog() {
 
   return <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 lg:px-6">
     <header className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
-      <div><p className="mb-2 text-sm font-medium text-primary">Preferências / Integrações</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Integrações</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Acompanhe serviços conectados à empresa. Credenciais nunca são exibidas no frontend.</p></div>
+      <div><p className="mb-2 text-sm font-medium text-primary">Preferências / Integrações</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Integrações</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Gerencie o acesso dos serviços à empresa. Novas chaves são exibidas uma única vez.</p></div>
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">Simular estado<select className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={screenState} onChange={(event) => setScreenState(event.target.value as ScreenState)}><option value="ready">Conteúdo</option><option value="loading">Carregamento</option><option value="error">Erro</option><option value="forbidden">Sem permissão</option></select></label>
     </header>
+    <section className="mt-6 rounded-2xl border border-border bg-card p-5">
+      <p className="text-xs text-muted-foreground">Fiscal</p><h2 className="mt-1 font-semibold">Lojas Ávila Ops</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Crie e revogue chaves de serviço da empresa. A configuração no Lojas é feita separadamente.</p>
+      <Link className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary" href="/preferencias/integracoes/lojas">Gerenciar chaves<ArrowRight className="size-4" /></Link>
+    </section>
     {screenState === "forbidden" ? <Panel icon={ShieldAlert} title="Acesso restrito" description="Você não possui permissão para consultar integrações desta empresa." /> : <section className="mt-7 overflow-hidden rounded-2xl border border-border bg-card">
       <div className="grid gap-3 border-b border-border p-4 md:grid-cols-[minmax(220px,1fr)_190px_190px] sm:p-5">
         <label className="relative"><span className="sr-only">Buscar integração</span><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-10 pl-9" placeholder="Buscar por nome ou finalidade" value={query} onChange={(event) => setQuery(event.target.value)} /></label>

@@ -1,5 +1,25 @@
 # Estado de implementação do ERP
 
+## Consolidação local de 28/10/2026
+
+As branches de desenvolvimento foram reunidas na `main`, incluindo cadastro
+autônomo de empresas, endereços/contatos, funcionários/vendedores, cadeia de
+compras e pagamentos, integração de recebidas/Lojas, recuperação SEFAZ e
+observabilidade. A tela de chaves de serviço prevista na AVL-360 foi concluída
+para os testes de navegador presentes na branch. Os resultados e limites desta
+rodada constam em [consolidação local](../evidencias/consolidacao-local-2026-10-28.md).
+
+O inventário consolidado contém 90 operações Rust e 61 BFF, com 25 famílias
+pendentes e `p0Ready=false`. A migration fiscal recebeu a versão
+`202610280005`, pois `202610280001` já pertence ao onboarding. Esta ordenação
+foi validada em banco novo isolado; não é procedimento de atualização de um
+banco que tenha aplicado a migration fiscal de uma branch com a versão antiga.
+
+Os registros de 27/10 abaixo preservam o contexto anterior. A incorporação das
+branches não significa implantação ou conclusão dos contratos fiscais: geração
+de DANFE no GET, escopo de ambiente/paginação e ciclo de vida de credenciais
+ainda diferem do desenho fiscal completo.
+
 Verificação local de 27/10/2026, no checkout `erp-next`. Este arquivo acompanha
 o código atual; os documentos transferidos anteriormente para `.old/` foram
 preservados e continuam como referência arquitetural e de escopo.
@@ -74,6 +94,21 @@ cadastral. O CNPJ alfanumérico usa ASCII menos 48 e módulo 11 conforme o
 [manual da Receita Federal](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/documentos-tecnicos/cnpj/manual-dv-cnpj.pdf/@@download/file).
 Isso não implementa apuração tributária, emissão fiscal ou aprovação de crédito.
 
+## Notas fiscais recebidas e integração com o Lojas
+
+O ERP Next agora possui o contrato de persistência para importar um `nfeProc`
+autorizado cujo destinatário seja a empresa ativa. O XML original é append-only,
+isolado por RLS e idempotente por empresa/chave de acesso. Credenciais de serviço
+vinculadas à empresa são armazenadas apenas como SHA-256 e podem ser revogadas.
+
+O Lojas pode listar as notas e baixar XML ou DANFE pelas rotas
+`/api/v1/notas-recebidas`. A geração do PDF continua dependendo do serviço fiscal
+configurado e mantém os limites de validação descritos na documentação de DANFE.
+
+O [contrato, provisionamento e limites](INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md)
+detalham o fluxo. Não foram implementados distribuição NSU, manifestação,
+consulta de cancelamento, compras, contas a pagar ou movimentação de estoque.
+
 ## Configuração do acesso real
 
 1. Aplicar as migrações com uma conta própria para migração.
@@ -106,7 +141,7 @@ Nenhum token deve usar prefixo `NEXT_PUBLIC_`.
 | Pedidos de venda | Criação e edição de rascunho, reserva, cancelamento e conclusão com saída e título na mesma transação | Descontos, frete, devoluções e integração fiscal |
 | Contas a receber | Títulos vinculados a pedidos, recebimento integral declarado e estorno persistentes | Recebimentos parciais, conciliação externa e integração bancária |
 | Financeiro e comercial restantes | Interfaces demonstrativas | Contas a pagar, contas financeiras, caixa, propostas e canais |
-| Fiscal | Preparação de NF-e 55 na API, com rascunhos persistentes e transmissão bloqueada | XML/XSD/XMLDSig, A1, SEFAZ, R2, DANFE e primeira autorização real |
+| Fiscal | Preparação de NF-e 55, DANFE de XML apresentado e armazenamento append-only de NF-e recebida importada | Distribuição NSU, manifestação, XML/XSD/XMLDSig/A1 para emissão, SEFAZ e primeira autorização real |
 | Logística e serviços | Superfícies previstas e demonstrativas | Contratos, adaptadores e integrações verificadas por domínio |
 | Preferências restantes | Mocks e comportamento local | Contratos específicos e persistência por empresa |
 | Implantação do ERP Next | Não realizada nesta rodada | Destino próprio, credenciais, migração, healthchecks e rollback |

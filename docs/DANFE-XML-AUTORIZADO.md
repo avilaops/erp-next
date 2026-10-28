@@ -62,9 +62,11 @@ os hashes antes de disponibilizar o download.
 | 503 | Serviço não configurado ou indisponível |
 
 Erros não devolvem o XML, token, mensagem bruta do serviço ou dados do certificado.
-O endpoint não grava XML/PDF no PostgreSQL ou R2, nem altera os rascunhos.
-A auditoria documental e o armazenamento imutável continuam sendo outro
-incremento do domínio fiscal.
+Este endpoint avulso não grava XML/PDF no PostgreSQL ou R2, nem altera os
+rascunhos. A rota separada de importação de notas recebidas preserva o XML
+original em armazenamento append-only e permite gerar o DANFE desse documento;
+ela continua sem persistir o PDF. Consulte
+[INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md](INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md).
 
 ## Configuração no servidor da API
 

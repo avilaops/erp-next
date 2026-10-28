@@ -12,8 +12,7 @@ async function LoginForm() {
   return <main className="mx-auto max-w-xl space-y-6 px-4 py-12">
     <PageHeader eyebrow="Acesso corporativo" title="Entrar no ERP" description="Use sua conta Ávila Ops para acessar uma empresa à qual você está associado." />
     {ready ? <form action="/api/auth/login" method="get" className="form-section space-y-4">
-      <label className="field">Código da empresa<input name="tenant" defaultValue={process.env.ERP_DEFAULT_TENANT_ID || ""} required pattern="[0-9a-fA-F-]{36}" /></label>
-      <p className="text-sm text-muted-foreground">Use o código informado pelo administrador da empresa. A conta precisa ter acesso autorizado a ela.</p>
+      <p className="text-sm text-muted-foreground">Entre com sua conta para selecionar uma empresa ou cadastrar a sua.</p>
       <button className="rounded-xl bg-primary px-4 py-3 font-medium text-primary-foreground" type="submit">Entrar com Ávila Ops</button>
     </form> : <p role="status" className="form-section">O acesso corporativo ainda não está configurado neste ambiente. Solicite a configuração ao administrador.</p>}
   </main>

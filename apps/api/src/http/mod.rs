@@ -9,13 +9,23 @@ mod domain_tests;
 #[cfg(test)]
 mod fiscal_tests;
 mod health;
+#[cfg(test)]
+mod health_tests;
+#[cfg(test)]
+mod onboarding_tests;
 mod openapi;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
 mod parties_tests;
 #[cfg(test)]
+mod purchase_chain_tests;
+#[cfg(test)]
+mod received_nfe_tests;
+#[cfg(test)]
 mod reference_tests;
+#[cfg(test)]
+mod staff_tests;
 
 use axum::{Router, middleware, routing::get};
 use tower_http::{
@@ -23,14 +33,64 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales};
-use crate::platform::{access, access_management, auth, company, state::AppState};
+use crate::domains::{
+    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
+    staff,
+};
+use crate::platform::{
+    access, access_management, auth, company, onboarding, service_auth, state::AppState,
+};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/purchase-orders",
+            get(purchasing::list).post(purchasing::create),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}",
+            get(purchasing::get).put(purchasing::update),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/confirm",
+            axum::routing::post(purchasing::confirm),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/cancel",
+            axum::routing::post(purchasing::cancel),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/close",
+            axum::routing::post(purchasing::close),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/receipts",
+            get(purchasing::receipts).post(purchasing::receive),
+        )
+        .route(
+            "/api/v1/purchase-receipts/{id}",
+            get(purchasing::get_receipt),
+        )
+        .route("/api/v1/payables", get(payables::list))
+        .route("/api/v1/payables/{id}", get(payables::get))
+        .route(
+            "/api/v1/payables/{id}/payments",
+            axum::routing::post(payables::pay),
+        )
+        .route(
+            "/api/v1/payables/{id}/reverse-payment",
+            axum::routing::post(payables::reverse),
+        )
+        .route(
+            "/api/v1/companies",
+            get(onboarding::list).post(onboarding::create),
+        )
+        .route("/api/v1/staff", get(staff::list).post(staff::create))
+        .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))
         .merge(fiscal::routes())
+        .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
@@ -97,10 +157,17 @@ pub fn router(state: AppState) -> Router {
             auth::require_auth,
         ));
 
+    let service = fiscal::service_routes().layer(middleware::from_fn_with_state(
+        state.clone(),
+        service_auth::require_service_auth,
+    ));
+
     Router::new()
         .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))
+        .merge(service)
+        .route("/api/health", get(health::api_health))
         .merge(protected)
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))

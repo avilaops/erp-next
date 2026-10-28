@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { discover, analyze } from './discovery.mjs';
+import { assessContracts } from './contracts.mjs';
 import { runProbes } from './probes.mjs';
 import { runSuite } from './suites.mjs';
 import { html, markdown, summary } from './report.mjs';
@@ -54,10 +55,11 @@ try {
   const startedAt = new Date().toISOString();
   console.log('Descobrindo rotas e ligações no código atual...');
   const inventory = await discover(root);
+  const contracts = assessContracts(JSON.parse(await readFile(path.join(root, 'verification/contracts.json'), 'utf8')), inventory);
   const directory = path.join(root, 'artifacts/verification');
   const history = await previousReports(directory);
   const report = { schemaVersion: '1', runId: startedAt.replace(/[:.]/g, '-') + '-' + randomUUID(), startedAt, completedAt: null,
-    git: gitState(), inventory, sourceHashAfter: null, findings: analyze(inventory), runtime: [], suites: [],
+    git: gitState(), inventory, contracts, sourceHashAfter: null, findings: [...analyze(inventory), ...contracts.findings], runtime: [], suites: [],
     ml: { status: 'not_enabled', minimumHistoricalRunsPerCheck: 20, note: 'Treinamento exige histórico real comparável; nenhum dado sintético é usado como histórico do ERP.' }, comparison: null };
   if (options.api || options.web) {
     console.log('Executando somente probes GET anônimos em loopback...');

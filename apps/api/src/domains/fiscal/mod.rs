@@ -2,7 +2,11 @@ pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
 pub(crate) mod danfe_test_support;
+pub mod lojas;
 pub mod model;
+pub mod received;
+pub mod received_model;
+pub mod sefaz_response;
 
 use axum::{
     Extension, Json, Router,
@@ -40,7 +44,15 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/fiscal/nfe", get(list).post(create))
         .route("/api/v1/fiscal/nfe/{id}", get(get_draft).put(update))
         .route("/api/v1/fiscal/nfe/{id}/issue", axum::routing::post(issue))
+        .route(
+            "/api/v1/fiscal/received-nfes/import",
+            axum::routing::post(received::import),
+        )
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+}
+
+pub fn service_routes() -> Router<AppState> {
+    lojas::routes()
 }
 
 pub enum FiscalError {

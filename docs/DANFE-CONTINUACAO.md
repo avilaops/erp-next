@@ -48,6 +48,8 @@ a aprovação do fluxo fiscal não aprova todas as rotas do inventário.
    de acesso legítimo, incluindo uma recusa real de assinatura inválida.
 4. Implantar pelo processo do projeto após CI aprovado e validar no ambiente alvo.
 
-O incremento não inclui emissão, consulta de situação atual na SEFAZ ou
-armazenamento imutável de XML/PDF. O contrato e os limites estão em
+O incremento não inclui emissão nem consulta de situação atual na SEFAZ. O XML
+apresentado diretamente nesta rota não é persistido. A integração posterior de
+notas recebidas adicionou armazenamento append-only do XML importado e reutiliza
+o mesmo gerador, sem persistir o PDF. O contrato e os limites estão em
 [DANFE-XML-AUTORIZADO.md](DANFE-XML-AUTORIZADO.md).

@@ -5,13 +5,32 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
-  "engines": { "node": ">=24" },
-  "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./api": { "types": "./dist/lab/server.d.ts", "import": "./dist/lab/server.js" }
+  "engines": {
+    "node": ">=24"
   },
-  "files": ["dist", "src"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/lab/server.d.ts",
+      "import": "./dist/lab/server.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
+    "policies:verify": "npm run build && node scripts/verify-policy-inventory.mjs examples/policies/product-inventory.json evidencias/inventario-produtos-fontes-20261027.json",
+    "test:ui:local": "npm run build && npm --prefix dashboard run build && node scripts/ui-check.mjs",
+    "inventory:erp": "npm run build && node scripts/inventory-erp-routes.mjs",
+    "test:tools": "npm run build && node examples/tool-execution.mjs",
+    "test:tools:durable": "npm run build && node examples/durable-tool-execution.mjs",
+    "test:fiscal-reference": "npm run build && node examples/fiscal-reference.mjs",
+    "test:fiscal-path": "npm run build && node examples/fiscal-paths.mjs",
+    "collect:siscomex": "node scripts/collect-siscomex.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "api": "npm run build && node dist/lab/serve.js",
@@ -21,8 +40,17 @@
     "test:path": "npm run build && node examples/path-policy.mjs",
     "prepack": "npm run build"
   },
+  "dependencies": {
+    "@langfuse/otel": "6.0.2",
+    "@langfuse/tracing": "6.0.2",
+    "@opentelemetry/exporter-trace-otlp-http": "0.220.0",
+    "@opentelemetry/otlp-exporter-base": "0.220.0",
+    "@opentelemetry/sdk-node": "0.220.0"
+  },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "13.1.0",
     "@types/node": "24.13.6",
+    "ajv": "8.20.0",
     "typescript": "6.0.3"
   }
 }

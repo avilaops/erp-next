@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   distDir: process.env.ERP_NEXT_DIST_DIR || ".next",
   /* config options here */
   cacheComponents: true,

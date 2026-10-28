@@ -98,9 +98,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link className="icon-action" href="/notificacoes" aria-label="Notificações"><Bell className="size-4" /></Link>
             <Link className="icon-action hidden sm:grid" href="/ajuda" aria-label="Ajuda"><CircleHelp className="size-4" /></Link>
             <Link className="icon-action" href="/preferencias/empresa" aria-label="Preferências"><Settings className="size-4" /></Link>
-            <Link className="ml-1 flex items-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/preferencias/usuarios">
-              <span className="grid size-8 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">NA</span>
-              <span className="hidden text-sm font-medium 2xl:block">Nicolas</span>
+            <Link className="ml-1 flex items-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
+              <span className="text-sm font-medium">Empresas</span>
             </Link>
           </div>
         </div>

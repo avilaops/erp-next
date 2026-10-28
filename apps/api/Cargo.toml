@@ -7,6 +7,9 @@ rust-version.workspace = true
 
 [dependencies]
 base64 = "=0.22.1"
+opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace"] }
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 roxmltree = "=0.21.1"
 sha2 = "=0.10.9"
 anyhow.workspace = true
@@ -25,5 +28,6 @@ uuid.workspace = true
 utoipa.workspace = true
 
 [dev-dependencies]
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "testing"] }
 tower = { version = "0.5", features = ["util"] }
 

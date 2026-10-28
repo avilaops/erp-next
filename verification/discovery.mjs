@@ -121,7 +121,7 @@ function rustMask(source) {
   return chars.join('');
 }
 
-export function rustRoutes(source, file) {
+function productionRustMask(source) {
   let mask = rustMask(source);
   // Test modules may contain fake Auth servers; they are not application routes.
   for (const match of mask.matchAll(/#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]/g)) {
@@ -135,6 +135,11 @@ export function rustRoutes(source, file) {
     }
     mask = mask.slice(0, match.index) + mask.slice(match.index, end).replace(/[^\n]/g, ' ') + mask.slice(end);
   }
+  return mask;
+}
+
+export function rustRoutes(source, file) {
+  const mask = productionRustMask(source);
   const result = [];
   for (const match of mask.matchAll(/\.route\s*\(/g)) {
     let depth = 1, end = match.index + match[0].length;
@@ -147,6 +152,27 @@ export function rustRoutes(source, file) {
     result.push({ path: url[1], methods, file, line: source.slice(0, match.index).split('\n').length });
   }
   return result;
+}
+
+// Follow the ordinary Rust module tree; a file's name does not determine whether
+// it belongs to tests. Keep all files in sourceFiles for provenance below.
+function productionRustFiles(sources, directory) {
+  const entries = ['main.rs', 'lib.rs'].map(file => path.join(directory, file)).filter(file => sources.has(file));
+  if (!entries.length) return new Set([...sources.keys()].filter(file => !/(?:^|_)tests\.rs$/.test(file)));
+  const visited = new Set();
+  function follow(file) {
+    if (visited.has(file)) return;
+    visited.add(file);
+    const base = ['main.rs', 'lib.rs', 'mod.rs'].includes(path.basename(file))
+      ? path.dirname(file) : path.join(path.dirname(file), path.basename(file, '.rs'));
+    for (const declaration of productionRustMask(sources.get(file)).matchAll(/\bmod\s+([A-Za-z_][A-Za-z_0-9]*)\s*;/g)) {
+      const name = declaration[1];
+      const next = [path.join(base, `${name}.rs`), path.join(base, name, 'mod.rs')].find(candidate => sources.has(candidate));
+      if (next) follow(next);
+    }
+  }
+  for (const entry of entries) follow(entry);
+  return visited;
 }
 
 export async function discover(root, options = {}) {
@@ -186,12 +212,15 @@ export async function discover(root, options = {}) {
       pages.push({ path: pattern, module: pattern.split('/')[1] || 'inicio', file: source.file, dependencies: dependencies.sort(), apiReferences, unresolvedFetches, emptyActions, runtimeVerdict: 'not_verified_per_route' });
     }
   }
-  const api = [];
+  const api = [], rustSources = new Map();
   for (const absolute of await walk(path.join(root, 'apps/api/src'))) {
     if (!absolute.endsWith('.rs')) continue;
     const content = await readFile(absolute, 'utf8'), file = slash(path.relative(root, absolute));
     files.push({ file, hash: hash(content) });
-    if (!/(?:^|_)tests\.rs$/.test(absolute)) api.push(...rustRoutes(content, file));
+    rustSources.set(absolute, content);
+  }
+  for (const absolute of productionRustFiles(rustSources, path.join(root, 'apps/api/src'))) {
+    api.push(...rustRoutes(rustSources.get(absolute), slash(path.relative(root, absolute))));
   }
   const testFiles = (await walk(path.join(webRoot, 'tests'))).filter(file => /\.spec\.[cm]?[jt]sx?$/.test(file));
   const browserTests = [];
@@ -202,6 +231,7 @@ export async function discover(root, options = {}) {
     browserTests.push({ file: slash(path.relative(root, absolute)), mentionedPaths: paths, runtimeVerdict: 'not_associated_per_file' });
   }
   const extra = [
+    'verification/contracts.json',
     'package.json', 'Cargo.toml', 'Cargo.lock', 'apps/api/Cargo.toml',
     'apps/web/package.json', 'apps/web/tsconfig.json', 'apps/web/playwright.config.ts',
     'apps/web/playwright.company.config.ts', 'scripts/verify-company.mjs',
@@ -216,7 +246,7 @@ export async function discover(root, options = {}) {
   }
   files.sort((a, b) => a.file.localeCompare(b.file));
   for (const collection of [pages, bff, api]) collection.sort((a, b) => a.path.localeCompare(b.path));
-  return { schemaVersion: '1', sourceHash: hash(JSON.stringify(files)), parser: { typescript: ts.version, rust: 'literal-router-scanner-v1' }, pages, bff, api, browserTests, sourceFiles: files };
+  return { schemaVersion: '1', sourceHash: hash(JSON.stringify(files)), parser: { typescript: ts.version, rust: 'production-module-literal-router-v2' }, pages, bff, api, browserTests, sourceFiles: files };
 }
 
 export function analyze(inventory) {

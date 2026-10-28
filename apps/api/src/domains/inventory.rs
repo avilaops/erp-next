@@ -22,6 +22,49 @@ pub(super) struct OrderIssue {
     pub product_id: Uuid,
 }
 
+/// Purchasing owns the receipt; inventory owns the balance and append-only movement.
+pub(super) async fn receive_purchase_item(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    identity: &AuthenticatedIdentity,
+    headers: &HeaderMap,
+    receipt_id: Uuid,
+    product_id: Uuid,
+) -> Result<(), DomainError> {
+    let (quantity, unit) =
+        super::purchasing::received_line(tx, tenant, receipt_id, product_id).await?;
+    let product = catalog::load(tx, tenant, product_id).await?;
+    if quantity <= 0 || product.data.status != "active" || product.data.unit != unit {
+        return Err(DomainError::Conflict(
+            "Produto deve estar ativo e conservar a unidade da compra",
+        ));
+    }
+    sqlx::query("INSERT INTO stock_balances(tenant_id,product_id,quantity_micros) VALUES($1,$2,0) ON CONFLICT(tenant_id,product_id) DO NOTHING")
+        .bind(tenant).bind(product_id).execute(&mut **tx).await.map_err(db)?;
+    let previous: i64 = sqlx::query_scalar("SELECT quantity_micros FROM stock_balances WHERE tenant_id=$1 AND product_id=$2 FOR UPDATE")
+        .bind(tenant).bind(product_id).fetch_one(&mut **tx).await.map_err(db)?;
+    let next = previous
+        .checked_add(quantity)
+        .filter(|value| *value <= 999999999999999999)
+        .ok_or(DomainError::Conflict("Saldo de estoque excede o limite"))?;
+    sqlx::query(
+        "UPDATE stock_balances SET quantity_micros=$3 WHERE tenant_id=$1 AND product_id=$2",
+    )
+    .bind(tenant)
+    .bind(product_id)
+    .bind(next)
+    .execute(&mut **tx)
+    .await
+    .map_err(db)?;
+    let id = Uuid::now_v7();
+    sqlx::query("INSERT INTO stock_movements(id,tenant_id,product_id,direction,quantity_micros,balance_after_micros,reason,source_purchase_receipt_id) VALUES($1,$2,$3,'receipt',$4,$5,$6,$7)")
+        .bind(id).bind(tenant).bind(product_id).bind(quantity).bind(next)
+        .bind(format!("Recebimento de compra {receipt_id}")).bind(receipt_id)
+        .execute(&mut **tx).await.map_err(db)?;
+    record(tx,tenant,identity,headers,DomainChange{kind:"stock_movement",id,event:"stock.moved",details:serde_json::json!({"sourcePurchaseReceiptId":receipt_id,"productId":product_id,"direction":"receipt","quantity":decimal(quantity,6),"balanceAfter":decimal(next,6)})}).await?;
+    Ok(())
+}
+
 /// The sales orchestrator supplies its authorized tenant transaction; inventory owns the ledger writes.
 pub(super) async fn issue_reserved_order(
     tx: &mut Transaction<'_, Postgres>,
@@ -120,6 +163,7 @@ pub struct Movement {
     reason: String,
     reverses_id: Option<Uuid>,
     source_order_id: Option<Uuid>,
+    source_purchase_receipt_id: Option<Uuid>,
     occurred_at: String,
 }
 #[derive(FromRow)]
@@ -132,6 +176,7 @@ struct MovementRow {
     reason: String,
     reverses_id: Option<Uuid>,
     source_order_id: Option<Uuid>,
+    source_purchase_receipt_id: Option<Uuid>,
     occurred_at: String,
 }
 impl From<MovementRow> for Movement {
@@ -145,6 +190,7 @@ impl From<MovementRow> for Movement {
             reason: row.reason,
             reverses_id: row.reverses_id,
             source_order_id: row.source_order_id,
+            source_purchase_receipt_id: row.source_purchase_receipt_id,
             occurred_at: row.occurred_at,
         }
     }
@@ -249,7 +295,7 @@ pub async fn history(
     )
     .await?;
     catalog::load(&mut tx, tenant, query.product_id).await?;
-    let rows=sqlx::query_as::<_,MovementRow>("SELECT id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id,source_order_id,created_at::text AS occurred_at FROM stock_movements WHERE tenant_id=$1 AND product_id=$2 ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4")
+    let rows=sqlx::query_as::<_,MovementRow>("SELECT id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id,source_order_id,source_purchase_receipt_id,created_at::text AS occurred_at FROM stock_movements WHERE tenant_id=$1 AND product_id=$2 ORDER BY created_at DESC,id DESC LIMIT $3 OFFSET $4")
         .bind(tenant).bind(query.product_id).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar(
         "SELECT count(*) FROM stock_movements WHERE tenant_id=$1 AND product_id=$2",
@@ -324,7 +370,7 @@ pub async fn post_movement(
         ));
     }
     if let Some(original) = input.reverses_id {
-        let row=sqlx::query_as::<_,(Uuid,String,i64,Option<Uuid>,Option<Uuid>)>("SELECT product_id,direction,quantity_micros,reverses_id,source_order_id FROM stock_movements WHERE tenant_id=$1 AND id=$2")
+        let row=sqlx::query_as::<_,(Uuid,String,i64,Option<Uuid>,Option<Uuid>)>("SELECT product_id,direction,quantity_micros,reverses_id,COALESCE(source_order_id,source_purchase_receipt_id) FROM stock_movements WHERE tenant_id=$1 AND id=$2")
             .bind(tenant).bind(original).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
         if row.4.is_some() {
             return Err(DomainError::Conflict(
@@ -386,7 +432,7 @@ pub async fn post_movement(
     .await
     .map_err(db)?;
     let id = Uuid::now_v7();
-    let row=sqlx::query_as::<_,MovementRow>("INSERT INTO stock_movements(id,tenant_id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id,source_order_id,created_at::text AS occurred_at")
+    let row=sqlx::query_as::<_,MovementRow>("INSERT INTO stock_movements(id,tenant_id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id,source_order_id,source_purchase_receipt_id,created_at::text AS occurred_at")
         .bind(id).bind(tenant).bind(input.product_id).bind(&input.direction).bind(quantity).bind(next).bind(&input.reason).bind(input.reverses_id).fetch_one(&mut *tx).await.map_err(db)?;
     let result = serde_json::to_value(Movement::from(row))
         .map_err(|_| crate::platform::access::AccessError::Internal)?;

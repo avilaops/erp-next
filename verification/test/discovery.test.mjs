@@ -34,6 +34,33 @@ test('Rust scanner excludes comments, raw strings and cfg(test) servers and keep
   assert.ok(routes.every(item => item.line > 0));
 });
 
+test('discovery follows production modules instead of counting out-of-line cfg(test) and orphan routers', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'erp-production-modules-'));
+  const files = {
+    'apps/web/package.json': '{}',
+    'apps/api/src/main.rs': 'mod endpoints; mod support; #[cfg(test)] mod danfe_test_support;',
+    'apps/api/src/endpoints.rs': 'fn routes(){Router::new().route("/api/v1/items",get(list))}',
+    'apps/api/src/support/mod.rs': 'mod test_support;',
+    'apps/api/src/support/test_support.rs': 'fn routes(){Router::new().route("/production-helper",get(handler))}',
+    'apps/api/src/danfe_test_support.rs': 'fn routes(){Router::new().route("/mcp",post(fake).delete(close))}',
+    'apps/api/src/orphan.rs': 'fn routes(){Router::new().route("/orphan",get(fake))}',
+  };
+  try {
+    for (const directory of ['apps/web/src/app', 'apps/web/tests', 'migrations']) await mkdir(path.join(root, directory), { recursive: true });
+    for (const [file, source] of Object.entries(files)) {
+      await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+      await writeFile(path.join(root, file), source);
+    }
+    const inventory = await discover(root, { typescript });
+    assert.deepEqual(inventory.api.map(item => item.path), ['/api/v1/items', '/production-helper']);
+    // Excluded test sources still participate in provenance; they just are not live routes.
+    assert.ok(inventory.sourceFiles.some(item => item.file.endsWith('/danfe_test_support.rs')));
+    const before = inventory.sourceHash;
+    await writeFile(path.join(root, 'apps/api/src/danfe_test_support.rs'), '// changed fixture');
+    assert.notEqual((await discover(root, { typescript })).sourceHash, before);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('real AST discovery links page to BFF and backend and marks inline no-ops without claiming execution', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'erp-verification-unit-'));
   const files = {

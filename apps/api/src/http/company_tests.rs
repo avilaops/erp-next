@@ -57,7 +57,7 @@ pub(super) async fn setup_with_danfe(
           ('88888888-8888-4888-8888-888888888888', '99999999-9999-4999-8999-999999999999');
     "#).execute(admin).await.unwrap();
     let role = format!("erp_test_{}", Uuid::now_v7().simple());
-    sqlx::raw_sql(&format!("CREATE ROLE {role} NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT USAGE ON SCHEMA public TO {role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role};"))
+    sqlx::raw_sql(&format!("CREATE ROLE {role} NOLOGIN NOSUPERUSER NOBYPASSRLS; GRANT USAGE ON SCHEMA public TO {role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role}; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {role};"))
         .execute(admin).await.unwrap();
     let role_for_connection = role.clone();
     let application = PgPoolOptions::new()
@@ -85,8 +85,8 @@ pub(super) async fn setup_with_danfe(
     let server = tokio::spawn(async move {
         axum::serve(listener, Router::new().route("/userinfo", get(|headers: HeaderMap| async move {
             let subject = headers.get("authorization").and_then(|h| h.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).unwrap_or("");
-            if !["editor", "reader", "disabled"].contains(&subject) { return Err(StatusCode::UNAUTHORIZED); }
-            Ok(axum::Json(json!({"sub":subject,"email":format!("{subject}@example.test"),"name":subject})))
+            if !["editor", "reader", "disabled", "new-owner"].contains(&subject) { return Err(StatusCode::UNAUTHORIZED); }
+            Ok(axum::Json(json!({"sub":subject,"email":if subject == "new-owner" { "reader@example.test".to_owned() } else { format!("{subject}@example.test") },"name":subject})))
         }))).await.unwrap();
     });
     let router = super::router(

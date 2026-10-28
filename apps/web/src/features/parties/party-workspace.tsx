@@ -7,16 +7,18 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type PartyInput = { personType: string; legalName: string; tradeName: string | null; taxId: string; email: string | null; phone: string | null; isCustomer: boolean; isSupplier: boolean; status: string }
+import { PartyComplements, type PartyAddress, type PartyContact } from "./party-complements"
+
+type PartyInput = { personType: string; legalName: string; tradeName: string | null; taxId: string; email: string | null; phone: string | null; isCustomer: boolean; isSupplier: boolean; status: string; addresses: PartyAddress[]; contacts: PartyContact[] }
 type Party = PartyInput & { id: string; revision: number }
 type Snapshot = { tenantId: string; canEdit: boolean; data?: Party }
 type Page = { tenantId: string; canEdit: boolean; data: Party[]; total: number }
-const blank: PartyInput = { personType: "juridica", legalName: "", tradeName: null, taxId: "", email: null, phone: null, isCustomer: true, isSupplier: false, status: "active" }
+const blank: PartyInput = { personType: "juridica", legalName: "", tradeName: null, taxId: "", email: null, phone: null, isCustomer: true, isSupplier: false, status: "active", addresses: [], contacts: [] }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 
 function values(party: Party): PartyInput {
-  return { personType: party.personType, legalName: party.legalName, tradeName: party.tradeName, taxId: party.taxId, email: party.email, phone: party.phone, isCustomer: party.isCustomer, isSupplier: party.isSupplier, status: party.status }
+  return { personType: party.personType, legalName: party.legalName, tradeName: party.tradeName, taxId: party.taxId, email: party.email, phone: party.phone, isCustomer: party.isCustomer, isSupplier: party.isSupplier, status: party.status, addresses: party.addresses || [], contacts: party.contacts || [] }
 }
 function relationship(party: PartyInput) { return party.isCustomer && party.isSupplier ? "Cliente e fornecedor" : party.isCustomer ? "Cliente" : "Fornecedor" }
 
@@ -150,6 +152,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view && snapshot.data ? <>
           <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Tipo", draft.personType === "fisica" ? "Pessoa física" : "Pessoa jurídica"], ["CPF ou CNPJ", draft.taxId], ["Nome fantasia", draft.tradeName || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Relacionamento", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
+          <PartyComplements addresses={draft.addresses} contacts={draft.contacts} />
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/clientes-fornecedores/${id}/editar`}>Editar pessoa</Link>}
         </> : <form className="space-y-5" onSubmit={save}>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
@@ -157,6 +160,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
             <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
             {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["taxId", "CPF ou CNPJ", 30], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName" || field === "taxId"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" || field === "taxId" ? "" : null))} /></label>)}
             <div className="min-w-0 space-y-3"><p className="font-medium">Relacionamento comercial</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos um papel.</p></div>
+          <PartyComplements addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />
           </fieldset>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outra pessoa.</p>}
           <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar pessoa"}</Button>

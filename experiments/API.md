@@ -3,6 +3,10 @@
 Extensão em desenvolvimento sobre o núcleo 0.3.0. Os arquivos `.tgz` e ZIP já
 existentes não foram substituídos e não contêm necessariamente esta extensão.
 
+As respostas JSON usam `Cache-Control: no-store, no-transform`. A diretiva evita
+que a compressão de um proxy altere o ETag de revisão e invalide o If-Match enviado
+pelo navegador. O BFF preserva essa diretiva nas respostas da API.
+
 ## Executar
 
 Requer Node.js 24 ou superior. Dentro de `experiments`:
@@ -24,11 +28,20 @@ O contrato completo está em <http://127.0.0.1:3300/openapi.json>.
 | GET | `/health` | Saúde e indicação de autenticação |
 | GET | `/openapi.json` | Contrato OpenAPI 3.1 |
 | GET | `/api/v1/suite` | Suíte atual, parâmetros e cabeçalho ETag |
+| POST | `/api/v1/policies/import/preview` | Validar arquivo de fichas sem gravar; retorna prévia e ETag |
+| POST | `/api/v1/policies/import` | Importar somente códigos novos com If-Match e motivo, em uma única gravação |
 | PUT | `/api/v1/suite` | Salvar suíte usando o ETag no cabeçalho If-Match |
 | POST | `/api/v1/runs` | Executar base e candidata; corpo `{"revision":1}` |
 | GET | `/api/v1/runs?limit=25&offset=0` | Histórico paginado |
 | GET | `/api/v1/runs/{id}` | Evidência completa com snapshot da suíte |
 | POST | `/api/v1/comparisons` | Comparar variantes de execuções persistidas |
+| GET | `/api/v1/route-inventories` | Produtos disponíveis para inventário de rotas |
+| GET | `/api/v1/route-inventories/{product}` | Captura atual e ETag; inventário ausente retorna `inventory: null` |
+| PUT | `/api/v1/route-inventories/{product}` | Importar projeção de `route-inventory/2`, exigindo If-Match |
+
+A consulta por produto está em `/experiments/routes` no dashboard privado.
+Escopo, limites da importação e procedimento de captura estão em
+[ERP-FLOW-VERIFICATION.md](docs/ERP-FLOW-VERIFICATION.md).
 
 ```powershell
 $labBase = 'http://127.0.0.1:3300'
@@ -63,6 +76,11 @@ do navegador. Saúde, contrato e página inicial não retornam dados de experime
 
 - Um processo de API e uma execução por vez. Não use réplicas compartilhando estes
   arquivos: a coordenação de edições ocorre apenas dentro do processo.
+- O histórico usa `runs-index.json`, um índice derivado de resumos. Na inicialização,
+  volumes antigos e gravações interrompidas são reconciliados com `runs/`, lendo
+  sequencialmente apenas os relatórios ausentes do índice. Consultar uma página
+  não abre os relatórios completos. O backup deve preservar o volume inteiro;
+  o índice pode ser reconstruído a partir das evidências originais.
 - Até 200 casos, 10 repetições e corpo de requisição de até 1 MiB.
 - Revisão desatualizada ao salvar retorna 412; ao executar, 409. Recarregue os dados.
 - O laboratório executa apenas operações numéricas predefinidas. Não aceita código
@@ -75,3 +93,22 @@ do navegador. Saúde, contrato e página inicial não retornam dados de experime
   sem evidência de generalização ou benchmark estatístico de latência.
 
 Para o painel e a publicação, consulte [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Importação de políticas
+
+Envie `{ "document": [...] }` à prévia. `document` aceita uma lista de fichas
+sem metadados ou a exportação completa do caderno. A resposta contém `revision`,
+`createCount`, `preserveCount` e itens com `policy`, `action` e `different`.
+`different` informa que o arquivo difere da ficha existente, que será preservada.
+
+Para gravar, envie o mesmo `document` e `changeNote` para `/api/v1/policies/import`,
+com o ETag da prévia em If-Match. A resposta contém `catalog`, `created` e
+`preserved`, com o ETag resultante. Cada lote com fichas novas aumenta a revisão
+uma vez e registra um snapshot por ficha. Lote só com códigos existentes não
+grava nem altera a revisão. A API valida todos os registros novamente no commit.
+
+Sem If-Match: 428; revisão desatualizada: 412; ficha, motivo, limite ou formato
+inválido: 400. Os limites continuam sendo 1 MiB por requisição e 500 fichas no
+caderno. A recusa de um lote não cria nenhuma de suas fichas. Versões e histórico
+de uma exportação não são restaurados. Os endpoints exigem a mesma autenticação
+das políticas e o BFF conserva o token fora do navegador.

@@ -457,6 +457,7 @@ async fn party_outbox_failure_rolls_back_record_audit_command_and_revision(admin
     sqlx::query("CREATE TRIGGER fail_party_outbox BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION fail_party_outbox()").execute(&admin).await.unwrap();
     let mut changed = input();
     changed["legalName"] = json!("Não deve persistir");
+    changed["contacts"] = json!([{"name":"Não deve persistir", "phone":"11999999999"}]);
     assert_eq!(
         call(
             &router,
@@ -484,6 +485,7 @@ async fn party_outbox_failure_rolls_back_record_audit_command_and_revision(admin
     )
     .await;
     assert_eq!(saved.2["data"]["revision"], 1);
+    assert_eq!(saved.2["data"]["contacts"], json!([]));
     assert_eq!(saved.2["data"]["legalName"], "Indústria parceira");
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM audit_log")

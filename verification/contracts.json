@@ -2525,7 +2525,10 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/parties.rs"
+        "apps/api/src/domains/parties.rs",
+        "apps/api/src/domains/party_complements.rs",
+        "migrations/202610280002_party_complements.sql",
+        "apps/web/src/features/parties/party-complements.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2570,7 +2573,8 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
-        "Papéis de cliente/fornecedor e documento coerentes; documento validado não é consulta cadastral externa."
+        "Papéis de cliente/fornecedor e documento coerentes; documento validado não é consulta cadastral externa.",
+        "Endereços e contatos: máximo de dez itens e um principal por coleção; null inválido; criação omitida vira []; PUT omitido preserva e [] remove"
       ],
       "transition": {
         "from": "ausente",
@@ -2579,7 +2583,8 @@
       "effects": {
         "writes": [
           "Criar clientes/fornecedores com validações do domínio",
-          "Auditoria e outbox do comando na transação."
+          "Auditoria e outbox do comando na transação.",
+          "Coleções de endereços e contatos no mesmo cadastro e revisão; sem modificar snapshots comerciais"
         ],
         "external": [],
         "excludes": [
@@ -2621,7 +2626,10 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/parties.rs"
+        "apps/api/src/domains/parties.rs",
+        "apps/api/src/domains/party_complements.rs",
+        "migrations/202610280002_party_complements.sql",
+        "apps/web/src/features/parties/party-complements.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2708,7 +2716,10 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/parties.rs"
+        "apps/api/src/domains/parties.rs",
+        "apps/api/src/domains/party_complements.rs",
+        "migrations/202610280002_party_complements.sql",
+        "apps/web/src/features/parties/party-complements.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2755,7 +2766,8 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "Papéis de cliente/fornecedor e documento coerentes; documento validado não é consulta cadastral externa."
+        "Papéis de cliente/fornecedor e documento coerentes; documento validado não é consulta cadastral externa.",
+        "Endereços e contatos: máximo de dez itens e um principal por coleção; null inválido; criação omitida vira []; PUT omitido preserva e [] remove"
       ],
       "transition": {
         "from": "registro existente",
@@ -2764,7 +2776,8 @@
       "effects": {
         "writes": [
           "Alterar clientes/fornecedores com revisão e autorização",
-          "Auditoria e outbox do comando na transação."
+          "Auditoria e outbox do comando na transação.",
+          "Coleções de endereços e contatos no mesmo cadastro e revisão; sem modificar snapshots comerciais"
         ],
         "external": [],
         "excludes": [
@@ -2809,7 +2822,10 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/parties.rs"
+        "apps/api/src/domains/parties.rs",
+        "apps/api/src/domains/party_complements.rs",
+        "migrations/202610280002_party_complements.sql",
+        "apps/web/src/features/parties/party-complements.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5799,12 +5815,12 @@
       "id": "pending-3",
       "title": "Dados complementares de pessoas",
       "status": "needs_definition",
-      "intent": "Endereços, contatos e condições comerciais",
+      "intent": "Endereços e contatos no cadastro implementados neste módulo; condições comerciais e seleção de endereço de cobrança/entrega por documento ainda pendentes",
       "proposedEndpoints": [
         "/api/v1/parties/{id}/addresses"
       ],
       "openDecisions": [
-        "Definir endereço de cobrança/entrega, versão usada no documento e limites de exposição"
+        "Definir uso de endereço de cobrança/entrega e snapshot no documento comercial/fiscal; definir condições comerciais e limites de exposição conforme o domínio consumidor"
       ],
       "requiredFields": [
         "actor",

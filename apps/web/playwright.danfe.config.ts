@@ -10,7 +10,7 @@ const directory = path.resolve("../../artifacts/danfe-browser", runId)
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["danfe-ui.spec.ts", "onboarding-ui.spec.ts"],
+  testMatch: ["danfe-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,

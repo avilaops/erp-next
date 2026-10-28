@@ -1,3 +1,4 @@
+use super::party_complements::{self, PartyAddress, PartyContact};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
     revision,
@@ -29,6 +30,28 @@ pub struct PartyInput {
     pub is_customer: bool,
     pub is_supplier: bool,
     pub status: String,
+    #[serde(
+        default,
+        deserialize_with = "present_collection",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Vec<PartyAddress>, nullable = false)]
+    pub addresses: Option<Vec<PartyAddress>>,
+    #[serde(
+        default,
+        deserialize_with = "present_collection",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Vec<PartyContact>, nullable = false)]
+    pub contacts: Option<Vec<PartyContact>>,
+}
+
+fn present_collection<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Vec::<T>::deserialize(deserializer).map(Some)
 }
 
 fn optional_text(value: &mut Option<String>, maximum: usize) -> Result<(), DomainError> {
@@ -108,7 +131,7 @@ impl PartyInput {
         if !["active", "archived"].contains(&self.status.as_str()) {
             return Err(DomainError::Invalid("Situação inválida"));
         }
-        Ok(())
+        party_complements::validate(&mut self.addresses, &mut self.contacts)
     }
 }
 
@@ -133,6 +156,8 @@ struct PartyRow {
     is_customer: bool,
     is_supplier: bool,
     status: String,
+    addresses: sqlx::types::Json<Vec<PartyAddress>>,
+    contacts: sqlx::types::Json<Vec<PartyContact>>,
 }
 impl From<PartyRow> for Party {
     fn from(row: PartyRow) -> Self {
@@ -149,6 +174,8 @@ impl From<PartyRow> for Party {
                 is_customer: row.is_customer,
                 is_supplier: row.is_supplier,
                 status: row.status,
+                addresses: Some(row.addresses.0),
+                contacts: Some(row.contacts.0),
             },
         }
     }
@@ -186,7 +213,7 @@ async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Party, DomainError> {
-    sqlx::query_as::<_, PartyRow>("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status FROM parties WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as::<_, PartyRow>("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts FROM parties WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.map(Into::into).ok_or(DomainError::NotFound)
 }
 fn party_error(error: sqlx::Error) -> DomainError {
@@ -240,7 +267,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows = sqlx::query_as::<_, PartyRow>("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier)) ORDER BY legal_name,id LIMIT $5 OFFSET $6")
+    let rows = sqlx::query_as::<_, PartyRow>("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier)) ORDER BY legal_name,id LIMIT $5 OFFSET $6")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar("SELECT count(*) FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier))")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).fetch_one(&mut *tx).await.map_err(db)?;
@@ -310,7 +337,7 @@ pub async fn create(
     input.validate()?;
     let request =
         serde_json::to_value(&input).map_err(|_| crate::platform::access::AccessError::Internal)?;
-    if let Some(previous) = replay(
+    if let Some(mut previous) = replay(
         &mut tx,
         tenant,
         &identity.subject,
@@ -320,13 +347,18 @@ pub async fn create(
     )
     .await?
     {
+        if let Some(data) = previous["data"].as_object_mut() {
+            for field in ["addresses", "contacts"] {
+                data.entry(field).or_insert_with(|| serde_json::json!([]));
+            }
+        }
         let rev = previous["data"]["revision"].as_i64();
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO parties(id,tenant_id,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
-        .bind(id).bind(tenant).bind(&input.person_type).bind(&input.legal_name).bind(&input.trade_name).bind(&input.tax_id).bind(&input.email).bind(&input.phone).bind(input.is_customer).bind(input.is_supplier).bind(&input.status).execute(&mut *tx).await.map_err(party_error)?;
+    sqlx::query("INSERT INTO parties(id,tenant_id,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+        .bind(id).bind(tenant).bind(&input.person_type).bind(&input.legal_name).bind(&input.trade_name).bind(&input.tax_id).bind(&input.email).bind(&input.phone).bind(input.is_customer).bind(input.is_supplier).bind(&input.status).bind(sqlx::types::Json(input.addresses.as_deref().unwrap_or(&[]))).bind(sqlx::types::Json(input.contacts.as_deref().unwrap_or(&[]))).execute(&mut *tx).await.map_err(party_error)?;
     let result = serde_json::to_value(PartySnapshot {
         tenant_id: tenant,
         can_edit: true,
@@ -370,6 +402,12 @@ pub async fn update(
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     input.validate()?;
     let previous = load(&mut tx, tenant, id).await?;
+    if input.addresses.is_none() {
+        input.addresses = previous.data.addresses.clone();
+    }
+    if input.contacts.is_none() {
+        input.contacts = previous.data.contacts.clone();
+    }
     if previous.revision != expected {
         return Err(DomainError::StaleRevision);
     }
@@ -390,8 +428,8 @@ pub async fn update(
     let next = expected
         .checked_add(1)
         .ok_or(crate::platform::access::AccessError::Internal)?;
-    sqlx::query("UPDATE parties SET person_type=$3,legal_name=$4,trade_name=$5,tax_id=$6,email=$7,phone=$8,is_customer=$9,is_supplier=$10,status=$11,revision=$12,updated_at=now() WHERE tenant_id=$1 AND id=$2")
-        .bind(tenant).bind(id).bind(&input.person_type).bind(&input.legal_name).bind(&input.trade_name).bind(&input.tax_id).bind(&input.email).bind(&input.phone).bind(input.is_customer).bind(input.is_supplier).bind(&input.status).bind(next).execute(&mut *tx).await.map_err(party_error)?;
+    sqlx::query("UPDATE parties SET person_type=$3,legal_name=$4,trade_name=$5,tax_id=$6,email=$7,phone=$8,is_customer=$9,is_supplier=$10,status=$11,revision=$12,addresses=$13,contacts=$14,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+        .bind(tenant).bind(id).bind(&input.person_type).bind(&input.legal_name).bind(&input.trade_name).bind(&input.tax_id).bind(&input.email).bind(&input.phone).bind(input.is_customer).bind(input.is_supplier).bind(&input.status).bind(next).bind(sqlx::types::Json(input.addresses.as_deref().unwrap_or(&[]))).bind(sqlx::types::Json(input.contacts.as_deref().unwrap_or(&[]))).execute(&mut *tx).await.map_err(party_error)?;
     record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "party", id, event: "party.updated", details: serde_json::json!({"previousRevision":expected,"revision":next,"isCustomer":input.is_customer,"isSupplier":input.is_supplier}) }).await?;
     let data = load(&mut tx, tenant, id).await?;
     tx.commit().await.map_err(db)?;
@@ -412,6 +450,20 @@ mod tests {
 
     fn input() -> PartyInput {
         serde_json::from_value(serde_json::json!({"personType":"juridica","legalName":" Indústria de teste ","tradeName":" ","taxId":"04.252.011/0001-10","email":null,"phone":null,"isCustomer":true,"isSupplier":true,"status":"active"})).unwrap()
+    }
+
+    #[test]
+    fn omitted_collections_are_preserved_but_null_is_not_a_collection() {
+        let original = input();
+        assert!(original.addresses.is_none());
+        let mut json = serde_json::to_value(original).unwrap();
+        assert!(json.get("addresses").is_none());
+        for field in ["addresses", "contacts"] {
+            json[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<PartyInput>(json.clone()).is_err());
+            json[field] = serde_json::json!([]);
+        }
+        assert!(serde_json::from_value::<PartyInput>(json).is_ok());
     }
 
     #[test]

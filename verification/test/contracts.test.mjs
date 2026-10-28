@@ -12,9 +12,9 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 68);
+  assert.equal(assessment.apiOperations, 82);
   assert.equal(assessment.bffOperations, 58);
-  assert.equal(assessment.pendingFlows, 27);
+  assert.equal(assessment.pendingFlows, 25);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
   for (const action of catalogue.actions) {
@@ -61,7 +61,7 @@ test('catalogue changes are part of source provenance and read preconditions are
   const reference = catalogue.actions.find(action => action.operation.method === 'PUT' && action.operation.path === '/api/v1/product-categories/{id}');
   assert.equal(reference.concurrency.idempotency, true);
   const movement = catalogue.actions.find(action => action.operation.method === 'POST' && action.operation.path === '/api/v1/stock/movements');
-  assert.ok(movement.preconditions.some(value => value.includes('Revisão de saldo no corpo')));
+  assert.ok(movement.preconditions.some(value => value.includes('Não exige revisão no corpo ou If-Match')));
   assert.equal(movement.input.headers.includes('If-Match'), false);
 });
 

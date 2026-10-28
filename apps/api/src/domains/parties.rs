@@ -413,7 +413,7 @@ pub async fn update(
     }
     if (input.tax_id != previous.data.tax_id || input.person_type != previous.data.person_type)
         && sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM sales_orders WHERE tenant_id=$1 AND customer_id=$2)",
+            "SELECT EXISTS(SELECT 1 FROM sales_orders WHERE tenant_id=$1 AND customer_id=$2 UNION ALL SELECT 1 FROM purchase_orders WHERE tenant_id=$1 AND supplier_id=$2)",
         )
         .bind(tenant)
         .bind(id)

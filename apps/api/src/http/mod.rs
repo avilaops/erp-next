@@ -17,6 +17,8 @@ mod operations_tests;
 #[cfg(test)]
 mod parties_tests;
 #[cfg(test)]
+mod purchase_chain_tests;
+#[cfg(test)]
 mod reference_tests;
 #[cfg(test)]
 mod staff_tests;
@@ -27,13 +29,54 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::domains::{catalog, finance, fiscal, inventory, parties, reference_data, sales, staff};
+use crate::domains::{
+    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
+    staff,
+};
 use crate::platform::{access, access_management, auth, company, onboarding, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/purchase-orders",
+            get(purchasing::list).post(purchasing::create),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}",
+            get(purchasing::get).put(purchasing::update),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/confirm",
+            axum::routing::post(purchasing::confirm),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/cancel",
+            axum::routing::post(purchasing::cancel),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/close",
+            axum::routing::post(purchasing::close),
+        )
+        .route(
+            "/api/v1/purchase-orders/{id}/receipts",
+            get(purchasing::receipts).post(purchasing::receive),
+        )
+        .route(
+            "/api/v1/purchase-receipts/{id}",
+            get(purchasing::get_receipt),
+        )
+        .route("/api/v1/payables", get(payables::list))
+        .route("/api/v1/payables/{id}", get(payables::get))
+        .route(
+            "/api/v1/payables/{id}/payments",
+            axum::routing::post(payables::pay),
+        )
+        .route(
+            "/api/v1/payables/{id}/reverse-payment",
+            axum::routing::post(payables::reverse),
+        )
         .route(
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),

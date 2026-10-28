@@ -96,6 +96,21 @@ test("identity-only sessions cannot access existing tenant data and company sele
   expect(selected.expiresAt).toBe(expiresAt)
 })
 
+test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
+  await page.goto("/cadastros/produtos")
+  await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toBeVisible()
+  await expect(page.getByRole("status")).toContainText("Entre com sua conta Ávila Ops")
+  await context.addCookies([cookie()])
+  for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
+    await page.goto(route)
+    await expect(page.getByRole("status")).toContainText("Você já entrou. Selecione uma empresa")
+    await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas")
+    await expect(page.getByRole("link", { name: "Cadastrar empresa", exact: true })).toHaveAttribute("href", "/cadastro/empresa")
+    await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
+  }
+  expect(upstreamCalls).toBe(0)
+})
+
 test("company signup keeps input and command key after an ambiguous failure, then selects the created company", async ({ page, context }) => {
   await context.addCookies([cookie()])
   await page.goto("/cadastro/empresa")

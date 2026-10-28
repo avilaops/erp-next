@@ -44,7 +44,7 @@ test("acessos sem configuração não exibem usuários simulados", async ({ page
   await page.setViewportSize({ width: 375, height: 844 })
   for (const route of ["/preferencias/usuarios", "/preferencias/papeis"]) {
     await page.goto(route)
-    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+    await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
     await expect(page.getByLabel("Simular estado")).toHaveCount(0)
   }
 })
@@ -165,7 +165,7 @@ test.describe("cadastros navegam entre listagem, criação, detalhe e edição",
     for (const route of ["/cadastros/clientes-fornecedores", "/cadastros/clientes-fornecedores/novo", "/cadastros/clientes-fornecedores/00000000-0000-0000-0000-000000000000/editar"]) {
       await page.goto(route)
       await expect(page.getByRole("heading", { name: "Clientes e fornecedores", exact: true })).toBeVisible()
-      await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+      await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
       await expect(page.getByText("PES-001", { exact: true })).toHaveCount(0)
     }
   })
@@ -200,7 +200,7 @@ test("compras e estoque navegam para seus fluxos operacionais", async ({ page })
   for (const route of ["/estoque", "/estoque/saldos", "/estoque/lancamentos", "/estoque/lancamentos/novo"]) {
     await page.goto(route)
     await expect(page.getByRole("heading", { name: "Saldos e movimentos", exact: true })).toBeVisible()
-    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+    await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
     await expect(page.getByText("MOV-01842", { exact: true })).toHaveCount(0)
   }
 })
@@ -222,7 +222,7 @@ test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   await expect(page.locator('a[href="/vendas/pdv/historico"]')).toBeVisible()
   for (const route of ["/vendas/pedidos", "/vendas/pedidos/novo", "/financeiro/contas-receber"]) {
     await page.goto(route)
-    await expect(page.getByRole("status")).toContainText("acesso corporativo ainda não está configurado")
+    await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
   }
 })
 

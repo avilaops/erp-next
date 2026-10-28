@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const config = erpConfiguration()
     const tenantId = new URL(request.url).searchParams.get("tenant") || ""
     if (tenantId && !uuidPattern.test(tenantId)) return Response.json({ title: "Selecione uma empresa válida" }, { status: 400 })
-    if (!config.clientId || !config.clientSecret) return Response.json({ title: "Acesso corporativo não configurado neste ambiente" }, { status: 503 })
+    if (!config.clientId || !config.clientSecret) return Response.json({ title: "O login do ERP ainda não foi configurado neste ambiente" }, { status: 503, headers: { "Cache-Control": "no-store" } })
     const endpoints = await authEndpoints()
     const state = randomBytes(32).toString("base64url")
     const verifier = randomBytes(32).toString("base64url")

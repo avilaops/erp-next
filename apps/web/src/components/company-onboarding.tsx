@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
 
 export function CompanyPicker() {
   const [companies, setCompanies] = useState<{ id: string; legalName: string }[]>([])
@@ -32,7 +32,10 @@ export function CompanyPicker() {
   </section>
 }
 
+const subscribe = () => () => {}
+
 export function CompanySignup() {
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false)
   const [status, setStatus] = useState("")
   const [busy, setBusy] = useState(false)
   // Retain the key across ambiguous network failures; changing the payload gets a new key.
@@ -62,7 +65,7 @@ export function CompanySignup() {
   const fields = [["legalName", "Nome empresarial"], ["tradeName", "Nome fantasia"], ["taxId", "CPF ou CNPJ"], ["postalCode", "CEP"], ["city", "Cidade"], ["street", "Rua"], ["number", "Número"], ["district", "Bairro"], ["email", "E-mail da empresa"]]
   return <form onSubmit={submit} className="form-section space-y-4">
     <p>Cadastre sua empresa com sua conta Ávila Ops. Você será o administrador desta empresa.</p>
-    <fieldset disabled={busy || Boolean(created)} className="grid gap-4 sm:grid-cols-2">
+    <fieldset disabled={!hydrated || busy || Boolean(created)} className="grid gap-4 sm:grid-cols-2">
       {fields.map(([name, label]) => <label className="field" key={name}>{label}<input name={name} maxLength={300} type={name === "email" ? "email" : "text"} required={!["tradeName", "email"].includes(name)} /></label>)}
       <label className="field">Tipo de pessoa<select name="personType" defaultValue="juridica"><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
       <label className="field">Regime tributário<select name="taxRegime" required defaultValue=""><option value="" disabled>Selecione</option><option value="simples">Simples Nacional</option><option value="presumido">Lucro presumido</option><option value="real">Lucro real</option></select></label>
@@ -70,7 +73,7 @@ export function CompanySignup() {
       <label className="field">Segmento<select name="segments" required defaultValue=""><option value="" disabled>Selecione</option>{["Comércio", "E-commerce", "Serviços", "Indústria"].map(segment => <option key={segment}>{segment}</option>)}</select></label>
     </fieldset>
     <p role="status" aria-live="polite">{status}</p>
-    <button type="submit" disabled={busy} className="rounded-xl bg-primary px-4 py-3 text-primary-foreground">{busy ? "Salvando…" : created ? "Acessar empresa cadastrada" : "Cadastrar empresa"}</button>
+    <button type="submit" disabled={!hydrated || busy} className="rounded-xl bg-primary px-4 py-3 text-primary-foreground">{busy ? "Salvando…" : created ? "Acessar empresa cadastrada" : "Cadastrar empresa"}</button>
     <Link href="/empresas" className="ml-4 underline">Suas empresas</Link>
   </form>
 }

@@ -35,9 +35,18 @@ jobs:
         with:
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
-      - run: timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" cargo fmt --all --check
-      - run: timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" cargo clippy --workspace --all-targets -- -D warnings
-      - run: timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" cargo test --workspace -- --test-threads=4
+      - run: |
+          remaining=$((ERP_CI_DEADLINE - $(date +%s)))
+          (( remaining > 0 ))
+          timeout "${remaining}s" cargo fmt --all --check
+      - run: |
+          remaining=$((ERP_CI_DEADLINE - $(date +%s)))
+          (( remaining > 0 ))
+          timeout "${remaining}s" cargo clippy --workspace --all-targets -- -D warnings
+      - run: |
+          remaining=$((ERP_CI_DEADLINE - $(date +%s)))
+          (( remaining > 0 ))
+          timeout "${remaining}s" cargo test --workspace -- --test-threads=4
 
   web:
     timeout-minutes: 2
@@ -57,11 +66,16 @@ jobs:
       - name: Validate web
         shell: bash
         run: |
-          timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" pnpm --filter web lint & lint_pid=$!
-          timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" pnpm --filter web build & build_pid=$!
+          remaining=$((ERP_CI_DEADLINE - $(date +%s)))
+          (( remaining > 0 ))
+          timeout "${remaining}s" pnpm --filter web lint & lint_pid=$!
+          timeout "${remaining}s" pnpm --filter web build & build_pid=$!
           wait "$lint_pid"
           wait "$build_pid"
-      - run: timeout "$((ERP_CI_DEADLINE - $(date +%s)))s" pnpm --filter web test:danfe
+      - run: |
+          remaining=$((ERP_CI_DEADLINE - $(date +%s)))
+          (( remaining > 0 ))
+          timeout "${remaining}s" pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4

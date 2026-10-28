@@ -232,6 +232,9 @@ export async function discover(root, options = {}) {
   }
   const extra = [
     'verification/contracts.json',
+    'verification/product-context.mjs', 'verification/product-context-cli.mjs',
+    'verification/schemas/product-flow-definitions.schema.json', 'verification/schemas/product-context.schema.json',
+    'pnpm-lock.yaml',
     'package.json', 'Cargo.toml', 'Cargo.lock', 'apps/api/Cargo.toml',
     'apps/web/package.json', 'apps/web/tsconfig.json', 'apps/web/playwright.config.ts',
     'apps/web/playwright.company.config.ts', 'scripts/verify-company.mjs',

@@ -7,6 +7,7 @@
     "apps/web"
   ],
   "scripts": {
+    "context:erp": "node verification/product-context-cli.mjs",
     "verify:erp": "node verification/run.mjs",
     "test:verification": "node --test verification/test/*.test.mjs",
     "dev:web": "pnpm --filter web dev",
@@ -14,6 +15,9 @@
     "lint:web": "pnpm --filter web lint",
     "test:company": "node scripts/verify-company.mjs",
     "test:access": "node scripts/verify-company.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
   }
 }
 

@@ -1,4 +1,5 @@
 import { normalizedRoute } from './discovery.mjs';
+import { validateProductFlows } from './product-context.mjs';
 
 const dimensions = ['interface', 'request', 'authorization', 'domain', 'persistence', 'effects', 'failure', 'response'];
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
@@ -92,6 +93,7 @@ export function assessContracts(catalogue, inventory) {
     }
     pendingIds.add(pending?.id);
   }
+  for (const finding of validateProductFlows(catalogue)) fail(finding.code, finding.path, finding.detail);
   return {
     status: findings.length ? 'invalid' : 'catalogued', runtimeVerdict: 'not_verified_by_catalog',
     apiOperations: api.size, cataloguedOperations: catalogue.actions.length, bffOperations: bff.size,

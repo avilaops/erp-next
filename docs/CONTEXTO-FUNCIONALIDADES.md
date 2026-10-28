@@ -1,0 +1,68 @@
+# Contexto de funcionalidades do ERP
+
+## Fonte das definições
+
+`verification/contracts.json` mantém as ações e suas regras. O campo
+`productFlows`, sob `erp-product-flow-definitions/1`, acrescenta os nomes de
+produto, objetivos, dependências e próximos passos. `actionGroups` referencia
+o campo `flow` das ações existentes. Cada grupo precisa ter exatamente um
+responsável. Permissões, operações, recuperação e tipos do corpo continuam
+definidos nas ações canônicas.
+
+As 96 ações atuais estão organizadas em 23 funcionalidades ou recursos de
+suporte. Três têm sequência explicitamente definida: usuários e convites,
+produtos e cadeia de compra/pagamento. Os 25 grupos com decisões pendentes
+continuam preservados, inclusive quando estendem uma funcionalidade existente.
+
+Uma etapa pode referenciar ações canônicas, operações de autenticação ou um
+sistema externo identificado. Referências a ações de outra funcionalidade
+exigem dependência explícita, direta ou transitiva. Uma sequência definida
+descreve o caminho pretendido; não afirma que esse caminho foi executado.
+
+## Saída por tarefa
+
+Execute `pnpm context:erp --flow users` para obter Usuários e suas dependências.
+Use `products` ou `purchase_payment_chain` para as outras sequências iniciais.
+Sem filtro, o comando inclui todas as funcionalidades.
+
+O JSON `erp-product-context/1` contém:
+
+- Commit, estado do checkout, hash do catálogo e fingerprint do inventário.
+- Manifesto de fontes relativas ao repositório, com SHA-256 de cada arquivo.
+- Seleção da tarefa e dependências transitivas.
+- Definições das funcionalidades e referências às ações selecionadas.
+- Contratos canônicos das ações, operações de autenticação e decisões pendentes.
+- Declarações de implementação e vínculos de interface, separados de publicação e execução.
+
+O Markdown apresenta objetivos, telas, permissões, ações, fontes e próximos
+passos para leitura direta pelo desenvolvedor. Os conteúdos são derivados;
+alterações devem ser feitas no catálogo ou nas fontes e geradas novamente.
+
+O CLI lê fontes declaradas, dependências TypeScript resolvidas estaticamente e
+arquivos de configuração do projeto incluídos no manifesto. Não lê `.env`,
+cookies ou banco, e não inclui corpos de fontes no artefato. Referências que
+saem do repositório, arquivos ocultos ou links simbólicos são recusadas.
+O grafo de dependências Rust e as relações observadas em execução não estão
+resolvidos por esse mecanismo.
+
+## Consistência e consumo
+
+As mesmas entradas produzem os mesmos bytes e a mesma pasta endereçada pelo
+hash. Mudanças no conteúdo alteram o hash. A escrita usa criação exclusiva e
+confere os bytes quando o arquivo já existe; não substitui um artefato divergente.
+O gerador confere o estado Git, o inventário e as fontes antes e depois da leitura.
+Isso detecta divergências observadas, mas não garante atomicidade do filesystem.
+
+O contexto de um checkout com alterações registra `dirty: true`. O commit é a
+base desse checkout, não a afirmação de que todos os bytes pertencem ao commit.
+O manifesto e o hash do inventário identificam o conteúdo adicional observado.
+
+O validador recusa um artefato cujo conteúdo diverge do hash declarado. A
+correspondência de hashes não autentica origem nem comprova regras de negócio.
+
+Publicação e execução permanecem `not_observed`. O consumidor futuro precisará
+registrar separadamente ambiente, versão servida e evidências de execução.
+A sincronização com o laboratório deve confirmar a importação e reconciliar
+respostas perdidas, com proteção de revisão e preservação da captura anterior.
+Este primeiro bloco não implementa essa sincronização nem a nova visão de fluxos
+no Experiments, e não modifica o importador de inventários de rotas existente.

@@ -1,5 +1,488 @@
 {
   "schemaVersion": "erp-action-contracts/1",
+  "productFlows": {
+    "schemaVersion": "erp-product-flow-definitions/1",
+    "product": "erp",
+    "flows": [
+      {
+        "id": "users",
+        "title": "Usuários e convites",
+        "goal": "Convidar pessoas e administrar seus acessos dentro da empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "users"
+        ],
+        "dependencies": [
+          "roles",
+          "company_onboarding"
+        ],
+        "nextStep": "Acompanhar o primeiro convite real até o acesso do convidado e a delegação de outro convite.",
+        "additionalSources": [
+          "docs/CONVITES-USUARIOS.md"
+        ],
+        "journey": [
+          {
+            "id": "operator-login",
+            "title": "O responsável entra e consulta os acessos da empresa.",
+            "actionIds": [
+              "get-api-v1-me",
+              "get-api-v1-users",
+              "get-api-v1-roles"
+            ],
+            "authRefs": [
+              "GET /api/auth/login",
+              "GET /api/auth/callback"
+            ],
+            "externalSystems": []
+          },
+          {
+            "id": "invite",
+            "title": "O responsável informa o destinatário e os acessos.",
+            "actionIds": [
+              "create-invitation"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "email",
+            "title": "O Auth processa o envio das instruções ao destinatário.",
+            "actionIds": [],
+            "authRefs": [],
+            "externalSystems": [
+              "Auth"
+            ]
+          },
+          {
+            "id": "invitee-login",
+            "title": "O convidado entra e o ERP descobre suas empresas.",
+            "actionIds": [
+              "get-api-v1-companies"
+            ],
+            "authRefs": [
+              "GET /api/auth/login",
+              "GET /api/auth/callback"
+            ],
+            "externalSystems": []
+          },
+          {
+            "id": "delegate",
+            "title": "O convidado com permissão passa a administrar e convidar usuários.",
+            "actionIds": [
+              "get-api-v1-users",
+              "put-api-v1-users-id",
+              "create-invitation"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
+        "id": "legacy-history",
+        "title": "Histórico importado",
+        "goal": "Consultar registros e arquivos preservados do ERP anterior.",
+        "kind": "product",
+        "actionGroups": [
+          "legacy-history"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar as consultas históricas às necessidades de consulta do usuário."
+      },
+      {
+        "id": "company",
+        "title": "Dados da empresa",
+        "goal": "Consultar e alterar os dados cadastrais da empresa ativa.",
+        "kind": "product",
+        "actionGroups": [
+          "company"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Conferir os campos pendentes do cadastro da empresa antes de usá-los em documentos."
+      },
+      {
+        "id": "financial-accounts",
+        "title": "Contas financeiras",
+        "goal": "Cadastrar e consultar as contas financeiras usadas nos lançamentos.",
+        "kind": "product",
+        "actionGroups": [
+          "financial-accounts"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar o cadastro de contas aos fluxos de recebimento e pagamento."
+      },
+      {
+        "id": "financial-categories",
+        "title": "Categorias financeiras",
+        "goal": "Organizar lançamentos por categoria financeira.",
+        "kind": "product",
+        "actionGroups": [
+          "financial-categories"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Definir o caminho de uso da categoria nos documentos financeiros."
+      },
+      {
+        "id": "fiscal-config",
+        "title": "Configuração fiscal",
+        "goal": "Manter os dados de preparação fiscal da empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-config"
+        ],
+        "dependencies": [
+          "company"
+        ],
+        "nextStep": "Relacionar os requisitos de preparação fiscal às operações fiscais consumidoras."
+      },
+      {
+        "id": "danfe",
+        "title": "DANFE de XML autorizado",
+        "goal": "Gerar o DANFE a partir do XML recebido, com as validações implementadas.",
+        "kind": "product",
+        "actionGroups": [
+          "danfe"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar o XML de entrada, o documento gerado e as recusas apresentadas na interface."
+      },
+      {
+        "id": "fiscal-drafts",
+        "title": "Rascunhos fiscais",
+        "goal": "Preparar e consultar rascunhos fiscais, preservando os bloqueios de emissão.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-drafts"
+        ],
+        "dependencies": [
+          "fiscal-config",
+          "products",
+          "parties"
+        ],
+        "nextStep": "Resolver as decisões de emissão fiscal registradas no catálogo antes de habilitar emissão."
+      },
+      {
+        "id": "me",
+        "title": "Acesso à empresa",
+        "goal": "Identificar a empresa e as permissões da sessão autenticada.",
+        "kind": "support",
+        "actionGroups": [
+          "me"
+        ],
+        "dependencies": [
+          "runtime"
+        ],
+        "nextStep": "Relacionar a consulta de acesso aos estados de entrada e seleção de empresa."
+      },
+      {
+        "id": "orders",
+        "title": "Pedidos de venda",
+        "goal": "Cadastrar e acompanhar o ciclo comercial dos pedidos de venda.",
+        "kind": "product",
+        "actionGroups": [
+          "orders"
+        ],
+        "dependencies": [
+          "products",
+          "parties"
+        ],
+        "nextStep": "Detalhar o caminho de confirmação, conclusão e cancelamento de um pedido."
+      },
+      {
+        "id": "parties",
+        "title": "Clientes e fornecedores",
+        "goal": "Cadastrar pessoas, seus papéis, endereços e contatos.",
+        "kind": "product",
+        "actionGroups": [
+          "parties"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Definir o uso de endereços e condições comerciais nos documentos consumidores."
+      },
+      {
+        "id": "payment-methods",
+        "title": "Formas de pagamento",
+        "goal": "Manter as formas de pagamento usadas nos documentos comerciais e financeiros.",
+        "kind": "product",
+        "actionGroups": [
+          "payment-methods"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar a forma de pagamento às ações de baixa manual."
+      },
+      {
+        "id": "permissions",
+        "title": "Catálogo de permissões",
+        "goal": "Consultar as permissões reconhecidas pelo ERP.",
+        "kind": "support",
+        "actionGroups": [
+          "permissions"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar as permissões às escolhas de papéis da interface."
+      },
+      {
+        "id": "product-categories",
+        "title": "Categorias de produtos",
+        "goal": "Organizar os produtos em categorias cadastradas.",
+        "kind": "product",
+        "actionGroups": [
+          "product-categories"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar a manutenção de categorias ao cadastro do produto."
+      },
+      {
+        "id": "products",
+        "title": "Cadastro de produtos",
+        "goal": "Cadastrar, consultar e editar produtos com os campos e limites implementados.",
+        "kind": "product",
+        "actionGroups": [
+          "products"
+        ],
+        "dependencies": [
+          "product-categories",
+          "me"
+        ],
+        "nextStep": "Resolver as decisões de variantes, imagens e listas de preços ainda registradas como pendentes.",
+        "journey": [
+          {
+            "id": "lookup-category",
+            "title": "Consultar as categorias disponíveis.",
+            "actionIds": [
+              "get-api-v1-product-categories"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "create",
+            "title": "Cadastrar o produto.",
+            "actionIds": [
+              "post-api-v1-products"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "read",
+            "title": "Consultar o produto salvo.",
+            "actionIds": [
+              "get-api-v1-products-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "edit",
+            "title": "Editar os dados do produto.",
+            "actionIds": [
+              "put-api-v1-products-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "list",
+            "title": "Localizar o produto na listagem.",
+            "actionIds": [
+              "get-api-v1-products"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
+        "id": "receivables",
+        "title": "Contas a receber",
+        "goal": "Consultar títulos e registrar ou estornar recebimentos manuais.",
+        "kind": "product",
+        "actionGroups": [
+          "receivables"
+        ],
+        "dependencies": [
+          "orders",
+          "payment-methods",
+          "financial-accounts"
+        ],
+        "nextStep": "Detalhar a baixa parcial e o estorno pela interface financeira."
+      },
+      {
+        "id": "roles",
+        "title": "Papéis de acesso",
+        "goal": "Manter os conjuntos de permissões atribuídos aos usuários da empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "roles"
+        ],
+        "dependencies": [
+          "permissions"
+        ],
+        "nextStep": "Relacionar a edição de papéis aos limites de delegação do operador."
+      },
+      {
+        "id": "stock",
+        "title": "Saldos e movimentações",
+        "goal": "Consultar saldos e registrar movimentações de estoque.",
+        "kind": "product",
+        "actionGroups": [
+          "stock"
+        ],
+        "dependencies": [
+          "products"
+        ],
+        "nextStep": "Definir os caminhos pendentes de depósitos, transferências e contagem de inventário."
+      },
+      {
+        "id": "runtime",
+        "title": "Disponibilidade e contrato",
+        "goal": "Consultar a disponibilidade do serviço e seu contrato HTTP.",
+        "kind": "support",
+        "actionGroups": [
+          "runtime"
+        ],
+        "dependencies": [],
+        "nextStep": "Relacionar a versão observada do serviço ao contexto de código, em uma etapa posterior."
+      },
+      {
+        "id": "company_onboarding",
+        "title": "Entrada e cadastro de empresa",
+        "goal": "Descobrir as empresas do usuário e cadastrar uma nova empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "company_onboarding"
+        ],
+        "dependencies": [
+          "runtime"
+        ],
+        "nextStep": "Detalhar os caminhos de primeira entrada e de seleção entre empresas."
+      },
+      {
+        "id": "staff",
+        "title": "Funcionários e vendedores",
+        "goal": "Cadastrar e consultar funcionários e vendedores da empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "staff"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar os cadastros às operações que usam responsáveis e vendedores."
+      },
+      {
+        "id": "purchase_payment_chain",
+        "title": "Compras, recebimentos e contas a pagar",
+        "goal": "Acompanhar a compra, seu recebimento e os pagamentos manuais correspondentes.",
+        "kind": "product",
+        "actionGroups": [
+          "purchase_payment_chain"
+        ],
+        "dependencies": [
+          "products",
+          "parties",
+          "payment-methods",
+          "financial-accounts"
+        ],
+        "nextStep": "Definir a extensão de recebimento por XML e as demais decisões pendentes de compras.",
+        "additionalSources": [
+          "docs/COMPRAS-CONTAS-PAGAR-INTERFACE.md"
+        ],
+        "journey": [
+          {
+            "id": "lookup",
+            "title": "Selecionar fornecedor, produtos e condições de pagamento.",
+            "actionIds": [
+              "get-api-v1-parties",
+              "get-api-v1-products",
+              "get-api-v1-payment-methods"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "create",
+            "title": "Cadastrar o pedido de compra.",
+            "actionIds": [
+              "post-api-v1-purchase-orders"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "confirm",
+            "title": "Confirmar o pedido de compra.",
+            "actionIds": [
+              "post-api-v1-purchase-orders-id-confirm"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "receive",
+            "title": "Registrar o recebimento de itens.",
+            "actionIds": [
+              "post-api-v1-purchase-orders-id-receipts",
+              "get-api-v1-purchase-receipts-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "payable",
+            "title": "Consultar o título a pagar correspondente.",
+            "actionIds": [
+              "get-api-v1-payables",
+              "get-api-v1-payables-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "payment",
+            "title": "Registrar a baixa manual autorizada do título.",
+            "actionIds": [
+              "post-api-v1-payables-id-payments"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
+        "id": "fiscal-integrations",
+        "title": "Integrações fiscais com Lojas",
+        "goal": "Administrar chaves de serviço e os contratos de notas recebidas.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-integrations"
+        ],
+        "dependencies": [
+          "me"
+        ],
+        "nextStep": "Relacionar os contratos de serviço ao fluxo consumidor de Lojas e às recusas de autorização."
+      }
+    ]
+  },
   "sourceBaseline": "1569e8f9e08300e2d22a36da80f6efc5b563a8d0",
   "scope": "Contratos extraídos do código; não são evidência de execução ou liberação de produção.",
   "acceptanceDimensions": [

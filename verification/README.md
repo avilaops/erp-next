@@ -7,9 +7,9 @@ um agente que altera o ERP automaticamente.
 
 ## Executar
 
-O catálogo [contracts.json](contracts.json) descreve as 62 operações Rust
+O catálogo [contracts.json](contracts.json) descreve as operações Rust
 existentes, suas precondições, estados, permissões, efeitos e recuperação, além
-das ações dinâmicas do BFF e das 28 famílias de fluxos que ainda exigem definição.
+das ações dinâmicas do BFF e das famílias de fluxos que ainda exigem definição.
 O verificador cruza essas fichas com os métodos/rotas/páginas descobertos. Rota
 sem ficha, método divergente ou contrato apontando para rota ausente produz erro.
 O relatório mostra a cobertura contratual separada do resultado de execução.
@@ -19,6 +19,43 @@ Este catálogo documenta os tipos Rust existentes em vez de duplicar seus campos
 em outro schema. Os testes conferem que as referências de tipos e fontes existem.
 As oito dimensões de aceite não são resultados de testes. Veja o
 [escopo e a matriz de ações](../docs/CONTRATOS-ACOES-P0.md).
+
+## Contexto por funcionalidade
+
+O campo `productFlows` do mesmo catálogo associa os grupos de ações a nomes e
+objetivos de produto, dependências e próximos passos. As definições de sequência
+inicial cobrem Usuários, Produtos e Compras. Os demais grupos mantêm o estado
+`actions_mapped`, sem sequência de uso presumida.
+
+```powershell
+pnpm context:erp
+pnpm context:erp --flow users
+pnpm context:erp --flow products
+pnpm context:erp --flow purchase_payment_chain
+```
+
+O comando grava `context.json` e `context.md` em
+`artifacts/product-context/<contentSha256>/`. Inclui as dependências transitivas
+da funcionalidade selecionada, as ações canônicas, as permissões e os caminhos
+das fontes com seus hashes. Não copia os campos dos tipos Rust para outro contrato.
+Repetir entradas idênticas produz os mesmos bytes e reutiliza os arquivos;
+um arquivo existente com conteúdo diferente é preservado e causa erro.
+
+As definições e a saída têm JSON Schemas Draft 2020-12 em `schemas/`, validados
+com Ajv. Referências inexistentes, propriedade desconhecida, grupo com mais de
+um responsável e dependência circular impedem a geração. O comando confere
+as fontes e o estado Git antes e depois da captura; essas leituras observam
+intervalos e não bloqueiam o checkout como um snapshot atômico.
+
+`routes_mapped` significa que o catálogo relaciona páginas e BFF. Publicação e
+execução ficam como `not_observed`; o artefato não transforma commit, catálogo,
+HTTP 200 ou sugestão de modelo em evidência de uso. O hash permite conferir o
+conteúdo, mas não autentica quem produziu o artefato.
+
+Este formato novo prepara o contexto para consumo pelo laboratório. Nesta etapa,
+o comando não envia dados ao Experiments nem adiciona uma tela ou endpoint ao
+laboratório. O importador existente de `route-inventory/2` continua separado;
+ele não deve receber `erp-product-context/1` como se fossem o mesmo contrato.
 
 Com as dependências web já instaladas:
 

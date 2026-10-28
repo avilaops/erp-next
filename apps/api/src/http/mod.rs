@@ -18,6 +18,8 @@ mod operations_tests;
 mod parties_tests;
 #[cfg(test)]
 mod reference_tests;
+#[cfg(test)]
+mod staff_tests;
 
 use axum::{Router, middleware, routing::get};
 use tower_http::{

@@ -28,7 +28,7 @@ use crate::platform::{access, access_management, company};
         sales::list, sales::get, sales::create, sales::update, sales::confirm, sales::cancel, sales::complete,
         finance::list, finance::get, finance::pay, finance::reverse,
         inventory::balances, inventory::history, inventory::post_movement,
-        fiscal::get_profile, fiscal::put_profile, fiscal::readiness,
+        fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
         fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue),
     modifiers(&Security),
     tags((name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 37);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 38);
         for resource in [
             "product-categories",
             "financial-categories",

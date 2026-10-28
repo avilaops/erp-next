@@ -1,3 +1,7 @@
+pub mod danfe;
+pub mod danfe_client;
+#[cfg(test)]
+pub(crate) mod danfe_test_support;
 pub mod model;
 
 use axum::{
@@ -25,11 +29,12 @@ const BLOCKERS: &[&str] = &[
     "current_xsd_and_tax_rules_validation_not_implemented",
     "xml_generation_and_xmldsig_not_implemented",
     "sefaz_transport_and_reconciliation_not_implemented",
-    "r2_document_storage_and_danfe_not_implemented",
+    "r2_document_storage_not_implemented",
 ];
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/api/v1/fiscal/danfe", axum::routing::post(danfe::generate))
         .route("/api/v1/fiscal/config", get(get_profile).put(put_profile))
         .route("/api/v1/fiscal/readiness", get(readiness))
         .route("/api/v1/fiscal/nfe", get(list).post(create))

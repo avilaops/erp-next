@@ -8,6 +8,7 @@ pub struct Config {
     pub auth_userinfo_url: String,
     pub database_url: String,
     pub database_max_connections: u32,
+    pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
 }
 
 impl Config {
@@ -43,8 +44,31 @@ impl Config {
             auth_userinfo_url,
             database_url,
             database_max_connections,
+            danfe: danfe_configuration()?,
         })
     }
+}
+
+fn danfe_configuration() -> anyhow::Result<Option<crate::domains::fiscal::danfe_client::DanfeClient>>
+{
+    let endpoint = env::var("DANFE_MCP_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let token = env::var("DANFE_MCP_TOKEN")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let ca_path = env::var("DANFE_CA_BUNDLE_FILE")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    if endpoint.is_none() && token.is_none() && ca_path.is_none() {
+        return Ok(None);
+    }
+    let endpoint = endpoint.context("DANFE_MCP_URL is required when enabling DANFE")?;
+    let token = token.context("DANFE_MCP_TOKEN is required when enabling DANFE")?;
+    let bundle = ca_path
+        .map(|path| std::fs::read_to_string(path).context("Failed to read DANFE_CA_BUNDLE_FILE"))
+        .transpose()?;
+    crate::domains::fiscal::danfe_client::DanfeClient::new(&endpoint, &token, bundle).map(Some)
 }
 
 fn reject_production_fiscal_mode(value: &str) -> anyhow::Result<()> {

@@ -62,6 +62,32 @@ Suítes são comandos fixos do próprio projeto. Não há entrada para executar
 comandos produzidos por IA. Elas não validam login, banco ou serviços externos
 de produção. As verificações não corrigem regras de negócio automaticamente.
 
+## Verificação identificada do DANFE
+
+```powershell
+$env:ERP_VERIFY_TEST_DATABASE_URL = 'postgres://USUARIO_DE_TESTE@127.0.0.1:PORTA/postgres'
+pnpm verify:erp --suite danfe
+```
+
+A suíte `danfe` associa explicitamente os testes nomeados à rota
+`POST /api/v1/fiscal/danfe`, ao BFF e à página correspondente. Executa Cargo com
+dois jobs e um teste por vez, preserva o log e verifica os hashes das fontes e
+fixtures antes/depois. Um comando com saída zero e nenhum teste correspondente
+não aprova o fluxo. Testes ausentes, ignorados, duplicados ou mudança de fonte
+mantêm o resultado inconclusivo.
+
+O relatório HTML/Markdown mostra os checks individuais e os hashes do plano,
+log e arquivos. O resultado cobre API e transporte em PostgreSQL isolado, Auth
+sintético e MCP de teste. Não aprova a execução da página, um XML de cliente,
+o estado atual na SEFAZ ou os serviços de produção. As páginas mantêm seu
+estado de verificação individual separado.
+
+Para verificar a página e o BFF com uma API fiscal de teste, execute
+`pnpm --filter web build` e depois `pnpm --filter web test:danfe`. Os quatro
+cenários Chromium salvam JSON e screenshots em uma pasta exclusiva de
+`artifacts/danfe-browser/`. A configuração identifica sessão sintética e API de
+teste nos metadados; essa execução não aprova o encadeamento com o MCP real.
+
 ## Aprendizado de máquina
 
 O adaptador em `ml/anomaly.py` aplica Isolation Forest ao tempo e tamanho das

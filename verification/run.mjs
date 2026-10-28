@@ -15,7 +15,7 @@ const options = parseArgs({ options: {
   'ml-python': { type: 'string' }, help: { type: 'boolean', short: 'h' },
 } }).values;
 if (options.help) {
-  console.log('node verification/run.mjs [--api http://127.0.0.1:8080] [--web http://127.0.0.1:3201] [--suite rust] [--suite flows] [--ml-python CAMINHO_PYTHON]\nSem opções: somente inventário estático e relatório. Suítes exigem ERP_VERIFY_TEST_DATABASE_URL em PostgreSQL local dedicado a testes.');
+  console.log('node verification/run.mjs [--api http://127.0.0.1:8080] [--web http://127.0.0.1:3201] [--suite rust|flows|danfe] [--ml-python CAMINHO_PYTHON]\nSem opções: somente inventário estático e relatório. Suítes exigem ERP_VERIFY_TEST_DATABASE_URL em PostgreSQL local dedicado a testes.');
   process.exit(0);
 }
 

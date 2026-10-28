@@ -3,6 +3,8 @@ mod access_tests;
 #[cfg(test)]
 mod company_tests;
 #[cfg(test)]
+mod danfe_tests;
+#[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
 mod fiscal_tests;

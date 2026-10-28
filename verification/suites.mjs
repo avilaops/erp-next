@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { createServer } from 'node:net';
 import { localOrigin } from './probes.mjs';
+import { danfeSources, assessDanfeSuite } from './danfe.mjs';
 
 export function testDatabase(value) {
   if (!value) throw new Error('Defina ERP_VERIFY_TEST_DATABASE_URL para uma instância PostgreSQL dedicada a testes.');
@@ -54,10 +55,18 @@ export async function execute(command, args, { root, env, timeoutMs = 15 * 60 * 
 }
 
 export async function runSuite(name, root) {
-  if (!['rust', 'flows'].includes(name)) throw new Error('Suítes permitidas: rust, flows.');
+  if (!['rust', 'flows', 'danfe'].includes(name)) throw new Error('Suítes permitidas: rust, flows, danfe.');
   const database = testDatabase(process.env.ERP_VERIFY_TEST_DATABASE_URL);
   if (name === 'flows') await assertHarnessPortsAvailable();
   const env = { ...process.env, DATABASE_URL: database, COMPANY_TEST_DATABASE_URL: database };
+  if (name === 'danfe') {
+    const before = await danfeSources(root);
+    const result = await execute('cargo', ['test', '--workspace', '--jobs', '2', 'danfe', '--', '--test-threads=1'], { root, env });
+    const flow = assessDanfeSuite(result, before, await danfeSources(root));
+    return { id: name, verdict: flow.verdict, durationMs: result.durationMs,
+      scope: 'API/validações de DANFE em PostgreSQL isolado, Auth sintético e MCP de teste. Não aprova navegador ou SEFAZ.',
+      flow, steps: [{ command: 'cargo', args: ['test', '--workspace', '--jobs', '2', 'danfe', '--', '--test-threads=1'], ...result }] };
+  }
   const commands = name === 'rust'
     ? [['cargo', ['test', '--workspace'], root]]
     : [

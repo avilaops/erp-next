@@ -1,6 +1,6 @@
-# ERP Next
+# ERP
 
-Novo ERP modular da Ávila Ops. O sistema nasce separado do ERP legado e usa um monólito modular para preservar transações, contratos entre domínios e rastreabilidade.
+ERP modular da Ávila Ops, mantido em `avilaops/erp-next`. O sistema nasce separado do ERP legado e usa um monólito modular para preservar transações, contratos entre domínios e rastreabilidade.
 
 ## Fundação
 

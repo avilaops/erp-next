@@ -137,7 +137,10 @@ impl IntoResponse for AuthFailure {
         };
         (
             status,
-            [(header::CONTENT_TYPE, "application/problem+json")],
+            [
+                (header::CONTENT_TYPE, "application/problem+json"),
+                (header::CACHE_CONTROL, "no-store"),
+            ],
             axum::Json(serde_json::json!({
                 "type": format!("https://erp.avilaops.com/problems/{code}"),
                 "title": title,

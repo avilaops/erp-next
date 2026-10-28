@@ -25,6 +25,13 @@ fn company() -> Value {
 }
 
 pub(super) async fn setup(admin: &PgPool) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
+    setup_with_danfe(admin, None).await
+}
+
+pub(super) async fn setup_with_danfe(
+    admin: &PgPool,
+    danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
+) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
     sqlx::raw_sql(r#"
         INSERT INTO tenants (id, legal_name, tax_id) VALUES
           ('11111111-1111-4111-8111-111111111111', 'Empresa A', '04252011000110'),
@@ -82,10 +89,13 @@ pub(super) async fn setup(admin: &PgPool) -> (Router, PgPool, tokio::task::JoinH
             Ok(axum::Json(json!({"sub":subject,"email":format!("{subject}@example.test"),"name":subject})))
         }))).await.unwrap();
     });
-    let router = super::router(AppState::new(
-        application.clone(),
-        AuthClient::new(format!("http://{address}/userinfo")),
-    ));
+    let router = super::router(
+        AppState::new(
+            application.clone(),
+            AuthClient::new(format!("http://{address}/userinfo")),
+        )
+        .with_danfe(danfe),
+    );
     (router, application, server, role)
 }
 

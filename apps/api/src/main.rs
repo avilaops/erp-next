@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to bind HTTP listener")?;
     let local_address = listener.local_addr()?;
     let auth = AuthClient::new(config.auth_userinfo_url);
-    let app = http::router(AppState::new(pool, auth));
+    let app = http::router(AppState::new(pool, auth).with_danfe(config.danfe));
 
     info!(%local_address, "ERP Next API listening");
     axum::serve(listener, app)

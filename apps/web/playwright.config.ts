@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["company-persistence.spec.ts", "access-persistence.spec.ts", "catalog-persistence.spec.ts", "stock-persistence.spec.ts", "party-persistence.spec.ts", "operations-persistence.spec.ts"],
+  testIgnore: ["company-persistence.spec.ts", "access-persistence.spec.ts", "catalog-persistence.spec.ts", "stock-persistence.spec.ts", "party-persistence.spec.ts", "operations-persistence.spec.ts", "reference-persistence.spec.ts", "danfe-ui.spec.ts"],
   fullyParallel: true,
   workers: 5,
   forbidOnly: Boolean(process.env.CI),

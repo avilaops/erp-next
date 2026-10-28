@@ -18,7 +18,7 @@ export default defineConfig({
   timeout: 90_000,
   outputDir: path.join(directory, "test-results"),
   reporter: [["list"], ["json", { outputFile: path.join(directory, "report.json") }]],
-  use: { baseURL: origin, browserName: "chromium", viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
+  use: { baseURL: origin, browserName: "chromium", channel: process.env.PLAYWRIGHT_CHANNEL, viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
   webServer: {
     command: "pnpm start --hostname 127.0.0.1 --port 33118",
     url: `${origin}/entrar`,

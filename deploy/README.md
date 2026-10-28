@@ -1,16 +1,24 @@
 # ERP Next em produção
 
-Imagens são construídas somente pelo GitHub CI, depois das verificações de cada
-componente. A implantação exige o resultado completo da execução aprovado.
+Imagens são construídas somente pelo GitHub CI, no dispatch `release=true`,
+depois das verificações de cada componente. PRs não reempacotam imagens.
+A implantação exige o resultado completo da execução aprovado.
 Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
 
-O dispatch opcional `provision=true` executa migrations **no runner GitHub**,
+Todos os jobs têm timeout de um minuto, abaixo do teto de 90 segundos pedido.
+Cache frio ou operações que não caibam nesse limite falham; não autorizam build
+no servidor ou a retirada de testes. Os navegadores usam Chrome do runner.
+
+O dispatch opcional `provision=true`, com `release_run` apontando para uma
+execução já aprovada, executa somente migrations/bootstrap **no runner GitHub**,
 conectado ao PostgreSQL por túnel SSH restrito a `172.17.0.1:5432`, sujeito a
 autenticação SCRAM em vez das regras trust de loopback. A chave do
 túnel não permite sessão ou execução de comandos. Os segredos são configurados
 no GitHub: `ERP_MIGRATION_DATABASE_URL`, `ERP_DB_TUNNEL_KEY`,
 `ERP_DB_KNOWN_HOSTS`, `ERP_DB_SSH_HOST`, `ERP_BOOTSTRAP_SUB` e
 `ERP_BOOTSTRAP_TENANT`. Nunca executar o comando `migrate` no servidor.
+Antes de usar a imagem, confere que a revisão de origem possui os mesmos fontes
+Rust, lockfile e migrations da revisão que está fazendo o provisionamento.
 
 O bootstrap cria uma empresa com cadastro fiscal pendente e associa a identidade
 real confirmada de `nicolas@avilaops.com` ao papel de administrador. O banco é

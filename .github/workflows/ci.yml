@@ -7,6 +7,14 @@ on:
         description: Apply migrations and initial access to the isolated ERP Next database
         type: boolean
         default: false
+      release_run:
+        description: Successful CI run containing the approved API image for migrations
+        type: string
+        default: ""
+      release:
+        description: Package images in this run
+        type: boolean
+        default: false
   pull_request:
   push:
     branches: [main]
@@ -17,9 +25,8 @@ permissions:
 jobs:
   provision:
     if: github.event_name == 'workflow_dispatch' && inputs.provision
-    needs: [rust, web, experiments]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     permissions:
       contents: read
       actions: read
@@ -43,16 +50,29 @@ jobs:
           chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
           ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
       - name: Apply migrations from the CI image
+        env:
+          RELEASE_RUN: ${{ inputs.release_run }}
         run: |
-          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "erp-api-$GITHUB_SHA"
+          test -n "$RELEASE_RUN"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .conclusion)" = success
+          source_sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .head_sha)
+          git fetch --depth=1 origin "$source_sha"
+          git diff --exit-code FETCH_HEAD HEAD -- apps/api Cargo.toml Cargo.lock migrations
+          artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN/artifacts" --jq '.artifacts[] | select(.name | startswith("erp-api-")) | .name')
+          image_sha=${artifact#erp-api-}
+          [[ "$image_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh run download "$RELEASE_RUN" --repo "$GITHUB_REPOSITORY" --name "$artifact"
           docker load --input api-image.tar.gz
-          docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$GITHUB_SHA" migrate
+          docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$image_sha" migrate
       - name: Provision initial membership and runtime grants
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
 
   experiments:
+    if: ${{ !inputs.provision }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 1
+    env:
+      PLAYWRIGHT_CHANNEL: chrome
     defaults:
       run:
         working-directory: experiments
@@ -73,8 +93,6 @@ jobs:
         working-directory: experiments/dashboard
       - run: npm test
         working-directory: experiments/dashboard
-      - run: npx playwright install --with-deps chromium
-        working-directory: experiments/dashboard
       - run: npm run test:ui
         working-directory: experiments/dashboard
       - run: node scripts/ui-check.mjs
@@ -86,6 +104,8 @@ jobs:
           if-no-files-found: ignore
 
   rust:
+    if: ${{ !inputs.provision }}
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -111,17 +131,25 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace -- --test-threads=1
+      - run: cargo test --workspace -- --test-threads=2
       - run: cargo build --release --locked -p erp-next-api
+        if: inputs.release
       - run: docker build -f deploy/api.Dockerfile -t erp-next-api:sha-${{ github.sha }} .
+        if: inputs.release
       - run: docker save erp-next-api:sha-${{ github.sha }} | gzip > api-image.tar.gz
+        if: inputs.release
       - uses: actions/upload-artifact@v4
+        if: inputs.release
         with:
           name: erp-api-${{ github.sha }}
           path: api-image.tar.gz
 
   web:
+    if: ${{ !inputs.provision }}
+    timeout-minutes: 1
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -140,10 +168,11 @@ jobs:
           pnpm --filter web build & build_pid=$!
           wait "$lint_pid"
           wait "$build_pid"
-      - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web test:danfe
       - run: docker build -f deploy/web.Dockerfile -t erp-next-web:sha-${{ github.sha }} .
+        if: inputs.release
       - name: Check packaged web runtime
+        if: inputs.release
         run: |
           docker run -d --name erp-web-smoke -p 127.0.0.1:33120:3000 \
             -e ERP_WEB_ORIGIN=http://127.0.0.1:3000 \
@@ -157,7 +186,9 @@ jobs:
           done
           test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:33120/api/erp/company)" = 401
       - run: docker save erp-next-web:sha-${{ github.sha }} | gzip > web-image.tar.gz
+        if: inputs.release
       - uses: actions/upload-artifact@v4
+        if: inputs.release
         with:
           name: erp-web-${{ github.sha }}
           path: web-image.tar.gz

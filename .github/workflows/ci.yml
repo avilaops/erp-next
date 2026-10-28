@@ -13,7 +13,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rust-build:
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rust
+          cache-on-failure: true
+      - name: Compile complete Rust test suite
+        run: |
+          mkdir -p artifacts
+          timeout 40s cargo test --workspace --locked --no-run --message-format=json > artifacts/rust-build.jsonl
+          python3 -B scripts/contracts/package-test-binary.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-rust-tests-${{ github.sha }}
+          path: artifacts/rust-tests/
+          if-no-files-found: error
+          retention-days: 1
+
   rust:
+    needs: rust-build
     timeout-minutes: 1
     runs-on: ubuntu-latest
     services:
@@ -34,23 +64,12 @@ jobs:
       DATABASE_URL: postgres://postgres:erp_next_ci_only@127.0.0.1:5432/erp_next_test
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.99.1
-      # Bootstrap main's cache, compiled with 1.99.1. Its key also counted an
-      # installed 1.99.0 toolchain; Cargo validates artifacts before reuse.
-      - uses: actions/cache/restore@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: |
-            target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
+          name: erp-rust-tests-${{ github.sha }}
+          path: artifacts/rust-tests/
       - name: Test Rust and export candidate contract
-        run: |
-          mkdir -p artifacts/contracts
-          ERP_OPENAPI_OUTPUT="$GITHUB_WORKSPACE/artifacts/contracts/candidate.json" ERP_COMPANY_CONTRACT_OUTPUT="$GITHUB_WORKSPACE/artifacts/contracts/company.json" timeout 40s cargo test --workspace --locked -- --test-threads=4
+        run: timeout 40s python3 -B scripts/contracts/run-test-binaries.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -94,7 +113,7 @@ jobs:
       - run: bash scripts/contracts/install-oasdiff.sh
       - run: node --test scripts/contracts/test/*.test.mjs
 
-  contracts:
+  baseline:
     needs: rust
     timeout-minutes: 1
     runs-on: ubuntu-latest
@@ -102,9 +121,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
       - uses: dtolnay/rust-toolchain@1.99.1
       - uses: actions/cache/restore@v4
         with:
@@ -124,7 +140,28 @@ jobs:
       - name: Capture explicit baseline
         env:
           BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: timeout 30s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
+        run: timeout 40s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-openapi-captured-${{ github.sha }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  contracts:
+    needs: baseline
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-openapi-captured-${{ github.sha }}
+          path: artifacts/contracts/
       - run: bash scripts/contracts/install-oasdiff.sh
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: scripts/contracts/consumer
@@ -142,6 +179,17 @@ jobs:
           path: artifacts/contracts/
           if-no-files-found: error
           retention-days: 14
+
+  gate:
+    needs: [rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
+    if: always()
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job to succeed
+        env:
+          VALIDATION_JOBS: ${{ toJSON(needs) }}
+        run: python3 -c 'import json,os,sys; jobs=json.loads(os.environ["VALIDATION_JOBS"]); sys.exit(0 if jobs and all(job["result"] == "success" for job in jobs.values()) else 1)'
 
   web:
     timeout-minutes: 1

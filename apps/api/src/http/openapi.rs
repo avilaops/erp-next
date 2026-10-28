@@ -85,8 +85,10 @@ mod tests {
         let mut ids = std::collections::BTreeSet::new();
         for (path, item) in doc["paths"].as_object().unwrap() {
             for (method, operation) in item.as_object().unwrap() {
-                if !["get", "put", "post", "delete", "options", "head", "patch", "trace"]
-                    .contains(&method.as_str())
+                if ![
+                    "get", "put", "post", "delete", "options", "head", "patch", "trace",
+                ]
+                .contains(&method.as_str())
                 {
                     continue;
                 }

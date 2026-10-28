@@ -8,6 +8,7 @@ services:
     networks: [erp]
     ports:
       - "127.0.0.1:3141:8080"
+      - "127.0.0.1:3140:3000"
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
   web:
@@ -15,15 +16,13 @@ services:
     restart: unless-stopped
     env_file: web.env
     environment:
-      ERP_API_URL: http://api:8080
+      ERP_API_URL: http://127.0.0.1:8080
       ERP_WEB_ORIGIN: https://erp.avilaops.com
       AUTH_ISSUER: https://auth.avilaops.com
-    ports:
-      - "127.0.0.1:3140:3000"
     depends_on:
       api:
         condition: service_healthy
-    networks: [erp]
+    network_mode: service:api
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
 networks:

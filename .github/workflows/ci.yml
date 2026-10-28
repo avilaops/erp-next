@@ -143,6 +143,19 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web test:danfe
       - run: docker build -f deploy/web.Dockerfile -t erp-next-web:sha-${{ github.sha }} .
+      - name: Check packaged web runtime
+        run: |
+          docker run -d --name erp-web-smoke -p 127.0.0.1:33120:3000 \
+            -e ERP_WEB_ORIGIN=http://127.0.0.1:3000 \
+            -e ERP_API_URL=http://127.0.0.1:8080 \
+            -e ERP_SESSION_SECRET=ci-runtime-fixture-with-more-than-32-bytes \
+            erp-next-web:sha-${{ github.sha }}
+          trap 'docker rm -f erp-web-smoke' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:33120/entrar > /dev/null; then break; fi
+            sleep 1
+          done
+          test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:33120/api/erp/company)" = 401
       - run: docker save erp-next-web:sha-${{ github.sha }} | gzip > web-image.tar.gz
       - uses: actions/upload-artifact@v4
         with:

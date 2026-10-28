@@ -24,6 +24,11 @@ privados `api.env`, `web.env` e `.env`. `api.env` contém `DATABASE_URL`,
 `ERP_SESSION_SECRET` e `ERP_DEFAULT_TENANT_ID`. `.env` fixa `ERP_API_IMAGE` e
 `ERP_WEB_IMAGE`. Não versionar esses arquivos preenchidos.
 
+Web e API compartilham o namespace de rede do serviço API; o BFF usa
+`http://127.0.0.1:8080`. Isso mantém a exigência existente de HTTPS ou loopback,
+sem liberar HTTP para hosts arbitrários. As duas portas são publicadas pelo
+serviço API, somente no loopback do servidor.
+
 O cliente OIDC dedicado `erp-next` pertence ao app Auth `erp` e aceita somente
 `https://erp.avilaops.com/api/auth/callback`. Não alterar o segredo do cliente
 legado `erp`. O BFF mantém tokens em cookie HttpOnly cifrado e a API consulta

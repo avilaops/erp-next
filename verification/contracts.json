@@ -7569,7 +7569,7 @@
       "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
       "ui": {
         "pages": [],
-        "bff": null,
+        "bff": { "method": "GET", "path": "/api/health" },
         "gap": null
       },
       "sources": [

@@ -145,7 +145,9 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 59);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 61);
+        assert!(doc["paths"]["/api/v1/legacy-history"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/legacy-history/files/{id}"]["get"].is_object());
         for resource in [
             "product-categories",
             "financial-categories",

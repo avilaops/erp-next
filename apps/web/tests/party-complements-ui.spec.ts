@@ -55,7 +55,7 @@ test("party editor adds, reads and removes structured addresses and contacts wit
   await page.getByLabel("Contato 1: Nome", { exact: true }).fill("Edição preservada")
   refuse = true
   await page.getByRole("button", { name: "Salvar pessoa", exact: true }).click()
-  await expect(page.getByRole("alert")).toContainText("Revisão divergente")
+  await expect(page.getByRole("alert").filter({ hasText: "Revisão divergente" })).toContainText("Revisão divergente")
   await expect(page.getByLabel("Contato 1: Nome", { exact: true })).toHaveValue("Edição preservada")
   refuse = false
   page.once("dialog", dialog => dialog.accept())

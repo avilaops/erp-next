@@ -39,15 +39,24 @@ impl Expected {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    Accepted { receipt: String },
+    Accepted {
+        receipt: String,
+    },
     Processing,
     /// Matched protocol, not proof of a real authorization without trusted transport.
-    Authorized { protocol: String, received_at: String },
+    Authorized {
+        protocol: String,
+        received_at: String,
+    },
     /// A later consultation may report cancellation; preserve the authorization XML.
     Cancelled,
-    Rejected { code: u16 },
+    Rejected {
+        code: u16,
+    },
     /// Ambiguous, duplicate, unavailable, not found or unknown status: consult, never resend.
-    Reconcile { code: u16 },
+    Reconcile {
+        code: u16,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +87,10 @@ fn valid_key(key: &str) -> bool {
 }
 
 fn digest(value: &str) -> Result<Vec<u8>, Error> {
-    let bytes: Vec<u8> = value.bytes().filter(|byte| !byte.is_ascii_whitespace()).collect();
+    let bytes: Vec<u8> = value
+        .bytes()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
     let decoded = STANDARD.decode(bytes).map_err(|_| Error::Correlation)?;
     if ![20, 32].contains(&decoded.len()) {
         return Err(Error::Correlation);
@@ -87,7 +99,9 @@ fn digest(value: &str) -> Result<Vec<u8>, Error> {
 }
 
 fn one<'a>(parent: Node<'a, 'a>, name: &str) -> Result<Node<'a, 'a>, Error> {
-    let mut nodes = parent.children().filter(|node| node.has_tag_name((NS, name)));
+    let mut nodes = parent
+        .children()
+        .filter(|node| node.has_tag_name((NS, name)));
     let node = nodes.next().ok_or(Error::Structure)?;
     if nodes.next().is_some() {
         return Err(Error::Structure);
@@ -100,7 +114,9 @@ fn value<'a>(parent: Node<'a, 'a>, name: &str) -> Result<&'a str, Error> {
     if node.children().any(|node| node.is_element()) {
         return Err(Error::Structure);
     }
-    node.text().filter(|text| !text.is_empty()).ok_or(Error::Structure)
+    node.text()
+        .filter(|text| !text.is_empty())
+        .ok_or(Error::Structure)
 }
 
 fn status(node: Node<'_, '_>) -> Result<u16, Error> {
@@ -131,7 +147,8 @@ pub fn parse(xml: &str, service: Service, expected: &Expected) -> Result<Outcome
             nodes_limit: 20_000,
             ..Default::default()
         },
-    ).map_err(|_| Error::Xml)?;
+    )
+    .map_err(|_| Error::Xml)?;
     let root = doc.root_element();
     let name = match service {
         Service::Authorization => "retEnviNFe",
@@ -144,21 +161,31 @@ pub fn parse(xml: &str, service: Service, expected: &Expected) -> Result<Outcome
     homologation(root)?;
     // Reject nested/wrapped or foreign protocol copies and duplicate scalar fields.
     for name in ["tpAmb", "cStat", "chNFe", "nRec", "infRec", "protNFe"] {
-        let count = root.children().filter(|node| node.is_element() && node.tag_name().name() == name).count();
-        if count > 1 || root.children().any(|node| node.is_element() && node.tag_name().name() == name && node.tag_name().namespace() != Some(NS)) {
+        let count = root
+            .children()
+            .filter(|node| node.is_element() && node.tag_name().name() == name)
+            .count();
+        if count > 1
+            || root.children().any(|node| {
+                node.is_element()
+                    && node.tag_name().name() == name
+                    && node.tag_name().namespace() != Some(NS)
+            })
+        {
             return Err(Error::Structure);
         }
     }
-    if service == Service::Receipt
-        && expected.receipt.as_deref() != Some(value(root, "nRec")?)
-    {
+    if service == Service::Receipt && expected.receipt.as_deref() != Some(value(root, "nRec")?) {
         return Err(Error::Correlation);
     }
     if service == Service::Situation && value(root, "chNFe")? != expected.key {
         return Err(Error::Correlation);
     }
     let code = status(root)?;
-    let protocols: Vec<_> = root.descendants().filter(|node| node.has_tag_name((NS, "protNFe"))).collect();
+    let protocols: Vec<_> = root
+        .descendants()
+        .filter(|node| node.has_tag_name((NS, "protNFe")))
+        .collect();
     if protocols.len() > 1 || protocols.iter().any(|node| node.parent() != Some(root)) {
         return Err(Error::Structure);
     }
@@ -168,7 +195,9 @@ pub fn parse(xml: &str, service: Service, expected: &Expected) -> Result<Outcome
             if !digits(receipt, 15) {
                 return Err(Error::Structure);
             }
-            Ok(Outcome::Accepted { receipt: receipt.to_owned() })
+            Ok(Outcome::Accepted {
+                receipt: receipt.to_owned(),
+            })
         }
         (Service::Receipt, 105) if protocols.is_empty() => Ok(Outcome::Processing),
         (Service::Authorization | Service::Receipt, 104) => protocol(root, expected),
@@ -179,7 +208,14 @@ pub fn parse(xml: &str, service: Service, expected: &Expected) -> Result<Outcome
             }
             Ok(outcome)
         }
-        (Service::Situation, 101 | 151) => Ok(Outcome::Cancelled),
+        (Service::Situation, 101 | 151) => {
+            if !protocols.is_empty()
+                && !matches!(protocol(root, expected)?, Outcome::Authorized { .. })
+            {
+                return Err(Error::Correlation);
+            }
+            Ok(Outcome::Cancelled)
+        }
         _ if !protocols.is_empty() => Err(Error::Structure),
         // Only explicit, known validation failures are classified as rejection here.
         // Duplication 204/539 and all unknown codes deliberately require reconciliation.
@@ -195,8 +231,16 @@ fn protocol(root: Node<'_, '_>, expected: &Expected) -> Result<Outcome, Error> {
     }
     let info = one(wrapper, "infProt")?;
     for name in ["tpAmb", "chNFe", "cStat", "nProt", "dhRecbto", "digVal"] {
-        if info.children().filter(|node| node.is_element() && node.tag_name().name() == name).count() > 1
-            || info.children().any(|node| node.is_element() && node.tag_name().name() == name && node.tag_name().namespace() != Some(NS))
+        if info
+            .children()
+            .filter(|node| node.is_element() && node.tag_name().name() == name)
+            .count()
+            > 1
+            || info.children().any(|node| {
+                node.is_element()
+                    && node.tag_name().name() == name
+                    && node.tag_name().namespace() != Some(NS)
+            })
         {
             return Err(Error::Structure);
         }
@@ -214,13 +258,19 @@ fn protocol(root: Node<'_, '_>, expected: &Expected) -> Result<Outcome, Error> {
             let number = value(info, "nProt")?;
             let received_at = value(info, "dhRecbto")?;
             // Full timestamp/schema validation is the pinned XSD adapter's responsibility.
-            if !digits(number, 15) || received_at.len() > 40 || received_at.chars().any(char::is_control) {
+            if !digits(number, 15)
+                || received_at.len() > 40
+                || received_at.chars().any(char::is_control)
+            {
                 return Err(Error::Structure);
             }
             if digest(value(info, "digVal")?)? != expected.digest {
                 return Err(Error::Correlation);
             }
-            Ok(Outcome::Authorized { protocol: number.to_owned(), received_at: received_at.to_owned() })
+            Ok(Outcome::Authorized {
+                protocol: number.to_owned(),
+                received_at: received_at.to_owned(),
+            })
         }
         204 | 539 | 108 | 109 => Ok(Outcome::Reconcile { code }),
         110 | 301 | 302 => Ok(Outcome::Reconcile { code }),

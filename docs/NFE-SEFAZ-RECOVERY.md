@@ -75,12 +75,10 @@ Rust já existente no GitHub CI. Nenhum certificado ou segredo é necessário.
 Não representam autorização real, isolamento RLS novo, persistência, mTLS ou
 comunicação com SEFAZ. Não houve execução local de build/testes de aplicação.
 
-A publicação do código no GitHub foi bloqueada pela revisão automática de
-permissões nesta sessão: ela exige autorização explícita para publicar no
-repositório. Não houve execução de CI desta alteração. Oito testes foram escritos,
-mas continuam não executados. `git diff --check` passou; Rust/rustfmt não estão
-instalados neste ambiente. A revisão e a formatação precisam ser concluídas na CI
-após a liberação da publicação. O bloqueio foi registrado na AVL-328.
+Publicação autorizada pelo usuário e disponível no [PR #10](https://github.com/avilaops/erp-next/pull/10).
+A primeira execução CI 40645224219 parou em formatação; ajustes do formatter
+foram aplicados e a validação do código atualizado permanece pendente.
+Não houve compilação/teste local, certificado real ou chamada à SEFAZ.
 A falha de navegador DANFE da main continua acompanhada pela AVL-358.
 
 Referências oficiais para semântica dos retornos (não substituem NT/XSD vigente):

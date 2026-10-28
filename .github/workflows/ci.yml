@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -71,6 +72,13 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace -- --test-threads=1
+      - run: cargo build --release --locked -p erp-next-api
+      - run: docker build -f deploy/api.Dockerfile -t erp-next-api:sha-${{ github.sha }} .
+      - run: docker save erp-next-api:sha-${{ github.sha }} | gzip > api-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-api-${{ github.sha }}
+          path: api-image.tar.gz
 
   web:
     runs-on: ubuntu-latest
@@ -94,6 +102,12 @@ jobs:
           wait "$build_pid"
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web test:danfe
+      - run: docker build -f deploy/web.Dockerfile -t erp-next-web:sha-${{ github.sha }} .
+      - run: docker save erp-next-web:sha-${{ github.sha }} | gzip > web-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-web-${{ github.sha }}
+          path: web-image.tar.gz
       - uses: actions/upload-artifact@v4
         if: always()
         with:

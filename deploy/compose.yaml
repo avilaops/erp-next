@@ -1,0 +1,30 @@
+services:
+  api:
+    image: ${ERP_API_IMAGE:?CI image required}
+    restart: unless-stopped
+    env_file: api.env
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks: [erp]
+    ports:
+      - "127.0.0.1:3141:8080"
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+  web:
+    image: ${ERP_WEB_IMAGE:?CI image required}
+    restart: unless-stopped
+    env_file: web.env
+    environment:
+      ERP_API_URL: http://api:8080
+      ERP_WEB_ORIGIN: https://erp.avilaops.com
+      AUTH_ISSUER: https://auth.avilaops.com
+    ports:
+      - "127.0.0.1:3140:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [erp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+networks:
+  erp:

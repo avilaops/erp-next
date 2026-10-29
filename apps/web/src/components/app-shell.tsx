@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { GuardedLink as Link, NavigationGuardProvider } from "@/components/navigation-guard"
 import { Suspense } from "react"
 import { headers } from "next/headers"
 import {
@@ -79,7 +79,7 @@ async function WorkspaceFrame({ children }: { children: React.ReactNode }) {
 
 function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <NavigationGuardProvider><div className="min-h-screen bg-background text-foreground">
       <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
       <header className="sticky top-0 z-50 border-b border-border/80 bg-background/92 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-2 px-4 lg:px-6">
@@ -123,10 +123,10 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main id="conteudo-principal">{children}</main>
-      <Suspense fallback={<div className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
+      <main id="conteudo-principal" className="erp-content">{children}</main>
+      <Suspense fallback={<div className="mobile-nav-bar fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
         <MobileNavigation />
       </Suspense>
-    </div>
+    </div></NavigationGuardProvider>
   )
 }

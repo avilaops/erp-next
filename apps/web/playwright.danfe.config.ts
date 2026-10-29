@@ -7,10 +7,11 @@ export const origin = "http://127.0.0.1:33118"
 export const secret = "danfe-browser-fixture-not-a-real-service-secret"
 const runId = process.env.ERP_DANFE_BROWSER_RUN_ID ||= `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`
 const directory = path.resolve("../../artifacts/danfe-browser", runId)
+const webkit = process.env.ERP_BROWSER_ENGINE === "webkit"
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts"],
+  testMatch: ["danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts", "catalog-navigation-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
@@ -18,9 +19,9 @@ export default defineConfig({
   timeout: 90_000,
   outputDir: path.join(directory, "test-results"),
   reporter: [["list"], ["json", { outputFile: path.join(directory, "report.json") }]],
-  use: { baseURL: origin, browserName: "chromium", channel: process.env.ERP_BROWSER_CHANNEL, viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
+  use: { baseURL: origin, browserName: webkit ? "webkit" : "chromium", channel: webkit ? undefined : process.env.ERP_BROWSER_CHANNEL, viewport: { width: 1280, height: 900 }, screenshot: "only-on-failure" },
   webServer: {
-    command: "pnpm start --hostname 127.0.0.1 --port 33118",
+    command: process.env.ERP_BROWSER_DEV === "1" ? "pnpm dev --hostname 127.0.0.1 --port 33118" : "pnpm start --hostname 127.0.0.1 --port 33118",
     url: `${origin}/entrar`,
     reuseExistingServer: false,
     timeout: 60_000,

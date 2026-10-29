@@ -143,15 +143,22 @@ pub async fn chat(
                 json!({"type":"status","text":"Preparando resposta…"}),
             )
             .await;
-            let reply = client
-                .generate(&input.questions)
-                .await
-                .map_err(ChatError::unavailable)?;
-            if reply.tool_calls.is_empty() {
-                send(&sender, json!({"type":"answer","text":reply.content,"kind":"model","model":client.model})).await;
+            let mut plan = Vec::new();
+            if let Some(args) =
+                tools::navigation_request(input.questions.last().expect("validated question"))
+            {
+                plan.push(("localizar_funcionalidade".to_owned(), args));
             } else {
+                let reply = client
+                    .generate(&input.questions)
+                    .await
+                    .map_err(ChatError::unavailable)?;
+                if reply.tool_calls.is_empty() {
+                    send(&sender, json!({"type":"answer","text":reply.content,"kind":"model","model":client.model})).await;
+                    send(&sender, json!({"type":"done"})).await;
+                    return Ok(());
+                }
                 // Validate the entire plan before executing any tool. No arbitrary dispatch.
-                let mut plan = Vec::new();
                 for call in reply.tool_calls {
                     let name = call.function.name;
                     if ![
@@ -170,44 +177,44 @@ pub async fn chat(
                         tools::arguments(call.function.arguments).map_err(ChatError::invalid)?,
                     ));
                 }
-                let mut results = Vec::new();
-                for (name, args) in plan {
-                    send(&sender, json!({"type":"tool","name":name})).await;
-                    let result = tools::execute(&state, &identity, &headers, &name, args).await?;
-                    send(&sender, json!({"type":"source","source":result})).await;
-                    results.push(result);
-                }
-                if results
-                    .iter()
-                    .all(|r| r["data"].as_array().is_some_and(Vec::is_empty))
-                {
-                    send(&sender, json!({"type":"answer","kind":"erp","text":"Nenhum resultado encontrado para o termo informado. Confira o nome ou SKU e tente novamente."})).await;
-                } else if results
-                    .iter()
-                    .all(|result| result["tool"] == "localizar_funcionalidade")
-                {
-                    // Navigation needs verified links, not a second inference that
-                    // could invent business values absent from these route records.
-                    send(&sender, json!({"type":"answer","kind":"erp","text":"Encontrei as funcionalidades disponíveis nas fontes abaixo."})).await;
-                } else {
-                    send(
-                        &sender,
-                        json!({"type":"status","text":"Preparando resumo dos resultados…"}),
+            }
+            let mut results = Vec::new();
+            for (name, args) in plan {
+                send(&sender, json!({"type":"tool","name":name})).await;
+                let result = tools::execute(&state, &identity, &headers, &name, args).await?;
+                send(&sender, json!({"type":"source","source":result})).await;
+                results.push(result);
+            }
+            if results
+                .iter()
+                .all(|r| r["data"].as_array().is_some_and(Vec::is_empty))
+            {
+                send(&sender, json!({"type":"answer","kind":"erp","text":"Nenhum resultado encontrado para o termo informado. Confira o nome ou SKU e tente novamente."})).await;
+            } else if results
+                .iter()
+                .all(|result| result["tool"] == "localizar_funcionalidade")
+            {
+                // Navigation needs verified links, not a second inference that
+                // could invent business values absent from these route records.
+                send(&sender, json!({"type":"answer","kind":"erp","text":"Encontrei as funcionalidades disponíveis nas fontes abaixo."})).await;
+            } else {
+                send(
+                    &sender,
+                    json!({"type":"status","text":"Preparando resumo dos resultados…"}),
+                )
+                .await;
+                let text = client
+                    .summarize(
+                        input.questions.last().expect("validated question"),
+                        &results,
                     )
-                    .await;
-                    let text = client
-                        .summarize(
-                            input.questions.last().expect("validated question"),
-                            &results,
-                        )
-                        .await
-                        .map_err(ChatError::unavailable)?;
-                    send(
-                        &sender,
-                        json!({"type":"answer","kind":"model","text":text,"model":client.model}),
-                    )
-                    .await;
-                }
+                    .await
+                    .map_err(ChatError::unavailable)?;
+                send(
+                    &sender,
+                    json!({"type":"answer","kind":"model","text":text,"model":client.model}),
+                )
+                .await;
             }
             send(&sender, json!({"type":"done"})).await;
             Ok::<(), ChatError>(())

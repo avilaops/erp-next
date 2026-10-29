@@ -181,3 +181,43 @@ impl InferenceClient {
         Ok(reply.message)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "Requires explicitly configured local Ollama; runs after provisioning in assistant CI"]
+    async fn real_model_selects_product_and_stock_tools() {
+        let client = InferenceClient::from_env()
+            .unwrap()
+            .expect("local inference configured");
+        let cases = [
+            (
+                vec!["Busque o produto pelo SKU ASSIST-123"],
+                "buscar_produtos",
+                Some("ASSIST-123"),
+            ),
+            (
+                vec!["Quanto temos de estoque do SKU ASSIST-123?"],
+                "consultar_estoque",
+                Some("ASSIST-123"),
+            ),
+        ];
+        for (questions, expected_tool, expected_query) in cases {
+            let questions: Vec<_> = questions.into_iter().map(String::from).collect();
+            let result = client.generate(&questions).await.unwrap();
+            assert_eq!(
+                result.tool_calls.len(),
+                1,
+                "Expected one tool for {questions:?}"
+            );
+            let function = &result.tool_calls[0].function;
+            assert_eq!(function.name, expected_tool, "Wrong tool for {questions:?}");
+            let args = super::super::tools::arguments(function.arguments.clone()).unwrap();
+            if let Some(query) = expected_query {
+                assert_eq!(args.q, query);
+            }
+        }
+    }
+}

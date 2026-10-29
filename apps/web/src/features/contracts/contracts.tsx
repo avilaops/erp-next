@@ -34,7 +34,7 @@ const fieldLabels: Record<string, string> = { empresa_nome: "Nome da empresa", e
 export function ContractsList({ orderId, customerId }: { orderId?: string; customerId?: string }) {
   const [offset, setOffset] = useState(0)
   const query = new URLSearchParams({ offset: String(offset), ...(orderId ? { orderId } : {}), ...(customerId ? { customerId } : {}) })
-  const result = useResource<{ tenantId: string; canEdit: boolean; data: ContractSummary[]; total: number }>(`/api/erp/contracts?${query}`)
+  const result = useResource<{ tenantId: string; canEdit: boolean; data: ContractSummary[]; total: number }>(`/api/erp/commercial-contracts?${query}`)
   return <>
     <PageHeader eyebrow="Ávila Ops · Comercial" title="Contratos" description="Documentos vinculados à empresa, ao cliente e ao pedido, da revisão à assinatura." />
     <div className="mb-5 flex flex-wrap gap-4">
@@ -57,7 +57,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
 }
 
 export function ContractGenerator({ orderId }: { orderId: string }) {
-  const result = useResource<Options>(`/api/erp/contracts/options/${orderId}`)
+  const result = useResource<Options>(`/api/erp/commercial-contracts/options/${orderId}`)
   if (result.loading) return <p role="status">Consultando pedido e modelos da empresa…</p>
   if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert">{result.error || "Pedido indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
   return <>
@@ -81,7 +81,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
   const missing = template.fields.filter(field => field.required && !(options.defaults[field.name] || fields[field.name] || "").trim())
   return <form className="mt-5 space-y-5" onSubmit={async event => {
     event.preventDefault()
-    const result = await command.send<Detail>("/api/erp/contracts", options.tenantId, {
+    const result = await command.send<Detail>("/api/erp/commercial-contracts", options.tenantId, {
       orderId: options.snapshot.order.id, orderRevision: options.snapshot.order.revision,
       templateId: template.id, templateUpdatedAt: template.updatedAt,
       recipients: template.roles.map((role, index) => recipient(role.name, index)),
@@ -119,7 +119,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
 }
 
 export function ContractDetail({ id }: { id: string }) {
-  const result = useResource<Detail>(`/api/erp/contracts/${id}`)
+  const result = useResource<Detail>(`/api/erp/commercial-contracts/${id}`)
   const command = useCommand()
   const [checkedRevision, setCheckedRevision] = useState("")
   const [notice, setNotice] = useState("")
@@ -128,7 +128,7 @@ export function ContractDetail({ id }: { id: string }) {
   async function action(name: string) {
     if (!result.value) return
     setPendingAction(name); setNotice("")
-    const updated = await command.send<Detail>(`/api/erp/contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
+    const updated = await command.send<Detail>(`/api/erp/commercial-contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
     if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
   }
   if (result.loading) return <p role="status">Carregando contrato…</p>
@@ -136,7 +136,7 @@ export function ContractDetail({ id }: { id: string }) {
   const { data: contract, files, canEdit, canSend } = result.value
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
-  const fileUrl = (file: StoredFile) => `/api/erp/contracts/${id}/files/${file.id}`
+  const fileUrl = (file: StoredFile) => `/api/erp/commercial-contracts/${id}/files/${file.id}`
   return <>
     <PageHeader eyebrow="Ávila Ops · Contratos" title={contract.templateName} description={labels[contract.status] || contract.status} />
     <div className="mb-5 flex flex-wrap gap-4"><Link className={linkClass} href={`/vendas/pedidos/${contract.orderId}/contratos`}>Contratos do pedido</Link><Link className={linkClass} href={`/cadastros/clientes-fornecedores/${contract.customerId}/contratos`}>Contratos do cliente</Link></div>

@@ -55,7 +55,7 @@ Cada empresa só enxerga os IDs explicitamente associados a ela. A chave pode
 consultar mais modelos, mas o ERP não os enumera nem aceita IDs livres.
 
 Criar o webhook na interface da nossa instalação:
-`https://erp.avilaops.com/api/webhooks/contracts/{uuid-da-empresa}`.
+`https://erp.avilaops.com/api/erp/webhooks/contracts/{uuid-da-empresa}`.
 Configurar o cabeçalho secreto `X-Avila-Contract-Secret` com o mesmo segredo do
 backend. A versão 3.3.3 permite cabeçalhos secretos personalizados e também
 oferece HMAC; esta integração usa o cabeçalho personalizado sobre HTTPS.

@@ -67,7 +67,7 @@ test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 
 test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato pelo cliente", async ({ page, context }) => {
-  expect((await context.request.get("/api/erp/contracts")).status()).toBe(401)
+  expect((await context.request.get("/api/erp/commercial-contracts")).status()).toBe(401)
   await context.addCookies([cookie()])
   await page.goto(`/vendas/pedidos/${orderId}`)
   await page.getByRole("link", { name: "Contratos do pedido", exact: true }).click()
@@ -88,7 +88,7 @@ test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato 
   await page.getByRole("link", { name: "Contratos do cliente", exact: true }).click()
   await page.getByRole("link", { name: "Contrato de validação", exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/servicos/contratos/${contractId}$`))
-  const wrongTenant = await context.request.post(`/api/erp/contracts/${contractId}/send`, { headers: { Origin: origin, "X-Tenant-Id": customerId }, data: {} })
+  const wrongTenant = await context.request.post(`/api/erp/commercial-contracts/${contractId}/send`, { headers: { Origin: origin, "X-Tenant-Id": customerId }, data: {} })
   expect(wrongTenant.status()).toBe(409)
   canSend = false; status = "created"
   await page.reload()

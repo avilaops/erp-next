@@ -272,3 +272,32 @@ test("edição sem confirmação oferece conferência mesmo sem mudança de revi
   await page.getByRole("button", { name: "Recarregar cadastro", exact: true }).click()
   await expect(name).toHaveValue(product.name)
 })
+
+test("confirmação tardia não redireciona quem já saiu do editor", async ({ page }) => {
+  let release: (() => void) | undefined
+  const blockedResponse = new Promise<void>(resolve => { release = resolve })
+  await page.route("**/api/erp/products", async route => {
+    if (route.request().method() !== "POST") return route.fallback()
+    await blockedResponse
+    await route.fulfill({ status: 201, json: { data: product } })
+  })
+  try {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto("/cadastros/produtos/novo")
+    await page.getByRole("textbox", { name: "Nome do produto", exact: true }).fill("Resposta tardia")
+    await page.getByRole("textbox", { name: "SKU", exact: true }).fill("LATE-RESPONSE")
+    const sent = page.waitForRequest(request => request.method() === "POST")
+    const response = page.waitForResponse(response => response.request().method() === "POST")
+    await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
+    await sent
+    page.on("dialog", dialog => dialog.accept())
+    await page.getByRole("navigation", { name: "Navegação móvel", exact: true }).getByRole("link", { name: "Início", exact: true }).click()
+    await expect(page).toHaveURL(origin + "/")
+    release!()
+    await response
+    await page.waitForLoadState("networkidle")
+    await expect(page).toHaveURL(origin + "/")
+    await page.goto("/cadastros/produtos/novo")
+    await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("")
+  } finally { release!() }
+})

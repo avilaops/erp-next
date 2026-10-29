@@ -76,9 +76,11 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
   const [storageInvalid, setStorageInvalid] = useState(false)
   const command = useRef<ProductCommand | null>(null)
   const pending = useRef(false)
+  const active = useRef(true)
   const storageKey = `erp:product-draft:v1:${draftScope}:${id || "new"}`
   const dirty = JSON.stringify(draft) !== baseline
   useNavigationGuard(!view && (dirty || uncertain || saving) ? "Há uma edição de produto pendente. Sair desta tela sem concluir a gravação?" : null)
+  useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   useEffect(() => {
     const controller = new AbortController()
     fetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -131,7 +133,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       }
       writeProductDraft(storageKey, null)
       setUncertain(false); command.current = null; setBaseline(JSON.stringify(draft)); setSaved(true); setRecovered(false)
-      if (!id) router.replace(`/cadastros/produtos/${value.data.id}`)
+      if (!id) { if (active.current) router.replace(`/cadastros/produtos/${value.data.id}`) }
       else { setSnapshot(value); setEtag(response.headers.get("etag") || "") }
     } catch { setError("Não foi possível confirmar a gravação. Sua edição foi preservada."); if (id) setConflict(true); else setUncertain(true) }
     finally { pending.current = false; setSaving(false) }

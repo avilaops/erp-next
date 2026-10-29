@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 64);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 67);
         assert!(doc["paths"]["/api/v1/invitations"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/invitations"]["post"]["requestBody"].is_object());
         for action in ["resend", "revoke"] {
@@ -194,6 +194,9 @@ mod tests {
             "/api/v1/integrations/service-keys",
             "/api/v1/integrations/service-keys/{id}",
             "/api/v1/fiscal/received-nfes/import",
+            "/api/v1/fiscal/received-nfes",
+            "/api/v1/fiscal/received-nfes/{id}/xml",
+            "/api/v1/fiscal/received-nfes/{id}/danfe",
             "/api/v1/notas-recebidas",
             "/api/v1/notas-recebidas/{id}/xml",
             "/api/v1/notas-recebidas/{id}/danfe",

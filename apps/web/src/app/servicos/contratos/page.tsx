@@ -1,2 +1,3 @@
-import { ServicesList } from "@/features/services/services-pages"
-export default function Page() { return <ServicesList kind="contracts" /> }
+import { Suspense } from "react"
+import { ContractsAccess } from "@/features/contracts/contracts-access"
+export default function Page() { return <Suspense fallback={<p role="status">Carregando contratos…</p>}><ContractsAccess /></Suspense> }

@@ -191,7 +191,7 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   await expect(page).toHaveURL(new RegExp(`/servicos/contratos/${contractId}$`))
   await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
   await page.getByText("Conferir campos utilizados", { exact: true }).click()
-  await expect(page.getByText(manualValues["Testemunha 2 — CPF"], { exact: true })).toBeVisible()
+  await expect(page.getByRole("definition").filter({ hasText: manualValues["Testemunha 2 — CPF"] })).toBeVisible()
   await testInfo.attach("four-signers-reviewed", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
   expect(generationCalls).toBe(1)
   expect(reviewCalls).toBe(1)

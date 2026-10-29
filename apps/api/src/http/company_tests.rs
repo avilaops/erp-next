@@ -32,6 +32,23 @@ pub(super) async fn setup_with_danfe(
     admin: &PgPool,
     danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
+    setup_with_services(admin, danfe, None).await
+}
+
+pub(super) async fn setup_with_certificates(
+    admin: &PgPool,
+    vault: std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>,
+) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
+    setup_with_services(admin, None, Some(vault)).await
+}
+
+async fn setup_with_services(
+    admin: &PgPool,
+    danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
+    certificates: Option<
+        std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>,
+    >,
+) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
     sqlx::raw_sql(r#"
         INSERT INTO tenants (id, legal_name, tax_id) VALUES
           ('11111111-1111-4111-8111-111111111111', 'Empresa A', '04252011000110'),
@@ -94,7 +111,8 @@ pub(super) async fn setup_with_danfe(
             application.clone(),
             AuthClient::new(format!("http://{address}/userinfo")),
         )
-        .with_danfe(danfe),
+        .with_danfe(danfe)
+        .with_certificates(certificates),
     );
     (router, application, server, role)
 }

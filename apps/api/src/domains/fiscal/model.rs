@@ -21,6 +21,7 @@ pub struct ProfileInput {
     pub crt: u8,
     pub series: u16,
     /// Opaque alias only. Not a path, password, certificate or proof of provisioning.
+    #[serde(default)]
     pub certificate_reference: String,
 }
 
@@ -45,7 +46,7 @@ impl ProfileInput {
                 "CRT deve ser de 1 a 4; série deve ser de 1 a 999",
             ));
         }
-        if self.certificate_reference.len() < 3
+        if !self.certificate_reference.is_empty() && self.certificate_reference.len() < 3
             || self.certificate_reference.len() > 100
             || !self
                 .certificate_reference

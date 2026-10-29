@@ -1,3 +1,5 @@
+pub mod certificate_crypto;
+pub mod certificates;
 pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
@@ -29,7 +31,6 @@ use model::{DraftInput, ProfileInput};
 
 const BODY_LIMIT: usize = 1024 * 1024;
 const BLOCKERS: &[&str] = &[
-    "a1_secret_resolution_and_certificate_validation_not_implemented",
     "current_xsd_and_tax_rules_validation_not_implemented",
     "xml_generation_and_xmldsig_not_implemented",
     "sefaz_transport_and_reconciliation_not_implemented",
@@ -40,6 +41,12 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/fiscal/danfe", axum::routing::post(danfe::generate))
         .route("/api/v1/fiscal/config", get(get_profile).put(put_profile))
+        .route(
+            "/api/v1/fiscal/certificate",
+            get(certificates::get)
+                .put(certificates::put)
+                .delete(certificates::remove),
+        )
         .route("/api/v1/fiscal/readiness", get(readiness))
         .route("/api/v1/fiscal/nfe", get(list).post(create))
         .route("/api/v1/fiscal/nfe/{id}", get(get_draft).put(update))
@@ -206,6 +213,7 @@ pub async fn get_profile(
     let row = load_profile(&mut tx, tenant).await?;
     let current = row.as_ref().map_or(0, |row| row.revision);
     let data = row.as_ref().map(profile_data).transpose()?;
+    let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
@@ -214,7 +222,7 @@ pub async fn get_profile(
             tenant_id: tenant,
             revision: current,
             can_edit,
-            certificate_verified: false,
+            certificate_verified,
             data,
         },
     ))
@@ -251,7 +259,8 @@ pub async fn put_profile(
     let details = serde_json::to_value(&value).map_err(|_| access::AccessError::Internal)?;
     sqlx::query("INSERT INTO fiscal_profiles(tenant_id,revision,environment,details) VALUES($1,$2,'homologation',$3) ON CONFLICT(tenant_id) DO UPDATE SET revision=excluded.revision,details=excluded.details,updated_at=now()")
         .bind(tenant).bind(next).bind(details).execute(&mut *tx).await.map_err(db)?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"fiscal_profile",id:tenant,event:"fiscal.profile.updated",details:serde_json::json!({"revision":next,"environment":"homologation","certificateVerified":false})}).await?;
+    let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
+    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"fiscal_profile",id:tenant,event:"fiscal.profile.updated",details:serde_json::json!({"revision":next,"environment":"homologation","certificateVerified":certificate_verified})}).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
@@ -260,7 +269,7 @@ pub async fn put_profile(
             tenant_id: tenant,
             revision: next,
             can_edit: true,
-            certificate_verified: false,
+            certificate_verified,
             data: Some(value),
         },
     ))
@@ -295,6 +304,10 @@ pub async fn readiness(
     .await?;
     let row = load_profile(&mut tx, tenant).await?;
     let mut blockers = BLOCKERS.iter().map(|v| (*v).to_owned()).collect::<Vec<_>>();
+    let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
+    if !certificate_verified {
+        blockers.push("a1_certificate_missing_expired_or_unavailable".into());
+    }
     if let Some(row) = row.as_ref() {
         match issuer(&mut tx, tenant, &profile_data(row)?).await {
             Ok(_) => {}
@@ -317,7 +330,7 @@ pub async fn readiness(
             can_transmit: false,
             production_enabled: false,
             profile_configured: row.is_some(),
-            certificate_verified: false,
+            certificate_verified,
             blockers,
         },
     ))

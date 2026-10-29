@@ -2855,6 +2855,283 @@
       }
     },
     {
+      "id": "get-fiscal-certificate",
+      "flow": "fiscal-config",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/certificate"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e isolamento por empresa."
+      ],
+      "transition": {
+        "from": "situação atual da credencial",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NF-e nem revoga certificado na autoridade certificadora.",
+          "Não retorna arquivo PFX, senha, chave privada ou chave do cofre."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "ETag da credencial independente do perfil fiscal; alterações concorrentes retornam 412."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          500,
+          503
+        ],
+        "action": "Consultar metadados e situação do certificado"
+      },
+      "recovery": "Reler a situação após resultado incerto; nunca reenviar credenciais automaticamente.",
+      "ui": {
+        "pages": [
+          "/preferencias/certificado-digital"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/certificate"
+        },
+        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/certificates.rs",
+        "apps/api/src/domains/fiscal/certificate_crypto.rs",
+        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610290002_fiscal_a1_certificates.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-fiscal-certificate",
+      "flow": "fiscal-config",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/fiscal/certificate"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read",
+        "fiscal.config.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/certificates.rs",
+          "type": "CertificateInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e isolamento por empresa.",
+        "If-Match obrigatório; revisão inicial 0, substituição e remoção incrementam a revisão.",
+        "PFX/P12 de até 64 KiB, senha correta, chave privada correspondente, CNPJ da empresa, política A1, validade e cadeia ICP-Brasil; cofre configurado."
+      ],
+      "transition": {
+        "from": "situação atual da credencial",
+        "to": "certificado verificado e cifrado na nova revisão"
+      },
+      "effects": {
+        "writes": [
+          "Credencial criptografada ou remoção do conteúdo; auditoria e outbox sem senha ou chave privada."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NF-e nem revoga certificado na autoridade certificadora.",
+          "Não retorna arquivo PFX, senha, chave privada ou chave do cofre."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "ETag da credencial independente do perfil fiscal; alterações concorrentes retornam 412."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          409,
+          412,
+          413,
+          422,
+          428,
+          503
+        ],
+        "action": "Validar e proteger certificado A1"
+      },
+      "recovery": "Reler a situação após resultado incerto; nunca reenviar credenciais automaticamente.",
+      "ui": {
+        "pages": [
+          "/preferencias/certificado-digital"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/fiscal/certificate"
+        },
+        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/certificates.rs",
+        "apps/api/src/domains/fiscal/certificate_crypto.rs",
+        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610290002_fiscal_a1_certificates.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "delete-fiscal-certificate",
+      "flow": "fiscal-config",
+      "status": "implemented",
+      "operation": {
+        "method": "DELETE",
+        "path": "/api/v1/fiscal/certificate"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read",
+        "fiscal.config.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e isolamento por empresa.",
+        "If-Match obrigatório; revisão inicial 0, substituição e remoção incrementam a revisão."
+      ],
+      "transition": {
+        "from": "situação atual da credencial",
+        "to": "credencial apagada, mantendo a revisão de remoção"
+      },
+      "effects": {
+        "writes": [
+          "Credencial criptografada ou remoção do conteúdo; auditoria e outbox sem senha ou chave privada."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NF-e nem revoga certificado na autoridade certificadora.",
+          "Não retorna arquivo PFX, senha, chave privada ou chave do cofre."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "ETag da credencial independente do perfil fiscal; alterações concorrentes retornam 412."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          412,
+          428,
+          503
+        ],
+        "action": "Remover certificado armazenado na empresa"
+      },
+      "recovery": "Reler a situação após resultado incerto; nunca reenviar credenciais automaticamente.",
+      "ui": {
+        "pages": [
+          "/preferencias/certificado-digital"
+        ],
+        "bff": {
+          "method": "DELETE",
+          "path": "/api/erp/fiscal/certificate"
+        },
+        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/certificates.rs",
+        "apps/api/src/domains/fiscal/certificate_crypto.rs",
+        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610290002_fiscal_a1_certificates.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
       "id": "get-api-v1-fiscal-config",
       "flow": "fiscal-config",
       "status": "implemented",

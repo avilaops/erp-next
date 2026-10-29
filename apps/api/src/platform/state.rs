@@ -8,6 +8,8 @@ pub struct AppState {
     pub database: PgPool,
     pub invitations: Option<super::invitations::ProvisioningClient>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
+    pub certificates:
+        Option<std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>>,
     pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
     pub assistant: Option<crate::domains::assistant::InferenceClient>,
 }
@@ -19,6 +21,7 @@ impl AppState {
             database,
             invitations: None,
             danfe: None,
+            certificates: None,
             contracts: None,
             assistant: None,
         }
@@ -29,6 +32,14 @@ impl AppState {
         client: Option<crate::domains::assistant::InferenceClient>,
     ) -> Self {
         self.assistant = client;
+        self
+    }
+
+    pub fn with_certificates(
+        mut self,
+        vault: Option<std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>>,
+    ) -> Self {
+        self.certificates = vault;
         self
     }
 

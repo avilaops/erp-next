@@ -1,0 +1,46 @@
+{
+  "source": "https://www.gov.br/iti/pt-br/assuntos/repositorio/repositorio-ac-raiz",
+  "retrievedAt": "2026-10-29",
+  "roots": [
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv4.crt",
+      "sha256": "f0c15afd258fb674e7a96e1a50ff873149364b9ec70d4d93c7a9f1eb6060d020",
+      "notAfter": "2035-04-23T23:59:58.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv5.crt",
+      "sha256": "caa53fc6091c6951887c976e378f6ef89aa6377c55d97b6475422b71ed7e9b17",
+      "notAfter": "2029-03-02T23:59:38.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv6.crt",
+      "sha256": "3bdb9b509352f1d3d71c2bf64d9a38a4e6cebda27809d77f7ac476cbde6e314a",
+      "notAfter": "2038-12-28T12:00:03.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv7.crt",
+      "sha256": "5657e70580eb678983f3ed7dfce091d84cae6549389a47fccda8d0e4dc2cf576",
+      "notAfter": "2038-12-28T12:00:35.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv10.crt",
+      "sha256": "6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6",
+      "notAfter": "2032-07-01T12:00:59.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv11.crt",
+      "sha256": "1406710058180fa4081aab3f246f1702429c552a11fa3143b84c88cb3ab8e5e7",
+      "notAfter": "2032-07-01T12:00:18.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv12.crt",
+      "sha256": "d8478e37ce19c690cf657381e68fe600e4e1a042536830f06847e03e554c4b01",
+      "notAfter": "2037-10-22T12:00:24.0000000Z"
+    },
+    {
+      "url": "https://acraiz.icpbrasil.gov.br/credenciadas/RAIZ/ICP-Brasilv13.crt",
+      "sha256": "2b07d0bc02c4a6e0478ed22d0d99e8f97e1827b269097696a7feb6aad30c3ac8",
+      "notAfter": "2045-02-14T13:59:25.0000000Z"
+    }
+  ]
+}

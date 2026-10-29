@@ -76,7 +76,7 @@ const settingsGroups = [
     items: [
       { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", status: "Revisar", icon: ReceiptText },
       { title: "Inscrições estaduais", description: "Substituição tributária por unidade federativa", status: "Pendente", icon: CircleDollarSign },
-      { title: "Certificado digital", description: "Certificado A1 e validade da credencial", status: "Não configurado", icon: Fingerprint, href: "/preferencias/certificado-digital" },
+      { title: "Certificado digital", description: "Conexão, validade e substituição do certificado A1", status: "Gerenciar", icon: Fingerprint, href: "/preferencias/certificado-digital" },
     ],
   },
   {

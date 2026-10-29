@@ -21,9 +21,10 @@ export async function forwardFiscal(request: Request, resource: string) {
   const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$/.exec(resource)
   const document = /^\/received-nfes\/[1-9][0-9]{0,18}$/.test(resource)
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes"].includes(resource) || document || !!download
-    : request.method === "PUT" && resource === "/config" || request.method === "POST" && resource === "/received-nfes/import"
+    ? ["/config", "/readiness", "/received-nfes", "/certificate"].includes(resource) || document || !!download
+    : request.method === "PUT" && ["/config", "/certificate"].includes(resource) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && resource === "/received-nfes/import"
   if (!valid) return failure("Recurso fiscal inválido", 400)
+  let body: Uint8Array<ArrayBuffer> | undefined
   try {
     const config = erpConfiguration()
     const session = await currentSession()
@@ -38,16 +39,15 @@ export async function forwardFiscal(request: Request, resource: string) {
       upstream.searchParams.set(key, value)
     }
     const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": session.tenantId, Accept: download ? "application/pdf, application/xml, application/problem+json" : "application/json" })
-    let body: Uint8Array<ArrayBuffer> | undefined
-    if (write) {
+    if (write && request.method !== "DELETE") {
       if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") return failure("Envie JSON", 415)
-      try { body = new Uint8Array(await bounded(request.body, 1024 * 1024)) }
-      catch { return failure("Documento excede o limite de 1 MiB", 413) }
+      try { body = new Uint8Array(await bounded(request.body, resource === "/certificate" ? 128 * 1024 : 1024 * 1024)) }
+      catch { return failure(resource === "/certificate" ? "Certificado excede o limite de envio" : "Documento excede o limite de 1 MiB", 413) }
       headers.set("Content-Type", "application/json")
-      const etag = request.headers.get("if-match")
-      if (etag) headers.set("If-Match", etag)
     }
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(download ? 60_000 : 15_000) })
+    const etag = request.headers.get("if-match")
+    if (write && etag) headers.set("If-Match", etag)
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(download ? 60_000 : resource === "/certificate" ? 45_000 : 15_000) })
     let bytes: Buffer
     try { bytes = await bounded(response.body, 8 * 1024 * 1024) }
     catch { return failure("Resposta fiscal excede o limite de download", 502) }
@@ -62,5 +62,6 @@ export async function forwardFiscal(request: Request, resource: string) {
       if (value) output.set(name, value)
     }
     return new Response(new Uint8Array(bytes), { status: response.status, headers: output })
-  } catch { return failure("Não foi possível confirmar a operação fiscal. Confira o monitor antes de repetir a importação", 503) }
+  } catch { return failure("Não foi possível confirmar a operação fiscal. Atualize a tela antes de repetir", 503) }
+  finally { body?.fill(0) }
 }

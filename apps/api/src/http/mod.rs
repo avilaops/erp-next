@@ -3,6 +3,8 @@ mod access_tests;
 #[cfg(test)]
 mod assistant_tests;
 #[cfg(test)]
+mod certificate_tests;
+#[cfg(test)]
 mod company_tests;
 #[cfg(test)]
 mod contracts_tests;

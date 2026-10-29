@@ -3,6 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
+import { mkdtemp, readFile, writeFile, rm, lstat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,6 +32,7 @@ const env = { ...process.env, ERP_TEST_WEB_ORIGIN: origin, ERP_API_URL: apiOrigi
 const children = new Set();
 let created = false;
 let createdRole = false;
+let certificateDirectory;
 
 function sql(url, command) {
   const connection = new URL(url);
@@ -99,6 +102,11 @@ const auth = createServer(async (request, response) => {
 });
 
 try {
+  certificateDirectory = await mkdtemp(path.join(tmpdir(), "erp-a1-test-"));
+  const certificateFixture = JSON.parse(await readFile(path.join(root, "apps/api/tests/fixtures/a1-synthetic.json"), "utf8"));
+  env.FISCAL_A1_CA_BUNDLE_FILE = path.join(certificateDirectory, "test-root.pem");
+  env.FISCAL_A1_KEYRING = JSON.stringify({ active: "isolated-test", keys: { "isolated-test": randomBytes(32).toString("base64") } });
+  await writeFile(env.FISCAL_A1_CA_BUNDLE_FILE, certificateFixture.rootPem, { mode: 0o600 });
   await new Promise((resolve, reject) => { auth.once("error", reject); auth.listen(Number(new URL(issuer).port || 80), "127.0.0.1", resolve); });
   sql(source, `CREATE DATABASE ${database};`); created = true;
   const binary = process.env.ERP_TEST_API_BINARY || path.join(root, "target/company-verification/debug", process.platform === "win32" ? "erp-next-api.exe" : "erp-next-api");
@@ -238,6 +246,12 @@ try {
     return { resource, list, details };
   }));
   const referencesBeforeRestart = await readReferences();
+  const readCertificate = async () => {
+    const response = await fetch(`${env.ERP_API_URL}/api/v1/fiscal/certificate`, { headers: { Authorization: "Bearer fixture-editor-token", "X-Tenant-Id": tenant } });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const certificateBeforeRestart = await readCertificate();
   await stop(api);
   const restarted = launch(binary, [], { DATABASE_URL: applicationUrl.toString() });
   await ready(`${env.ERP_API_URL}/health/ready`, restarted);
@@ -247,6 +261,7 @@ try {
   assert.deepEqual(await readParties(), partiesBeforeRestart);
   assert.deepEqual(await readOperations(), operationsBeforeRestart);
   assert.deepEqual(await readReferences(), referencesBeforeRestart);
+  assert.deepEqual(await readCertificate(), certificateBeforeRestart);
   console.log("Product categories, financial categories, financial accounts and payment methods survived an API process restart.");
   console.log("Company, roles, memberships, stock, parties, orders, receivables and payment histories survived an API process restart.");
   console.log("Verified: Rust API + non-superuser PostgreSQL + PKCE test provider + production Next.js + browser.");
@@ -255,4 +270,10 @@ try {
   await new Promise((resolve) => auth.close(resolve));
   if (created) sql(source, `DROP DATABASE ${database} WITH (FORCE);`);
   if (createdRole) sql(source, `DROP ROLE ${role};`);
+  if (certificateDirectory) {
+    const target = path.resolve(certificateDirectory);
+    assert(path.dirname(target) === path.resolve(tmpdir()) && path.basename(target).startsWith("erp-a1-test-"), "Refuse to remove a directory outside the owned certificate test location");
+    assert(!(await lstat(target)).isSymbolicLink(), "Refuse to remove a substituted certificate test directory");
+    await rm(target, { recursive: true, force: true });
+  }
 }

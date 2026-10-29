@@ -7,6 +7,13 @@ rust-version.workspace = true
 
 [dependencies]
 base64 = "=0.22.1"
+aes-gcm = "=0.10.3"
+p12-keystore = "=0.4.1"
+rsa = "=0.9.10"
+rustls-pki-types = "=1.15.1"
+rustls-webpki = { version = "=0.103.16", features = ["ring", "std"] }
+x509-parser = "=0.18.1"
+zeroize = { version = "=1.9.1", features = ["derive", "serde"] }
 opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace"] }
 opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }

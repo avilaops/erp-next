@@ -133,7 +133,7 @@ pub async fn list(
     ))
 }
 
-#[utoipa::path(get, path="/api/v1/fiscal/received-nfes/{id}/xml", tag="Fiscal",
+#[utoipa::path(get, path="/api/v1/fiscal/received-nfes/{id}/xml", tag="Fiscal", operation_id="download_received_nfe_xml",
     security(("bearerAuth"=[])), params(("id"=i64,Path),("X-Tenant-Id"=Uuid,Header)), responses(
     (status=200,description="XML original armazenado",content_type="application/xml",body=String),
     (status=403,description="Sem permissão fiscal"),(status=404,description="Nota não encontrada")))]
@@ -146,7 +146,7 @@ pub async fn download_xml(
     download(&state, &identity, &headers, id, false).await
 }
 
-#[utoipa::path(get, path="/api/v1/fiscal/received-nfes/{id}/danfe", tag="Fiscal",
+#[utoipa::path(get, path="/api/v1/fiscal/received-nfes/{id}/danfe", tag="Fiscal", operation_id="download_received_nfe_danfe",
     security(("bearerAuth"=[])), params(("id"=i64,Path),("X-Tenant-Id"=Uuid,Header)), responses(
     (status=200,description="DANFE do XML armazenado",content_type="application/pdf",body=Vec<u8>),
     (status=403,description="Sem permissão fiscal"),(status=404,description="Nota não encontrada"),

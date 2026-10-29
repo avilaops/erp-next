@@ -4,11 +4,11 @@ import { createCipheriv, createHash, randomBytes, randomUUID } from "node:crypto
 const origin = process.env.ERP_TEST_WEB_ORIGIN || "http://127.0.0.1:3202"
 const tenant = "11111111-1111-4111-8111-111111111111"
 
-async function session(context: BrowserContext) {
+async function session(context: BrowserContext, accessToken = "fixture-editor-token") {
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(process.env.ERP_SESSION_SECRET!).digest(), iv)
   cipher.setAAD(Buffer.from("erp-session"))
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ accessToken: "fixture-editor-token", tenantId: tenant, expiresAt: Date.now() + 3600_000 })), cipher.final()])
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ accessToken, tenantId: tenant, expiresAt: Date.now() + 3600_000 })), cipher.final()])
   await context.addCookies([{ name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" }])
 }
 
@@ -92,4 +92,36 @@ test("assistant real local model consults Rust products and stock and opens the 
   await page.screenshot({ path: "test-results/assistant-real.png", fullPage: true })
   await page.getByRole("link", { name: "Parafuso de teste" }).last().click()
   await expect(page).toHaveURL(new RegExp(`/cadastros/produtos/${productId}$`))
+})
+
+test("assistant displays Rust permission refusal without sources and recovers for an allowed screen", async ({ page, context }) => {
+  test.skip(!process.env.ERP_ASSISTANT_OLLAMA_URL, "Requires the assistant backend to be enabled")
+  await session(context, "fixture-reader-token")
+  const access = await context.request.get("/api/erp/me")
+  expect(access.status()).toBe(200)
+  const { permissions } = await access.json()
+  expect(permissions).not.toContain("finance.payables.read")
+  expect(permissions).toContain("catalog.products.read")
+  await page.goto("/assistente")
+  const input = page.getByRole("textbox", { name: "Mensagem para o assistente" })
+  const conversation = page.getByRole("region", { name: "Conversa com o assistente" })
+  await expect(input).toBeEnabled()
+  await input.fill("Onde vejo contas a pagar?")
+  const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === "/api/erp/assistant" && response.request().method() === "POST")
+  await page.getByRole("button", { name: "Enviar", exact: true }).click()
+  const response = await responsePromise
+  expect(response.status()).toBe(200)
+  const events = (await response.text()).trim().split("\n").map(line => JSON.parse(line))
+  expect(events).toContainEqual(expect.objectContaining({ type: "error", status: 403 }))
+  expect(events.some(event => event.type === "source" || event.type === "answer")).toBe(false)
+  await expect(conversation.getByRole("alert")).toContainText("Consulta recusada: você não tem permissão nesta empresa.")
+  await expect(conversation.getByText("Confirmado pelo ERP", { exact: true })).toHaveCount(0)
+  await expect(conversation.getByRole("link")).toHaveCount(0)
+  await expect(conversation.getByRole("button", { name: "Tentar novamente" })).toBeVisible()
+  await expect(input).toBeEnabled()
+  await input.fill("Onde vejo os produtos?")
+  await page.getByRole("button", { name: "Enviar", exact: true }).click()
+  await expect(conversation.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
+  await expect(input).toBeEnabled()
+  await expect(conversation.getByRole("alert")).toHaveCount(0)
 })

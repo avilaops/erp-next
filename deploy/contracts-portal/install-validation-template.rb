@@ -14,13 +14,15 @@ raise 'PDF checksum mismatch' unless Digest::SHA256.file(pdf_path).hexdigest == 
 user = User.active.admins.find_by!(email: administrator)
 raise 'Account archived' if user.account.archived_at?
 
+result = nil
+created = false
 user.account.with_lock do
   existing = user.account.templates.where(external_id: manifest.fetch('external_id')).to_a
   raise 'Duplicate validation models require inspection' if existing.size > 1
   if existing.any?
     template = existing.first
     raise 'Existing model incomplete or archived; inspect instead of overwriting' if template.archived_at? || template.schema.blank? || template.fields.blank?
-    puts JSON.generate(id: template.id, name: template.name, reused: true)
+    result = { id: template.id, name: template.name, reused: true }
     next
   end
   template = Template.new(account: user.account, author: user, name: manifest.fetch('name'), external_id: manifest.fetch('external_id'), submitters: manifest.fetch('submitters'), shared_link: false)
@@ -34,9 +36,11 @@ user.account.with_lock do
     document = documents.first
     fields = manifest.fetch('fields').map { |field| field.merge('areas' => field.fetch('areas').map { |area| area.merge('attachment_uuid' => document.uuid) }) }
     template.update!(schema: [{ attachment_uuid: document.uuid, name: 'Validação técnica — sem valor comercial' }], fields: fields)
-    SearchEntries.enqueue_reindex(template)
-    puts JSON.generate(id: template.id, name: template.name, fields: template.fields.size, reused: false)
+    created = true
+    result = { id: template.id, name: template.name, fields: template.fields.size, reused: false }
   ensure
-    file.close
+    file.tempfile.close
   end
 end
+SearchEntries.enqueue_reindex(Template.find(result.fetch(:id))) if created
+puts JSON.generate(result)

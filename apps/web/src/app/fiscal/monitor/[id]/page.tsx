@@ -1,10 +1,10 @@
-import { MonitorDocumentDetail } from "@/features/fiscal/fiscal-details"
+import { FiscalDocumentDetail } from "@/features/fiscal/fiscal-details"
 
 export function generateStaticParams() {
-  return [{ id: "NSU-009812" }]
+  return [{ id: "1" }]
 }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <MonitorDocumentDetail id={id} />
+  return <FiscalDocumentDetail id={id} kind="received" />
 }

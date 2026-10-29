@@ -19,8 +19,9 @@ async function bounded(stream: ReadableStream<Uint8Array> | null, maximum: numbe
 
 export async function forwardFiscal(request: Request, resource: string) {
   const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$/.exec(resource)
+  const document = /^\/received-nfes\/[1-9][0-9]{0,18}$/.test(resource)
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes"].includes(resource) || !!download
+    ? ["/config", "/readiness", "/received-nfes"].includes(resource) || document || !!download
     : request.method === "PUT" && resource === "/config" || request.method === "POST" && resource === "/received-nfes/import"
   if (!valid) return failure("Recurso fiscal inválido", 400)
   try {

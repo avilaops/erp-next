@@ -46,6 +46,10 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/fiscal/nfe/{id}/issue", axum::routing::post(issue))
         .route("/api/v1/fiscal/received-nfes", get(received::list))
         .route(
+            "/api/v1/fiscal/received-nfes/{id}",
+            get(received::get_document),
+        )
+        .route(
             "/api/v1/fiscal/received-nfes/{id}/xml",
             get(received::download_xml),
         )

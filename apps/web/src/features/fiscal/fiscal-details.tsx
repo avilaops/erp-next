@@ -18,8 +18,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { ReceivedDocumentDetail } from "./received-document-detail"
 
-type DocumentKind = "nfe" | "nfce"
+type DocumentKind = "nfe" | "nfce" | "received"
 
 const xmlPreview = `<nfeProc versao="4.00">
   <NFe>
@@ -31,6 +32,11 @@ const xmlPreview = `<nfeProc versao="4.00">
 </nfeProc>`
 
 export function FiscalDocumentDetail({ id, kind }: { id: string; kind: DocumentKind }) {
+  if (kind === "received") return <ReceivedDocumentDetail key={id} id={id} />
+  return <DemonstrativeDocumentDetail id={id} kind={kind} />
+}
+
+function DemonstrativeDocumentDetail({ id, kind }: { id: string; kind: "nfe" | "nfce" }) {
   const isNfce = kind === "nfce"
   const [status, setStatus] = useState(isNfce ? "Simulada" : "Autorizada (simulação)")
   const [notice, setNotice] = useState("")

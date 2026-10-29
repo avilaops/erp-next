@@ -334,11 +334,29 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
         );
     }
     let xml_uri = format!("/api/v1/fiscal/received-nfes/{id}/xml");
+    let detail_uri = format!("/api/v1/fiscal/received-nfes/{id}");
+    let detail = request(
+        &router,
+        "GET",
+        &detail_uri,
+        Some("editor"),
+        Some(TENANT),
+        None,
+    )
+    .await;
+    assert_eq!(detail.0, StatusCode::OK);
+    assert_eq!(detail.1["cache-control"], "no-store");
+    assert_eq!(json_body(&detail.2)["tenantId"], TENANT);
+    assert_eq!(json_body(&detail.2)["data"], saved);
     let xml = request(&router, "GET", &xml_uri, Some("editor"), Some(TENANT), None).await;
     assert_eq!(xml.0, StatusCode::OK);
     assert_eq!(xml.2, FIXTURE.as_bytes());
     assert_eq!(xml.1["x-xml-sha256"], saved["xmlSha256"].as_str().unwrap());
-    for uri in ["/api/v1/fiscal/received-nfes", xml_uri.as_str()] {
+    for uri in [
+        "/api/v1/fiscal/received-nfes",
+        xml_uri.as_str(),
+        detail_uri.as_str(),
+    ] {
         assert_eq!(
             request(&router, "GET", uri, Some("reader"), Some(TENANT), None)
                 .await
@@ -364,6 +382,19 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
     .await;
     assert_eq!(other_listing.0, StatusCode::OK);
     assert_eq!(json_body(&other_listing.2)["total"], 0);
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            &detail_uri,
+            Some("editor"),
+            Some(OTHER_TENANT),
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(
         request(
             &router,

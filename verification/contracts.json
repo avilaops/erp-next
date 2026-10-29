@@ -10146,6 +10146,90 @@
       }
     },
     {
+      "id": "get-user-received-detail",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfes/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e RLS da empresa."
+      ],
+      "transition": {
+        "from": "documentos persistidos",
+        "to": "sem alteração de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite NF-e, consulta SEFAZ ou altera compras, estoque e financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura; download revalida autorização antes de devolver o documento."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar metadados de uma NF-e recebida na empresa ativa."
+      },
+      "recovery": "Repetir leitura/download após corrigir acesso ou disponibilidade.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfes/[id]"
+        },
+        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received.rs",
+        "apps/web/src/features/fiscal/received-document-detail.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
       "id": "get-user-received-list",
       "flow": "fiscal-integrations",
       "status": "implemented",

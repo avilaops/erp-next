@@ -5,19 +5,14 @@ import { useEffect, useRef, useState } from "react"
 import { Download, FileText, RefreshCw, Upload } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { documentHash as hash, fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
 
-type Note = {
-  id: number; accessKey: string; issuerDocument: string; issuerName: string; recipientDocument: string
-  number: number; series: number; issuedAt: string; totalCents: number; itemCount: number
-  environment: number; xmlSha256: string; createdAt: string
-}
+type Note = ReceivedNote
 type Result = { tenantId: string; canImport: boolean; data: Note[]; total: number }
 const initialFilters = { q: "", from: "", to: "" }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const date = (value: string) => new Date(value).toLocaleString("pt-BR")
-async function hash(bytes: ArrayBuffer) {
-  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
-}
+const maximumBatch = 10
 
 export function ReceivedMonitor() {
   const [result, setResult] = useState<Result | null>(null)
@@ -30,9 +25,12 @@ export function ReceivedMonitor() {
   const [notice, setNotice] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState("")
+  const [selected, setSelected] = useState<number[]>([])
+  const activeDownload = useRef<AbortController | null>(null)
   const operation = useRef(false)
   const tenant = useRef("")
   const fileInput = useRef<HTMLInputElement>(null)
+  useEffect(() => () => activeDownload.current?.abort(), [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -52,7 +50,7 @@ export function ReceivedMonitor() {
         if (fileInput.current) fileInput.current.value = ""
       }
       tenant.current = data.tenantId
-      setResult(data); setCompany(access.tenant.legalName); setError("")
+      setResult(data); setSelected([]); setCompany(access.tenant.legalName); setError("")
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -86,21 +84,45 @@ export function ReceivedMonitor() {
 
   async function download(note: Note, format: "xml" | "danfe") {
     if (!result || operation.current || loading) return
-    operation.current = true; setBusy(`${note.id}-${format}`); setError("")
+    operation.current = true; setBusy(`${note.id}-${format}`); setError(""); setNotice("")
+    const controller = new AbortController()
+    activeDownload.current = controller
     try {
-      const response = await fetch(`/api/erp/fiscal/received-nfes/${note.id}/${format}`, { cache: "no-store", headers: { "X-Tenant-Id": result.tenantId } })
-      if (!response.ok) { const problem = await response.json(); throw new Error(problem.title || "Documento indisponível") }
-      const bytes = await response.arrayBuffer()
-      const expected = format === "xml" ? note.xmlSha256 : response.headers.get("x-pdf-sha256")
-      if (response.headers.get("x-xml-sha256") !== note.xmlSha256 || await hash(bytes) !== expected) throw new Error("O download não corresponde ao documento armazenado")
-      const filename = `${format === "xml" ? "NFE" : "DANFE"}-${note.accessKey}.${format === "xml" ? "xml" : "pdf"}`
-      const url = URL.createObjectURL(new Blob([bytes], { type: format === "xml" ? "application/xml" : "application/pdf" }))
-      const anchor = document.createElement("a")
-      anchor.href = url; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      const document = await fetchReceivedDocument(note, result.tenantId, format, controller.signal)
+      saveDocument(document.bytes, document.mime, document.filename)
       setNotice(`${format === "xml" ? "XML" : "DANFE"} da NF-e ${note.number} preparado para download.`)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível baixar o documento") }
-    finally { operation.current = false; setBusy("") }
+    } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Não foi possível baixar o documento") }
+    finally { operation.current = false; activeDownload.current = null; if (!controller.signal.aborted) setBusy("") }
+  }
+
+  async function downloadBatch() {
+    if (!result || operation.current || loading || !selected.length || selected.length > maximumBatch) return
+    const notes = result.data.filter(note => selected.includes(note.id))
+    if (notes.length !== selected.length) return
+    const controller = new AbortController()
+    activeDownload.current = controller
+    operation.current = true; setError(""); setNotice("")
+    let current: Note | undefined
+    try {
+      const files: Record<string, Uint8Array> = {}
+      let size = 0
+      for (const [index, note] of notes.entries()) {
+        current = note
+        setBusy(`Gerando DANFE ${index + 1} de ${notes.length}…`)
+        const document = await fetchReceivedDocument(note, result.tenantId, "danfe", controller.signal)
+        size += document.bytes.byteLength
+        if (size > 32 * 1024 * 1024) throw new Error("O lote excede 32 MiB. Selecione menos notas")
+        files[document.filename] = document.bytes
+      }
+      const { zipSync } = await import("fflate")
+      controller.signal.throwIfAborted()
+      const archive = new Uint8Array(zipSync(files, { level: 0 }))
+      saveDocument(archive, "application/zip", `DANFEs-${new Date().toISOString().slice(0, 10)}.zip`)
+      setNotice(`Lote completo: ${notes.length} DANFE(s) no arquivo ZIP.`)
+    } catch (reason) {
+      if (controller.signal.aborted) setNotice("Geração cancelada. Nenhum lote foi baixado.")
+      else setError(`O lote não foi baixado${current ? `: NF-e ${current.number}` : ""}. ${reason instanceof Error ? reason.message : "Não foi possível gerar todos os documentos"}`)
+    } finally { operation.current = false; activeDownload.current = null; setBusy("") }
   }
 
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
@@ -125,8 +147,15 @@ export function ReceivedMonitor() {
         <label className="space-y-2 text-sm">Emissão até (UTC)<Input type="date" value={filters.to} min={filters.from || undefined} onChange={event => setFilters({ ...filters, to: event.target.value })} /></label>
         <Button className="self-end" type="submit" disabled={loading || !!busy}>Filtrar</Button>
       </form>
+      {result && result.data.length > 0 && <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3">
+        <span className="text-sm">{selected.length} selecionada(s) · até {maximumBatch} por lote</span>
+        <Button variant="outline" disabled={loading || !!busy || !selected.length} onClick={() => void downloadBatch()}><Download className="size-4" />Baixar DANFEs selecionados (ZIP)</Button>
+        <Button variant="ghost" disabled={loading || !!busy || !selected.length} onClick={() => setSelected([])}>Limpar seleção</Button>
+        {busy.startsWith("Gerando DANFE") && <><span role="status" className="text-sm">{busy}</span><Button variant="outline" onClick={() => activeDownload.current?.abort()}>Cancelar lote</Button></>}
+      </div>}
       {loading ? <p role="status">Carregando notas da empresa…</p> : result && !result.data.length ? <div className="py-10 text-center"><FileText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">Nenhuma nota encontrada</p><p className="mt-1 text-sm text-muted-foreground">Importe um XML recebido ou ajuste os filtros da consulta.</p></div> : result && <div className="space-y-3">{result.data.map(note => <article className="rounded-xl border p-4" key={note.id}>
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">NF-e {note.number} · Série {note.series}</h3><p className="mt-1 text-sm">{note.issuerName} · {note.issuerDocument}</p><p className="mt-1 text-xs text-muted-foreground">Emissão: {date(note.issuedAt)} · {note.itemCount} item(ns) · {note.environment === 2 ? "Homologação — sem valor fiscal" : "Ambiente de produção declarado no XML"}</p></div><strong>{money.format(note.totalCents / 100)}</strong></div>
+        <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(note.id)} disabled={loading || !!busy || !selected.includes(note.id) && selected.length >= maximumBatch} onChange={event => setSelected(values => event.target.checked ? [...values, note.id] : values.filter(id => id !== note.id))} />Selecionar NF-e {note.number} para o lote</label>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold"><Link href={`/fiscal/monitor/${note.id}`} className="text-primary underline">NF-e {note.number} · Série {note.series}</Link></h3><p className="mt-1 text-sm">{note.issuerName} · {note.issuerDocument}</p><p className="mt-1 text-xs text-muted-foreground">Emissão: {date(note.issuedAt)} · {note.itemCount} item(ns) · {note.environment === 2 ? "Homologação — sem valor fiscal" : "Ambiente de produção declarado no XML"}</p></div><strong>{money.format(note.totalCents / 100)}</strong></div>
         <p className="mt-3 break-all text-xs text-muted-foreground">Chave: {note.accessKey}</p>
         <div className="mt-4 flex flex-wrap gap-2">{(["xml", "danfe"] as const).map(format => <Button key={format} variant="outline" disabled={!!busy} onClick={() => void download(note, format)}><Download className="size-4" />{busy === `${note.id}-${format}` ? "Preparando…" : format === "xml" ? "Baixar XML" : "Baixar DANFE"}</Button>)}<details className="w-full text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Integridade e recebimento</summary><p className="break-all">SHA-256 do XML: {note.xmlSha256}</p><p className="mt-1">Importado em {date(note.createdAt)}. A situação atual na SEFAZ não foi consultada.</p></details></div>
       </article>)}</div>}

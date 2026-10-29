@@ -77,6 +77,39 @@ pub struct ReceivedPage {
     total: i64,
 }
 
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReceivedDetail {
+    tenant_id: Uuid,
+    data: ReceivedNfeSnapshot,
+}
+
+#[utoipa::path(get, path="/api/v1/fiscal/received-nfes/{id}", tag="Fiscal", operation_id="get_received_nfe",
+    security(("bearerAuth"=[])), params(("id"=i64,Path),("X-Tenant-Id"=Uuid,Header)), responses(
+    (status=200,body=ReceivedDetail),(status=403,description="Sem permissão fiscal"),
+    (status=404,description="Nota não encontrada nesta empresa")))]
+pub async fn get_document(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> Result<Response, FiscalError> {
+    let (tenant, mut tx, _) =
+        authorized(&state, &headers, &identity, PERMISSION, PERMISSION, false).await?;
+    let data = sqlx::query_as::<_, ReceivedNfeSnapshot>(
+        "SELECT id,access_key,issuer_document,issuer_name,recipient_document,number,series,issued_at,total_cents,item_count,environment,xml_sha256,created_at FROM fiscal_received_nfes WHERE tenant_id=$1 AND id=$2",
+    ).bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(
+        StatusCode::OK,
+        None,
+        ReceivedDetail {
+            tenant_id: tenant,
+            data,
+        },
+    ))
+}
+
 fn filter_date(value: Option<&str>) -> Result<Option<time::Date>, DomainError> {
     let format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")
         .expect("static date format");

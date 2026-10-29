@@ -61,6 +61,8 @@ jobs:
           curl --fail --silent --show-error --max-time 300 http://127.0.0.1:11434/api/pull -H 'Content-Type: application/json' -d '{"model":"qwen3:1.7b","stream":false}'
       - name: Browser, BFF, Rust, RLS and real local model
         run: node scripts/verify-company.mjs
+      - name: Native tool selection with product and stock questions
+        run: cargo test --locked -p erp-next-api real_model_selects_product_and_stock_tools -- --ignored --test-threads=1
       - uses: actions/upload-artifact@v4
         if: always()
         with:

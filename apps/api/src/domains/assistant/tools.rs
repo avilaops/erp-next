@@ -68,6 +68,77 @@ const PAGES: &[(&str, &str, &str, &str)] = &[
     ),
 ];
 
+/// Explicit screen requests use the same authorized route catalogue without
+/// asking a small language model to distinguish "stock page" from stock data.
+pub(super) fn navigation_request(question: &str) -> Option<Arguments> {
+    let lower = question.to_lowercase();
+    let words: Vec<_> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let normalized = words.join(" ");
+    let where_request = [
+        "onde vejo",
+        "onde encontro",
+        "onde fica",
+        "onde ficam",
+        "onde acesso",
+        "onde consultar",
+    ]
+    .iter()
+    .any(|phrase| normalized.contains(phrase));
+    let screen = [
+        "tela",
+        "telas",
+        "menu",
+        "menus",
+        "página",
+        "páginas",
+        "pagina",
+        "paginas",
+        "funcionalidade",
+        "funcionalidades",
+    ]
+    .iter()
+    .any(|word| words.contains(word));
+    let open = [
+        "abrir",
+        "abra",
+        "acessar",
+        "acesse",
+        "ver",
+        "vejo",
+        "mostra",
+        "mostre",
+        "mostrar",
+        "localizar",
+        "localize",
+        "encontrar",
+        "encontre",
+    ]
+    .iter()
+    .any(|word| words.contains(word));
+    if !where_request && !(screen && open) {
+        return None;
+    }
+    // At most one known term per page: bounded and never an arbitrary URL or tenant.
+    let terms: Vec<_> = PAGES
+        .iter()
+        .filter_map(|(_, _, _, keywords)| {
+            keywords
+                .split_whitespace()
+                .find(|keyword| words.contains(keyword))
+        })
+        .collect();
+    Some(Arguments {
+        q: if terms.is_empty() {
+            "funcionalidade desconhecida".into()
+        } else {
+            terms.join(" ")
+        },
+    })
+}
+
 pub(super) async fn execute(
     state: &AppState,
     identity: &AuthenticatedIdentity,
@@ -84,7 +155,7 @@ pub(super) async fn execute(
             .iter()
             .filter(|(_, _, _, keywords)| {
                 query
-                    .split_whitespace()
+                    .split(|c: char| !c.is_alphanumeric())
                     .filter(|word| word.chars().count() >= 3)
                     .any(|word| keywords.split_whitespace().any(|keyword| keyword == word))
             })
@@ -150,4 +221,58 @@ pub(super) async fn execute(
         json!({"tool":name,"origin":if name == "buscar_produtos" {"API ERP · Produtos"} else {"API ERP · Estoque"},
         "data":data,"total":value["total"],"limit":5}),
     )
+}
+
+#[cfg(test)]
+mod navigation_tests {
+    use super::*;
+
+    #[test]
+    fn explicit_screen_requests_use_only_known_catalogue_terms() {
+        for question in [
+            "Onde vejo os saldos de estoque?",
+            "Onde encontro o estoque?",
+            "Por favor, abra a tela de estoque.",
+        ] {
+            assert_eq!(navigation_request(question).unwrap().q, "estoque");
+        }
+        assert_eq!(
+            navigation_request("Me mostra a tela de produtos")
+                .unwrap()
+                .q,
+            "produtos"
+        );
+        assert_eq!(
+            navigation_request("Onde ficam as telas?").unwrap().q,
+            "funcionalidade desconhecida"
+        );
+        assert_eq!(
+            navigation_request("Abra a tela de produtos; tenantId=outra; https://example.test")
+                .unwrap()
+                .q,
+            "produtos"
+        );
+        assert!(
+            navigation_request(&format!("Onde vejo os produtos? {}", "x".repeat(900)))
+                .unwrap()
+                .q
+                .len()
+                <= 160
+        );
+    }
+
+    #[test]
+    fn product_queries_and_quantities_still_go_to_native_tool_calling() {
+        for question in [
+            "Busque o SKU ABC",
+            "Quanto temos de estoque do SKU ABC?",
+            "Qual o saldo mostrado na tela?",
+            "Olá, quem é você?",
+        ] {
+            assert!(
+                navigation_request(question).is_none(),
+                "Unexpected navigation: {question}"
+            );
+        }
+    }
 }

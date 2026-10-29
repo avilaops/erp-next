@@ -109,6 +109,18 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
         navigation.iter().find(|e| e["type"] == "source").unwrap()["source"]["data"][0]["href"],
         "/cadastros/produtos"
     );
+    // This fixture model would choose product lookup for the phrase. The Rust
+    // navigation path must resolve the stock page without invoking that model.
+    let stock_page =
+        events(request(&router, TENANT, "Onde vejo os saldos de estoque?").await).await;
+    assert_eq!(
+        stock_page.iter().find(|e| e["type"] == "source").unwrap()["source"]["data"][0]["href"],
+        "/estoque/saldos"
+    );
+    assert_eq!(
+        stock_page.iter().find(|e| e["type"] == "answer").unwrap()["kind"],
+        "erp"
+    );
     let missing = events(request(&router, TENANT, "missing").await).await;
     assert_eq!(
         missing.iter().find(|e| e["type"] == "answer").unwrap()["kind"],
@@ -138,7 +150,7 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
             .any(|e| e["type"] == "source")
     );
     sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='catalog.products.read'").execute(&admin).await.unwrap();
-    for question in ["product", "navigation"] {
+    for question in ["product", "navigation", "Me mostra a tela de produtos"] {
         let denied = events(request(&router, TENANT, question).await).await;
         assert_eq!(
             denied.iter().find(|e| e["type"] == "error").unwrap()["status"],
@@ -150,6 +162,21 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
                 .any(|e| e["type"] == "source" || e["type"] == "answer")
         );
     }
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='inventory.stock.read'").execute(&admin).await.unwrap();
+    let denied_stock_page =
+        events(request(&router, TENANT, "Onde vejo os saldos de estoque?").await).await;
+    assert_eq!(
+        denied_stock_page
+            .iter()
+            .find(|e| e["type"] == "error")
+            .unwrap()["status"],
+        403
+    );
+    assert!(
+        !denied_stock_page
+            .iter()
+            .any(|e| e["type"] == "source" || e["type"] == "answer")
+    );
     let price: i64 = sqlx::query_scalar(
         "SELECT price_cents FROM products WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'",
     )

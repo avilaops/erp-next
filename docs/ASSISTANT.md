@@ -39,7 +39,11 @@ Um resumo gerado por modelo pode errar; ele não é rotulado como dado confirmad
 O prompt contém um exemplo estático de chamada nativa de navegação, sem registros
 empresariais. Esse exemplo não é apresentado como fonte. Perguntas anteriores
 seguem como contexto delimitado, para resolver referências como “e o saldo?”,
-sem repetir as consultas já realizadas. A seleção continua sendo feita pelo modelo.
+sem repetir as consultas já realizadas. Pedidos explícitos de abrir/localizar telas
+(como “Onde vejo os saldos de estoque?”) são reconhecidos no Rust e executam
+diretamente `localizar_funcionalidade`, com o mesmo catálogo fechado e a mesma
+verificação de permissão. Isso evita confundir navegação com consulta de quantidades.
+As demais perguntas continuam usando a seleção de ferramentas nativa do modelo.
 
 Histórico limitado a seis perguntas, 1.000 caracteres por pergunta e 6.000 bytes
 no total; duas ferramentas por pergunta, cinco registros por ferramenta, contexto

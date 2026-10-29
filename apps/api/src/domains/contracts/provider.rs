@@ -16,6 +16,7 @@ pub struct Docuseal {
     token: String,
     webhook_secret: String,
     templates: BTreeMap<Uuid, Vec<i64>>,
+    email_ready: bool,
 }
 
 impl std::fmt::Debug for Docuseal {
@@ -69,7 +70,12 @@ impl Docuseal {
             token,
             webhook_secret,
             templates,
+            email_ready: env::var("DOCUSEAL_EMAIL_READY").as_deref() == Ok("true"),
         }))
+    }
+
+    pub fn email_ready(&self) -> bool {
+        self.email_ready
     }
 
     pub fn template_ids(&self, tenant: Uuid) -> &[i64] {
@@ -146,7 +152,7 @@ impl Docuseal {
     }
 
     #[cfg(test)]
-    pub fn for_test(base: Url, tenant: Uuid) -> Self {
+    pub fn for_test(base: Url, tenant: Uuid, email_ready: bool) -> Self {
         Self {
             client: Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
@@ -156,6 +162,7 @@ impl Docuseal {
             token: "fixture-token".into(),
             webhook_secret: "fixture-webhook-secret".into(),
             templates: BTreeMap::from([(tenant, vec![1])]),
+            email_ready,
         }
     }
 }

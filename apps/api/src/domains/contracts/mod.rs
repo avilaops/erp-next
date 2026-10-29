@@ -117,7 +117,7 @@ pub async fn options(
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"tenantId":tenant,"canEdit":edit,"configured":configured,"defaults":model::defaults(&snapshot),"snapshot":snapshot,"templates":templates}),
+        json!({"tenantId":tenant,"canEdit":edit,"configured":configured,"emailReady":state.contracts.as_ref().is_some_and(Docuseal::email_ready),"defaults":model::defaults(&snapshot),"snapshot":snapshot,"templates":templates}),
     ))
 }
 
@@ -131,7 +131,15 @@ pub async fn detail(
     let (tenant, mut tx, edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let send = can_send(&mut tx, tenant, &identity).await?;
-    let result = sync::detail(&mut tx, tenant, id, edit, send).await?;
+    let result = sync::detail(
+        &mut tx,
+        tenant,
+        id,
+        edit,
+        send,
+        state.contracts.as_ref().is_some_and(Docuseal::email_ready),
+    )
+    .await?;
     tx.commit().await.map_err(db)?;
     Ok(result)
 }
@@ -270,7 +278,15 @@ async fn reconcile_response(
             .map_err(db)?;
     }
     let send = can_send(&mut tx, tenant, identity).await?;
-    let result = sync::detail(&mut tx, tenant, id, edit, send).await?;
+    let result = sync::detail(
+        &mut tx,
+        tenant,
+        id,
+        edit,
+        send,
+        state.contracts.as_ref().is_some_and(Docuseal::email_ready),
+    )
+    .await?;
     tx.commit().await.map_err(db)?;
     Ok(result)
 }
@@ -351,7 +367,15 @@ pub async fn review(
         )
         .await?;
     }
-    let result = sync::detail(&mut tx, tenant, id, true, true).await?;
+    let result = sync::detail(
+        &mut tx,
+        tenant,
+        id,
+        true,
+        true,
+        state.contracts.as_ref().is_some_and(Docuseal::email_ready),
+    )
+    .await?;
     tx.commit().await.map_err(db)?;
     Ok(result)
 }
@@ -391,6 +415,13 @@ pub async fn send(
     if contract.status != "reviewed" {
         return Err(DomainError::Conflict(
             "Revise o documento e os destinatários antes do envio",
+        ));
+    }
+    // The portal silently uses a test mailer when SMTP is absent.
+    // Only explicitly validated email configuration may initiate invitations.
+    if !provider.email_ready() {
+        return Err(DomainError::Conflict(
+            "O envio de e-mail do portal ainda não foi validado. A prévia e a revisão continuam disponíveis",
         ));
     }
     // Recheck provider ownership and state before claiming transmission.

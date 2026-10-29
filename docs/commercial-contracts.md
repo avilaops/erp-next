@@ -46,6 +46,7 @@ DOCUSEAL_URL=https://contrato.avilaops.com
 DOCUSEAL_API_TOKEN=<chave da nossa instalação>
 DOCUSEAL_WEBHOOK_SECRET=<segredo aleatório com pelo menos 32 caracteres>
 DOCUSEAL_TENANT_TEMPLATES={"<uuid-da-empresa>":[<id-do-modelo>]}
+DOCUSEAL_EMAIL_READY=false
 ```
 
 Não configurar essas variáveis no web, não usar prefixo `NEXT_PUBLIC_`, não
@@ -53,6 +54,14 @@ versionar valores e não usar chaves de `api.docuseal.com`. Sem configuração, 
 tela informa que os modelos da empresa ainda não estão disponíveis.
 Cada empresa só enxerga os IDs explicitamente associados a ela. A chave pode
 consultar mais modelos, mas o ERP não os enumera nem aceita IDs livres.
+
+O envio fica bloqueado por padrão. Definir `DOCUSEAL_EMAIL_READY=true` somente
+depois de conferir o remetente, a autenticação SMTP com TLS e a configuração
+persistida do portal. A versão 3.3.3 usa um mailer de teste quando o SMTP não está
+configurado; um evento de e-mail desse modo não comprova transmissão. A flag é
+uma liberação administrativa, não um teste contínuo do SMTP nem prova de entrega.
+Ao alterar ou remover o SMTP, voltar a flag para `false`. Geração e revisão de
+prévias continuam disponíveis enquanto o envio estiver bloqueado.
 
 Criar o webhook na interface da nossa instalação:
 `https://erp.avilaops.com/api/erp/webhooks/contracts/{uuid-da-empresa}`.
@@ -110,6 +119,30 @@ compatível. Campos obrigatórios ausentes bloqueiam a geração.
   depender da tela aberta. Falhas de arquivamento permitem nova consulta segura.
 
 ## Publicação e validação
+
+### Modelo técnico versionado
+
+O arquivo `deploy/contracts-portal/templates/validation.html` gera um PDF de uma
+página, marcado **SEM VALOR COMERCIAL**, com dez campos de dados e uma assinatura.
+O workflow de produção publica o PDF, a prévia PNG e o manifesto com SHA-256 no
+artefato `erp-contract-model-<sha>`. Não contém dados pessoais nem destinatários.
+
+Após conferir esse artefato, a instalação administrativa usa
+`deploy/contracts-portal/install-validation-template.rb` pelo console Rails da
+nossa aplicação, passando o diretório do artefato e o e-mail do administrador.
+Ela usa o mesmo serviço de upload nativo da interface, confere o hash e reutiliza
+o modelo pelo `external_id`; não substitui modelos existentes nem envia convites.
+Essa rotina de provisionamento não faz parte das chamadas de runtime do ERP.
+A criação de modelos PDF pela API é Pro na versão instalada e não é utilizada.
+
+O ID retornado deve ser associado explicitamente à empresa em
+`DOCUSEAL_TENANT_TEMPLATES`. Nenhum cliente, produto ou pedido de teste é criado
+automaticamente na empresa. Na revisão, limitar o conteúdo ao espaço visível do
+modelo técnico; ele serve a um pedido pequeno de validação, não a contratos
+comerciais extensos. O envio exige SMTP validado e autorização do destinatário e
+do documento. Uma assinatura real deve ser feita pelo próprio destinatário.
+
+### Verificações
 
 Build e testes no workflow `production-release.yml`, por SHA exato. Depois,
 `production-migrate.yml` com `schema_only=true`, usando o release aprovado.

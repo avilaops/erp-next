@@ -184,8 +184,8 @@ export function ImportOrdersWizard() {
         {step === 1 && <Field label="Arquivo CSV ou XLSX"><Input accept=".csv,.xlsx" type="file" onChange={(event) => setFile(event.target.files?.[0]?.name ?? "")} /></Field>}
         {step === 2 && <div className="grid gap-4 sm:grid-cols-2"><Field label="Coluna do pedido"><select><option>numero_pedido</option></select></Field><Field label="Coluna do cliente"><select><option>documento_cliente</option></select></Field></div>}
         {step === 3 && <div><Item name="12 linhas lidas" detail="10 válidas e 2 com erro" value="Prévia local" />{errors.map((error) => <p className="mt-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" key={error}>{error}</p>)}</div>}
-        {step === 4 && <div><Status>Simulação concluída: 10 pedidos estariam aptos e 2 exigem correção.</Status><Button className="mt-4" variant="outline" onClick={() => undefined}><Download /> Baixar relatório demonstrativo</Button></div>}
-        <div className="mt-6 flex justify-end"><Button disabled={step === 1 && !file} onClick={() => setStep((value) => Math.min(4, value + 1))}>{step === 4 ? <FileCheck2 /> : <FileUp />}{step === 4 ? "Revisão concluída" : "Continuar"}</Button></div>
+        {step === 4 && <div><Status>Simulação concluída: 10 pedidos estariam aptos e 2 exigem correção.</Status><p id="order-import-download-help" className="mt-3 text-sm text-muted-foreground">Download indisponível: esta simulação não gera um relatório do arquivo selecionado.</p><Button className="mt-4" variant="outline" disabled aria-describedby="order-import-download-help"><Download /> Baixar relatório demonstrativo</Button></div>}
+        <div className="mt-6 flex justify-end"><Button disabled={step === 4 || (step === 1 && !file)} onClick={() => setStep((value) => Math.min(4, value + 1))}>{step === 4 ? <FileCheck2 /> : <FileUp />}{step === 4 ? "Revisão concluída" : "Continuar"}</Button></div>
       </Card>
     </SalesShell>
   );

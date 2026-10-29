@@ -3,26 +3,7 @@
 import { GuardedLink as Link } from "@/components/navigation-guard"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-const modules = [
-  ["Histórico importado", "/historico"],
-  ["Início", "/"], ["Dashboards", "/dashboards"], ["Cadastros", "/cadastros"],
-  ["Vendas", "/vendas"], ["Estoque", "/estoque"], ["Compras", "/compras"],
-  ["Financeiro", "/financeiro"], ["Fiscal", "/fiscal"], ["Logística", "/logistica"],
-  ["Serviços", "/servicos"], ["Relatórios", "/relatorios"], ["Preferências", "/preferencias/empresa"],
-] as const
-
-const quickFlows = [
-  ["Produtos", "/cadastros/produtos"], ["Clientes e fornecedores", "/cadastros/clientes-fornecedores"],
-  ["Pedidos de venda", "/vendas/pedidos"], ["Frente de caixa", "/vendas/pdv"],
-  ["Notas fiscais de saída", "/fiscal/notas-saida"], ["NFC-e", "/fiscal/nfce"],
-  ["Pedidos de compra", "/compras/pedidos"], ["Notas fiscais de entrada", "/compras/notas-entrada"],
-  ["Recebimentos", "/compras/recebimentos"], ["Inventários", "/estoque/inventarios"],
-  ["Contas a pagar", "/financeiro/contas-pagar"], ["Contas a receber", "/financeiro/contas-receber"],
-  ["Postagens", "/logistica/postagens"], ["Ordens de serviço", "/servicos/ordens"],
-  ["Eventos", "/eventos"], ["Notificações", "/notificacoes"],
-  ["Aplicativos", "/aplicativos"], ["Assistente", "/assistente"],
-  ["Usuários", "/preferencias/usuarios"], ["Integrações", "/preferencias/integracoes"],
-] as const
+import { moduleLinks as modules, quickLinks as quickFlows } from "@/components/navigation-catalog"
 
 export function MobileModulesPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const close = () => onOpenChange(false)

@@ -1,12 +1,13 @@
 "use client"
 
 import { GuardedLink as Link, useNavigationGuard } from "@/components/navigation-guard"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { readProductDraft, writeProductDraft, type ProductInput, type ProductCommand, type ProductDraft } from "./product-draft"
+import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
 type Product = ProductInput & { id: string; revision: number }
 type ProductList = { tenantId: string; canEdit: boolean; data: Product[]; total: number }
@@ -20,15 +21,21 @@ function priceForRequest(value: string): string | null {
 }
 
 export function CatalogList() {
-  const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
+  const params = useSearchParams()
+  const query = parseCatalogQuery(params)
+  return <CatalogResults key={catalogQueryString(query)} query={query} />
+}
+
+function CatalogResults({ query }: { query: CatalogQuery }) {
+  const { q, status, offset } = query
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
-    if (query.status) params.set("status", query.status)
+    const params = new URLSearchParams({ q, offset: String(offset), limit: "25" })
+    if (status) params.set("status", status)
     fetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Catálogo indisponível")
@@ -36,23 +43,29 @@ export function CatalogList() {
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [query, retry])
+  }, [q, status, offset, retry])
+  function navigate(next: CatalogQuery) {
+    const search = catalogQueryString(next)
+    if (search === catalogQueryString(query)) { setLoading(true); setRetry(value => value + 1); return }
+    window.history.pushState(null, "", `/cadastros/produtos${search ? `?${search}` : ""}`)
+  }
   return <div>
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
     <section className="form-section space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
-        setQuery({ q: String(form.get("q") || ""), status: String(form.get("status") || ""), offset: 0 })
+        event.preventDefault(); const form = new FormData(event.currentTarget)
+        navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || "") })))
       }}>
-        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<Input name="q" maxLength={160} /></label>
-        <label className="space-y-2">Situação<select name="status" className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<Input name="q" maxLength={160} defaultValue={q} /></label>
+        <label className="space-y-2">Situação<select name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><Link className={catalogLink} href="/entrar">Entrar com Ávila Ops</Link><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={catalogLink} href={`/cadastros/produtos/${product.id}`}>{product.name}</Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
-        <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: Math.max(0, query.offset - 25) }) }}>Anterior</Button><span className="text-sm">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
+        <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - 25) })}>Anterior</Button><span className="text-sm">Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + 25 >= result.total} onClick={() => navigate({ ...query, offset: offset + 25 })}>Próxima</Button></div>
+        {offset >= catalogMaxOffset && offset + 25 < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
     </section>
   </div>

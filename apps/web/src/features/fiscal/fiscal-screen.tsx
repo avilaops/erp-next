@@ -16,7 +16,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type Kind = "overview" | "invoices" | "nfce" | "monitor" | "guides";
+type Kind = "overview" | "nfce" | "monitor" | "guides";
 type State = "ready" | "loading" | "empty" | "error" | "forbidden";
 type Row = {
   id: string;
@@ -30,35 +30,6 @@ const configs: Record<
   Exclude<Kind, "overview">,
   { title: string; description: string; action: string; actionHref?: string; rows: Row[] }
 > = {
-  invoices: {
-    title: "Notas fiscais de saída",
-    description:
-      "Acompanhe rascunhos e situações demonstrativas de NF-e. Nenhuma emissão oficial é executada.",
-    action: "Preparar nota",
-    rows: [
-      {
-        id: "NFE-000184",
-        title: "Academia Horizonte",
-        detail: "Pedido PV-1048 · Série 1",
-        status: "Rascunho",
-        value: "R$ 18.490,00",
-      },
-      {
-        id: "NFE-000183",
-        title: "Studio Força Total",
-        detail: "Pedido PV-1047 · XML demonstrativo",
-        status: "Autorizada (simulação)",
-        value: "R$ 7.240,00",
-      },
-      {
-        id: "NFE-000182",
-        title: "Centro Esportivo Atlas",
-        detail: "Validação local pendente",
-        status: "Atenção",
-        value: "R$ 31.880,00",
-      },
-    ],
-  },
   nfce: {
     title: "NFC-e",
     description:
@@ -185,7 +156,6 @@ function FiscalList({ kind }: { kind: Exclude<Kind, "overview"> }) {
       back="/fiscal"
       actions={
         <>
-          {kind === "invoices" && <Link className={buttonVariants({ variant: "outline" })} href="/fiscal/danfe">DANFE de XML autorizado</Link>}
           <select
             aria-label="Simular estado"
             className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
@@ -292,7 +262,6 @@ function FiscalList({ kind }: { kind: Exclude<Kind, "overview"> }) {
 
 function detailHref(kind: Exclude<Kind, "overview">, id: string) {
   const segment = {
-    invoices: "notas-saida",
     nfce: "nfce",
     monitor: "monitor",
     guides: "guias",

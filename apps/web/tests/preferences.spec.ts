@@ -220,7 +220,6 @@ test("vendas navega para seus fluxos detalhados", async ({ page }) => {
 
 test("fiscal navega para documentos, monitor e guias detalhados", async ({ page }) => {
   const flows = [
-    ["/fiscal/notas-saida", "/fiscal/notas-saida/NFE-000184"],
     ["/fiscal/nfce", "/fiscal/nfce/NFCE-00428"],
     ["/fiscal/monitor", "/fiscal/monitor/NSU-009812"],
     ["/fiscal/guias", "/fiscal/guias/GUIA-091"],

@@ -3192,7 +3192,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Referência A1 não conecta nem valida certificado; emissão bloqueada."
+        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3290,7 +3290,7 @@
           "method": "PUT",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Referência A1 não conecta nem valida certificado; emissão bloqueada."
+        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3458,9 +3458,14 @@
       },
       "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/fiscal/notas-saida"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3547,9 +3552,14 @@
       },
       "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/fiscal/notas-saida/nova"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/nfe"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3626,9 +3636,14 @@
       },
       "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe/[id]"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3720,9 +3735,14 @@
       },
       "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/fiscal/nfe/[id]"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3805,9 +3825,11 @@
       },
       "recovery": "Manter rascunho; apresentar indisponibilidade e bloqueios; não repetir transmissão nem aparentar sucesso.",
       "ui": {
-        "pages": [],
+        "pages": [
+          "/fiscal/notas-saida/[id]"
+        ],
         "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "gap": "Emissão permanece bloqueada; rascunhos não produzem XML ou transmissão."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -3881,9 +3903,15 @@
       },
       "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/nova"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/readiness"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",

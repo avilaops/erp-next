@@ -1,2 +1,3 @@
-import { FiscalScreen } from "@/features/fiscal/fiscal-screen"
-export default function Page(){return <FiscalScreen kind="invoices"/>}
+import { NfeDrafts } from "@/features/fiscal/nfe-drafts"
+
+export default function Page() { return <NfeDrafts /> }

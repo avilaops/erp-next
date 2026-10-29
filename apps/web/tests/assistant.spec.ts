@@ -102,18 +102,22 @@ test("assistant displays Rust permission refusal without sources and recovers fo
   const { permissions } = await access.json()
   expect(permissions).not.toContain("finance.payables.read")
   expect(permissions).toContain("catalog.products.read")
+  // The UI cancels its reader on an error event. Read the complete protocol
+  // through the same authenticated BFF before checking the browser behavior.
+  const response = await context.request.post("/api/erp/assistant", {
+    headers: { Origin: origin, "X-Tenant-Id": tenant },
+    data: { questions: ["Onde vejo contas a pagar?"] },
+  })
+  expect(response.status()).toBe(200)
+  const events = (await response.text()).trim().split("\n").map(line => JSON.parse(line))
+  expect(events).toContainEqual(expect.objectContaining({ type: "error", status: 403 }))
+  expect(events.some(event => event.type === "source" || event.type === "answer")).toBe(false)
   await page.goto("/assistente")
   const input = page.getByRole("textbox", { name: "Mensagem para o assistente" })
   const conversation = page.getByRole("region", { name: "Conversa com o assistente" })
   await expect(input).toBeEnabled()
   await input.fill("Onde vejo contas a pagar?")
-  const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === "/api/erp/assistant" && response.request().method() === "POST")
   await page.getByRole("button", { name: "Enviar", exact: true }).click()
-  const response = await responsePromise
-  expect(response.status()).toBe(200)
-  const events = (await response.text()).trim().split("\n").map(line => JSON.parse(line))
-  expect(events).toContainEqual(expect.objectContaining({ type: "error", status: 403 }))
-  expect(events.some(event => event.type === "source" || event.type === "answer")).toBe(false)
   await expect(conversation.getByRole("alert")).toContainText("Consulta recusada: você não tem permissão nesta empresa.")
   await expect(conversation.getByText("Confirmado pelo ERP", { exact: true })).toHaveCount(0)
   await expect(conversation.getByRole("link")).toHaveCount(0)

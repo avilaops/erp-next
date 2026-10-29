@@ -9,6 +9,7 @@
   "scripts": {
     "context:erp": "node verification/product-context-cli.mjs",
     "context:erp:mcp": "node verification/product-context-mcp.mjs",
+    "context:erp:publish": "node verification/product-context-publish.mjs",
     "verify:erp": "node verification/run.mjs",
     "test:verification": "node --test verification/test/*.test.mjs",
     "dev:web": "pnpm --filter web dev",

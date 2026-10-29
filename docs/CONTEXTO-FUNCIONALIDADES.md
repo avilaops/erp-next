@@ -110,3 +110,39 @@ O CLI apenas gera o lote; não possui credenciais nem envia requisições ao n8n
 A primeira importação é operacional, não uma atualização automática por commit.
 Após mudanças no ERP, é necessário gerar e importar outro lote. A automação
 dessa atualização e o consumidor visual no laboratório continuam separados.
+
+## Importação automática no laboratório
+
+`pnpm context:erp:publish` gera o contexto completo e o envia para
+`https://ml.avilaops.com/api/v1/product-contexts/erp`. Exige o segredo de
+integração `ERP_CONTEXT_LAB_TOKEN`; o token não vai para os artefatos nem para
+o log. `ERP_CONTEXT_LAB_URL` aceita esse endpoint HTTPS ou loopback explícito
+para integração local. Redirecionamentos são recusados.
+
+O cliente consulta a revisão e usa `If-Match`. O laboratório preserva a captura
+por SHA-256 e registra um recibo em catálogo versionado. O identificador da
+solicitação depende do hash e do modo de confirmação. Repetir a solicitação
+retorna o recibo original e não promove uma captura antiga sobre uma nova.
+Uma resposta perdida é recuperada pela consulta desse recibo e pela conferência
+completa da captura; não provoca outro PUT sem verificar o estado.
+
+`--confirm-production` exige checkout limpo. O próprio laboratório consulta
+o health fixo do ERP e só registra `version_observed` se o commit servido for
+igual ao do contexto. Essa observação fica no recibo, com data, separada do
+artefato de fontes. Ela não comprova execução funcional nem garante que a versão
+continuará servida depois daquele instante.
+
+O workflow `ERP context synchronization` envia uma captura de código em cada
+push da `main`. Nos minutos 17 e 47 de cada hora, consulta a versão servida,
+faz checkout desse commit exato, gera o contexto e pede confirmação independente
+ao laboratório. A agenda do GitHub pode atrasar; isso não é uma transação com
+o deploy. Versões anteriores ao gerador são identificadas e ignoradas sem
+fabricar uma captura. A execução manual permite pedir essa mesma confirmação.
+
+O laboratório deve operar uma única instância escritora no volume. A publicação
+do ERP não depende do sucesso da sincronização; falhas preservam as capturas
+anteriores e ficam visíveis na execução do workflow e nos artefatos de contexto.
+
+Essa integração alimenta a API do laboratório. As tabelas de consulta MCP
+descritas acima continuam sendo capturas independentes; este comando não as
+atualiza nem acrescenta a nova interface visual de fluxos.

@@ -1,13 +1,16 @@
 /* Ávila Ops Contratos - presentation overlay, AGPL-3.0 + upstream terms. */
 html[data-theme="docuseal"] {
-  --p: 47% .11 180;
-  --pc: 100% 0 0;
-  --n: 31% .04 180;
-  --nc: 100% 0 0;
-  --b1: 100% 0 0;
-  --b2: 97% .005 180;
-  --b3: 91% .01 180;
-  --bc: 25% .02 180;
+  /* The installed DaisyUI version consumes HSL components, not OKLCH. */
+  --p: 175 77% 26%;
+  --pf: 175 77% 20%;
+  --pc: 0 0% 100%;
+  --n: 175 77% 26%;
+  --nf: 175 77% 20%;
+  --nc: 0 0% 100%;
+  --b1: 0 0% 100%;
+  --b2: 160 18% 97%;
+  --b3: 160 10% 91%;
+  --bc: 169 40% 14%;
   --rounded-box: 1rem;
   --rounded-btn: .625rem;
   color-scheme: light;

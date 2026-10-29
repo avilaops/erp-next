@@ -195,7 +195,7 @@ jobs:
         run: python3 -c 'import json,os,sys; jobs=json.loads(os.environ["VALIDATION_JOBS"]); sys.exit(0 if jobs and all(job["result"] == "success" for job in jobs.values()) else 1)'
 
   web:
-    timeout-minutes: 1
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

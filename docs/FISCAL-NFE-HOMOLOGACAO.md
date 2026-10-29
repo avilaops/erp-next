@@ -54,7 +54,7 @@ A cópia do perfil contém somente um alias de certificado, sem senha ou chave.
 
 O cadastro de empresa precisa estar válido e conter CNPJ, endereço, regime e IE.
 O perfil fiscal exige ambiente `homologation`, UF, código IBGE de sete dígitos,
-IE sem formatação, CRT, série de 1 a 999 e `certificateReference`.
+IE sem formatação, CRT e série de 1 a 999.
 UF, IE e regime devem ser coerentes com o cadastro da empresa. Validar o prefixo
 IBGE e a estrutura da IE não confirma município existente nem inscrição ativa.
 CRT 1, 2 ou 4 é compatível com o agrupamento `simples` do cadastro; esse
@@ -64,8 +64,11 @@ agrupamento sozinho não escolhe entre os três. CRT 3 corresponde a
 `certificateReference` aceita apenas um alias de 3 a 100 caracteres ASCII
 alfanuméricos, hífen ou sublinhado. Não aceita caminho, PEM, URL ou campo de
 senha. **Um alias salvo não comprova A1 provisionado, criptografado ou válido.**
-O resolvedor de segredos, a validação de cadeia/validade/CNPJ e a assinatura
-ainda precisam ser implementados; `certificateVerified` permanece `false`.
+A conexão real do A1 está disponível em `/preferencias/certificado-digital`,
+com validação de cadeia, chave privada, validade e CNPJ, e armazenamento cifrado
+por empresa. Veja [Certificado A1](CERTIFICADO-DIGITAL-A1.md). O alias legado é
+opcional e não define `certificateVerified`; o estado usa a credencial validada.
+A assinatura do XML ainda não está integrada.
 
 `NFE_PRODUCTION_ENABLED=false` é a única configuração aceita na inicialização.
 Qualquer outro valor impede a inicialização da API. Os tipos HTTP e restrições
@@ -101,7 +104,7 @@ somente o bruto dos produtos. Nenhuma alíquota é inferida.
 
 `readiness` lista explicitamente os componentes ausentes:
 
-1. Resolução segura e verificação do A1 por emitente.
+1. A1 ausente, vencido ou indisponível, quando constatado para o emitente atual.
 2. Validação de regras fiscais e pacote XSD vigente.
 3. Construção XML e assinatura XMLDSig.
 4. Transporte SEFAZ e recuperação por chave/recibo.
@@ -122,6 +125,25 @@ seu evento próprio e persistência, sem apagar o XML autorizado.
 Antes de transmissão real, faltam o emitente e UF escolhidos, o A1 provisionado
 para o ERP-Next, o conjunto de regras aprovado para a operação e credenciais
 do armazenamento. Esses insumos não substituem os componentes ainda ausentes.
+
+## Interface de rascunhos
+
+`/fiscal/notas-saida` consulta os rascunhos da empresa com paginação por cursor;
+a busca filtra somente os registros carregados. `/fiscal/notas-saida/nova` cria
+um rascunho e `/fiscal/notas-saida/{id}` consulta e edita a revisão persistida.
+As três telas usam o BFF com sessão, sem dados demonstrativos de NF-e.
+
+A seleção de produto copia SKU, descrição, unidade, NCM e preço do catálogo.
+Os dados ficam no snapshot do rascunho; alterações posteriores no catálogo não
+reescrevem o documento. Origem, CFOP e tributação exigem preenchimento explícito.
+A interface calcula o bruto com inteiros, usando a mesma escala e regra de
+arredondamento do backend. Nenhuma alíquota ou aprovação tributária é inferida.
+
+A criação envia uma chave de idempotência. Se a resposta se perder, a edição é
+congelada e a confirmação reutiliza o mesmo corpo e a mesma chave. Atualizações
+usam If-Match; conflitos preservam a edição e exigem recarga explícita. A tela
+apresenta as pendências reais de readiness, sem oferecer emissão ou DANFE para
+um rascunho. A1 não é pré-requisito para salvar os dados de preparação.
 
 ## Fontes e verificação
 

@@ -381,6 +381,7 @@ pub struct DraftSnapshot {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftPage {
+    tenant_id: Uuid,
     data: Vec<Draft>,
     next_cursor: Option<Uuid>,
 }
@@ -439,7 +440,11 @@ pub async fn list(
     Ok(response(
         StatusCode::OK,
         None,
-        DraftPage { data, next_cursor },
+        DraftPage {
+            tenant_id: tenant,
+            data,
+            next_cursor,
+        },
     ))
 }
 #[utoipa::path(get,path="/api/v1/fiscal/nfe/{id}",tag="Fiscal",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=DraftSnapshot),(status=403,description="Sem permissão fiscal"),(status=404,description="Rascunho não encontrado")))]

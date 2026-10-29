@@ -252,6 +252,20 @@ try {
     return response.json();
   };
   const certificateBeforeRestart = await readCertificate();
+  const readNfeDrafts = async () => {
+    const headers = { Authorization: "Bearer fixture-editor-token", "X-Tenant-Id": tenant };
+    const response = await fetch(`${env.ERP_API_URL}/api/v1/fiscal/nfe?limit=100`, { headers });
+    assert.equal(response.status, 200);
+    const page = await response.json();
+    assert.equal(page.nextCursor, null, "Fiscal persistence fixture must fit one page");
+    const details = await Promise.all(page.data.map(async draft => {
+      const response = await fetch(`${env.ERP_API_URL}/api/v1/fiscal/nfe/${draft.id}`, { headers });
+      assert.equal(response.status, 200);
+      return { etag: response.headers.get("etag"), data: await response.json() };
+    }));
+    return { page, details };
+  };
+  const nfeBeforeRestart = await readNfeDrafts();
   await stop(api);
   const restarted = launch(binary, [], { DATABASE_URL: applicationUrl.toString() });
   await ready(`${env.ERP_API_URL}/health/ready`, restarted);
@@ -262,6 +276,8 @@ try {
   assert.deepEqual(await readOperations(), operationsBeforeRestart);
   assert.deepEqual(await readReferences(), referencesBeforeRestart);
   assert.deepEqual(await readCertificate(), certificateBeforeRestart);
+  assert.deepEqual(await readNfeDrafts(), nfeBeforeRestart);
+  console.log("NF-e drafts, their issuer snapshots and revisions survived an API process restart.");
   console.log("Product categories, financial categories, financial accounts and payment methods survived an API process restart.");
   console.log("Company, roles, memberships, stock, parties, orders, receivables and payment histories survived an API process restart.");
   console.log("Verified: Rust API + non-superuser PostgreSQL + PKCE test provider + production Next.js + browser.");

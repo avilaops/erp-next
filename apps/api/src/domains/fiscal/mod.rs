@@ -27,7 +27,7 @@ use super::{
     revision,
 };
 use crate::platform::{CompanyData, access, auth::AuthenticatedIdentity, state::AppState};
-use model::{DraftInput, ProfileInput};
+use model::{DraftInput, ProfileInput, ProfileRequest};
 
 const BODY_LIMIT: usize = 1024 * 1024;
 const BLOCKERS: &[&str] = &[
@@ -227,7 +227,7 @@ pub async fn get_profile(
         },
     ))
 }
-#[utoipa::path(put,path="/api/v1/fiscal/config",tag="Fiscal",request_body=ProfileInput,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=ProfileSnapshot),(status=403,description="Sem permissão fiscal"),(status=409,description="Empresa incompatível"),(status=412,description="Revisão desatualizada"),(status=413,description="Corpo excede 1 MiB"),(status=422,description="Preparação inválida"),(status=428,description="If-Match obrigatório")))]
+#[utoipa::path(put,path="/api/v1/fiscal/config",tag="Fiscal",request_body=ProfileRequest,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=ProfileSnapshot),(status=403,description="Sem permissão fiscal"),(status=409,description="Empresa incompatível"),(status=412,description="Revisão desatualizada"),(status=413,description="Corpo excede 1 MiB"),(status=422,description="Preparação inválida"),(status=428,description="If-Match obrigatório")))]
 pub async fn put_profile(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

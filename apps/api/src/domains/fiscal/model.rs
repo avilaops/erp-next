@@ -22,8 +22,29 @@ pub struct ProfileInput {
     pub series: u16,
     /// Opaque alias only. Not a path, password, certificate or proof of provisioning.
     #[serde(default)]
+    #[schema(required = true)]
     pub certificate_reference: String,
 }
+
+/// Request-only schema derived from the serialized profile. The legacy alias
+/// may be omitted on input; Serialize always emits it in existing responses.
+pub struct ProfileRequest;
+
+impl utoipa::PartialSchema for ProfileRequest {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        use utoipa::openapi::{RefOr, schema::Schema};
+
+        let RefOr::T(Schema::Object(mut profile)) = ProfileInput::schema() else {
+            unreachable!("ProfileInput must remain an object schema");
+        };
+        profile
+            .required
+            .retain(|name| name != "certificateReference");
+        RefOr::T(Schema::Object(profile))
+    }
+}
+
+impl ToSchema for ProfileRequest {}
 
 impl ProfileInput {
     pub fn validate(&self) -> Result<(), DomainError> {

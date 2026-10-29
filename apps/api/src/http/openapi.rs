@@ -105,6 +105,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fiscal_profile_accepts_missing_alias_but_always_returns_it() {
+        use crate::domains::fiscal::model::ProfileInput;
+
+        let profile: ProfileInput = serde_json::from_value(serde_json::json!({
+            "environment": "homologation", "state": "SP",
+            "municipalityCode": "3550308", "stateRegistration": "718319130117",
+            "crt": 1, "series": 1
+        }))
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(&profile).unwrap()["certificateReference"],
+            ""
+        );
+
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let schemas = &doc["components"]["schemas"];
+        let alias = serde_json::json!("certificateReference");
+        assert!(
+            !schemas["ProfileRequest"]["required"]
+                .as_array()
+                .unwrap()
+                .contains(&alias)
+        );
+        assert!(
+            schemas["ProfileInput"]["required"]
+                .as_array()
+                .unwrap()
+                .contains(&alias)
+        );
+        assert_eq!(
+            schemas["ProfileInput"]["properties"],
+            schemas["ProfileRequest"]["properties"]
+        );
+        assert_eq!(
+            schemas["IssuerSnapshot"]["properties"]["profile"]["$ref"],
+            "#/components/schemas/ProfileInput"
+        );
+        let data = schemas["ProfileSnapshot"]["properties"]["data"].to_string();
+        assert!(data.contains("#/components/schemas/ProfileInput"));
+        assert!(!data.contains("#/components/schemas/ProfileRequest"));
+        assert_eq!(
+            doc["paths"]["/api/v1/fiscal/config"]["put"]["requestBody"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/ProfileRequest"
+        );
+    }
+
+    #[test]
     fn operation_ids_are_unique_and_path_parameters_match_templates() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
         let mut ids = std::collections::BTreeSet::new();

@@ -79,7 +79,7 @@ test("navegação móvel abre todos os módulos e a busca global", async ({ page
 })
 
 test("menu superior expõe todos os destinos operacionais existentes", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.setViewportSize({ width: 1749, height: 900 })
   await page.goto("/")
   const navigation = page.getByRole("navigation", { name: "Módulos do ERP" })
   const destinations = [
@@ -285,7 +285,7 @@ test("relatórios compara, agrupa e detalha dados", async ({ page }) => {
 })
 
 test("menus expõem dashboards, central de trabalho e rotas operacionais", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.setViewportSize({ width: 1749, height: 900 })
   await page.goto("/")
   await page.locator("summary").filter({ hasText: "Meu Negócio" }).click()
   const navigation = page.getByRole("navigation", { name: "Módulos do ERP" })

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { PreferencesCommand } from "@/features/preferences-search/preferences-command"
 import { MobileNavigation } from "@/components/mobile-navigation"
+import { DesktopNavigation } from "@/components/desktop-navigation"
 
 const menus = [
   {
@@ -87,20 +88,20 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
             <span className="hidden leading-tight sm:block"><strong className="block text-sm">ERP Next</strong><small className="text-xs text-muted-foreground">Avila Ops</small></span>
           </Link>
 
-          <nav className="hidden h-full items-center xl:flex" aria-label="Módulos do ERP">
+          <DesktopNavigation>
             <Link className="top-nav-link" href="/">Visão geral</Link>
             <Link className="top-nav-link" href="/historico">Histórico importado</Link>
             {menus.map((menu) => (
-              <details className="group relative h-full" key={menu.label}>
+              <details className="group h-full" name="erp-main-navigation" key={menu.label}>
                 <summary className="top-nav-link h-full cursor-pointer list-none gap-1">{menu.label}<ChevronDown className="size-3.5 transition group-open:rotate-180" /></summary>
-                <div className={`absolute top-[calc(100%+1px)] grid gap-8 rounded-b-2xl border border-t-0 border-border bg-popover p-6 text-popover-foreground shadow-2xl ${menu.label === "Relatórios" ? "right-0" : "left-0"} ${menu.columns.length === 3 ? "min-w-[780px] grid-cols-3" : menu.columns.length === 1 ? "min-w-[320px] grid-cols-1" : "min-w-[560px] grid-cols-2"}`}>
+                <div className={`absolute top-[calc(100%+1px)] grid max-h-[calc(100dvh-6rem)] max-w-[calc(100vw-2rem)] gap-8 overflow-y-auto rounded-b-2xl border border-t-0 border-border bg-popover p-6 text-popover-foreground shadow-2xl ${menu.label === "Relatórios" ? "right-0" : "left-0"} ${menu.columns.length === 3 ? "w-[780px] grid-cols-3" : menu.columns.length === 1 ? "w-[320px] grid-cols-1" : "w-[560px] grid-cols-2"}`}>
                   {menu.columns.map((column) => (
                     <div key={column.title}><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{column.title}</p><div className="grid gap-1">{column.items.map((item) => "href" in item && item.href ? <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground" href={item.href} key={item.label}>{item.label}</Link> : <span className="rounded-lg px-3 py-2 text-sm text-muted-foreground" key={item.label}>{item.label}</span>)}</div></div>
                   ))}
                 </div>
               </details>
             ))}
-          </nav>
+          </DesktopNavigation>
 
           <PreferencesCommand />
 
@@ -123,7 +124,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
       </header>
 
       <main id="conteudo-principal">{children}</main>
-      <Suspense fallback={<div className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-border bg-background xl:hidden" aria-hidden="true" />}>
+      <Suspense fallback={<div className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
         <MobileNavigation />
       </Suspense>
     </div>

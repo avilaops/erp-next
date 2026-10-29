@@ -15,6 +15,7 @@ const pgBin = process.env.PG_BINDIR || (process.platform === "win32" ? "C:/Progr
 const suffix = randomBytes(6).toString("hex");
 const database = `erp_company_test_${suffix}`;
 const role = `erp_company_role_${suffix}`;
+const rolePassword = randomBytes(24).toString("hex");
 const testUrl = new URL(source); testUrl.pathname = `/${database}`;
 const tenant = "11111111-1111-4111-8111-111111111111";
 function testOrigin(value) {
@@ -31,7 +32,9 @@ let created = false;
 let createdRole = false;
 
 function sql(url, command) {
-  const result = spawnSync(path.join(pgBin, process.platform === "win32" ? "psql.exe" : "psql"), ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", url.toString()], { input: command, encoding: "utf8", windowsHide: true });
+  const connection = new URL(url);
+  const password = decodeURIComponent(connection.password); connection.password = "";
+  const result = spawnSync(path.join(pgBin, process.platform === "win32" ? "psql.exe" : "psql"), ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", connection.toString()], { input: command, encoding: "utf8", windowsHide: true, env: { ...process.env, PGPASSWORD: password } });
   if (result.status !== 0) throw new Error(`Test database operation failed: ${result.stderr}`);
 }
 
@@ -136,9 +139,9 @@ try {
       ('66666666-6666-4666-8666-666666666666','99999999-9999-4999-8999-999999999999'),
       ('77777777-7777-4777-8777-777777777777','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   `);
-  sql(source, `CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS;`); createdRole = true;
+  sql(source, `CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${rolePassword}';`); createdRole = true;
   sql(testUrl, `GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role};`);
-  const applicationUrl = new URL(testUrl); applicationUrl.username = role; applicationUrl.password = "";
+  const applicationUrl = new URL(testUrl); applicationUrl.username = role; applicationUrl.password = rolePassword;
   const api = launch(binary, [], { DATABASE_URL: applicationUrl.toString() });
   await ready(`${env.ERP_API_URL}/health/ready`, api);
   const seed = await fetch(`${env.ERP_API_URL}/api/v1/company`, { method: "PUT", headers: { Authorization: "Bearer fixture-editor-token", "X-Tenant-Id": tenant, "If-Match": '"0"', "Content-Type": "application/json" }, body: JSON.stringify({ legalName: "Empresa de teste", personType: "juridica", taxId: "04252011000110", taxRegime: "simples", segments: ["Indústria"], postalCode: "01001000", state: "SP", city: "São Paulo", street: "Rua de Teste", number: "1", district: "Centro" }) });
@@ -156,7 +159,9 @@ try {
   assert(contract.paths["/api/v1/receivables/{id}/payments"].post);
   const web = launch(process.execPath, [path.join(root, "apps/web/node_modules/next/dist/bin/next"), "start", path.join(root, "apps/web"), "--port", new URL(origin).port || "80", "--hostname", "127.0.0.1"], {});
   await ready(`${origin}/entrar`, web);
-  const playwright = spawn(process.execPath, [path.join(root, "apps/web/node_modules/@playwright/test/cli.js"), "test", "--config", "playwright.company.config.ts"], { cwd: path.join(root, "apps/web"), env, windowsHide: true, stdio: "inherit" });
+  const browserArguments = [path.join(root, "apps/web/node_modules/@playwright/test/cli.js"), "test", "--config", "playwright.company.config.ts"];
+  if (process.env.ERP_TEST_BROWSER_GREP) browserArguments.push("--grep", process.env.ERP_TEST_BROWSER_GREP);
+  const playwright = spawn(process.execPath, browserArguments, { cwd: path.join(root, "apps/web"), env, windowsHide: true, stdio: "inherit" });
   const code = await new Promise((resolve) => playwright.once("exit", resolve));
   if (code !== 0) throw new Error(`ERP browser checks failed: ${code}`);
   const readCompany = async () => {

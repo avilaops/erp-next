@@ -15,6 +15,24 @@ requisição no navegador; trocar o arquivo descarta o download anterior.
 A listagem fiscal anterior continua demonstrativa. A tela de DANFE tem sua
 própria sessão e chama a API real. Não usa os documentos simulados da listagem.
 
+O monitor de **notas recebidas** (`/fiscal/monitor`) usa os XMLs importados e
+armazenados na empresa ativa. Abra o número da nota para consultar seus dados e
+clicar em **Visualizar DANFE**. O PDF aparece na própria tela, com um link para
+download; **Baixar XML** preserva os bytes originais. O detalhe usa
+`GET /api/v1/fiscal/received-nfes/{id}` e exige `fiscal.received_nfe.manage`,
+assim como a listagem e os downloads de notas recebidas.
+
+Para baixar em lote, selecione até dez notas da página atual e clique em
+**Baixar DANFEs selecionados (ZIP)**. A geração é sequencial, cancelável e tem
+limite agregado de 32 MiB. Cada PDF mantém sua chave no nome e tem o hash
+conferido antes de entrar no ZIP. Se qualquer documento falhar, nenhum ZIP
+parcial é apresentado como lote completo; a seleção permanece para nova
+tentativa. Trocar filtros, página ou empresa limpa a seleção.
+
+As notas de saída demonstrativas não possuem XML autorizado armazenado e não
+alimentam esse botão. Para um XML externo em que a empresa seja emitente,
+permanece disponível a geração avulsa em `/fiscal/danfe`.
+
 ## Contrato
 
 `POST /api/v1/fiscal/danfe`, JSON `{ "xml": "..." }`, exige Bearer e
@@ -108,6 +126,8 @@ e o BFF reais no Chromium usando o build atual,
 com sessão sintética e uma API fiscal de teste em loopback. Confere recusa de
 acesso/origem/empresa, bytes e hashes do download, preservação do arquivo após
 erros e formulário móvel. Esse teste não encadeia a API Rust ao serviço MCP real.
+Também confere a prévia do documento armazenado, os bytes de cada PDF no ZIP,
+a recusa de um lote parcialmente gerado e a preservação da seleção após erro.
 O relatório `--suite danfe` mantém esse alcance separado dos seus 12 checks Rust.
 
 `apps/api/tests/fixtures/nfe-protocol-synthetic.xml` tem assinatura/protocolo

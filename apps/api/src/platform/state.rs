@@ -9,6 +9,7 @@ pub struct AppState {
     pub invitations: Option<super::invitations::ProvisioningClient>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
     pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
+    pub assistant: Option<crate::domains::assistant::InferenceClient>,
 }
 
 impl AppState {
@@ -19,7 +20,16 @@ impl AppState {
             invitations: None,
             danfe: None,
             contracts: None,
+            assistant: None,
         }
+    }
+
+    pub fn with_assistant(
+        mut self,
+        client: Option<crate::domains::assistant::InferenceClient>,
+    ) -> Self {
+        self.assistant = client;
+        self
     }
 
     pub fn with_invitations(

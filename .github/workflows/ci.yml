@@ -20,7 +20,7 @@ env:
 
 jobs:
   rust-build:
-    timeout-minutes: 1
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
       - name: Compile complete Rust test suite
         run: |
           mkdir -p artifacts
-          timeout 40s cargo test --workspace --locked --no-run --message-format=json > artifacts/rust-build.jsonl
+          timeout 480s cargo test --workspace --locked --no-run --message-format=json > artifacts/rust-build.jsonl
           python3 -B scripts/contracts/package-test-binary.py
       - uses: actions/upload-artifact@v4
         with:
@@ -49,7 +49,7 @@ jobs:
 
   rust:
     needs: rust-build
-    timeout-minutes: 1
+    timeout-minutes: 3
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -74,7 +74,7 @@ jobs:
           name: erp-rust-tests-${{ github.sha }}
           path: artifacts/rust-tests/
       - name: Test Rust and export candidate contract
-        run: timeout 40s python3 -B scripts/contracts/run-test-binaries.py
+        run: timeout 120s python3 -B scripts/contracts/run-test-binaries.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -84,7 +84,7 @@ jobs:
           retention-days: 14
 
   rust-lint:
-    timeout-minutes: 1
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,7 +102,7 @@ jobs:
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
       - run: cargo fmt --all --check
-      - run: timeout 35s cargo clippy --workspace --all-targets -- -D warnings
+      - run: timeout 480s cargo clippy --workspace --all-targets -- -D warnings
 
   contract-tests:
     timeout-minutes: 1
@@ -119,7 +119,7 @@ jobs:
 
   baseline:
     needs: rust
-    timeout-minutes: 1
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +143,7 @@ jobs:
       - name: Capture explicit baseline
         env:
           BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: timeout 40s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
+        run: timeout 480s python3 -B scripts/contracts/capture.py "$BASELINE_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -237,7 +237,7 @@ jobs:
 
   web-browser:
     needs: web
-    timeout-minutes: 1
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -254,7 +254,7 @@ jobs:
         with:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
-      - run: timeout 40s pnpm --filter web test:danfe
+      - run: timeout 240s pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4

@@ -1,3 +1,4 @@
+pub mod assistant;
 pub mod catalog;
 pub mod contracts;
 pub mod finance;

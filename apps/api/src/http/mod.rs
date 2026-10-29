@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod access_tests;
 #[cfg(test)]
+mod assistant_tests;
+#[cfg(test)]
 mod company_tests;
 #[cfg(test)]
 mod contracts_tests;
@@ -53,6 +55,10 @@ pub fn router(state: AppState) -> Router {
 
     let protected = Router::new()
         .merge(crate::domains::contracts::routes())
+        .route(
+            "/api/v1/assistant",
+            axum::routing::post(crate::domains::assistant::chat),
+        )
         .route("/api/v1/legacy-history", get(crate::domains::legacy::list))
         .route(
             "/api/v1/legacy-history/files/{id}",

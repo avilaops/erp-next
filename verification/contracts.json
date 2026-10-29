@@ -92,6 +92,16 @@
         "nextStep": "Relacionar as consultas históricas às necessidades de consulta do usuário."
       },
       {
+        "id": "assistant",
+        "title": "Assistente do ERP",
+        "goal": "Localizar telas e consultar produtos e estoque com modelo local e direitos da empresa ativa.",
+        "kind": "product",
+        "actionGroups": ["assistant"],
+        "dependencies": ["me", "products"],
+        "nextStep": "Validar o fluxo publicado com identidade real após a release pelo CI.",
+        "additionalSources": ["docs/ASSISTANT.md"]
+      },
+      {
         "id": "company",
         "title": "Dados da empresa",
         "goal": "Consultar e alterar os dados cadastrais da empresa ativa.",
@@ -563,6 +573,41 @@
     }
   ],
   "actions": [
+    {
+      "id": "post-api-v1-assistant",
+      "flow": "assistant",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/assistant" },
+      "actor": "active_tenant_member",
+      "permissions": [],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"],
+        "pathParameters": [],
+        "body": { "source": "apps/api/src/domains/assistant/mod.rs", "type": "ChatInput" },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade e vínculo ativos antes da inferência; origem e empresa da sessão validadas no BFF.",
+        "Cada ferramenta revalida a permissão de leitura do recurso, catalog.products.read ou inventory.stock.read; navegação filtra pela permissão da tela.",
+        "Somente perguntas limitadas, sem tenant no corpo nem mensagens system/tool fornecidas pelo navegador."
+      ],
+      "transition": { "from": "pergunta recebida", "to": "resposta ou erro sem alteração de domínio" },
+      "effects": {
+        "writes": [],
+        "external": ["Inferência em Ollama privado e local, sem fallback pago"],
+        "excludes": ["Não altera preço, estoque, pedidos, pagamentos, permissões ou documentos fiscais.", "Não persiste conversa e não fornece SQL livre, comandos ou arquivos ao modelo."]
+      },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Uma consulta por processo; 429 quando ocupado. Cancelamento fecha o stream e libera capacidade. Até duas ferramentas e cinco registros por ferramenta." },
+      "response": {
+        "successStatuses": [200],
+        "errorStatuses": [401, 403, 409, 413, 415, 422, 429, 503],
+        "action": "Stream NDJSON status/tool/source/answer/error/done. HTTP 200 inicia o stream, não comprova conclusão; exige done sem error. Fontes são registros do ERP, texto do modelo é síntese não confirmada."
+      },
+      "recovery": "Manter fontes já recebidas, exibir erro explícito e permitir nova tentativa ou interrupção. Erros e buscas vazias não viram síntese inventada.",
+      "ui": { "pages": ["/assistente"], "bff": { "method": "POST", "path": "/api/erp/assistant" }, "gap": null },
+      "sources": ["apps/api/src/domains/assistant/mod.rs", "apps/api/src/domains/assistant/tools.rs", "apps/api/src/domains/assistant/client.rs", "apps/web/src/app/api/erp/assistant/route.ts", "apps/web/src/features/assistant/erp-assistant-module.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
+    },
     {
       "id": "commercial-contract-list",
       "flow": "commercial-contracts",

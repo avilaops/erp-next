@@ -1,5 +1,5 @@
-import { AssistantPage } from "@/features/workspace/experience-pages"
+import { ErpAssistantModule } from "@/features/assistant/erp-assistant-module"
 
 export default function Page() {
-  return <AssistantPage />
+  return <ErpAssistantModule />
 }

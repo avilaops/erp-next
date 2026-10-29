@@ -190,7 +190,8 @@
         "goal": "Cadastrar e acompanhar o ciclo comercial dos pedidos de venda.",
         "kind": "product",
         "actionGroups": [
-          "orders"
+          "orders",
+          "commercial-contracts"
         ],
         "dependencies": [
           "products",
@@ -496,6 +497,11 @@
     "response"
   ],
   "dispatches": [
+    {
+      "path": "/api/erp/commercial-contracts/[id]/[action]",
+      "method": "POST",
+      "actions": ["review", "send", "sync"]
+    },
     { "path": "/api/erp/invitations/[id]/[action]", "method": "POST", "actions": ["resend", "revoke"] },
     {
       "path": "/api/erp/purchase-orders/[id]/[action]",
@@ -557,6 +563,940 @@
     }
   ],
   "actions": [
+    {
+      "id": "commercial-contract-list",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial-contracts"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "consulta sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: list"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial-contracts"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-generate",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commercial-contracts"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/contracts/model.rs",
+          "type": "Generate"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "estado persistido do contrato",
+        "to": "intenção registrada ou estado confirmado no provedor"
+      },
+      "effects": {
+        "writes": [
+          "Estado do contrato, documentos privados, auditoria e comandos conforme a operação"
+        ],
+        "external": [
+          "API da instalação própria em contrato.avilaops.com"
+        ],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: generate"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commercial-contracts"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-options",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial-contracts/options/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "consulta sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "API da instalação própria em contrato.avilaops.com"
+        ],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: options"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial-contracts/options/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-detail",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial-contracts/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "consulta sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: detail"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial-contracts/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-review",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commercial-contracts/{id}/review"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage",
+        "sales.contracts.send"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "estado persistido do contrato",
+        "to": "intenção registrada ou estado confirmado no provedor"
+      },
+      "effects": {
+        "writes": [
+          "Estado do contrato, documentos privados, auditoria e comandos conforme a operação"
+        ],
+        "external": [],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: review"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commercial-contracts/[id]/[action]",
+          "action": "review"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-send",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commercial-contracts/{id}/send"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage",
+        "sales.contracts.send"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "estado persistido do contrato",
+        "to": "intenção registrada ou estado confirmado no provedor"
+      },
+      "effects": {
+        "writes": [
+          "Estado do contrato, documentos privados, auditoria e comandos conforme a operação"
+        ],
+        "external": [
+          "API da instalação própria em contrato.avilaops.com"
+        ],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: send"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commercial-contracts/[id]/[action]",
+          "action": "send"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-sync",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commercial-contracts/{id}/sync"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "estado persistido do contrato",
+        "to": "intenção registrada ou estado confirmado no provedor"
+      },
+      "effects": {
+        "writes": [
+          "Estado do contrato, documentos privados, auditoria e comandos conforme a operação"
+        ],
+        "external": [
+          "API da instalação própria em contrato.avilaops.com"
+        ],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: sync"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commercial-contracts/[id]/[action]",
+          "action": "sync"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-file",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial-contracts/{id}/files/{file}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id",
+          "file"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade ativa e permissões conferidas no servidor.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "consulta sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: file"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]/contratos",
+          "/vendas/pedidos/[id]/contratos/novo",
+          "/servicos/contratos/[id]",
+          "/cadastros/clientes-fornecedores/[id]/contratos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial-contracts/[id]/files/[file]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-contract-webhook",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/webhooks/contracts/{tenant}"
+      },
+      "actor": "authenticated_contract_provider",
+      "permissions": [],
+      "input": {
+        "headers": [
+          "X-Avila-Contract-Secret"
+        ],
+        "pathParameters": [
+          "tenant"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Segredo do webhook válido; solicitação vinculada à empresa indicada.",
+        "Snapshot imutável, isolamento de empresa e modelo explicitamente autorizado.",
+        "Revisão obrigatória antes do envio; resultado desconhecido exige consulta ao provedor."
+      ],
+      "transition": {
+        "from": "estado persistido do contrato",
+        "to": "intenção registrada ou estado confirmado no provedor"
+      },
+      "effects": {
+        "writes": [
+          "Estado do contrato, documentos privados, auditoria e comandos conforme a operação"
+        ],
+        "external": [
+          "API da instalação própria em contrato.avilaops.com"
+        ],
+        "excludes": [
+          "Não aciona emissão fiscal nem usa os contratos do laboratório.",
+          "Não comprova entrega de e-mail na caixa de entrada."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Intenção durável antes da chamada externa. Comando ou conteúdo repetido recupera o mesmo contrato. Resultado desconhecido não dispara nova criação ou e-mail. Webhooks são deduplicados."
+      },
+      "response": {
+        "successStatuses": [
+          204
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Contratos comerciais: webhook"
+      },
+      "recovery": "Consultar o andamento da mesma solicitação e conferir pendências do portal. Não repetir efeitos externos desconhecidos.",
+      "ui": {
+        "pages": [],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/webhooks/contracts/[tenant]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/mod.rs",
+        "apps/api/src/domains/contracts/model.rs",
+        "apps/api/src/domains/contracts/provider.rs",
+        "apps/api/src/domains/contracts/sync.rs",
+        "migrations/202610290001_commercial_contracts.sql",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/features/contracts/contracts.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "list-invitations",
       "flow": "users",

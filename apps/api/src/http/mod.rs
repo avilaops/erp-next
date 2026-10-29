@@ -3,6 +3,8 @@ mod access_tests;
 #[cfg(test)]
 mod company_tests;
 #[cfg(test)]
+mod contracts_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -50,6 +52,7 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .merge(crate::domains::contracts::routes())
         .route("/api/v1/legacy-history", get(crate::domains::legacy::list))
         .route(
             "/api/v1/legacy-history/files/{id}",
@@ -185,6 +188,10 @@ pub fn router(state: AppState) -> Router {
     ));
 
     Router::new()
+        .route(
+            "/api/v1/webhooks/contracts/{tenant}",
+            axum::routing::post(crate::domains::contracts::webhook),
+        )
         .route("/openapi.json", get(openapi::document))
         .route("/health/live", get(health::live))
         .route("/health/ready", get(health::ready))

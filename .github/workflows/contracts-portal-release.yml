@@ -1,0 +1,39 @@
+name: Contracts portal release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: contracts-portal-release
+  cancel-in-progress: false
+jobs:
+  portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare corresponding source with original license and attribution
+        run: |
+          curl --fail --location --retry 2 https://github.com/docusealco/docuseal/archive/8f8f69f0bc6ac2e59746cd6efac54a852289bec3.tar.gz -o upstream.tar.gz
+          mkdir corresponding-source
+          tar -xzf upstream.tar.gz -C corresponding-source --strip-components=1
+          cp -R deploy/contracts-portal/overlay/. corresponding-source/
+          cp deploy/contracts-portal/README.md corresponding-source/AVILA-OPS-SOURCE.md
+          cp deploy/contracts-portal/Dockerfile corresponding-source/AVILA-OPS-Dockerfile
+          test -s corresponding-source/LICENSE
+          grep -q 'retain the original DocuSeal attribution' corresponding-source/LICENSE_ADDITIONAL_TERMS
+          tar -czf deploy/contracts-portal/avila-source.tar.gz -C corresponding-source .
+      - name: Build branded portal
+        run: docker build --build-arg RELEASE_SHA="$GITHUB_SHA" -t "avila-contracts:sha-$GITHUB_SHA" deploy/contracts-portal
+      - name: Validate overlay syntax and retained attribution
+        run: |
+          docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c 'find /app/app/views -name "*.erb" -path "*/shared/_title.html.erb" -exec erb -P -x -T - {} \; | ruby -c'
+          docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c 'test -s /app/public/avila-source.tar.gz && grep -q DocuSeal /app/app/views/shared/_powered_by.html.erb'
+      - name: Package immutable image
+        run: docker save "avila-contracts:sha-$GITHUB_SHA" | gzip > contracts-portal-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contracts-portal-${{ github.sha }}
+          path: contracts-portal-image.tar.gz
+          compression-level: 0
+          retention-days: 7

@@ -49,6 +49,7 @@ async fn run() -> anyhow::Result<()> {
     let app = http::router(
         AppState::new(pool, auth)
             .with_danfe(config.danfe)
+            .with_contracts(config.contracts)
             .with_invitations(config.invitations),
     );
 

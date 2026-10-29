@@ -65,6 +65,15 @@ jobs:
       - run: pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
+      - name: Build the technical contract validation template
+        run: node scripts/contracts/build-validation-template.mjs
+        env:
+          ERP_BROWSER_CHANNEL: chrome
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-contract-model-${{ inputs.source_ref }}
+          path: artifacts/contract-validation/
+          retention-days: 7
       - run: docker build -f deploy/web.Dockerfile -t erp-next-web:sha-${{ inputs.source_ref }} .
       - run: docker save erp-next-web:sha-${{ inputs.source_ref }} | gzip > web-image.tar.gz
       - uses: actions/upload-artifact@v4

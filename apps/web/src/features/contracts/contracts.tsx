@@ -23,9 +23,9 @@ type Contract = ContractSummary & {
   progress: { id: number; role: string; email: string; sendConfirmed: boolean; openedAt: string | null; completedAt: string | null; declinedAt: string | null }[]
 }
 type StoredFile = { id: string; kind: "preview" | "signed" | "audit"; position: number; sha256: string }
-type Detail = { tenantId: string; canEdit: boolean; canSend: boolean; data: Contract; files: StoredFile[] }
+type Detail = { tenantId: string; canEdit: boolean; canSend: boolean; emailReady: boolean; data: Contract; files: StoredFile[] }
 type Template = { id: number; name: string; updatedAt: string; roles: { name: string; uuid: string }[]; fields: { name: string; type: string; required: boolean }[] }
-type Options = { tenantId: string; canEdit: boolean; configured: boolean; snapshot: Snapshot; templates: Template[]; defaults: Record<string, string> }
+type Options = { tenantId: string; canEdit: boolean; configured: boolean; emailReady: boolean; snapshot: Snapshot; templates: Template[]; defaults: Record<string, string> }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"
 const labels: Record<string, string> = { creation_requested: "Geração em conferência", created: "Pronto para revisão", reviewed: "Revisado", send_requested: "Envio solicitado", sent: "Transmissão confirmada pelo serviço", opened: "Aberto pelo destinatário", completed: "Assinatura concluída", declined: "Assinatura recusada", expired: "Prazo expirado" }
@@ -63,6 +63,7 @@ export function ContractGenerator({ orderId }: { orderId: string }) {
   return <>
     <PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Confira os dados do pedido e complete os campos do modelo. A geração produz uma prévia e ainda não envia e-mail." />
     <Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link>
+    {result.value.configured && !result.value.emailReady && <p className="mt-4 rounded-lg border p-4" role="status">O e-mail de assinatura ainda não foi validado. Você pode gerar e revisar a prévia; o envio ficará bloqueado.</p>}
     {!result.value.canEdit ? <p className="mt-5" role="status">Seu acesso permite apenas consulta de pedidos e contratos.</p> : !result.value.configured || !result.value.templates.length ? <section className="form-section mt-5 space-y-3"><h2 className="font-semibold">Modelo ainda não disponível</h2><p>A conexão e os modelos de contrato desta empresa precisam ser configurados pelo administrador.</p><Button variant="outline" onClick={result.reload}>Consultar novamente</Button></section> : <GeneratorForm key={`${orderId}:${result.value.snapshot.order.revision}`} options={result.value} reload={result.reload} />}
   </>
 }
@@ -133,7 +134,7 @@ export function ContractDetail({ id }: { id: string }) {
   }
   if (result.loading) return <p role="status">Carregando contrato…</p>
   if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert">{result.error || "Contrato indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
-  const { data: contract, files, canEdit, canSend } = result.value
+  const { data: contract, files, canEdit, canSend, emailReady } = result.value
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
   const fileUrl = (file: StoredFile) => `/api/erp/commercial-contracts/${id}/files/${file.id}`
@@ -153,12 +154,13 @@ export function ContractDetail({ id }: { id: string }) {
           return <li key={recipient.role} className="break-words"><strong>{recipient.name}</strong><p className="text-sm">{recipient.role} · {recipient.email}</p><p className="mt-1 text-sm">{progress?.completedAt ? "Assinou" : progress?.declinedAt ? "Recusou" : progress?.openedAt ? "Abriu o documento" : progress?.sendConfirmed ? "Transmissão de e-mail confirmada pelo serviço" : contract.sendRequestedAt ? "Envio solicitado; confirmação pendente" : "Convite ainda não solicitado"}</p></li>
         })}</ul><p className="text-sm text-muted-foreground">A confirmação de transmissão não comprova entrega na caixa de entrada.</p>
           {contract.problem && <p role="alert">{contract.problem}</p>}
+          {!emailReady && !contract.sendRequestedAt && <p role="status">O e-mail de assinatura ainda não foi validado. A prévia e a revisão estão disponíveis; o envio está bloqueado.</p>}
           {notice && <p role="status">{notice}</p>}
           {command.error && <p role="alert">{command.error}</p>}
           {command.uncertain ? <Button disabled={command.busy} onClick={() => action(pendingAction)}>Conferir resultado da operação</Button> : <Button variant="outline" disabled={blocked} onClick={() => action("sync")}><RefreshCw />Atualizar andamento</Button>}
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar contrato</Button>}
           {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi todos os documentos, dados e destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}
-          {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>A revisão foi registrada. O convite será enviado aos destinatários acima pelo e-mail configurado no portal.</p><Button disabled={blocked} onClick={() => action("send")}>Enviar para assinatura</Button></div>}
+          {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>A revisão foi registrada. O convite será enviado aos destinatários acima pelo e-mail configurado no portal.</p><Button disabled={blocked || !emailReady} onClick={() => action("send")}>Enviar para assinatura</Button></div>}
           {canEdit && !canSend && <p className="text-sm">A revisão e o envio exigem permissão específica para contratos.</p>}
         </section>
         <section className="form-section space-y-3"><h2 className="font-semibold">Dados preservados</h2><p>{contract.snapshot.company.legalName}</p><p>{contract.snapshot.customer.name} · {contract.snapshot.customer.taxId}</p><p>R$ {contract.snapshot.order.amount.replace(".", ",")} · Pedido na revisão {contract.snapshot.order.revision}</p><details><summary className="cursor-pointer font-medium">Conferir campos utilizados</summary><dl className="mt-3 space-y-3">{Object.entries(contract.fields).map(([key, value]) => <div key={key}><dt className="text-sm font-medium">{fieldLabels[key] || key}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value || "Não informado"}</dd></div>)}</dl></details><p className="break-all text-xs text-muted-foreground">Contrato {contract.id}{contract.externalId ? ` · Solicitação ${contract.externalId}` : ""}</p></section>

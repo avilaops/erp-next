@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Ávila Ops — Validação técnica de contratos</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 10pt Arial, sans-serif; color: #16332e; }
+    .page { position: relative; width: 210mm; height: 297mm; background: white; }
+    .brand { position: absolute; left: 18mm; top: 15mm; color: #0f766e; font-size: 15pt; font-weight: bold; }
+    h1 { position: absolute; left: 18mm; top: 26mm; margin: 0; font-size: 19pt; }
+    .notice { position: absolute; left: 18mm; top: 40mm; width: 174mm; padding: 3mm; background: #eaf5f1; border-left: 1mm solid #0f766e; font-size: 9pt; line-height: 1.4; }
+    .label { position: absolute; font-size: 8pt; font-weight: bold; color: #526b63; }
+    .field { position: absolute; border: .25mm solid #ccd9d4; border-radius: 1mm; background: #fafcfb; }
+    .footer { position: absolute; left: 18mm; top: 285mm; width: 174mm; font-size: 7pt; color: #526b63; border-top: .25mm solid #ccd9d4; padding-top: 2mm; }
+  </style>
+</head>
+<body><main class="page">
+  <div class="brand">Ávila Ops · Contratos</div>
+  <h1>Validação técnica do fluxo de assinatura</h1>
+  <div class="notice"><strong>SEM VALOR COMERCIAL.</strong> Documento para testar preenchimento, revisão e assinatura. Não formaliza compra, cobrança ou obrigação de entrega. Use somente com destinatário autorizado para esta validação.</div>
+  <div class="label" style="left:18mm;top:63mm">EMPRESA</div>
+  <div class="field" data-field="empresa_nome" data-required="true" style="left:18mm;top:68mm;width:110mm;height:10mm"></div>
+  <div class="label" style="left:133mm;top:63mm">DOCUMENTO DA EMPRESA</div>
+  <div class="field" data-field="empresa_documento" data-required="true" style="left:133mm;top:68mm;width:59mm;height:10mm"></div>
+  <div class="label" style="left:18mm;top:83mm">CLIENTE</div>
+  <div class="field" data-field="cliente_nome" data-required="true" style="left:18mm;top:88mm;width:110mm;height:10mm"></div>
+  <div class="label" style="left:133mm;top:83mm">DOCUMENTO DO CLIENTE</div>
+  <div class="field" data-field="cliente_documento" style="left:133mm;top:88mm;width:59mm;height:10mm"></div>
+  <div class="label" style="left:18mm;top:103mm">E-MAIL DO CLIENTE NO CADASTRO (CONFIRA O DESTINATÁRIO NO ERP)</div>
+  <div class="field" data-field="cliente_email" style="left:18mm;top:108mm;width:174mm;height:10mm"></div>
+  <div class="label" style="left:18mm;top:123mm">REFERÊNCIA DO PEDIDO</div>
+  <div class="field" data-field="pedido_numero" data-required="true" style="left:18mm;top:128mm;width:110mm;height:10mm"></div>
+  <div class="label" style="left:133mm;top:123mm">TOTAL DO PEDIDO (R$)</div>
+  <div class="field" data-field="pedido_total" data-required="true" style="left:133mm;top:128mm;width:59mm;height:10mm"></div>
+  <div class="label" style="left:18mm;top:143mm">ITENS · QUANTIDADES · UNIDADES · VALORES</div>
+  <div class="field" data-field="itens" data-required="true" style="left:18mm;top:148mm;width:174mm;height:31mm"></div>
+  <div class="label" style="left:18mm;top:184mm">CONDIÇÕES DESTA VALIDAÇÃO</div>
+  <div class="field" data-field="condicoes" data-required="true" style="left:18mm;top:189mm;width:174mm;height:20mm"></div>
+  <div class="label" style="left:18mm;top:214mm">ENTREGA / OBSERVAÇÕES DE TESTE</div>
+  <div class="field" data-field="entrega" data-required="true" style="left:18mm;top:219mm;width:174mm;height:17mm"></div>
+  <div class="label" style="left:18mm;top:245mm">ASSINATURA DO PARTICIPANTE AUTORIZADO — APENAS VALIDAÇÃO TÉCNICA</div>
+  <div class="field" data-field="assinatura_validacao" data-type="signature" data-required="true" style="left:18mm;top:251mm;width:174mm;height:25mm"></div>
+  <div class="footer">Ávila Ops · Modelo técnico v1 · Sem valor comercial · Página 1 de 1</div>
+</main></body>
+</html>

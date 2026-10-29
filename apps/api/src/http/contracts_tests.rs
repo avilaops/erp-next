@@ -133,6 +133,7 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
             Some(Docuseal::for_test(
                 base.parse().unwrap(),
                 TENANT.parse().unwrap(),
+                true,
             )),
         ),
     );
@@ -244,6 +245,40 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
     assert_eq!(reviewed.1["data"]["status"], "reviewed", "{}", reviewed.1);
     let send_key = Uuid::now_v7();
     let send_revision = reviewed.1["data"]["revision"].as_i64().unwrap();
+    let email_disabled_router = super::router(
+        AppState::new(pool.clone(), AuthClient::new(format!("{base}userinfo"))).with_contracts(
+            Some(Docuseal::for_test(
+                base.parse().unwrap(),
+                TENANT.parse().unwrap(),
+                false,
+            )),
+        ),
+    );
+    let blocked = call(
+        &email_disabled_router,
+        "POST",
+        &format!("{path}/send"),
+        "editor",
+        send_revision,
+        Uuid::now_v7(),
+        json!({}),
+    )
+    .await;
+    assert_eq!(blocked.0, StatusCode::CONFLICT);
+    assert_eq!(fixture.sends.load(Ordering::SeqCst), 0);
+    let unchanged = call(
+        &email_disabled_router,
+        "GET",
+        &path,
+        "editor",
+        send_revision,
+        Uuid::now_v7(),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(unchanged.1["emailReady"], false);
+    assert_eq!(unchanged.1["data"]["status"], "reviewed");
+    assert!(unchanged.1["data"]["sendRequestedAt"].is_null());
     let sent = call(
         &router,
         "POST",

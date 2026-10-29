@@ -13,13 +13,14 @@ const snapshot = { order: { id: orderId, revision: 1, amount: "100.00", dueDate:
 let status = "created"
 let revision = 1
 let canSend = true
+let emailReady = false
 let generated = false
 let sends = 0
 let reviewCalls = 0
 const failures: string[] = []
 const pdf = Buffer.from("%PDF-1.7\n% isolated browser fixture")
 function detail() {
-  return { tenantId: tenant, canEdit: true, canSend, data: { id: contractId, orderId, customerId, templateName: "Contrato de validação", status, revision, snapshot, recipients: [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
+  return { tenantId: tenant, canEdit: true, canSend, emailReady, data: { id: contractId, orderId, customerId, templateName: "Contrato de validação", status, revision, snapshot, recipients: [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
 const upstream = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json")
@@ -30,7 +31,7 @@ const upstream = createServer(async (request, response) => {
     if (url.pathname === "/api/v1/me") { response.end(JSON.stringify({ tenant: { id: tenant, legalName: "Empresa de validação" }, permissions: ["sales.orders.read", "sales.orders.manage", "sales.contracts.send"] })); return }
     if (url.pathname === `/api/v1/orders/${orderId}`) { response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: { id: orderId, customerId, customerName: snapshot.customer.name, amount: "100.00", dueDate: "2026-12-01", status: "draft", revision: 1 }, items: [] })); return }
     if (url.pathname === `/api/v1/commercial-contracts/options/${orderId}`) {
-      response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, snapshot, defaults: { cliente_nome: snapshot.customer.name }, templates: [{ id: 1, name: "Contrato de validação", updatedAt: "2026-10-29T00:00:00Z", roles: [{ name: "Cliente", uuid: "customer" }], fields: [{ name: "cliente_nome", type: "text", required: true }, { name: "condicoes", type: "text", required: true }] }] })); return
+      response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot, defaults: { cliente_nome: snapshot.customer.name }, templates: [{ id: 1, name: "Contrato de validação", updatedAt: "2026-10-29T00:00:00Z", roles: [{ name: "Cliente", uuid: "customer" }], fields: [{ name: "cliente_nome", type: "text", required: true }, { name: "condicoes", type: "text", required: true }] }] })); return
     }
     if (request.method === "POST") {
       expect(request.headers["idempotency-key"]).toMatch(/^[a-f0-9-]{36}$/)
@@ -81,6 +82,11 @@ test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato 
   await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toHaveCount(0)
   await page.getByRole("checkbox").check()
   await page.getByRole("button", { name: "Confirmar revisão" }).click()
+  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
+  await expect(page.getByText("O e-mail de assinatura ainda não foi validado. A prévia e a revisão estão disponíveis; o envio está bloqueado.")).toBeVisible()
+  expect(sends).toBe(0)
+  emailReady = true
+  await page.reload()
   await page.getByRole("button", { name: "Enviar para assinatura", exact: true }).click()
   await expect(page.getByText("Envio solicitado", { exact: true })).toBeVisible()
   expect(sends).toBe(1)

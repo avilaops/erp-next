@@ -28,7 +28,7 @@ let generated = false
 let sends = 0
 let reviewCalls = 0
 const failures: string[] = []
-const pdf = Buffer.from("%PDF-1.7\n% isolated browser fixture")
+let pdf: Buffer
 function detail() {
   return { tenantId: tenant, canEdit: true, canSend, emailReady, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
@@ -89,7 +89,14 @@ function cookie() {
   const encrypted = Buffer.concat([cipher.update(JSON.stringify({ accessToken: "contracts-fixture-token", tenantId: tenant, expiresAt: Date.now() + 3600_000 })), cipher.final()])
   return { name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" as const }
 }
-test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)) })
+test.beforeAll(async ({ browser }) => {
+  const document = await browser.newPage()
+  try {
+    await document.setContent('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Prévia de teste</title><body><h1>Contrato de validação da interface</h1><p>Documento fictício, sem valor comercial.</p><p>Compradora · Vendedora · Duas testemunhas</p></body></html>')
+    pdf = await document.pdf({ format: "A4", margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" } })
+  } finally { await document.close() }
+  await new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve))
+})
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(() => {
   status = "created"; revision = 1; canSend = true; emailReady = false
@@ -192,6 +199,8 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
   await page.getByText("Conferir campos utilizados", { exact: true }).click()
   await expect(page.getByRole("definition").filter({ hasText: manualValues["Testemunha 2 — CPF"] })).toBeVisible()
+  await page.getByText("Conferir campos utilizados", { exact: true }).click()
+  await page.evaluate(() => window.scrollTo(0, 0))
   await testInfo.attach("four-signers-reviewed", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
   expect(generationCalls).toBe(1)
   expect(reviewCalls).toBe(1)

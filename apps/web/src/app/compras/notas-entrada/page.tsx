@@ -1,2 +1,3 @@
-import { PurchasingScreen } from "@/features/purchasing/purchasing-screen"
-export default function Page(){return <PurchasingScreen kind="invoices"/>}
+import { ReceivedMonitor } from "@/features/fiscal/received-monitor"
+
+export default function Page() { return <ReceivedMonitor /> }

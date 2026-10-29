@@ -1923,13 +1923,20 @@
       },
       "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/preferencias/fiscal"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/config"
+        },
+        "gap": "Referência A1 não conecta nem valida certificado; emissão bloqueada."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
-        "apps/api/src/domains/fiscal/model.rs"
+        "apps/api/src/domains/fiscal/model.rs",
+        "apps/web/src/features/fiscal-settings/fiscal-settings.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2014,13 +2021,20 @@
       },
       "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "BFF e tela fiscal persistente ainda ausentes"
+        "pages": [
+          "/preferencias/fiscal"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/fiscal/config"
+        },
+        "gap": "Referência A1 não conecta nem valida certificado; emissão bloqueada."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
-        "apps/api/src/domains/fiscal/model.rs"
+        "apps/api/src/domains/fiscal/model.rs",
+        "apps/web/src/features/fiscal-settings/fiscal-settings.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -8880,12 +8894,20 @@
       },
       "recovery": "Repetir o mesmo XML após perda da resposta; conteúdo diferente para chave já importada exige tratamento explícito.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Contrato extraído do código consolidado; não comprova execução nem o cumprimento integral do desenho fiscal."
+        "pages": [
+          "/fiscal/monitor",
+          "/compras/notas-entrada"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/received-nfes/import"
+        },
+        "gap": "Distribuição automática e efeitos em compras/estoque/financeiro permanecem pendentes."
       },
       "sources": [
-        "apps/api/src/domains/fiscal/received.rs"
+        "apps/api/src/domains/fiscal/received.rs",
+        "apps/web/src/features/fiscal/received-monitor.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -9123,6 +9145,269 @@
       },
       "sources": [
         "apps/api/src/domains/fiscal/lojas.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-user-received-list",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfes"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, from, to, offset, limit; período UTC; limite de 1 a 100."
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e RLS da empresa."
+      ],
+      "transition": {
+        "from": "documentos persistidos",
+        "to": "sem alteração de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite NF-e, consulta SEFAZ ou altera compras, estoque e financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura; download revalida autorização antes de devolver o documento."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          500,
+          503
+        ],
+        "action": "Listar notas recebidas com filtros e paginação."
+      },
+      "recovery": "Repetir leitura/download após corrigir acesso ou disponibilidade.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/compras/notas-entrada"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfes"
+        },
+        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received.rs",
+        "apps/web/src/features/fiscal/received-monitor.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-user-received-xml",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfes/{id}/xml"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e RLS da empresa."
+      ],
+      "transition": {
+        "from": "documentos persistidos",
+        "to": "sem alteração de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite NF-e, consulta SEFAZ ou altera compras, estoque e financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura; download revalida autorização antes de devolver o documento."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          500,
+          502,
+          503
+        ],
+        "action": "Baixar XML original com hash SHA-256."
+      },
+      "recovery": "Repetir leitura/download após corrigir acesso ou disponibilidade.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/compras/notas-entrada"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfes/[id]/xml"
+        },
+        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received.rs",
+        "apps/web/src/features/fiscal/received-monitor.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-user-received-danfe",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfes/{id}/danfe"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão válida, associação ativa, permissão fiscal e RLS da empresa.",
+        "Gerador DANFE configurado e XML aceito pelo serviço."
+      ],
+      "transition": {
+        "from": "documentos persistidos",
+        "to": "sem alteração de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Renderização pelo serviço fiscal configurado."
+        ],
+        "excludes": [
+          "Não emite NF-e, consulta SEFAZ ou altera compras, estoque e financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura; download revalida autorização antes de devolver o documento."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          500,
+          502,
+          503
+        ],
+        "action": "Gerar DANFE do XML armazenado, com hashes."
+      },
+      "recovery": "Repetir leitura/download após corrigir acesso ou disponibilidade.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/compras/notas-entrada"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfes/[id]/danfe"
+        },
+        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received.rs",
+        "apps/web/src/features/fiscal/received-monitor.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",

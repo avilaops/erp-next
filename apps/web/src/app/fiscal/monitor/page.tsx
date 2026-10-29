@@ -1,2 +1,3 @@
-import { FiscalScreen } from "@/features/fiscal/fiscal-screen"
-export default function Page(){return <FiscalScreen kind="monitor"/>}
+import { ReceivedMonitor } from "@/features/fiscal/received-monitor"
+
+export default function Page() { return <ReceivedMonitor /> }

@@ -46,11 +46,15 @@ export const cookieOptions = (maxAge: number) => ({ httpOnly: true, sameSite: "l
 
 export type IdentitySession = { accessToken: string; tenantId: string | null; expiresAt: number }
 
-export async function currentIdentitySession(): Promise<IdentitySession | null> {
-  const jar = await cookies()
-  const session = unseal<IdentitySession>(jar.get(cookieName("session"))?.value || "", "erp-session")
+export function identityFromCookie(value: string): IdentitySession | null {
+  const session = unseal<IdentitySession>(value, "erp-session")
   if (!session || typeof session.accessToken !== "string" || !session.accessToken || (session.tenantId !== null && (typeof session.tenantId !== "string" || !uuidPattern.test(session.tenantId))) || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) return null
   return session
+}
+
+export async function currentIdentitySession(): Promise<IdentitySession | null> {
+  const jar = await cookies()
+  return identityFromCookie(jar.get(cookieName("session"))?.value || "")
 }
 
 export async function currentSession(): Promise<ErpSession | null> {

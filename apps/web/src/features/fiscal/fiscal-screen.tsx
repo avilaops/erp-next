@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
-  FileCheck2,
   FileText,
   Landmark,
   MonitorCheck,
@@ -152,9 +151,11 @@ const configs: Record<
 };
 
 const shortcuts = [
+  ["Notas recebidas e importação de XML", "/fiscal/monitor", MonitorCheck],
+  ["Configurações fiscais", "/preferencias/fiscal", FileText],
+  ["DANFE de XML autorizado", "/fiscal/danfe", ReceiptText],
   ["Notas fiscais de saída", "/fiscal/notas-saida", FileText],
   ["NFC-e", "/fiscal/nfce", ReceiptText],
-  ["Monitor de documentos", "/fiscal/monitor", MonitorCheck],
   ["Guias tributárias", "/fiscal/guias", Landmark],
 ] as const;
 
@@ -303,26 +304,9 @@ function FiscalOverview() {
   return (
     <Shell
       title="Fiscal"
-      description="Central demonstrativa de documentos, monitoramento e guias da empresa ativa."
+      description="Configurações e documentos fiscais da empresa ativa."
     >
-      <Notice />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Rascunhos", "4"],
-          ["A revisar", "7"],
-          ["Documentos locais", "128"],
-          ["Próximo vencimento", "31 out"],
-        ].map(([label, value]) => (
-          <div
-            className="rounded-2xl border border-border bg-card p-5"
-            key={label}
-          >
-            <FileCheck2 className="size-5 text-primary" />
-            <strong className="mt-4 block text-2xl">{value}</strong>
-            <span className="text-sm text-muted-foreground">{label}</span>
-          </div>
-        ))}
-      </div>
+      <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">Importe XMLs recebidos, consulte os documentos armazenados e prepare a configuração fiscal. A emissão de NF-e e a consulta automática à SEFAZ ainda estão indisponíveis.</p>
       <nav
         className="mt-7 grid gap-3 sm:grid-cols-2"
         aria-label="Áreas fiscais"
@@ -336,7 +320,7 @@ function FiscalOverview() {
             <Icon className="size-5 text-primary" />
             <strong className="mt-4 block">{label}</strong>
             <span className="mt-1 block text-sm text-muted-foreground">
-              Abrir dados e fluxos demonstrativos
+              {["/fiscal/monitor", "/preferencias/fiscal", "/fiscal/danfe"].includes(href) ? "Abrir funcionalidade" : "Abrir prévia da interface — operação ainda indisponível"}
             </span>
           </Link>
         ))}

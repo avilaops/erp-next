@@ -1,0 +1,107 @@
+import { expect, test, type BrowserContext } from "@playwright/test"
+import { createCipheriv, createHash, randomBytes } from "node:crypto"
+import { readFile } from "node:fs/promises"
+
+const origin = process.env.ERP_TEST_WEB_ORIGIN || "http://127.0.0.1:3202"
+const tenant = "11111111-1111-4111-8111-111111111111"
+const headers = { Origin: origin, "X-Tenant-Id": tenant }
+
+// This session and the XML are fixtures for the isolated local database only.
+async function session(context: BrowserContext, reader = false) {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(process.env.ERP_SESSION_SECRET!).digest(), iv)
+  cipher.setAAD(Buffer.from("erp-session"))
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ accessToken: reader ? "fixture-reader-token" : "fixture-editor-token", tenantId: tenant, expiresAt: Date.now() + 3600_000 })), cipher.final()])
+  await context.addCookies([{ name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" }])
+}
+
+test("monitor importa XML, preserva bytes após recarregar e não duplica a nota", async ({ page, context }) => {
+  await session(context)
+  const xml = (await readFile("../api/tests/fixtures/nfe-protocol-synthetic.xml", "utf8")).replaceAll("19131243000197", "04252011000110")
+  await page.goto("/fiscal/monitor")
+  const input = page.getByLabel("XML da NF-e", { exact: true })
+  await expect(input).toBeEnabled()
+  await input.setInputFiles({ name: "recebida-sintetica.xml", mimeType: "application/xml", buffer: Buffer.from(xml) })
+  await page.getByRole("button", { name: "Importar XML", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "importada e armazenada" })).toBeVisible()
+  await page.reload()
+  const note = page.getByRole("article").filter({ hasText: "NF-e 1 · Série 1" })
+  await expect(note).toBeVisible()
+  const downloaded = page.waitForEvent("download")
+  await note.getByRole("button", { name: "Baixar XML", exact: true }).click()
+  const download = await downloaded
+  const stream = await download.createReadStream()
+  const parts: Buffer[] = []
+  for await (const part of stream!) parts.push(Buffer.from(part))
+  expect(Buffer.concat(parts).toString("utf8")).toBe(xml)
+  await input.setInputFiles({ name: "recebida-sintetica.xml", mimeType: "application/xml", buffer: Buffer.from(xml) })
+  await page.getByRole("button", { name: "Importar XML", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Nenhuma duplicata" })).toBeVisible()
+  const stored = await (await context.request.get("/api/erp/fiscal/received-nfes")).json()
+  expect(stored.total).toBe(1)
+  await expect(note).toBeVisible()
+  await note.getByRole("button", { name: "Baixar DANFE", exact: true }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Gerador de DANFE ainda não configurado" })).toBeVisible()
+  await page.getByLabel("Buscar fornecedor, CNPJ, nota ou chave").fill("fornecedor inexistente")
+  await page.getByRole("button", { name: "Filtrar", exact: true }).click()
+  await expect(page.getByText("Nenhuma nota encontrada", { exact: true })).toBeVisible()
+})
+
+test("configuração fiscal persiste e preserva edição quando a revisão muda", async ({ page, context }) => {
+  await session(context)
+  const company = await context.request.get("/api/erp/company")
+  const value = await company.json()
+  const updated = await context.request.put("/api/erp/company", { headers: { ...headers, "If-Match": company.headers().etag }, data: { ...value.data, stateRegistration: "718319130117" } })
+  expect(updated.ok()).toBe(true)
+  await page.goto("/preferencias/fiscal")
+  await page.getByLabel("Código IBGE do município").fill("3550308")
+  await page.getByLabel("Referência do certificado").fill("a1-piloto")
+  await page.getByRole("button", { name: "Salvar configuração fiscal", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "salva no servidor" })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel("Referência do certificado")).toHaveValue("a1-piloto")
+  const current = await context.request.get("/api/erp/fiscal/config")
+  const profile = await current.json()
+  const concurrent = await context.request.put("/api/erp/fiscal/config", { headers: { ...headers, "If-Match": current.headers().etag }, data: { ...profile.data, series: 2 } })
+  expect(concurrent.ok()).toBe(true)
+  await page.getByLabel("Referência do certificado").fill("minha-edicao-preservada")
+  await page.getByRole("button", { name: "Salvar configuração fiscal", exact: true }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Outra pessoa" })).toBeVisible()
+  await expect(page.getByLabel("Referência do certificado")).toHaveValue("minha-edicao-preservada")
+  const saved = await (await context.request.get("/api/erp/fiscal/config")).json()
+  expect(saved.data.series).toBe(2)
+  expect(saved.data.certificateReference).toBe("a1-piloto")
+})
+
+test("acesso sem permissão fiscal é recusado e sair encerra a sessão do ERP", async ({ page, context }) => {
+  await session(context, true)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/fiscal/monitor")
+  await expect(page.getByRole("alert").filter({ hasText: "Acesso não autorizado" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Importar XML", exact: true })).toBeDisabled()
+  const denied = await context.request.get("/api/erp/fiscal/received-nfes")
+  expect(denied.status()).toBe(403)
+  await page.getByRole("button", { name: "Sair", exact: true }).click()
+  await expect(page).toHaveURL(/\/entrar$/)
+  expect((await context.request.get("/api/erp/me")).status()).toBe(401)
+})
+
+test("visita anônima mostra entrada e cadastro inicia o Auth com PKCE", async ({ page, context }) => {
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/entrar$/)
+  await expect(page.getByRole("heading", { name: "Bem-vindo ao Ávila ERP", exact: true })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Módulos do ERP", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta")
+  const signup = await context.request.get("/criar-conta", { maxRedirects: 0 })
+  expect(new URL(signup.headers().location, origin).pathname).toBe("/api/auth/login")
+  const begin = await context.request.get(signup.headers().location, { maxRedirects: 0 })
+  const destination = new URL(begin.headers().location)
+  expect(destination.pathname).toBe("/criar")
+  const authorization = new URL(destination.searchParams.get("returnTo")!, destination.origin)
+  expect(authorization.pathname).toBe("/authorize")
+  expect(authorization.searchParams.get("code_challenge_method")).toBe("S256")
+  expect(authorization.searchParams.get("redirect_uri")).toBe(`${origin}/api/auth/callback`)
+  await page.getByRole("button", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(/\/preferencias\/empresa\/dados$/)
+  await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible()
+})

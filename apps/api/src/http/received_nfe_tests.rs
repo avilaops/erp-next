@@ -294,6 +294,90 @@ async fn import_is_recipient_only_exact_and_idempotent(admin: PgPool) {
     );
     isolated.commit().await.unwrap();
 
+    let listing = request(
+        &router,
+        "GET",
+        "/api/v1/fiscal/received-nfes?q=04252011000110&from=2026-10-01&to=2026-10-31",
+        Some("editor"),
+        Some(TENANT),
+        None,
+    )
+    .await;
+    assert_eq!(listing.0, StatusCode::OK);
+    let listing = json_body(&listing.2);
+    assert_eq!(listing["tenantId"], TENANT);
+    assert_eq!(listing["total"], 1);
+    assert_eq!(listing["data"][0]["id"], id);
+    assert!(
+        listing["data"][0]["issuedAt"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("2026-10-"))
+    );
+    for uri in [
+        "/api/v1/fiscal/received-nfes?q=absent",
+        "/api/v1/fiscal/received-nfes?from=2027-01-01",
+    ] {
+        let filtered = request(&router, "GET", uri, Some("editor"), Some(TENANT), None).await;
+        assert_eq!(filtered.0, StatusCode::OK);
+        assert_eq!(json_body(&filtered.2)["total"], 0);
+    }
+    for uri in [
+        "/api/v1/fiscal/received-nfes?limit=0",
+        "/api/v1/fiscal/received-nfes?from=2026-02-30",
+        "/api/v1/fiscal/received-nfes?from=2026-11-01&to=2026-10-01",
+    ] {
+        assert_eq!(
+            request(&router, "GET", uri, Some("editor"), Some(TENANT), None)
+                .await
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    let xml_uri = format!("/api/v1/fiscal/received-nfes/{id}/xml");
+    let xml = request(&router, "GET", &xml_uri, Some("editor"), Some(TENANT), None).await;
+    assert_eq!(xml.0, StatusCode::OK);
+    assert_eq!(xml.2, FIXTURE.as_bytes());
+    assert_eq!(xml.1["x-xml-sha256"], saved["xmlSha256"].as_str().unwrap());
+    for uri in ["/api/v1/fiscal/received-nfes", xml_uri.as_str()] {
+        assert_eq!(
+            request(&router, "GET", uri, Some("reader"), Some(TENANT), None)
+                .await
+                .0,
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            request(&router, "GET", uri, None, Some(TENANT), None)
+                .await
+                .0,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+    sqlx::raw_sql("INSERT INTO roles(id,tenant_id,code,name) VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222','fiscal','Fiscal'); INSERT INTO role_permissions(role_id,permission_code) VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','fiscal.received_nfe.manage'); INSERT INTO tenant_memberships(id,tenant_id,identity_id,status) VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','active'); INSERT INTO membership_roles(membership_id,role_id) VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','cccccccc-cccc-4ccc-8ccc-cccccccccccc');").execute(&admin).await.unwrap();
+    let other_listing = request(
+        &router,
+        "GET",
+        "/api/v1/fiscal/received-nfes",
+        Some("editor"),
+        Some(OTHER_TENANT),
+        None,
+    )
+    .await;
+    assert_eq!(other_listing.0, StatusCode::OK);
+    assert_eq!(json_body(&other_listing.2)["total"], 0);
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            &xml_uri,
+            Some("editor"),
+            Some(OTHER_TENANT),
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+
     drop(router);
     cleanup(&admin, application, auth, &role).await;
 }

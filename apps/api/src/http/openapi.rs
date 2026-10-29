@@ -6,8 +6,8 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    catalog, contracts, finance, fiscal, inventory, legacy, parties, payables, purchasing,
-    reference_data, sales, staff,
+    assistant, catalog, contracts, finance, fiscal, inventory, legacy, parties, payables,
+    purchasing, reference_data, sales, staff,
 };
 use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
 
@@ -15,7 +15,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
-        invitations::list, invitations::create, invitations::resend, invitations::revoke,
+        assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,
         legacy::list, legacy::file, access::list_roles, access::list_permissions, company::get_company, company::put_company,
@@ -41,7 +41,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
     modifiers(&Security),
-    tags((name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
+    tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
 struct ApiDoc;
 
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 75);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 76);
         assert!(doc["paths"]["/api/v1/invitations"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/invitations"]["post"]["requestBody"].is_object());
         for action in ["resend", "revoke"] {
@@ -193,6 +193,7 @@ mod tests {
                 .is_some()
         );
         for path in [
+            "/api/v1/assistant",
             "/api/v1/integrations/service-keys",
             "/api/v1/integrations/service-keys/{id}",
             "/api/v1/fiscal/received-nfes/import",

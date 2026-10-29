@@ -16,7 +16,7 @@ use std::{convert::Infallible, time::Duration};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChatInput {
     pub questions: Vec<String>,
@@ -94,6 +94,17 @@ impl IntoResponse for ChatError {
     }
 }
 
+#[utoipa::path(post, path = "/api/v1/assistant", tag = "Assistant",
+    security(("bearerAuth" = [])), params(("X-Tenant-Id" = uuid::Uuid, Header)),
+    request_body = ChatInput,
+    responses(
+        (status = 200, description = "NDJSON status/tool/source/answer/error/done. A stream error is not a successful answer.", body = String, content_type = "application/x-ndjson"),
+        (status = 401, description = "Identidade inválida"),
+        (status = 403, description = "Sem acesso à empresa"),
+        (status = 422, description = "Perguntas ou empresa inválidas"),
+        (status = 429, description = "Capacidade de inferência ocupada"),
+        (status = 503, description = "Assistente indisponível")
+    ))]
 pub async fn chat(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -171,6 +182,13 @@ pub async fn chat(
                     .all(|r| r["data"].as_array().is_some_and(Vec::is_empty))
                 {
                     send(&sender, json!({"type":"answer","kind":"erp","text":"Nenhum resultado encontrado para o termo informado. Confira o nome ou SKU e tente novamente."})).await;
+                } else if results
+                    .iter()
+                    .all(|result| result["tool"] == "localizar_funcionalidade")
+                {
+                    // Navigation needs verified links, not a second inference that
+                    // could invent business values absent from these route records.
+                    send(&sender, json!({"type":"answer","kind":"erp","text":"Encontrei as funcionalidades disponíveis nas fontes abaixo."})).await;
                 } else {
                     send(
                         &sender,

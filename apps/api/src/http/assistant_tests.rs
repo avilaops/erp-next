@@ -64,6 +64,7 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
                     return Ok(Json(json!({"done":true,"message":{"content":"Consulte as fontes confirmadas."}})));
                 }
                 let question = body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap();
+                let question = question.rsplit_once("\nCurrent question: ").unwrap().1;
                 if question == "offline" { return Err(StatusCode::SERVICE_UNAVAILABLE); }
                 if question == "slow" { tokio::time::sleep(std::time::Duration::from_secs(10)).await; }
                 let (name, args) = match question {

@@ -20,8 +20,8 @@ const source = {
 test('every canonical action has one product owner and only three journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 23);
-  assert.equal(context.actions.length, 108);
+  assert.equal(context.flows.length, 24);
+  assert.equal(context.actions.length, 109);
   assert.equal(context.pendingFlows.length, 25);
   assert.equal(context.flows.filter(flow => flow.definitionState === 'journey_defined').length, 3);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');

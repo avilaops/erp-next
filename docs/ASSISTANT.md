@@ -29,12 +29,17 @@ O protocolo de resposta é NDJSON com eventos `status`, `tool`, `source`, `answe
 origem, links internos gerados pelo Rust e total de resultados. O texto livre do
 modelo é exibido como texto, sem HTML, Markdown executável ou links automáticos.
 
-Resultados vazios e erros têm respostas determinadas pelo servidor. Falhas e
-recusas de permissão encerram a consulta sem síntese. Para resultados válidos,
+Resultados vazios, navegação e erros têm respostas determinadas pelo servidor. Falhas e
+recusas de permissão encerram a consulta sem síntese. Para registros de produtos e estoque,
 uma segunda inferência resume os registros; não recebe ferramentas executáveis.
 Dados de ferramenta são delimitados como conteúdo não confiável. As fontes são
 exibidas separadamente e continuam sendo a referência para valores exatos.
 Um resumo gerado por modelo pode errar; ele não é rotulado como dado confirmado.
+
+O prompt contém um exemplo estático de chamada nativa de navegação, sem registros
+empresariais. Esse exemplo não é apresentado como fonte. Perguntas anteriores
+seguem como contexto delimitado, para resolver referências como “e o saldo?”,
+sem repetir as consultas já realizadas. A seleção continua sendo feita pelo modelo.
 
 Histórico limitado a seis perguntas, 1.000 caracteres por pergunta e 6.000 bytes
 no total; duas ferramentas por pergunta, cinco registros por ferramenta, contexto

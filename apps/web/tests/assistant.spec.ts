@@ -83,6 +83,7 @@ test("assistant real local model consults Rust products and stock and opens the 
   await expect(conversation.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos", { timeout: 105_000 })
   await expect(input).toBeEnabled({ timeout: 105_000 })
   await expect(conversation.getByRole("alert")).toHaveCount(0)
+  await expect(conversation.getByText("Encontrei as funcionalidades disponíveis nas fontes abaixo.", { exact: true })).toBeVisible()
   await page.screenshot({ path: "test-results/assistant-real.png", fullPage: true })
   await page.getByRole("link", { name: "Parafuso de teste" }).last().click()
   await expect(page).toHaveURL(new RegExp(`/cadastros/produtos/${productId}$`))

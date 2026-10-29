@@ -61,3 +61,10 @@ jobs:
           curl --fail --silent --show-error --max-time 300 http://127.0.0.1:11434/api/pull -H 'Content-Type: application/json' -d '{"model":"qwen3:1.7b","stream":false}'
       - name: Browser, BFF, Rust, RLS and real local model
         run: node scripts/verify-company.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assistant-browser-${{ github.run_id }}
+          path: apps/web/test-results/
+          if-no-files-found: warn
+          retention-days: 7

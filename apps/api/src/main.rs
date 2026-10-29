@@ -48,6 +48,7 @@ async fn run() -> anyhow::Result<()> {
     let auth = AuthClient::new(config.auth_userinfo_url);
     let app = http::router(
         AppState::new(pool, auth)
+            .with_assistant(domains::assistant::InferenceClient::from_env()?)
             .with_danfe(config.danfe)
             .with_contracts(config.contracts)
             .with_invitations(config.invitations),

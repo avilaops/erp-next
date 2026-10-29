@@ -1,0 +1,27 @@
+{
+    admin off
+    auto_https off
+}
+
+http://10.10.0.4:11436 {
+    bind 10.10.0.4
+    @inference {
+        remote_ip 10.10.0.2
+        method POST
+        path /api/chat
+    }
+    handle @inference {
+        request_body {
+            max_size 32KB
+        }
+        reverse_proxy 127.0.0.1:11434 {
+            flush_interval -1
+            transport http {
+                response_header_timeout 95s
+            }
+        }
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}

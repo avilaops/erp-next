@@ -159,7 +159,7 @@ try {
   assert(contract.paths["/api/v1/receivables/{id}/payments"].post);
   const web = launch(process.execPath, [path.join(root, "apps/web/node_modules/next/dist/bin/next"), "start", path.join(root, "apps/web"), "--port", new URL(origin).port || "80", "--hostname", "127.0.0.1"], {});
   await ready(`${origin}/entrar`, web);
-  const browserArguments = [path.join(root, "apps/web/node_modules/@playwright/test/cli.js"), "test", "--config", "playwright.company.config.ts"];
+  const browserArguments = [path.join(root, "apps/web/node_modules/@playwright/test/cli.js"), "test", "--config", process.env.ERP_TEST_BROWSER_CONFIG || "playwright.company.config.ts"];
   if (process.env.ERP_TEST_BROWSER_GREP) browserArguments.push("--grep", process.env.ERP_TEST_BROWSER_GREP);
   const playwright = spawn(process.execPath, browserArguments, { cwd: path.join(root, "apps/web"), env, windowsHide: true, stdio: "inherit" });
   const code = await new Promise((resolve) => playwright.once("exit", resolve));

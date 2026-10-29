@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod contracts;
 pub mod finance;
 pub mod fiscal;
 pub mod inventory;

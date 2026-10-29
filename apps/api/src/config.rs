@@ -10,6 +10,7 @@ pub struct Config {
     pub database_max_connections: u32,
     pub invitations: Option<crate::platform::invitations::ProvisioningClient>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
+    pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
 }
 
 impl Config {
@@ -47,6 +48,7 @@ impl Config {
             database_max_connections,
             invitations: crate::platform::invitations::ProvisioningClient::from_env(&auth_issuer)?,
             danfe: danfe_configuration()?,
+            contracts: crate::domains::contracts::provider::Docuseal::from_env()?,
         })
     }
 }

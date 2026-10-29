@@ -8,6 +8,7 @@ pub struct AppState {
     pub database: PgPool,
     pub invitations: Option<super::invitations::ProvisioningClient>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
+    pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
 }
 
 impl AppState {
@@ -17,6 +18,7 @@ impl AppState {
             database,
             invitations: None,
             danfe: None,
+            contracts: None,
         }
     }
 
@@ -25,6 +27,14 @@ impl AppState {
         client: Option<super::invitations::ProvisioningClient>,
     ) -> Self {
         self.invitations = client;
+        self
+    }
+
+    pub fn with_contracts(
+        mut self,
+        client: Option<crate::domains::contracts::provider::Docuseal>,
+    ) -> Self {
+        self.contracts = client;
         self
     }
 

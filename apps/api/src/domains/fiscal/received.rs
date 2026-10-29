@@ -58,6 +58,7 @@ fn serialize_timestamp<S: serde::Serializer>(
 }
 
 #[derive(Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct ReceivedQuery {
     q: Option<String>,

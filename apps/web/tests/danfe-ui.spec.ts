@@ -50,7 +50,8 @@ test.beforeEach(() => { mode = "pdf"; calls = [] })
 
 test("BFF refuses anonymous, expired, foreign-origin and changed-company requests before the upstream", async ({ page, context }) => {
   await page.goto("/fiscal/danfe")
-  await expect(page.getByRole("status").filter({ hasText: "Entre com sua conta Ávila Ops" })).toBeVisible()
+  await expect(page).toHaveURL(/\/entrar$/)
+  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
   const post = (headers = {}) => context.request.post("/api/erp/fiscal/danfe", { headers: { Origin: origin, "X-Tenant-Id": tenant, ...headers }, data: { xml: xml.toString() } })
   expect((await post()).status()).toBe(401)
   await context.addCookies([cookie(Date.now() - 1000)])

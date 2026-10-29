@@ -60,7 +60,27 @@ A primeira importação retorna `201`. Repetir exatamente o mesmo XML retorna
 diferente retorna `409`. O XML, seu SHA-256 e os metadados extraídos ficam em
 tabela append-only com RLS forçada.
 
-## Contrato consumido pelo Lojas
+## Monitor próprio do ERP
+
+O monitor em `/fiscal/monitor` e `/compras/notas-entrada` usa a sessão do ERP,
+sem exigir uma conexão com o Lojas. A permissão atual é
+`fiscal.received_nfe.manage` para importar, consultar e baixar documentos.
+
+- `GET /api/v1/fiscal/received-nfes`: busca por fornecedor, documento, número
+  ou chave; período de emissão em UTC; paginação com `offset` e `limit` (1–100).
+- `GET /api/v1/fiscal/received-nfes/{id}/xml`: arquivo original e SHA-256.
+- `GET /api/v1/fiscal/received-nfes/{id}/danfe`: geração pelo serviço configurado,
+  com revalidação de acesso antes da entrega e hashes do XML e PDF.
+
+As rotas exigem identidade OIDC e `X-Tenant-Id`, aplicam RLS e não recebem
+chaves de integração do Lojas. O BFF usa exclusivamente a empresa da sessão.
+O download e a importação também conferem a empresa exibida na tela.
+
+`/preferencias/fiscal` lê e salva o perfil existente com revisão `If-Match`.
+O certificado continua não verificado: cadastrar sua referência não recebe
+um arquivo A1, não consulta a SEFAZ e não habilita emissão.
+
+## Contrato de serviço consumido pelo Lojas
 
 Todas as rotas abaixo recebem `Authorization: Bearer <chave de serviço>`:
 

@@ -15,8 +15,7 @@ function cookie(token: string, expiresAt = Date.now() + 3600_000) {
 
 test("login com PKCE grava a empresa e mantém a gravação após recarregar", async ({ page, context }) => {
   await page.goto("/entrar")
-  await page.getByLabel("Código da empresa").fill(tenant)
-  await page.getByRole("button", { name: "Entrar com Ávila Ops" }).click()
+  await page.getByRole("button", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(/\/preferencias\/empresa\/dados$/)
   const name = `Empresa persistida ${Date.now()}`
   await page.getByLabel("Nome fantasia", { exact: true }).fill(name)

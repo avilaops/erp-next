@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["company-persistence.spec.ts", "access-persistence.spec.ts", "catalog-persistence.spec.ts", "stock-persistence.spec.ts", "party-persistence.spec.ts", "operations-persistence.spec.ts", "reference-persistence.spec.ts"],
+  testMatch: ["company-persistence.spec.ts", "access-persistence.spec.ts", "catalog-persistence.spec.ts", "stock-persistence.spec.ts", "party-persistence.spec.ts", "operations-persistence.spec.ts", "reference-persistence.spec.ts", "fiscal-persistence.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,

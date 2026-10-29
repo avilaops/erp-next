@@ -1,10 +1,12 @@
 import Link from "next/link"
 import { Suspense } from "react"
+import { headers } from "next/headers"
 import {
   Bell,
   ChevronDown,
   CircleHelp,
   LayoutGrid,
+  LogOut,
   Settings,
   Sparkles,
 } from "lucide-react"
@@ -66,6 +68,15 @@ const menus = [
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Preparando o ERP…</p>}><WorkspaceFrame>{children}</WorkspaceFrame></Suspense>
+}
+
+async function WorkspaceFrame({ children }: { children: React.ReactNode }) {
+  if ((await headers()).get("x-erp-path") === "/entrar") return <>{children}</>
+  return <WorkspaceNavigation>{children}</WorkspaceNavigation>
+}
+
+function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
@@ -102,6 +113,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link className="ml-1 flex items-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
               <span className="text-sm font-medium">Empresas</span>
             </Link>
+            <form action="/api/auth/logout" method="post">
+              <button type="submit" className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" title="Encerrar a sessão deste ERP">
+                <LogOut className="size-4" aria-hidden="true" />Sair
+              </button>
+            </form>
           </div>
         </div>
       </header>

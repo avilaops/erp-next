@@ -1,30 +1,94 @@
 "use client"
 
-import { useState } from "react"
-import { AlertTriangle, CheckCircle2, FileCheck2, ReceiptText, Save } from "lucide-react"
-import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { useEffect, useRef, useState } from "react"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
+type Profile = { environment: "homologation"; state: string; municipalityCode: string; stateRegistration: string; crt: number; series: number; certificateReference: string }
+type Snapshot = { tenantId: string; revision: number; canEdit: boolean; certificateVerified: boolean; data: Profile | null }
+type Company = { legalName: string; taxId: string; state: string; stateRegistration: string; taxRegime: string; city: string }
+const empty: Profile = { environment: "homologation", state: "", municipalityCode: "", stateRegistration: "", crt: 1, series: 1, certificateReference: "" }
+
 export function FiscalSettings() {
-  const [dirty, setDirty] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [environment, setEnvironment] = useState("Homologação")
-  const [documents, setDocuments] = useState(["NF-e"])
-  function toggle(item: string) { setDocuments((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item]); setDirty(true); setSaved(false) }
-  return <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Fiscal" title="Configurações fiscais" description="Organize parâmetros para homologação sem afirmar que a emissão fiscal está ativa." />
-    <div className="form-actions mb-6"><span className="mr-auto text-sm text-muted-foreground" role="status">{saved ? "Alterações salvas localmente" : dirty ? "Alterações não salvas" : "Cadastro incompleto"}</span><Button disabled={!dirty} onClick={() => { setDirty(false); setSaved(true) }}><Save />Salvar</Button></div>
-    <div className="mb-6 grid gap-3 sm:grid-cols-3"><StatusCard icon={AlertTriangle} title="Cadastro fiscal" value="Incompleto" /><StatusCard icon={FileCheck2} title="Certificado" value="Não configurado" /><StatusCard icon={CheckCircle2} title="Próxima etapa" value="Pronto para homologação após revisão" /></div>
-    <div className="space-y-6">
-      <Section title="Tributação" description="Dados vinculados à empresa ativa Ludus Equipamentos."><div className="form-grid"><Field label="Regime tributário"><select defaultValue="" onChange={() => setDirty(true)}><option value="" disabled>Selecionar</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></Field><Field label="CNAE principal"><Input value="" placeholder="Não informado no cadastro da empresa" readOnly /></Field></div></Section>
-      <Section title="Inscrições" description="A fonte canônica permanece no cadastro empresarial."><div className="form-grid"><Field label="Inscrição estadual"><Input value="718.319.130.117" readOnly /></Field><Field label="Inscrição municipal"><Input value="" placeholder="Não informada" readOnly /></Field></div></Section>
-      <Section title="Ambiente e documentos" description="Seleções locais para preparação da homologação."><fieldset><legend className="mb-3 text-sm font-medium">Ambiente</legend><div className="flex flex-wrap gap-3">{["Homologação", "Produção"].map((item) => <label className="check-card" key={item}><input type="radio" name="environment" checked={environment === item} onChange={() => { setEnvironment(item); setDirty(true) }} />{item}</label>)}</div></fieldset><fieldset className="mt-5"><legend className="mb-3 text-sm font-medium">Documentos habilitados</legend><div className="flex flex-wrap gap-3">{["NF-e", "NFC-e", "CT-e", "NFS-e"].map((item) => <label className="check-card" key={item}><input type="checkbox" checked={documents.includes(item)} onChange={() => toggle(item)} />{item}</label>)}</div></fieldset></Section>
-      <Section title="Séries" description="Nenhuma numeração real será consumida."><div className="grid gap-3 sm:grid-cols-2">{documents.map((item) => <div className="flex items-center gap-3 rounded-xl border border-border p-4" key={item}><ReceiptText className="size-5 text-muted-foreground" /><span className="flex-1 text-sm">{item}</span><span className="text-xs text-muted-foreground">Série não configurada</span></div>)}</div></Section>
-    </div>
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const [company, setCompany] = useState<Company | null>(null)
+  const [draft, setDraft] = useState<Profile>(empty)
+  const [baseline, setBaseline] = useState("")
+  const [etag, setEtag] = useState("")
+  const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [reload, setReload] = useState(0)
+  const pending = useRef(false)
+  const dirty = !!snapshot && JSON.stringify(draft) !== baseline
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.all(["/api/erp/fiscal/config", "/api/erp/company"].map(async url => {
+      const response = await fetch(url, { cache: "no-store", signal: controller.signal })
+      const value = await response.json()
+      if (!response.ok) throw new Error(value.title || "Configuração fiscal indisponível")
+      return { value, etag: response.headers.get("etag") }
+    })).then(([profile, registered]) => {
+      if (controller.signal.aborted) return
+      if (profile.value.tenantId !== registered.value.tenantId || !profile.etag) throw new Error("A empresa da sessão mudou. Recarregue a configuração")
+      const data = registered.value.data as Company
+      const value = profile.value.data || { ...empty, state: data.state, stateRegistration: data.stateRegistration, crt: data.taxRegime === "simples" ? 1 : 3 }
+      setSnapshot(profile.value); setCompany(data); setDraft(value); setBaseline(JSON.stringify(value)); setEtag(profile.etag); setBlocked(false); setError("")
+    }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [reload])
+
+  useEffect(() => {
+    const prevent = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault() }
+    window.addEventListener("beforeunload", prevent)
+    return () => window.removeEventListener("beforeunload", prevent)
+  }, [dirty])
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault()
+    if (!snapshot?.canEdit || pending.current || blocked) return
+    pending.current = true; setSaving(true); setError(""); setNotice("")
+    try {
+      const response = await fetch("/api/erp/fiscal/config", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag }, body: JSON.stringify(draft) })
+      const value = await response.json()
+      if (!response.ok) {
+        if ([401, 403, 409, 412].includes(response.status) || response.status >= 500) setBlocked(true)
+        throw new Error(value.title || "Não foi possível confirmar a gravação")
+      }
+      const revision = response.headers.get("etag")
+      if (!revision) { setBlocked(true); throw new Error("Gravação recebida sem revisão. Recarregue para conferir os dados") }
+      setSnapshot(value); setDraft(value.data); setBaseline(JSON.stringify(value.data)); setEtag(revision); setNotice("Configuração fiscal salva no servidor. A emissão permanece indisponível.")
+    } catch (reason) {
+      if (reason instanceof TypeError) setBlocked(true)
+      setError(reason instanceof Error ? reason.message : "Não foi possível confirmar a gravação. Recarregue antes de repetir")
+    } finally { pending.current = false; setSaving(false) }
+  }
+
+  return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><h1 className="mt-2 text-3xl font-semibold">Configurações fiscais</h1><p className="mt-2 text-muted-foreground">{company ? `${company.legalName} · ${company.taxId}` : "Preparação fiscal da empresa ativa"}</p></div><Link className={buttonVariants({ variant: "outline" })} href="/fiscal/monitor">Notas recebidas</Link></header>
+    {loading && <p role="status">Carregando configuração fiscal…</p>}
+    {snapshot && company && <form onSubmit={save} className="space-y-6">
+      <section className="form-section space-y-4"><h2 className="text-lg font-semibold">Empresa e tributação</h2><p className="text-sm text-muted-foreground">UF, inscrição estadual e regime devem corresponder ao <Link className="text-primary underline" href="/preferencias/empresa/dados">cadastro da empresa</Link>.</p>
+        <fieldset disabled={!snapshot.canEdit || saving || blocked} className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2 text-sm">UF do emitente<Input value={draft.state} maxLength={2} required onChange={event => setDraft({ ...draft, state: event.target.value.toUpperCase() })} /><span className="text-xs text-muted-foreground">Cadastro atual: {company.state || "não informado"}</span></label>
+          <label className="space-y-2 text-sm">Inscrição estadual<Input value={draft.stateRegistration} inputMode="numeric" pattern="[0-9]{1,14}" required onChange={event => setDraft({ ...draft, stateRegistration: event.target.value })} /><span className="text-xs text-muted-foreground">Somente dígitos. Cadastro atual: {company.stateRegistration || "não informado"}</span></label>
+          <label className="space-y-2 text-sm">Código IBGE do município<Input value={draft.municipalityCode} inputMode="numeric" pattern="[0-9]{7}" maxLength={7} required onChange={event => setDraft({ ...draft, municipalityCode: event.target.value })} /><span className="text-xs text-muted-foreground">Município cadastrado: {company.city || "não informado"}</span></label>
+          <label className="space-y-2 text-sm">Código de regime tributário<select className="h-10 w-full rounded-xl border bg-background px-3" value={draft.crt} onChange={event => setDraft({ ...draft, crt: Number(event.target.value) })}><option value={1}>1 — Simples Nacional</option><option value={2}>2 — Simples Nacional com excesso de sublimite</option><option value={3}>3 — Regime normal</option><option value={4}>4 — Simples Nacional — MEI</option></select></label>
+          <label className="space-y-2 text-sm">Série da NF-e<Input type="number" min={1} max={999} required value={draft.series} onChange={event => setDraft({ ...draft, series: Number(event.target.value) })} /></label>
+          <label className="space-y-2 text-sm">Ambiente<Input readOnly value="Homologação" /><span className="text-xs text-muted-foreground">Salvar a preparação não autoriza transmissão ou consumo de numeração.</span></label>
+        </fieldset>
+      </section>
+      <section className="form-section space-y-4"><h2 className="text-lg font-semibold">Referência do certificado A1</h2><p className="text-sm text-muted-foreground">Informe apenas o nome de referência da credencial. O recebimento e a validação do arquivo A1 ainda não estão disponíveis. Não informe senha nem conteúdo do certificado neste campo.</p><label className="block space-y-2 text-sm">Referência do certificado<Input required minLength={3} maxLength={100} pattern="[A-Za-z0-9_-]{3,100}" value={draft.certificateReference} disabled={!snapshot.canEdit || saving || blocked} onChange={event => setDraft({ ...draft, certificateReference: event.target.value })} /><span className="text-xs text-muted-foreground">Use letras, números, hífen ou sublinhado.</span></label><p className="text-sm">Situação: {snapshot.certificateVerified ? "Certificado verificado" : "Certificado não verificado"}.</p></section>
+      {!snapshot.canEdit && <p className="text-sm">Seu acesso permite apenas consultar a configuração fiscal.</p>}
+      <div className="flex flex-wrap items-center gap-3"><Button type="submit" disabled={!snapshot.canEdit || saving || blocked || !dirty}>{saving ? "Salvando…" : "Salvar configuração fiscal"}</Button>{dirty && <span className="text-sm text-muted-foreground">Alterações ainda não salvas</span>}</div>
+    </form>}
+    {error && <p role="alert" className="text-sm text-destructive">{error} Sua edição foi preservada.</p>}
+    {notice && <p role="status" className="text-sm text-primary">{notice}</p>}
+    {(blocked || !snapshot && !loading) && <Button variant="outline" onClick={() => { if (!dirty || window.confirm("Descartar a edição e carregar os dados atuais do servidor?")) { setLoading(true); setNotice(""); setReload(value => value + 1) } }}>Recarregar dados do servidor</Button>}
   </div>
 }
-
-function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section className="form-section"><h2 className="text-lg font-semibold">{title}</h2><p className="mb-5 mt-1 text-sm text-muted-foreground">{description}</p>{children}</section> }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="field">{label}{children}</label> }
-function StatusCard({ icon: Icon, title, value }: { icon: typeof AlertTriangle; title: string; value: string }) { return <div className="rounded-2xl border border-border bg-card p-4"><Icon className="size-5 text-primary" /><p className="mt-3 text-xs text-muted-foreground">{title}</p><strong className="mt-1 block text-sm">{value}</strong></div> }

@@ -84,7 +84,22 @@ pub async fn snapshot(
     tenant: Uuid,
     order: Uuid,
 ) -> Result<Value, DomainError> {
-    sqlx::query_scalar("SELECT jsonb_build_object('order',jsonb_build_object('id',o.id,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),'items',COALESCE((SELECT jsonb_agg(jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text) ORDER BY l.line_number) FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb)) FROM sales_orders o JOIN parties p ON p.tenant_id=o.tenant_id AND p.id=o.customer_id JOIN tenants t ON t.id=o.tenant_id LEFT JOIN company_profiles c ON c.tenant_id=o.tenant_id WHERE o.tenant_id=$1 AND o.id=$2")
+    sqlx::query_scalar(r#"
+        SELECT jsonb_build_object(
+            'order',jsonb_build_object('id',o.id,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
+            'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
+            'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
+            'items',COALESCE((SELECT jsonb_agg(
+                jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
+                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color))
+                ORDER BY l.line_number)
+                FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb))
+        FROM sales_orders o
+        JOIN parties p ON p.tenant_id=o.tenant_id AND p.id=o.customer_id
+        JOIN tenants t ON t.id=o.tenant_id
+        LEFT JOIN company_profiles c ON c.tenant_id=o.tenant_id
+        WHERE o.tenant_id=$1 AND o.id=$2
+    "#)
         .bind(tenant).bind(order).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
 }
 
@@ -118,9 +133,18 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
             items
                 .iter()
                 .map(|item| {
+                    let mut description = item["name"].as_str().unwrap_or("").to_owned();
+                    for (key, label) in [
+                        ("structureColor", "Estrutura"),
+                        ("upholsteryColor", "Estofado"),
+                    ] {
+                        if let Some(color) = item[key].as_str() {
+                            description.push_str(&format!(" · {label}: {color}"));
+                        }
+                    }
                     format!(
                         "{} | {} {} | R$ {} | R$ {}",
-                        item["name"].as_str().unwrap_or(""),
+                        description,
                         item["quantity"].as_str().unwrap_or(""),
                         item["unit"].as_str().unwrap_or(""),
                         item["unitPrice"].as_str().unwrap_or(""),
@@ -281,4 +305,23 @@ pub fn submission_body(contract: &Contract) -> Value {
         json!({"name":recipient.name,"email":recipient.email,"role":recipient.role,"external_id":correlation(contract.tenant_id, contract.id, index),"send_email":false,"fields":values})
     }).collect();
     json!({"template_id":contract.template_id,"send_email":false,"submitters_order":"random","submitters":submitters})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contract_items_include_the_finish_recorded_in_the_order() {
+        let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","upholsteryColor":"Vermelho"}]});
+        assert_eq!(
+            defaults(&snapshot)["itens"],
+            "Equipamento · Estrutura: Branco · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
+        );
+        let historical = json!({"items":[{"name":"Equipamento","quantity":"1.000000","unit":"UN","unitPrice":"1200.00","amount":"1200.00"}]});
+        assert_eq!(
+            defaults(&historical)["itens"],
+            "Equipamento | 1.000000 UN | R$ 1200.00 | R$ 1200.00"
+        );
+    }
 }

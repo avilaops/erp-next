@@ -27,6 +27,10 @@ pub struct ProductInput {
     pub cest: Option<String>,
     pub base_price: String,
     pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structure_colors: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upholstery_colors: Option<Vec<String>>,
 }
 impl ProductInput {
     fn validate(&mut self) -> Result<i64, DomainError> {
@@ -68,6 +72,27 @@ impl ProductInput {
         if !["active", "archived"].contains(&self.status.as_str()) {
             return Err(DomainError::Invalid("Situação inválida"));
         }
+        for options in [&mut self.structure_colors, &mut self.upholstery_colors]
+            .into_iter()
+            .flatten()
+        {
+            if options.len() > 32 {
+                return Err(DomainError::Invalid("Cadastre até 32 cores por acabamento"));
+            }
+            let mut names = std::collections::HashSet::new();
+            for name in options {
+                *name = name.trim().to_owned();
+                if name.is_empty()
+                    || name.chars().count() > 60
+                    || name.chars().any(char::is_control)
+                    || !names.insert(name.to_lowercase())
+                {
+                    return Err(DomainError::Invalid(
+                        "Cores exigem nomes únicos de 1 a 60 caracteres, sem caracteres de controle",
+                    ));
+                }
+            }
+        }
         fixed(&self.base_price, 2)
     }
 }
@@ -90,6 +115,8 @@ struct ProductRow {
     price_cents: i64,
     status: String,
     revision: i64,
+    structure_colors: Vec<String>,
+    upholstery_colors: Vec<String>,
 }
 impl From<ProductRow> for Product {
     fn from(r: ProductRow) -> Self {
@@ -104,6 +131,8 @@ impl From<ProductRow> for Product {
                 cest: r.cest,
                 base_price: decimal(r.price_cents, 2),
                 status: r.status,
+                structure_colors: Some(r.structure_colors),
+                upholstery_colors: Some(r.upholstery_colors),
             },
         }
     }
@@ -157,7 +186,7 @@ pub async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Product, DomainError> {
-    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision FROM products WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors FROM products WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.map(Into::into).ok_or(DomainError::NotFound)
 }
 fn product_error(error: sqlx::Error) -> DomainError {
@@ -191,7 +220,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) ORDER BY name,id LIMIT $4 OFFSET $5")
+    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) ORDER BY name,id LIMIT $4 OFFSET $5")
         .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0)")
         .bind(tenant).bind(&query.status).bind(&q).fetch_one(&mut *tx).await.map_err(db)?;
@@ -274,8 +303,8 @@ pub async fn create(
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).execute(&mut *tx).await.map_err(product_error)?;
+    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status,structure_colors,upholstery_colors) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
+        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).execute(&mut *tx).await.map_err(product_error)?;
     let result = serde_json::to_value(ProductSnapshot {
         tenant_id: tenant,
         can_edit: true,
@@ -330,6 +359,16 @@ pub async fn update(
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     let cents = input.validate()?;
     let previous = load(&mut tx, tenant, id).await?;
+    if input.structure_colors.is_none() {
+        input
+            .structure_colors
+            .clone_from(&previous.data.structure_colors);
+    }
+    if input.upholstery_colors.is_none() {
+        input
+            .upholstery_colors
+            .clone_from(&previous.data.upholstery_colors);
+    }
     if previous.revision != expected {
         return Err(DomainError::StaleRevision);
     }
@@ -351,8 +390,8 @@ pub async fn update(
     let next = expected
         .checked_add(1)
         .ok_or(crate::platform::access::AccessError::Internal)?;
-    sqlx::query("UPDATE products SET sku=$3,name=$4,unit=$5,ncm=$6,cest=$7,price_cents=$8,status=$9,revision=$10,updated_at=now() WHERE tenant_id=$1 AND id=$2")
-        .bind(tenant).bind(id).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(next).execute(&mut *tx).await.map_err(product_error)?;
+    sqlx::query("UPDATE products SET sku=$3,name=$4,unit=$5,ncm=$6,cest=$7,price_cents=$8,status=$9,revision=$10,structure_colors=$11,upholstery_colors=$12,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+        .bind(tenant).bind(id).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(next).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).execute(&mut *tx).await.map_err(product_error)?;
     record(
         &mut tx,
         tenant,

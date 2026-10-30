@@ -22,6 +22,10 @@ use uuid::Uuid;
 pub struct OrderItemInput {
     product_id: Uuid,
     quantity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    upholstery_color: Option<String>,
 }
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -53,6 +57,10 @@ pub struct OrderLine {
     quantity: String,
     unit_price: String,
     amount: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    structure_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    upholstery_color: Option<String>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -162,7 +170,7 @@ async fn load(
 ) -> Result<OrderSnapshot, DomainError> {
     let data=sqlx::query_as::<_,OrderSummary>("SELECT id,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     Ok(OrderSnapshot {
         tenant_id: tenant,
@@ -244,6 +252,39 @@ struct PreparedLine {
     quantity: i64,
     price: i64,
     amount: i64,
+    structure_color: Option<String>,
+    upholstery_color: Option<String>,
+}
+
+fn select_color(
+    requested: Option<&str>,
+    available: &[String],
+    previous: Option<&str>,
+) -> Result<Option<String>, DomainError> {
+    let selected = requested
+        .or(previous)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let Some(selected) = selected else {
+        return if available.is_empty() {
+            Ok(None)
+        } else {
+            Err(DomainError::Invalid(
+                "Escolha as cores disponíveis da estrutura e do estofado antes de salvar",
+            ))
+        };
+    };
+    if previous == Some(selected) {
+        return Ok(Some(selected.to_owned()));
+    }
+    available
+        .iter()
+        .find(|color| color.to_lowercase() == selected.to_lowercase())
+        .cloned()
+        .map(Some)
+        .ok_or(DomainError::Invalid(
+            "A cor escolhida não está disponível neste produto; atualize as opções antes de salvar",
+        ))
 }
 
 struct PreparedOrder {
@@ -305,6 +346,20 @@ async fn prepare_order(
                 "Unidade do produto mudou no catálogo. Substitua o item ou crie outro pedido",
             ));
         }
+        let structure_color = select_color(
+            item.structure_color.as_deref(),
+            product.data.structure_colors.as_deref().unwrap_or_default(),
+            saved.and_then(|line| line.structure_color.as_deref()),
+        )?;
+        let upholstery_color = select_color(
+            item.upholstery_color.as_deref(),
+            product
+                .data
+                .upholstery_colors
+                .as_deref()
+                .unwrap_or_default(),
+            saved.and_then(|line| line.upholstery_color.as_deref()),
+        )?;
         let (sku, name, unit, price) = match saved {
             Some(line) => (
                 line.sku.clone(),
@@ -334,6 +389,8 @@ async fn prepare_order(
             quantity,
             price,
             amount,
+            structure_color,
+            upholstery_color,
         });
     }
     if total == 0 {
@@ -357,8 +414,8 @@ async fn store_lines(
     lines: &[PreparedLine],
 ) -> Result<(), DomainError> {
     for (index, line) in lines.iter().enumerate() {
-        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
-            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
+            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.upholstery_color).execute(&mut **tx).await.map_err(db)?;
     }
     Ok(())
 }

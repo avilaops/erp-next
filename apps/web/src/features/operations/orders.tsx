@@ -2,19 +2,32 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { quantity, useCommand, useResource } from "./use-operation"
 
 type Order = { id: string; customerId: string; customerName: string; customerTaxId: string; dueDate: string; amount: string; status: string; revision: number }
-type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string }
+type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string; structureColor?: string; upholsteryColor?: string }
 type Detail = { tenantId: string; canEdit: boolean; data: Order; items: Item[] }
 type Listing = { tenantId: string; canEdit: boolean; data: Order[]; total: number }
-type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string }
+type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[] }
+type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
+
+function ColorChoice({ label, options = [], value, onChange }: { label: string; options?: string[]; value: string; onChange: (value: string) => void }) {
+  const id = useId()
+  return <div className="grid min-w-0 gap-2 text-sm">
+    <label htmlFor={id}>{label}</label>
+    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={options.length > 0} disabled={!options.length && !value} onChange={event => onChange(event.target.value)}>
+      <option value="">{options.length ? "Escolha uma cor" : "Sem opções cadastradas"}</option>
+      {value && !options.includes(value) && <option value={value}>{value} · seleção registrada</option>}
+      {options.map(color => <option key={color} value={color}>{color}</option>)}
+    </select>
+  </div>
+}
 
 function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
@@ -70,11 +83,24 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
   const command = useCommand()
   const originalCustomer: Choice | null = initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null
   const [customer, setCustomer] = useState<Choice | null>(originalCustomer)
-  const [items, setItems] = useState<(Choice & { quantity: string; preserved: boolean })[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true })) || [])
+  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
   const [dueDate, setDueDate] = useState(initial?.data.dueDate || "")
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
   const frozen = command.busy || command.uncertain || command.stale
+  useEffect(() => {
+    if (!initial) return
+    const controller = new AbortController()
+    void Promise.all(initial.items.map(async item => {
+      const response = await fetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
+      const value = await response.json()
+      if (!response.ok || value.tenantId !== tenantId) throw new Error("Não foi possível consultar as opções de cores. As escolhas registradas foram mantidas; recarregue para alterar o acabamento.")
+      return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [] }
+    })).then(products => {
+      if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) })))
+    }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar cores") })
+    return () => controller.abort()
+  }, [initial, tenantId])
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
     window.addEventListener("beforeunload", prevent); return () => window.removeEventListener("beforeunload", prevent)
@@ -86,18 +112,21 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade no item existente."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
-          setItems(previous => [...previous, { ...choice, quantity: "1", preserved: Boolean(saved) }]); setDirty(true); setError("")
+          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
         }} /></div>
         <p className="break-words">Cliente selecionado: {customer?.legalName || "Nenhum"}</p>
         <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
-          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity) })) }, initial ? etag : "", initial ? "PUT" : "POST")
+          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, upholsteryColor: item.upholsteryColor })) }, initial ? etag : "", initial ? "PUT" : "POST")
           if (value) { setDirty(false); router.replace(`/vendas/pedidos/${value.data.id}`) }
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label><Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
+            {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
+              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor do estofado de ${item.name}`} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} /></div>
+              <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
+              <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
           {(error || command.error) && <p role="alert">{error || command.error}</p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
@@ -129,7 +158,7 @@ function OrderDetail({ id }: { id: string }) {
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
-        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><strong className="block break-words">{item.name}</strong><p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
+        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><strong className="block break-words">{item.name}</strong>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert">{command.error}</p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}

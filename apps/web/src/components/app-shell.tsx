@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { headers } from "next/headers"
 import {
   Bell,
+  Building2,
   ChevronDown,
   CircleHelp,
   LayoutGrid,
@@ -112,7 +113,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
             <Link className="icon-action hidden sm:grid" href="/ajuda" aria-label="Ajuda"><CircleHelp className="size-4" /></Link>
             <Link className="icon-action" href="/preferencias/empresa" aria-label="Preferências"><Settings className="size-4" /></Link>
             <Link className="ml-1 flex items-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
-              <span className="text-sm font-medium">Empresas</span>
+              <Building2 className="size-4 sm:hidden" aria-hidden="true" /><span className="hidden text-sm font-medium sm:inline">Empresas</span>
             </Link>
             <form action="/api/auth/logout" method="post">
               <button type="submit" className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" title="Encerrar a sessão deste ERP">
@@ -123,7 +124,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main id="conteudo-principal">{children}</main>
+      <main id="conteudo-principal" className="pb-24 min-[1600px]:pb-0">{children}</main>
       <Suspense fallback={<div className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
         <MobileNavigation />
       </Suspense>

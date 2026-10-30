@@ -4,3 +4,5 @@ export function generateStaticParams() { return [{ id: "an-210" }]; }
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   return <AdForm id={(await params).id} />;
 }
+
+export const metadata = { title: "Editar anúncio" }

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ERP Next · Ávila Ops",
+  title: { default: "ERP Next · Ávila Ops", template: "%s · ERP Next · Ávila Ops" },
   description: "Novo ERP modular da Ávila Ops",
 };
 

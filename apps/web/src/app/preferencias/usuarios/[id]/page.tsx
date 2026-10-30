@@ -13,3 +13,5 @@ async function ResolvedMember({ params }: Pick<PageProps<"/preferencias/usuarios
   if (!uuidPattern.test(id)) notFound()
   return <AccessWorkspace view="member" memberId={id} />
 }
+
+export const metadata = { title: "Detalhes do usuário" }

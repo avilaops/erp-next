@@ -1,8 +1,9 @@
-import Link from "next/link"
+import { GuardedLink as Link, NavigationGuardProvider } from "@/components/navigation-guard"
 import { Suspense } from "react"
 import { headers } from "next/headers"
 import {
   Bell,
+  Building2,
   ChevronDown,
   CircleHelp,
   LayoutGrid,
@@ -14,72 +15,22 @@ import { PreferencesCommand } from "@/features/preferences-search/preferences-co
 import { MobileNavigation } from "@/components/mobile-navigation"
 import { DesktopNavigation } from "@/components/desktop-navigation"
 
-const menus = [
-  {
-    label: "Meu Negócio",
-    columns: [
-      { title: "Dashboards", items: [{ label: "Dashboard geral", href: "/dashboards" }, { label: "Dashboard de vendas", href: "/dashboards/vendas" }, { label: "Margem por pedido", href: "/dashboards/margem-pedidos" }, { label: "Dashboard de produtos", href: "/dashboards/produtos" }, { label: "Dashboard de clientes", href: "/dashboards/clientes" }, { label: "Curva ABC", href: "/dashboards/curva-abc" }, { label: "Metas", href: "/dashboards/metas" }] },
-      { title: "Central de trabalho", items: [{ label: "Eventos", href: "/eventos" }, { label: "Notificações", href: "/notificacoes" }, { label: "Aplicativos", href: "/aplicativos" }, { label: "Assistente", href: "/assistente" }, { label: "Novidades", href: "/novidades" }, { label: "Plano e limites", href: "/preferencias/plano" }] },
-    ],
-  },
-  {
-    label: "Cadastros",
-    columns: [
-      { title: "Operação", items: [{ label: "Produtos", href: "/cadastros/produtos" }, { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Vendedores", href: "/cadastros/vendedores" }, { label: "Funcionários", href: "/cadastros/funcionarios" }] },
-      { title: "Ferramentas", items: [{ label: "Contas financeiras", href: "/cadastros/contas-financeiras" }, { label: "Categorias financeiras", href: "/cadastros/categorias-financeiras" }, { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Listas de preços", href: "/cadastros/listas-precos" }, { label: "Formas de pagamento", href: "/cadastros/formas-pagamento" }] },
-    ],
-  },
-  {
-    label: "Vendas",
-    columns: [
-      { title: "Operação", items: [{ label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
-      { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/vendas/relatorios" }] },
-      { title: "Documentos fiscais", items: [{ label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }] },
-    ],
-  },
-  {
-    label: "Estoque",
-    columns: [
-      { title: "Compras", items: [{ label: "Pedidos de compra", href: "/compras/pedidos" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }, { label: "Fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Sugestões de compra", href: "/compras/sugestoes" }, { label: "Check-in de recebimentos", href: "/compras/recebimentos" }] },
-      { title: "Estoque", items: [{ label: "Saldos", href: "/estoque/saldos" }, { label: "Lançamentos de estoque", href: "/estoque/lancamentos" }, { label: "Conferência de estoque", href: "/estoque/inventarios" }, { label: "Ordens de produção", href: "/estoque/ordens-producao" }, { label: "Depósitos", href: "/estoque/depositos" }, { label: "Relatórios de estoque", href: "/relatorios/estoque" }] },
-    ],
-  },
-  {
-    label: "Financeiro",
-    columns: [
-      { title: "Operação", items: [{ label: "Contas a receber", href: "/financeiro/contas-receber" }, { label: "Contas a pagar", href: "/financeiro/contas-pagar" }, { label: "Caixa", href: "/financeiro/controle-caixa" }, { label: "Caixas e bancos", href: "/financeiro/caixas-bancos" }] },
-      { title: "Gestão", items: [{ label: "Ficha financeira", href: "/financeiro/ficha-financeira" }, { label: "Remessas e retornos", href: "/financeiro/remessas-retornos" }, { label: "Comissões", href: "/financeiro/comissoes" }, { label: "Faturamento agrupado", href: "/financeiro/faturamento-agrupado" }] },
-      { title: "Contabilidade e soluções", items: [{ label: "Tributos e guias", href: "/financeiro/tributos" }, { label: "Espaço do contador", href: "/financeiro/contador" }, { label: "Conta Digital", href: "/financeiro/conta-digital" }, { label: "Relatórios financeiros", href: "/financeiro/relatorios" }] },
-    ],
-  },
-  {
-    label: "Operações",
-    columns: [
-      { title: "Logística", items: [{ label: "Objetos de postagem", href: "/logistica/postagens" }, { label: "Logística reversa", href: "/logistica/reversa" }, { label: "Checkout de pedidos", href: "/logistica/checkout" }, { label: "Etiquetas", href: "/logistica/etiquetas" }, { label: "Ávila Envios", href: "/logistica/envios" }] },
-      { title: "Serviços", items: [{ label: "Contratos", href: "/servicos/contratos" }, { label: "Ordens de serviço", href: "/servicos/ordens" }, { label: "CT-e", href: "/servicos/cte" }, { label: "Notas de serviço", href: "/servicos/notas" }, { label: "Cobranças", href: "/servicos/cobrancas" }] },
-    ],
-  },
-  {
-    label: "Relatórios",
-    columns: [
-      { title: "Visão executiva", items: [{ label: "Todos os relatórios", href: "/relatorios" }, { label: "Vendas", href: "/relatorios/vendas" }, { label: "Estoque", href: "/relatorios/estoque" }, { label: "Financeiro", href: "/relatorios/financeiro" }] },
-      { title: "Operação", items: [{ label: "Serviços", href: "/relatorios/servicos" }, { label: "Auditoria", href: "/relatorios/auditoria" }, { label: "Relatórios de vendas", href: "/vendas/relatorios" }, { label: "Relatórios financeiros", href: "/financeiro/relatorios" }, { label: "Relatórios de serviços", href: "/servicos/relatorios" }] },
-    ],
-  },
-]
+import { desktopMenus as menus } from "@/components/navigation-catalog"
+import { DemonstrationPreview } from "@/components/demonstration-preview"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Preparando o ERP…</p>}><WorkspaceFrame>{children}</WorkspaceFrame></Suspense>
 }
 
 async function WorkspaceFrame({ children }: { children: React.ReactNode }) {
-  if ((await headers()).get("x-erp-path") === "/entrar") return <>{children}</>
-  return <WorkspaceNavigation>{children}</WorkspaceNavigation>
+  const pathname = (await headers()).get("x-erp-path") || "/"
+  if (pathname === "/entrar") return <>{children}</>
+  return <WorkspaceNavigation><DemonstrationPreview>{children}</DemonstrationPreview></WorkspaceNavigation>
 }
 
 function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <NavigationGuardProvider><div className="min-h-screen bg-background text-foreground">
       <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
       <header className="sticky top-0 z-50 border-b border-border/80 bg-background/92 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-2 px-4 lg:px-6">
@@ -111,8 +62,8 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
             <Link className="icon-action" href="/notificacoes" aria-label="Notificações"><Bell className="size-4" /></Link>
             <Link className="icon-action hidden sm:grid" href="/ajuda" aria-label="Ajuda"><CircleHelp className="size-4" /></Link>
             <Link className="icon-action" href="/preferencias/empresa" aria-label="Preferências"><Settings className="size-4" /></Link>
-            <Link className="ml-1 flex items-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
-              <span className="text-sm font-medium">Empresas</span>
+            <Link className="ml-1 flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
+              <Building2 className="size-5 min-[360px]:hidden" aria-hidden="true" /><span className="hidden text-sm font-medium min-[360px]:inline">Empresas</span>
             </Link>
             <form action="/api/auth/logout" method="post">
               <button type="submit" className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" title="Encerrar a sessão deste ERP">
@@ -123,10 +74,10 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main id="conteudo-principal">{children}</main>
-      <Suspense fallback={<div className="fixed inset-x-0 bottom-0 z-50 h-16 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
+      <main id="conteudo-principal" className="erp-content">{children}</main>
+      <Suspense fallback={<div className="mobile-nav-bar fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
         <MobileNavigation />
       </Suspense>
-    </div>
+    </div></NavigationGuardProvider>
   )
 }

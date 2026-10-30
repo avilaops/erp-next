@@ -1,5 +1,7 @@
 "use client"
 
+import { AccessLink } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
@@ -55,7 +57,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
         <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><Link className={linkClass} href="/entrar">Entrar com Ávila Ops</Link><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(staff => <li key={staff.id} className="min-w-0 rounded-xl border p-4">
           <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${staff.id}`}>Consultar {staff.name}</Link>

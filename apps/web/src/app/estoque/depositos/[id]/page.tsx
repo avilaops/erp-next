@@ -5,3 +5,5 @@ export default async function WarehouseDetailPage({
   const { id } = await params;
   return <WarehouseDetail warehouseId={id} />;
 }
+
+export const metadata = { title: "Detalhes de depósito" }

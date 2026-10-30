@@ -10,3 +10,5 @@ export default async function Page({
   const { id } = await params;
   return <EntryInvoiceDetail id={id} />;
 }
+
+export const metadata = { title: "Detalhes de nota de entrada" }

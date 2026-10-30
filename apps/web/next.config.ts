@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: process.env.ERP_BROWSER_DEV === "1" ? false : undefined,
   output: "standalone",
   distDir: process.env.ERP_NEXT_DIST_DIR || ".next",
   /* config options here */

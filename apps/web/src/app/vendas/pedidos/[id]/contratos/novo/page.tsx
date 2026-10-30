@@ -4,3 +4,5 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return <Suspense fallback={<p role="status">Carregando modelos…</p>}><Resolved params={params} /></Suspense>
 }
 async function Resolved({ params }: { params: Promise<{ id: string }> }) { return <ContractsAccess orderId={(await params).id} generate /> }
+
+export const metadata = { title: "Novo contrato do pedido" }

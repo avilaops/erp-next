@@ -1,5 +1,7 @@
 "use client";
 
+import { UnavailableImport } from "@/components/unavailable-import";
+
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -9,8 +11,6 @@ import {
   CircleX,
   Clock3,
   Download,
-  FileCheck2,
-  FileUp,
   Pencil,
   Plus,
   RefreshCw,
@@ -174,21 +174,7 @@ export function StoreOperations() {
 }
 
 export function ImportOrdersWizard() {
-  const [step, setStep] = useState(1);
-  const [file, setFile] = useState("");
-  const errors = ["Linha 4: cliente sem documento", "Linha 7: SKU XP-404 não encontrado"];
-  return (
-    <SalesShell back="/vendas" eyebrow="Vendas" title="Importar pedidos" description="Seleção, pré-visualização e validação local. Nenhum pedido será gravado.">
-      <div className="mb-5 grid gap-2 sm:grid-cols-4">{["Arquivo", "Mapeamento", "Validação", "Resultado"].map((label, index) => <button className={`rounded-xl border p-3 text-left text-sm ${step === index + 1 ? "border-primary bg-primary/10 text-primary" : "border-border"}`} key={label} onClick={() => file && setStep(index + 1)}><span className="block text-xs">Etapa {index + 1}</span><strong>{label}</strong></button>)}</div>
-      <Card title={["Selecionar arquivo", "Mapear colunas", "Validar registros", "Relatório da simulação"][step - 1]}>
-        {step === 1 && <Field label="Arquivo CSV ou XLSX"><Input accept=".csv,.xlsx" type="file" onChange={(event) => setFile(event.target.files?.[0]?.name ?? "")} /></Field>}
-        {step === 2 && <div className="grid gap-4 sm:grid-cols-2"><Field label="Coluna do pedido"><select><option>numero_pedido</option></select></Field><Field label="Coluna do cliente"><select><option>documento_cliente</option></select></Field></div>}
-        {step === 3 && <div><Item name="12 linhas lidas" detail="10 válidas e 2 com erro" value="Prévia local" />{errors.map((error) => <p className="mt-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" key={error}>{error}</p>)}</div>}
-        {step === 4 && <div><Status>Simulação concluída: 10 pedidos estariam aptos e 2 exigem correção.</Status><Button className="mt-4" variant="outline" onClick={() => undefined}><Download /> Baixar relatório demonstrativo</Button></div>}
-        <div className="mt-6 flex justify-end"><Button disabled={step === 1 && !file} onClick={() => setStep((value) => Math.min(4, value + 1))}>{step === 4 ? <FileCheck2 /> : <FileUp />}{step === 4 ? "Revisão concluída" : "Continuar"}</Button></div>
-      </Card>
-    </SalesShell>
-  );
+  return <UnavailableImport title="Importar pedidos" backHref="/vendas/pedidos" backLabel="Consultar pedidos" />
 }
 
 export function SalesReportOperations() {

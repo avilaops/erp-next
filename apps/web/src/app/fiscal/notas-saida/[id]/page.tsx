@@ -9,3 +9,5 @@ async function ResolvedDraft({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return <NfeDraftEditor key={id} id={id} />
 }
+
+export const metadata = { title: "Detalhes da NF-e" }

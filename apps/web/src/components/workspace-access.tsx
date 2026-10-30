@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { AccessLink } from "./session-recovery"
 import { currentIdentitySession, erpConfiguration, type ErpSession } from "@/lib/erp-session"
 
 type WorkspaceAccess =
@@ -33,9 +34,9 @@ export function WorkspaceAccessNotice({ state }: { state: WorkspaceAccess["state
       : state === "company"
         ? "Você já entrou. Selecione uma empresa ou cadastre a sua para continuar."
         : "Entre com sua conta Ávila Ops para acessar os cadastros da sua empresa."}</p>
-    {state === "login" && <Link className="font-medium text-primary underline" href="/entrar">Entrar com Ávila Ops</Link>}
+    {state === "login" && <AccessLink />}
     {state === "company" && <div className="flex flex-wrap gap-4">
-      <Link className="font-medium text-primary underline" href="/empresas">Selecionar empresa</Link>
+      <AccessLink page="/empresas">Selecionar empresa</AccessLink>
       <Link className="font-medium text-primary underline" href="/cadastro/empresa">Cadastrar empresa</Link>
     </div>}
   </section>

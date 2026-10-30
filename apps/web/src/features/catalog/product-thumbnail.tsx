@@ -4,12 +4,12 @@ import Image from "next/image"
 import { ImageIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-export function ProductThumbnail({ id, name, tenantId, hasPhoto }: { id: string; name: string; tenantId: string; hasPhoto?: boolean }) {
-  const root = useRef<HTMLDivElement>(null)
+export function ProductThumbnail({ id, name, tenantId, hasPhoto, decorative = false }: { id: string; name: string; tenantId: string; hasPhoto?: boolean; decorative?: boolean }) {
+  const root = useRef<HTMLSpanElement>(null)
   const [photo, setPhoto] = useState("")
   const [failed, setFailed] = useState(false)
   useEffect(() => {
-    if (!hasPhoto || !root.current) return
+    if (hasPhoto === false || !root.current) return
     const controller = new AbortController()
     const observer = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting)) return
@@ -24,7 +24,7 @@ export function ProductThumbnail({ id, name, tenantId, hasPhoto }: { id: string;
     observer.observe(root.current)
     return () => { observer.disconnect(); controller.abort() }
   }, [id, tenantId, hasPhoto])
-  return <div ref={root} className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/40" title={failed ? "Não foi possível carregar a foto" : !hasPhoto ? "Sem foto cadastrada" : undefined}>
-    {photo ? <Image unoptimized src={photo} alt={`Foto de ${name}`} width={56} height={56} className="size-14 object-contain" onError={() => { setPhoto(""); setFailed(true) }} /> : <ImageIcon className="size-5 text-muted-foreground" aria-hidden="true" />}
-  </div>
+  return <span ref={root} className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/40" title={failed ? "Não foi possível carregar a foto" : hasPhoto === false ? "Sem foto cadastrada" : undefined}>
+    {photo ? <Image unoptimized src={photo} alt={decorative ? "" : `Foto de ${name}`} width={56} height={56} className="size-14 object-contain" onError={() => { setPhoto(""); setFailed(true) }} /> : <ImageIcon className="size-5 text-muted-foreground" aria-hidden="true" />}
+  </span>
 }

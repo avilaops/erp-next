@@ -92,6 +92,12 @@ impl InferenceClient {
             json!({"role":"assistant","content":"","tool_calls":[{"function":{"name":"localizar_funcionalidade","arguments":{"q":"estoque"}}}]}),
             json!({"role":"tool","tool_name":"localizar_funcionalidade","content":"{\"data\":[{\"title\":\"Estoque\"}]}"}),
             json!({"role":"assistant","content":"A tela está disponível nas fontes."}),
+            // Teach the zero-argument order call without asking the model to copy
+            // an identifier. This fixed example contains no tenant record.
+            json!({"role":"user","content":"Consulte o pedido 68081331-5fde-4e68-8867-221d891aacd5"}),
+            json!({"role":"assistant","content":"","tool_calls":[{"function":{"name":"consultar_pedido","arguments":{}}}]}),
+            json!({"role":"tool","tool_name":"consultar_pedido","content":"{\"data\":[]}"}),
+            json!({"role":"assistant","content":"Nenhum pedido encontrado nas fontes."}),
             json!({"role":"user","content":format!("Previous questions (context only): {}\nCurrent question: {}", json!(previous), question)}),
         ];
         self.complete(messages, super::tools::definitions()).await
@@ -211,6 +217,11 @@ mod tests {
                 "consultar_pedido",
                 json!({}),
             ),
+            (
+                vec!["Consulte o pedido 94bfa7e6-e346-4c3f-82b8-cf0a473b0c19"],
+                "consultar_pedido",
+                json!({}),
+            ),
         ];
         for (questions, expected_tool, expected_arguments) in cases {
             let questions: Vec<_> = questions.into_iter().map(String::from).collect();
@@ -218,7 +229,8 @@ mod tests {
             assert_eq!(
                 result.tool_calls.len(),
                 1,
-                "Expected one tool for {questions:?}"
+                "Expected one tool for {questions:?}, got content: {}",
+                result.content
             );
             let function = &result.tool_calls[0].function;
             assert_eq!(function.name, expected_tool, "Wrong tool for {questions:?}");

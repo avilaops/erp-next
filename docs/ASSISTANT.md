@@ -21,7 +21,7 @@ inferência. Cada ferramenta revalida direitos e usa os handlers existentes:
 | `localizar_funcionalidade` | Rotas implementadas, catálogo fechado no Rust | Permissão de leitura da tela |
 | `buscar_clientes` | `parties::list`, filtro de cliente e até 5 registros por nome ou documento | `catalog.parties.read` |
 | `listar_pedidos` | `sales::list`, até 5 pedidos mais recentes | `sales.orders.read` |
-| `consultar_pedido` | `sales::get`, resumo por UUID informado na conversa | `sales.orders.read` |
+| `consultar_pedido` | `sales::get`, resumo por UUID informado na pergunta atual | `sales.orders.read` |
 
 As ferramentas não recebem tenant, SQL, URL, caminho de arquivo ou comandos.
 Financeiro tem apenas navegação nesta versão. A UI identifica a empresa ativa.
@@ -48,8 +48,8 @@ Dados de ferramenta são delimitados como conteúdo não confiável. As fontes s
 exibidas separadamente e continuam sendo a referência para valores exatos.
 Um resumo gerado por modelo pode errar; ele não é rotulado como dado confirmado.
 
-O prompt contém um exemplo estático de chamada nativa de navegação, sem registros
-empresariais. Esse exemplo não é apresentado como fonte. Perguntas anteriores
+O prompt contém exemplos estáticos de chamadas nativas de navegação e de pedido,
+sem registros empresariais. Esses exemplos não são apresentados como fontes. Perguntas anteriores
 seguem como contexto delimitado, para resolver referências como “e o saldo?”,
 sem repetir as consultas já realizadas. Pedidos explícitos de abrir/localizar telas
 (como “Onde vejo os saldos de estoque?”) são reconhecidos no Rust e executam

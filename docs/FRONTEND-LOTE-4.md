@@ -45,6 +45,8 @@ Em 30/10/2026, a varredura completa produziu 356 capturas, sem overflow horizont
 
 Na validação local, 16 testes passaram no Edge e cinco cenários no WebKit em execuções complementares. As oito combinações de tela/tema passaram no axe, sem violações ou resultados inconclusivos nessas execuções. As medições aguardam a resposta da API e a aplicação do tema; o ambiente de desenvolvimento admite compilação fria na transição testada, mantendo o limite normal na execução de produção. Resultados de CI devem ser conferidos no commit atual do PR, sem inferir publicação.
 
+O CI revelou também uma falha intermitente na fixture HTTP do inventário: conversão independente de buffers corrompia caracteres UTF-8 divididos entre pacotes. A fixture usa agora o decodificador do stream com `setEncoding('utf8')`; as verificações de corpo, revisão e leitura divergente foram mantidas.
+
 ## Acessibilidade e limites
 
 O critério visual considera hierarquia, contraste, rótulos, teclado, foco, movimento reduzido e temas. As [diretrizes Apple de acessibilidade](https://developer.apple.com/design/human-interface-guidelines/accessibility) são referência de princípios; esta aplicação web não usa SwiftUI.

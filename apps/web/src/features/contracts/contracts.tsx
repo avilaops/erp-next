@@ -60,8 +60,8 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
 
 export function ContractGenerator({ orderId }: { orderId: string }) {
   const result = useResource<Options>(`/api/erp/commercial-contracts/options/${orderId}`)
-  if (result.loading) return <p role="status">Consultando pedido e modelos da empresa…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Pedido indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><p role="status">Consultando pedido e modelos da empresa…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Pedido indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   return <>
     <PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Confira os dados do pedido e complete os campos do modelo. A geração produz uma prévia e ainda não envia e-mail." />
     <Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link>
@@ -134,8 +134,8 @@ export function ContractDetail({ id }: { id: string }) {
     const updated = await command.send<Detail>(`/api/erp/commercial-contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
     if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
   }
-  if (result.loading) return <p role="status">Carregando contrato…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><p role="status">Carregando contrato…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><Link className={linkClass} href="/servicos/contratos">Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   const { data: contract, files, canEdit, canSend, emailReady } = result.value
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale

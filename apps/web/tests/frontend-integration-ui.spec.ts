@@ -10,6 +10,8 @@ test("falha de consulta preserva orientação e nova tentativa nos editores", as
     ["/compras/pedidos/novo", "Novo pedido de compra"],
     ["/vendas/pedidos/novo", "Novo pedido de venda"],
     ["/financeiro/contas-pagar/" + record, "Conta a pagar"],
+    ["/servicos/contratos/" + record, "Detalhes do contrato"],
+    ["/vendas/pedidos/" + record + "/contratos/novo", "Gerar contrato"],
   ]) {
     await page.goto(route)
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible()
@@ -22,6 +24,21 @@ test("falha de consulta preserva orientação e nova tentativa nos editores", as
 
 const ready = { tenantId: tenant, profileConfigured: true, certificateVerified: false, canTransmit: false, productionEnabled: false, blockers: ["a1_certificate_missing_expired_or_unavailable"] }
 const permissions = ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"]
+
+test("redirecionamento legado e transição de inventário não geram erro de navegação", async ({ page }) => {
+  const errors: string[] = []
+  page.on("pageerror", error => errors.push(error.message))
+  page.on("console", message => { if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) errors.push(message.text()) })
+  await page.goto("/dashboard")
+  await expect(page).toHaveURL("http://127.0.0.1:33118/")
+  await expect(page.getByRole("heading", { name: "Visão geral", exact: true })).toBeVisible()
+  await page.goto("/estoque/inventarios/" + record)
+  await page.locator('main a[href$="/contagem"]').click()
+  await expect(page.getByRole("heading", { name: "Contagem do inventário", exact: true })).toBeVisible({ timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
+  await page.goBack()
+  await expect(page.locator('main a[href$="/contagem"]')).toBeVisible()
+  expect(errors).toEqual([])
+})
 
 test("fiscal integrado mantém listagem e preparação do pedido fora das prévias", async ({ page }, info) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions } }))
@@ -82,10 +99,11 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
   await page.addInitScript(() => localStorage.setItem("erp-theme", "system"))
   for (const theme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: theme as "light" | "dark", reducedMotion: "reduce" })
-    for (const route of ["/preferencias/empresa", "/preferencias/certificado-digital", "/fiscal/notas-saida"]) {
+    for (const route of ["/preferencias/empresa", "/preferencias/certificado-digital", "/fiscal/notas-saida", "/fiscal/notas-saida/nova"]) {
       await page.setViewportSize({ width: 390, height: 844 })
       await page.goto(route)
       await expect(page.locator("h1")).toBeVisible()
+      await expect(page.locator('main [role="alert"], main [role="status"]').filter({ hasText: "Operação indisponível" })).toBeVisible()
       await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(theme === "dark")
       // Theme changes can precede the inherited color transition on settings links.
       if (route === "/preferencias/empresa") await expect.poll(() => page.locator('[aria-labelledby^="company-settings-"] strong').evaluateAll(elements => {
@@ -102,6 +120,7 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       await info.attach(route.replaceAll("/", "-") + "-" + theme, { body: JSON.stringify({ violations: result.violations, incomplete: result.incomplete }), contentType: "application/json" })
       await page.screenshot({ path: info.outputPath(route.replaceAll("/", "-") + "-" + theme + ".png"), fullPage: true })
       expect(result.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => node.target) }))).toEqual([])
+      expect(result.incomplete.filter(item => item.id === "color-contrast").flatMap(item => item.nodes).filter(node => node.any.some(check => check.data?.messageKey === "equalRatio")), "Texto com contraste 1:1 exige correção, mesmo quando o scanner o classifica como inconclusivo").toEqual([])
     }
   }
 })

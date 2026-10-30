@@ -11,13 +11,16 @@ test("inventário completo: capturas desktop/mobile e estados observados", async
   await installFrontendFixture(context)
   const root = path.resolve("src/app")
   const routes = pages(root).map(file => "/" + path.relative(root, path.dirname(file)).split(path.sep).join("/"))
+  const selected = process.env.ERP_AUDIT_ROUTES?.split(",")
+  const audited = selected ? routes.filter(route => selected.includes(route)) : routes
+  expect(audited).toHaveLength(selected?.length ?? 178)
   const rows: object[] = []
   const unexpected: object[] = []
   let errors: string[] = []
   let diagnostics: string[] = []
   page.on("pageerror", error => errors.push(error.message))
   page.on("console", message => { if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) diagnostics.push(message.text()) })
-  for (const [index, pattern] of routes.entries()) {
+  for (const [index, pattern] of audited.entries()) {
     const route = pattern.replace("[kind]", "vendas").replace("[provider]", "mercado-livre").replaceAll("[id]", record)
     errors = []
     diagnostics = []
@@ -42,7 +45,7 @@ test("inventário completo: capturas desktop/mobile e estados observados", async
       if (state.scrollWidth > width || state.url === "/entrar" && pattern !== "/entrar" || !state.headings.length || navigationError || errors.length || diagnostics.length) unexpected.push(row)
     }
     writeFileSync(info.outputPath("coverage.json"), JSON.stringify({ scope: "Local UI; synthetic session; unavailable API; no transactional proof", rows, unexpected }, null, 2))
-    console.log("AUDIT " + (index + 1) + "/" + routes.length + " " + pattern)
+    console.log("AUDIT " + (index + 1) + "/" + audited.length + " " + pattern)
   }
   expect(routes).toHaveLength(178)
   expect(unexpected, "Consulte coverage.json e capturas").toEqual([])

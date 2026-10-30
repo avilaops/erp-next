@@ -48,6 +48,7 @@ test("prévia de interface identifica dados fictícios e impede operação simul
   await page.goto("/vendas/pdv")
   await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
   const buttons = page.locator("main button")
+  await expect(buttons.first()).toBeVisible()
   expect(await buttons.count()).toBeGreaterThan(0)
   for (const button of await buttons.all()) await expect(button).toBeDisabled()
   await expect(page.getByRole("link", { name: "Suas empresas", exact: true })).toBeEnabled()

@@ -8,7 +8,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   async redirects() {
-    return [{ source: "/criar-conta", destination: "/api/auth/login?intent=signup", permanent: false }];
+    return [
+      { source: "/criar-conta", destination: "/api/auth/login?intent=signup", permanent: false },
+      { source: "/dashboard", destination: "/", permanent: false },
+    ];
   },
   turbopack: {
     rules: {

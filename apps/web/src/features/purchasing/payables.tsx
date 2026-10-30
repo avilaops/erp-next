@@ -38,8 +38,8 @@ function PayableList() {
 
 function PayableDetail({ id }: { id: string }) {
   const result = useResource<Detail>(`/api/erp/payables/${id}`)
-  if (result.loading) return <p role="status">Carregando conta a pagar…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Conta indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Financeiro" title={"Conta a pagar"} description="Consulte a obrigação e os pagamentos declarados." /><p role="status">Carregando conta a pagar…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Financeiro" title={"Conta a pagar"} description="Consulte a obrigação e os pagamentos declarados." /><Link className={purchaseLink} href="/financeiro/contas-pagar">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Conta indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   return <PayableForm key={result.etag} value={result.value} etag={result.etag} reload={result.reload} />
 }
 

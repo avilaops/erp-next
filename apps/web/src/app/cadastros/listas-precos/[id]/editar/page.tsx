@@ -1,6 +1,7 @@
+import { Suspense } from "react"
 import { CatalogRecordForm } from "@/features/record-details/catalogo-record-pages";
 
-export default async function EditPriceListPage({
+async function ResolvedEditPriceListPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -10,3 +11,7 @@ export default async function EditPriceListPage({
 }
 
 export const metadata = { title: "Editar lista de preços" }
+
+export default function EditPriceListPage(props: Parameters<typeof ResolvedEditPriceListPage>[0]) {
+  return <Suspense fallback={<p role="status" className="p-6">Carregando tela…</p>}><ResolvedEditPriceListPage {...props} /></Suspense>
+}

@@ -5,6 +5,21 @@ import { blankDraft, blankItem } from "../src/features/fiscal/nfe-draft-model"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("falha de consulta preserva orientação e nova tentativa nos editores", async ({ page }) => {
+  for (const [route, heading] of [
+    ["/compras/pedidos/novo", "Novo pedido de compra"],
+    ["/vendas/pedidos/novo", "Novo pedido de venda"],
+    ["/financeiro/contas-pagar/" + record, "Conta a pagar"],
+  ]) {
+    await page.goto(route)
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible()
+    await expect(page.locator("main").getByRole("alert")).toContainText("Operação indisponível")
+    await expect(page.getByRole("link", { name: "Voltar à lista", exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+    await expect(page.locator("main").getByRole("alert")).toContainText("Operação indisponível")
+  }
+})
+
 const ready = { tenantId: tenant, profileConfigured: true, certificateVerified: false, canTransmit: false, productionEnabled: false, blockers: ["a1_certificate_missing_expired_or_unavailable"] }
 const permissions = ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"]
 
@@ -72,6 +87,11 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       await page.goto(route)
       await expect(page.locator("h1")).toBeVisible()
       await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(theme === "dark")
+      // Theme changes can precede the inherited color transition on settings links.
+      if (route === "/preferencias/empresa") await expect.poll(() => page.locator('[aria-labelledby^="company-settings-"] strong').evaluateAll(elements => {
+        const foreground = getComputedStyle(document.querySelector("main")!).color
+        return elements.length > 0 && elements.every(element => getComputedStyle(element).color === foreground)
+      })).toBe(true)
       if (route === "/fiscal/notas-saida") await expect(page.getByRole("button", { name: "Atualizar lista", exact: true })).toBeEnabled()
       await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))))
       await page.addScriptTag({ content: axe.source })

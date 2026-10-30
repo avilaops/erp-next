@@ -1,6 +1,7 @@
+import { Suspense } from "react"
 import { InventoryDetail } from "@/features/inventory/details-operations-inventory";
 
-export default async function InventoryDetailPage({
+async function ResolvedInventoryDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -10,3 +11,7 @@ export default async function InventoryDetailPage({
 }
 
 export const metadata = { title: "Detalhes de inventário" }
+
+export default function InventoryDetailPage(props: Parameters<typeof ResolvedInventoryDetailPage>[0]) {
+  return <Suspense fallback={<p role="status" className="p-6">Carregando tela…</p>}><ResolvedInventoryDetailPage {...props} /></Suspense>
+}

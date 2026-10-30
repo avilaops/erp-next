@@ -18,8 +18,8 @@ type DraftLine = PurchaseChoice & { quantity: string; unitCost: string }
 
 export function PurchaseEditor({ id }: { id?: string }) {
   const result = useResource<PurchaseDetail | PurchaseList>(id ? `/api/erp/purchase-orders/${id}` : "/api/erp/purchase-orders?limit=1")
-  if (result.loading) return <p role="status">Carregando compra e permissões…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Compra indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Compras" title={id ? "Editar pedido de compra" : "Novo pedido de compra"} description="Consulte os dados e as permissões antes de editar a compra." /><p role="status">Carregando compra e permissões…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Compras" title={id ? "Editar pedido de compra" : "Novo pedido de compra"} description="Consulte os dados e as permissões antes de editar a compra." /><Link className={purchaseLink} href="/compras/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Compra indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   const initial = "items" in result.value ? result.value : undefined
   if (!result.value.canEdit || initial && initial.data.status !== "draft") return <section className="form-section space-y-3"><PageHeader eyebrow="Compras" title="Pedido de compra" description="A edição exige permissão de gestão e um pedido em rascunho." /><p role="status">{!result.value.canEdit ? "Somente consulta. Solicite permissão para alterar compras." : "Este pedido não está em rascunho."}</p><Link className={purchaseLink} href={id ? `/compras/pedidos/${id}` : "/compras/pedidos"}>Voltar às compras</Link></section>
   return <PurchaseForm key={`${id || "new"}:${result.etag}`} initial={initial} tenantId={result.value.tenantId} etag={result.etag} reload={result.reload} />

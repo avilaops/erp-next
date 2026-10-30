@@ -1,6 +1,7 @@
+import { Suspense } from "react"
 import { CatalogRecordDetail } from "@/features/record-details/catalogo-record-pages";
 
-export default async function PriceListDetailPage({
+async function ResolvedPriceListDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -10,3 +11,7 @@ export default async function PriceListDetailPage({
 }
 
 export const metadata = { title: "Detalhes de lista de preços" }
+
+export default function PriceListDetailPage(props: Parameters<typeof ResolvedPriceListDetailPage>[0]) {
+  return <Suspense fallback={<p role="status" className="p-6">Carregando tela…</p>}><ResolvedPriceListDetailPage {...props} /></Suspense>
+}

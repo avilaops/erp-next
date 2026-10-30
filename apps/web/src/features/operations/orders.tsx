@@ -60,8 +60,8 @@ function OrderList() {
 
 function OrderEditor({ id }: { id?: string }) {
   const access = useResource<Listing | Detail>(id ? `/api/erp/orders/${id}` : "/api/erp/orders?limit=1")
-  if (access.loading) return <p role="status">Carregando rascunho e permissões…</p>
-  if (access.error || !access.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section>
+  if (access.loading) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><p role="status">Carregando rascunho e permissões…</p></>
+  if (access.error || !access.value) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><Link className={linkClass} href="/vendas/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section></>
   const initial = "items" in access.value ? access.value : undefined
   if (!access.value.canEdit || (initial && initial.data.status !== "draft")) {
     return <><PageHeader eyebrow="Vendas" title="Edição do pedido" description="Alterações são permitidas somente em rascunhos com autorização de gestão." /><section className="form-section space-y-3"><p role="status">{!access.value.canEdit ? "Somente consulta. Solicite permissão para alterar pedidos." : "Este pedido não está em rascunho e não pode ser editado."}</p><Link className={linkClass} href={id ? `/vendas/pedidos/${id}` : "/vendas/pedidos"}>Voltar aos pedidos</Link></section></>

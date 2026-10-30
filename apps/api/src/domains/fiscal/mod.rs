@@ -6,6 +6,7 @@ pub mod danfe_client;
 pub(crate) mod danfe_test_support;
 pub mod lojas;
 pub mod model;
+pub mod order_source;
 pub mod received;
 pub mod received_model;
 pub mod sefaz_response;
@@ -49,6 +50,10 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/api/v1/fiscal/readiness", get(readiness))
         .route("/api/v1/fiscal/nfe", get(list).post(create))
+        .route(
+            "/api/v1/fiscal/order-preparations/{id}",
+            get(order_source::get),
+        )
         .route("/api/v1/fiscal/nfe/{id}", get(get_draft).put(update))
         .route("/api/v1/fiscal/nfe/{id}/issue", axum::routing::post(issue))
         .route("/api/v1/fiscal/received-nfes", get(received::list))
@@ -539,6 +544,7 @@ pub async fn create(
             .insert("idempotency-replayed", HeaderValue::from_static("true"));
         return Ok(reply);
     }
+    order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let id = Uuid::now_v7();
     let issuer_json = serde_json::to_value(&issuer).map_err(|_| access::AccessError::Internal)?;
@@ -599,6 +605,13 @@ pub async fn update(
         return Err(DomainError::StaleRevision.into());
     }
     let value = input(payload)?;
+    if current.input.source_order_id != value.source_order_id {
+        return Err(DomainError::Conflict(
+            "O vínculo com o pedido não pode ser trocado ou removido deste rascunho",
+        )
+        .into());
+    }
+    order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let next = expected
         .checked_add(1)

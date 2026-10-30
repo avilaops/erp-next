@@ -132,7 +132,11 @@ fn text(value: &str, max: usize) -> bool {
     !value.trim().is_empty() && value.chars().count() <= max && !value.chars().any(char::is_control)
 }
 
-fn exact_decimal(value: &str, whole_digits: usize, scale: usize) -> Result<i128, DomainError> {
+pub(super) fn exact_decimal(
+    value: &str,
+    whole_digits: usize,
+    scale: usize,
+) -> Result<i128, DomainError> {
     let invalid = || {
         DomainError::Invalid(
             "Decimal exige ponto, escala fixa e valor não negativo dentro dos limites",
@@ -224,6 +228,9 @@ pub struct DraftItem {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftInput {
+    /// Full domestic sales order copied into this draft; no billing effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_order_id: Option<uuid::Uuid>,
     pub environment: Environment,
     pub model: u8,
     pub operation_nature: String,

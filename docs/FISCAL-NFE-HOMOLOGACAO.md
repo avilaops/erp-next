@@ -145,6 +145,29 @@ usam If-Match; conflitos preservam a edição e exigem recarga explícita. A tel
 apresenta as pendências reais de readiness, sem oferecer emissão ou DANFE para
 um rascunho. A1 não é pré-requisito para salvar os dados de preparação.
 
+### Preparação a partir de pedido
+
+Um pedido confirmado ou concluído oferece **Preparar NF-e deste pedido**.
+O GET `/api/v1/fiscal/order-preparations/{id}` consulta somente a empresa ativa
+e exige leitura fiscal, de pedidos, clientes e produtos. A proposta traz o
+cliente, o endereço principal quando houver uma escolha inequívoca, os itens
+e os preços fixados na venda. O NCM vem do cadastro atual para conferência.
+Não escolhe CFOP, origem, CST/CSOSN, PIS, COFINS ou alíquotas; o código IBGE
+continua exigindo informação explícita.
+
+O vínculo opcional `sourceOrderId` é salvo nos dados do rascunho, preservando
+compatibilidade com os documentos manuais anteriores. Criação e edição
+revalidam a origem: pedido confirmado/concluído, cliente ativo, mesmo CPF/CNPJ
+e conteúdo comercial integral. Quantidades, preços, unidades e totais não são
+alterados pelo catálogo atual. Não é permitido trocar ou remover o vínculo em
+uma edição. Pedidos cancelados deixam de aceitar novas gravações; o rascunho
+histórico é preservado. O vínculo não marca a venda como faturada.
+
+Esta preparação aceita o pedido completo. Faturamento parcial ainda não está
+suportado. Quantidades comerciais com precisão superior a quatro casas não
+são arredondadas: a API recusa a preparação para revisão. A consulta e o
+salvamento não alteram estoque, reservas, recebíveis ou situação comercial.
+
 ## Fontes e verificação
 
 Referências oficiais consultadas em 27/10/2026:

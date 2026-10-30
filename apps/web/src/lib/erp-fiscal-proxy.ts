@@ -21,8 +21,9 @@ export async function forwardFiscal(request: Request, resource: string) {
   const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$/.exec(resource)
   const document = /^\/received-nfes\/[1-9][0-9]{0,18}$/.test(resource)
   const draft = /^\/nfe\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
+  const preparation = /^\/order-preparations\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe"].includes(resource) || document || draft || !!download
+    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe"].includes(resource) || document || draft || preparation || !!download
     : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && ["/received-nfes/import", "/nfe"].includes(resource)
   if (!valid) return failure("Recurso fiscal inválido", 400)
   let body: Uint8Array<ArrayBuffer> | undefined

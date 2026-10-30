@@ -4,6 +4,7 @@ export type DraftItem = {
   icmsCst: string | null; csosn: string | null; pisCst: string; cofinsCst: string
 }
 export type DraftInput = {
+  sourceOrderId?: string
   environment: "homologation"; model: 55; operationNature: string; taxRuleReference: string
   recipient: { taxId: string; legalName: string; state: string; municipalityCode: string; postalCode: string; street: string; number: string; district: string }
   items: DraftItem[]; productsTotal: string

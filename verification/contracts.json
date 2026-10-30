@@ -574,6 +574,24 @@
   ],
   "actions": [
     {
+      "id": "prepare-nfe-from-order",
+      "flow": "fiscal-drafts",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/fiscal/order-preparations/{id}" },
+      "actor": "active_tenant_member",
+      "permissions": ["fiscal.nfe.read", "sales.orders.read", "catalog.parties.read", "catalog.products.read"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null },
+      "preconditions": ["Pedido confirmado ou concluído da empresa ativa, cliente ativo e CPF/CNPJ coerente com a venda.", "Itens devem caber no modelo de preparação: até 990, quantidade representável sem arredondamento em quatro casas e SKU com até 60 caracteres."],
+      "transition": { "from": "pedido comercial persistido", "to": "proposta de rascunho fiscal ainda não salva" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não cria rascunho, reserva, saída de estoque, recebível, numeração fiscal ou transmissão.", "Não escolhe CFOP, CST/CSOSN, origem ou alíquotas."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Consulta sem efeito; a criação e a edição do rascunho revalidam o pedido e seu conteúdo comercial sob o bloqueio de escrita da empresa." },
+      "response": { "successStatuses": [200], "errorStatuses": [401, 403, 404, 409, 503], "action": "Preparar rascunho integral a partir de um pedido de venda" },
+      "recovery": "Preservar a venda e revisar pedido, cliente ou precisão; não arredondar quantidades nem substituir o preço pelo catálogo atual.",
+      "ui": { "pages": ["/vendas/pedidos/[id]", "/fiscal/notas-saida/nova"], "bff": { "method": "GET", "path": "/api/erp/fiscal/order-preparations/[id]" }, "gap": null },
+      "sources": ["apps/api/src/domains/fiscal/order_source.rs", "apps/api/src/domains/fiscal/model.rs", "apps/api/src/domains/fiscal/mod.rs", "apps/web/src/features/fiscal/nfe-draft-editor.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
+    },
+    {
       "id": "post-api-v1-assistant",
       "flow": "assistant",
       "status": "implemented",

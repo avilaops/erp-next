@@ -152,6 +152,19 @@ test("expired access preserves the internal path and filters through the login f
   await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
 })
 
+test("expired company selection retains the original destination during recovery", async ({ page, context }) => {
+  const destination = "/cadastros/produtos?status=archived"
+  for (const path of ["/empresas", "/cadastro/empresa"]) {
+    await context.clearCookies()
+    await page.goto(path + "?" + new URLSearchParams({ returnTo: destination }))
+    expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
+  }
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
+  await page.goto("/empresas?" + new URLSearchParams({ returnTo: destination }))
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: destination }))
+})
+
 test("OIDC returns to the sealed destination and ignores callback redirect parameters", async ({ context }) => {
   companyCount = 1
   const destination = "/cadastros/produtos?status=archived&offset=25"

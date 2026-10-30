@@ -16,3 +16,10 @@ export function safeReturnTo(value: unknown): string {
 export function accessHref(page: "/entrar" | "/empresas", destination: unknown) {
   return page + "?" + new URLSearchParams({ returnTo: safeReturnTo(destination) })
 }
+
+/** Access pages carry the original destination instead of becoming a return loop. */
+export function recoveryDestination(pathname: string, params: Pick<URLSearchParams, "get" | "toString">) {
+  if (pathname === "/empresas" || pathname === "/cadastro/empresa") return safeReturnTo(params.get("returnTo"))
+  const query = params.toString()
+  return safeReturnTo(pathname + (query ? "?" + query : ""))
+}

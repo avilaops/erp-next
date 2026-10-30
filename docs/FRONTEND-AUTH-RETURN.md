@@ -6,6 +6,8 @@ URLs externas, caminhos de API, autenticação, caracteres de controle, barras i
 
 Com várias empresas, o destino acompanha o seletor. A seleção continua exigindo confirmação de acesso pela API e não amplia a validade da sessão. Com nenhuma empresa, o destino acompanha o cadastro. Os links de recuperação preservam a rota e respeitam o bloqueio de edição pendente.
 
+Se a sessão expirar durante o seletor ou cadastro, a recuperação reaproveita o destino original validado, sem voltar ao próprio fluxo de acesso nem descartar os filtros solicitados.
+
 As consultas e os comandos compartilhados conservam o status HTTP. Seus erros 401 oferecem entrada contextual; erros de indisponibilidade mantêm as ações de tentativa existentes. O resumo da empresa oferece seleção de empresa quando carregado, login em 401 e nova tentativa em falha de consulta.
 
 A suíte `onboarding-ui.spec.ts` testa o fluxo com provedores locais sintéticos, incluindo destino autenticado, rejeição de redirecionamento externo, sessão expirada, seleção de empresa e recuperação 401/503. Nenhum teste depende da sessão real do usuário.

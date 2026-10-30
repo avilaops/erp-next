@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { cookieName, identityFromCookie } from "@/lib/erp-session"
-import { accessHref } from "@/lib/return-to"
+import { accessHref, recoveryDestination } from "@/lib/return-to"
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -9,7 +9,7 @@ export function proxy(request: NextRequest) {
   try { authenticated = !!identityFromCookie(request.cookies.get(cookieName("session"))?.value || "") }
   catch { /* Missing configuration must still leave the entry page available. */ }
   if (!publicPage && !authenticated) {
-    const response = NextResponse.redirect(new URL(accessHref("/entrar", pathname + request.nextUrl.search), request.url))
+    const response = NextResponse.redirect(new URL(accessHref("/entrar", recoveryDestination(pathname, request.nextUrl.searchParams)), request.url))
     response.headers.set("Cache-Control", "private, no-store")
     return response
   }

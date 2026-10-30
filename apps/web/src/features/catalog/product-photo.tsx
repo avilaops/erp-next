@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 export function ProductPhoto({ value, disabled, readOnly = false, onChange, onBusy }: { value?: string; disabled?: boolean; readOnly?: boolean; onChange?: (value: string) => void; onBusy?: (value: boolean) => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  return <section className="space-y-3 rounded-xl border p-4" aria-label="Foto do produto">
+  return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label="Foto do produto">
     <h2 className="font-semibold">Foto do produto</h2>
     <div className="grid min-h-40 place-items-center rounded-lg bg-muted/40">
       {value ? <Image unoptimized src={value} alt="Foto cadastrada do produto" width={1024} height={768} className="h-52 w-full object-contain" /> : <p className="p-6 text-sm text-muted-foreground">Nenhuma foto cadastrada</p>}
     </div>
     {!readOnly && <>
-      <label className="grid gap-2 text-sm">Selecionar foto do produto<input type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled || busy} onChange={async event => {
+      <label className="grid min-w-0 gap-2 text-sm">Selecionar foto do produto<input className="block w-full min-w-0 max-w-full" type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled || busy} onChange={async event => {
         const input = event.currentTarget
         const file = input.files?.[0]
         if (!file) return

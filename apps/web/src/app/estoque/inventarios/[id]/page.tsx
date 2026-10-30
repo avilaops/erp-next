@@ -8,3 +8,5 @@ export default async function InventoryDetailPage({
   const { id } = await params;
   return <InventoryDetail id={id} />;
 }
+
+export const metadata = { title: "Detalhes de inventário" }

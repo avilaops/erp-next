@@ -1,5 +1,7 @@
 "use client"
 
+import { decimalPattern } from "@/lib/decimal-input"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -73,13 +75,13 @@ function PurchaseForm({ initial, tenantId, etag, reload }: { initial?: PurchaseD
           {items.map(item => <section className="min-w-0 space-y-3 rounded-xl border p-4" key={item.id} aria-label={`Item ${item.name}`}>
             <h2 className="break-words font-semibold">{item.name}</h2><p className="break-words text-sm">SKU {item.sku} · Unidade {item.unit}</p>
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-              <label className="min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" maxLength={19} pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" value={item.quantity} onChange={event => change(item.id, "quantity", event.target.value)} /></label>
-              <label className="min-w-0 space-y-2">Custo unitário de {item.name}<Input required inputMode="decimal" placeholder="0.00" maxLength={15} pattern="(0|[1-9][0-9]{0,11})[.][0-9]{2}" value={item.unitCost} onChange={event => change(item.id, "unitCost", event.target.value)} /></label>
+              <label className="min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" maxLength={19} pattern={decimalPattern(6)} value={item.quantity} onChange={event => change(item.id, "quantity", event.target.value)} /></label>
+              <label className="min-w-0 space-y-2">Custo unitário de {item.name}<Input required inputMode="decimal" placeholder="0,00" maxLength={15} pattern={decimalPattern(2)} value={item.unitCost} onChange={event => change(item.id, "unitCost", event.target.value)} /></label>
             </div>
             <Button className="h-auto max-w-full whitespace-normal break-words" type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>
           </section>)}
         </fieldset>
-        <p className="text-sm text-muted-foreground">Use ponto nos valores decimais. Os custos da compra são informados por você; o preço de venda não é usado como custo.</p>
+        <p className="text-sm text-muted-foreground">Use vírgula ou ponto nos decimais, sem separador de milhar. Os custos da compra são informados por você; o preço de venda não é usado como custo.</p>
         {complete && <p className="font-medium">Total previsto: {money(fixedText(total, 2))}</p>}
         {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
         {command.uncertain && <p role="status">Confirmação pendente. Conferir usa o mesmo comando, preservando os dados enviados.</p>}

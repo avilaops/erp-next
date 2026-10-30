@@ -1,5 +1,7 @@
 "use client"
 
+import { decimalPattern } from "@/lib/decimal-input"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -85,7 +87,7 @@ function ReceiveForm({ order, disabled, submit }: { order: Detail; disabled: boo
     <fieldset disabled={disabled} className="grid min-w-0 gap-4 sm:grid-cols-2">
       <label className="min-w-0 space-y-2">Referência do recebimento<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
       <label className="min-w-0 space-y-2">Data do recebimento<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
-      {remaining.map(item => <label className="min-w-0 space-y-2" key={item.productId}>Receber {item.name}<span className="block text-sm text-muted-foreground">Saldo: {fixedText(fixedValue(item.quantity, 6)! - fixedValue(item.receivedQuantity, 6)!, 6)} {item.unit}</span><Input inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" maxLength={19} value={amounts[item.productId] || ""} onChange={event => setAmounts(previous => ({ ...previous, [item.productId]: event.target.value }))} /></label>)}
+      {remaining.map(item => <label className="min-w-0 space-y-2" key={item.productId}>Receber {item.name}<span className="block text-sm text-muted-foreground">Saldo: {fixedText(fixedValue(item.quantity, 6)! - fixedValue(item.receivedQuantity, 6)!, 6)} {item.unit}</span><Input inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={amounts[item.productId] || ""} onChange={event => setAmounts(previous => ({ ...previous, [item.productId]: event.target.value }))} /></label>)}
     </fieldset>
     {error && <p role="alert">{error}</p>}
     <Button className="h-auto max-w-full whitespace-normal" type="submit" disabled={disabled}>Registrar entrada e conta a pagar</Button>

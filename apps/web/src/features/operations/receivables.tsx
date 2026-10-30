@@ -1,5 +1,7 @@
 "use client"
 
+import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -59,13 +61,15 @@ function ReceivableDetail({ id }: { id: string }) {
         <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
         {!value.canEdit ? <p>Somente consulta.</p> : <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setNotice("")
-          const body = reversing ? { paymentId: reversalId, reason: reference, occurredOn } : { amount, method, reference, occurredOn }
+          const normalizedAmount = normalizeDecimal(amount)
+          if (!reversing && normalizedAmount === null) return
+          const body = reversing ? { paymentId: reversalId, reason: reference, occurredOn } : { amount: normalizedAmount, method, reference, occurredOn }
           const response = await command.send<Detail>(`/api/erp/receivables/${id}/${reversing ? "reverse-payment" : "payments"}`, value.tenantId, body, result.etag)
           if (response) { setNotice("Registro confirmado no servidor."); clearForm(); result.reload() }
         }}>
           <h3 className="font-medium">{reversing ? "Estornar recebimento" : "Registrar recebimento"}</h3>
           <fieldset disabled={frozen} className="grid min-w-0 gap-4 sm:grid-cols-2">
-            {reversing ? <label className="min-w-0 space-y-2">Recebimento a estornar<select className={selectClass} value={reversalId || ""} onChange={event => setSelectedPaymentId(event.target.value)}>{activeReceipts.map(payment => <option value={payment.id} key={payment.id}>R$ {payment.amount.replace(".", ",")} · {payment.reference} · {payment.id}</option>)}</select></label> : <><label className="min-w-0 space-y-2">Valor declarado (ponto e duas casas)<Input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})[.][0-9]{2}" maxLength={15} value={amount} onChange={event => setAmount(event.target.value)} /></label><label className="min-w-0 space-y-2">Meio declarado<select className={selectClass} value={method} onChange={event => setMethod(event.target.value)}><option value="bank_transfer">Transferência</option><option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="other">Outro</option></select></label></>}
+            {reversing ? <label className="min-w-0 space-y-2">Recebimento a estornar<select className={selectClass} value={reversalId || ""} onChange={event => setSelectedPaymentId(event.target.value)}>{activeReceipts.map(payment => <option value={payment.id} key={payment.id}>R$ {payment.amount.replace(".", ",")} · {payment.reference} · {payment.id}</option>)}</select></label> : <><label className="min-w-0 space-y-2">Valor declarado (vírgula ou ponto)<Input required inputMode="decimal" pattern={decimalPattern(2)} maxLength={15} value={amount} onChange={event => setAmount(event.target.value)} /></label><label className="min-w-0 space-y-2">Meio declarado<select className={selectClass} value={method} onChange={event => setMethod(event.target.value)}><option value="bank_transfer">Transferência</option><option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="other">Outro</option></select></label></>}
             <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do recebimento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
             <label className="min-w-0 space-y-2">{reversing ? "Motivo do estorno" : "Referência do recebimento"}<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
           </fieldset>

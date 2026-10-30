@@ -8,3 +8,5 @@ export default async function EditPriceListPage({
   const { id } = await params;
   return <CatalogRecordForm kind="price-list" mode="edit" id={id} />;
 }
+
+export const metadata = { title: "Editar lista de preços" }

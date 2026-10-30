@@ -25,3 +25,5 @@ async function LoginForm({ searchParams }: LoginProps) {
     </div><footer className="mx-auto flex max-w-6xl flex-wrap gap-x-6 gap-y-3 border-t pt-5 text-xs text-muted-foreground"><span>Ávila Ops</span><Link href="https://avilaops.com/politica-de-privacidade">Privacidade</Link><Link href="https://avilaops.com/termos-de-servico">Termos de serviço</Link></footer>
   </main>
 }
+
+export const metadata = { title: "Entrar" }

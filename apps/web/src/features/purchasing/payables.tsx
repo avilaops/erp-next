@@ -1,5 +1,7 @@
 "use client"
 
+import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -65,14 +67,16 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
       {!value.canEdit ? <p>Somente consulta.</p> : (!paid || reversing) && <form className="min-w-0 space-y-4" onSubmit={async event => {
         event.preventDefault()
         if (!command.uncertain && !window.confirm(reversing ? "Registrar o estorno deste pagamento declarado? O estoque e o recebimento da compra serão preservados." : "Registrar este pagamento manual no ERP? Nenhum dinheiro será transferido.")) return
-        const body = reversing ? { paymentId, reason: reference, occurredOn } : { amount, method, reference, occurredOn }
+        const normalizedAmount = normalizeDecimal(amount)
+        if (!reversing && normalizedAmount === null) return
+        const body = reversing ? { paymentId, reason: reference, occurredOn } : { amount: normalizedAmount, method, reference, occurredOn }
         const response = await command.send<Detail>(`/api/erp/payables/${value.data.id}/${reversing ? "reverse-payment" : "payments"}`, value.tenantId, body, etag)
         if (response) { setReference(""); setOccurredOn(""); setAmount(""); setPaymentId(""); reload() }
       }}>
         <h3 className="font-semibold">{reversing ? "Estornar pagamento declarado" : "Registrar pagamento declarado"}</h3>
         <fieldset disabled={frozen} className="grid min-w-0 gap-4 sm:grid-cols-2">
           {reversing ? <label className="min-w-0 space-y-2">Pagamento a estornar<select className={purchaseSelect} value={paymentId} onChange={event => setPaymentId(event.target.value)}>{activePayments.map(payment => <option value={payment.id} key={payment.id}>{money(payment.amount)} · {payment.reference} · {payment.occurredOn}</option>)}</select></label> : <>
-            <label className="min-w-0 space-y-2">Valor do pagamento<Input required inputMode="decimal" placeholder="0.00" pattern="(0|[1-9][0-9]{0,11})[.][0-9]{2}" maxLength={15} value={amount} onChange={event => setAmount(event.target.value)} /></label>
+            <label className="min-w-0 space-y-2">Valor do pagamento<Input required inputMode="decimal" placeholder="0,00" pattern={decimalPattern(2)} maxLength={15} value={amount} onChange={event => setAmount(event.target.value)} /></label>
             <label className="min-w-0 space-y-2">Meio declarado<select className={purchaseSelect} value={method} onChange={event => setMethod(event.target.value)}><option value="bank_transfer">Transferência</option><option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="other">Outro</option></select></label>
           </>}
           <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do pagamento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>

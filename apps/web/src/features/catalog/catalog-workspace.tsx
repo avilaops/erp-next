@@ -1,5 +1,7 @@
 "use client"
 
+import { normalizeDecimal } from "@/lib/decimal-input"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import { GuardedLink as Link, useNavigationGuard } from "@/components/navigation-guard"
@@ -17,10 +19,7 @@ type Snapshot = { tenantId: string; canEdit: boolean; data: Product }
 const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active" }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
-function priceForRequest(value: string): string | null {
-  const match = /^(0|[1-9][0-9]{0,11})(?:[.,]([0-9]{1,2}))?$/.exec(value.trim())
-  return match ? `${match[1]}.${(match[2] || "").padEnd(2, "0")}` : null
-}
+const priceForRequest = normalizeDecimal
 
 export function CatalogList() {
   const params = useSearchParams()

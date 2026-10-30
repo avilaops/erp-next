@@ -5,3 +5,5 @@ export default async function EditWarehousePage({
   const { id } = await params;
   return <WarehouseForm warehouseId={id} />;
 }
+
+export const metadata = { title: "Editar depósito" }

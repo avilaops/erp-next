@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
-  CheckCircle2,
   Globe2,
   MonitorCog,
   Save,
@@ -25,7 +24,6 @@ export function SystemPreferences() {
     fiscal: true,
     integrations: false,
   });
-  const [saved, setSaved] = useState(false);
   const preview = useMemo(
     () => ({
       date:
@@ -41,7 +39,6 @@ export function SystemPreferences() {
 
   function applyTheme(next: Theme) {
     setTheme(next);
-    setSaved(false);
   }
 
   return (
@@ -54,19 +51,10 @@ export function SystemPreferences() {
           Preferências do sistema
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
-          Ajuste a experiência da empresa. A aparência é aplicada imediatamente;
-          as demais escolhas exigem salvamento.
+          A aparência é aplicada e salva neste navegador. As demais configurações
+          são prévias indisponíveis e não alteram a empresa.
         </p>
       </header>
-      {saved && (
-        <div
-          className="mt-6 flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm"
-          role="status"
-        >
-          <CheckCircle2 className="size-5 text-emerald-500" />
-          Preferências salvas apenas nesta demonstração.
-        </div>
-      )}
       <div className="mt-6 space-y-6">
         <Section
           icon={MonitorCog}
@@ -100,6 +88,8 @@ export function SystemPreferences() {
             </div>
           </fieldset>
         </Section>
+        <fieldset disabled className="min-w-0 space-y-6 border-0 p-0">
+        <legend className="mb-4 text-sm text-muted-foreground">Prévia de configurações indisponíveis. Os valores abaixo são exemplos.</legend>
         <Section
           icon={Globe2}
           title="Idioma e região"
@@ -193,16 +183,16 @@ export function SystemPreferences() {
                       ...current,
                       [id]: event.target.checked,
                     }));
-                    setSaved(false);
                   }}
                 />
               </label>
             ))}
           </div>
         </Section>
+        </fieldset>
       </div>
       <div className="sticky bottom-20 mt-6 flex justify-end rounded-2xl border border-border bg-background/95 p-3 backdrop-blur lg:bottom-4">
-        <Button onClick={() => setSaved(true)}>
+        <Button disabled>
           <Save />
           Salvar preferências
         </Button>

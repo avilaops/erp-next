@@ -125,17 +125,11 @@ test("busca distingue módulos, configurações e operações financeiras", asyn
   }
 })
 
-test("importação demonstrativa informa que não produz relatório", async ({ page }) => {
+test("importação indisponível não oferece seleção de arquivo ou relatório", async ({ page }) => {
   await page.goto("/vendas/importacao")
-  await page.getByRole("button", { name: /Pesquisar/ }).click()
-  await expect(page.getByRole("dialog")).toBeVisible()
-  await page.keyboard.press("Escape")
-  await page.getByLabel("Arquivo CSV ou XLSX").setInputFiles({ name: "fixture.csv", mimeType: "text/csv", buffer: Buffer.from("numero_pedido,documento_cliente\n") })
-  await expect(page.getByRole("button", { name: "Continuar", exact: true })).toBeEnabled()
-  for (let step = 0; step < 3; step++) await page.getByRole("button", { name: "Continuar", exact: true }).click()
-  await expect(page.getByRole("button", { name: "Baixar relatório demonstrativo", exact: true })).toBeDisabled()
-  await expect(page.getByText("Download indisponível: esta simulação não gera um relatório do arquivo selecionado.", { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Revisão concluída", exact: true })).toBeDisabled()
+  await expect(page.getByRole("heading", { name: "Importação indisponível", exact: true })).toBeVisible()
+  await expect(page.locator('input[type="file"]')).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Baixar relatório demonstrativo", exact: true })).toHaveCount(0)
 })
 
 test("link copiado restaura consulta e limpar filtros reinicia paginação", async ({ page, context }) => {

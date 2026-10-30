@@ -7,3 +7,5 @@ async function Resolved({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return <StaffAccess kind="vendedores" editor id={id} view />
 }
+
+export const metadata = { title: "Detalhes de vendedor" }

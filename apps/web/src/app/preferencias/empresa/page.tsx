@@ -5,3 +5,5 @@ import { CompanyPreferences } from "@/features/company/company-preferences"
 export default function CompanyPreferencesPage() {
   return <CompanyPreferences summary={<Suspense fallback={<p role="status">Carregando empresa…</p>}><CompanyWorkspace summary /></Suspense>} />
 }
+
+export const metadata = { title: "Empresa" }

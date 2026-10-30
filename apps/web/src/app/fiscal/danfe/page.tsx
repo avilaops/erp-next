@@ -18,3 +18,5 @@ export default function Page() {
     <Suspense fallback={<p role="status">Carregando acesso fiscal…</p>}><DanfeWorkspace /></Suspense>
   </div>
 }
+
+export const metadata = { title: "DANFE" }

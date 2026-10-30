@@ -16,14 +16,16 @@ import { MobileNavigation } from "@/components/mobile-navigation"
 import { DesktopNavigation } from "@/components/desktop-navigation"
 
 import { desktopMenus as menus } from "@/components/navigation-catalog"
+import { DemonstrationPreview } from "@/components/demonstration-preview"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<p role="status" className="p-6 text-sm text-muted-foreground">Preparando o ERP…</p>}><WorkspaceFrame>{children}</WorkspaceFrame></Suspense>
 }
 
 async function WorkspaceFrame({ children }: { children: React.ReactNode }) {
-  if ((await headers()).get("x-erp-path") === "/entrar") return <>{children}</>
-  return <WorkspaceNavigation>{children}</WorkspaceNavigation>
+  const pathname = (await headers()).get("x-erp-path") || "/"
+  if (pathname === "/entrar") return <>{children}</>
+  return <WorkspaceNavigation><DemonstrationPreview>{children}</DemonstrationPreview></WorkspaceNavigation>
 }
 
 function WorkspaceNavigation({ children }: { children: React.ReactNode }) {

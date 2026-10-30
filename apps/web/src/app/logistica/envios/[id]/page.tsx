@@ -8,3 +8,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   return <ShippingDetail id={id} />;
 }
+
+export const metadata = { title: "Detalhes do envio" }

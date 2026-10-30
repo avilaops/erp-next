@@ -8,3 +8,5 @@ export default async function ExecuteProductionOrderPage({
   const { id } = await params;
   return <ExecuteProductionOrder id={id} />;
 }
+
+export const metadata = { title: "Executar ordem de produção" }

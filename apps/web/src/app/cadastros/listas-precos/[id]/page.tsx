@@ -8,3 +8,5 @@ export default async function PriceListDetailPage({
   const { id } = await params;
   return <CatalogRecordDetail kind="price-list" id={id} />;
 }
+
+export const metadata = { title: "Detalhes de lista de preços" }

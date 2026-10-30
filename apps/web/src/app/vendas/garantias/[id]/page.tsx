@@ -4,3 +4,5 @@ export function generateStaticParams() { return [{ id: "gar-091" }]; }
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   return <WarrantyDetail id={(await params).id} />;
 }
+
+export const metadata = { title: "Detalhes de garantia" }

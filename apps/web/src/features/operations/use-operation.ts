@@ -1,5 +1,7 @@
 "use client"
 
+import { normalizeDecimal } from "@/lib/decimal-input"
+
 import { useEffect, useRef, useState } from "react"
 
 export function useResource<T>(url: string) {
@@ -64,7 +66,5 @@ export function useCommand() {
 }
 
 export function quantity(raw: string) {
-  if (!/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$/.test(raw)) return null
-  const [whole, fraction = ""] = raw.split(".")
-  return `${whole}.${fraction.padEnd(6, "0")}`
+  return normalizeDecimal(raw, 6)
 }

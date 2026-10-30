@@ -8,3 +8,5 @@ export default async function InventoryCountPage({
   const { id } = await params;
   return <InventoryCount id={id} />;
 }
+
+export const metadata = { title: "Contagem de inventário" }

@@ -1,5 +1,7 @@
 "use client"
 
+import { decimalPattern } from "@/lib/decimal-input"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -99,7 +101,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label><Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
+            {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label><Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
           {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}

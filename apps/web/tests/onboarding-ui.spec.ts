@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
 
-test.setTimeout(10_000)
+test.setTimeout(process.env.ERP_BROWSER_DEV === "1" ? 30000 : 10000)
 
 const origin = "http://127.0.0.1:33118"
 const secret = "danfe-browser-fixture-not-a-real-service-secret"
@@ -98,7 +98,7 @@ test("identity-only sessions cannot access existing tenant data and company sele
 
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
-  await expect(page).toHaveURL(/\/entrar$/)
+  await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
   await expect(page.getByRole("heading", { name: "Bem-vindo ao Ávila ERP", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
@@ -106,7 +106,7 @@ test("cadastros distinguish a signed-out user from an authenticated user without
   for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
     await page.goto(route)
     await expect(page.getByRole("status")).toContainText("Você já entrou. Selecione uma empresa")
-    await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas")
+    await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: route }))
     await expect(page.getByRole("link", { name: "Cadastrar empresa", exact: true })).toHaveAttribute("href", "/cadastro/empresa")
     await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
   }
@@ -133,7 +133,7 @@ test("company signup keeps input and command key after an ambiguous failure, the
 
 test("signup requires a session and picker exposes only the companies returned by the verified API", async ({ page, context }) => {
   await page.goto("/cadastro/empresa")
-  await page.waitForURL("**/entrar")
+  await page.waitForURL("**/entrar?*")
   companyCount = 2
   await context.addCookies([cookie()])
   await page.goto("/empresas")
@@ -142,4 +142,64 @@ test("signup requires a session and picker exposes only the companies returned b
   await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
   await page.waitForURL("**/preferencias/empresa/dados")
   expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe(tenant)
+})
+
+test("expired access preserves the internal path and filters through the login form", async ({ page, context }) => {
+  await context.addCookies([cookie(tenant, Date.now() - 1000)])
+  const destination = "/cadastros/produtos?status=archived&offset=25"
+  await page.goto(destination)
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
+  await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+})
+
+test("OIDC returns to the sealed destination and ignores callback redirect parameters", async ({ context }) => {
+  companyCount = 1
+  const destination = "/cadastros/produtos?status=archived&offset=25"
+  const login = await context.request.get("/api/auth/login?" + new URLSearchParams({ returnTo: destination }), { maxRedirects: 0 })
+  const state = new URL(login.headers().location).searchParams.get("state")!
+  const callback = await context.request.get("/api/auth/callback?" + new URLSearchParams({ code: "fixture", state, returnTo: "//foreign.invalid" }), { maxRedirects: 0 })
+  expect(callback.status()).toBe(307)
+  expect(callback.headers().location).toBe(origin + destination)
+})
+
+test("OIDC rejects external, encoded, API and looping return destinations", async ({ context }) => {
+  companyCount = 1
+  for (const returnTo of ["https://foreign.invalid", "//foreign.invalid", "/\\foreign.invalid", "/%2f%2fforeign.invalid", "/%255cforeign.invalid", "/api/auth/logout", "/entrar", "/empresas", "/cadastro/empresa", "/%0aevil", "/%E0%A4%A", "/" + "é".repeat(400)]) {
+    const login = await context.request.get("/api/auth/login?" + new URLSearchParams({ returnTo }), { maxRedirects: 0 })
+    const state = new URL(login.headers().location).searchParams.get("state")!
+    const callback = await context.request.get("/api/auth/callback?" + new URLSearchParams({ code: "fixture", state }), { maxRedirects: 0 })
+    expect(callback.status()).toBe(307)
+    expect(callback.headers().location).toBe(origin + "/preferencias/empresa/dados")
+  }
+})
+
+test("multiple companies keep the requested destination until verified selection", async ({ page, context }) => {
+  companyCount = 2
+  const destination = "/cadastros/produtos?status=archived"
+  const login = await context.request.get("/api/auth/login?" + new URLSearchParams({ returnTo: destination }), { maxRedirects: 0 })
+  const state = new URL(login.headers().location).searchParams.get("state")!
+  const callback = await context.request.get("/api/auth/callback?" + new URLSearchParams({ code: "fixture", state }), { maxRedirects: 0 })
+  const picker = new URL(callback.headers().location)
+  expect(picker.pathname).toBe("/empresas")
+  expect(picker.searchParams.get("returnTo")).toBe(destination)
+  await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
+  await page.goto(picker.href)
+  await page.getByRole("button", { name: "Empresa 2", exact: true }).click()
+  await expect(page).toHaveURL(origin + destination)
+  expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe("22222222-2222-4222-8222-222222222222")
+})
+
+test("401 offers contextual login while 503 remains retryable and company switch opens picker", async ({ page, context }) => {
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/product-categories?*", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
+  await page.goto("/cadastros/categorias-produtos")
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: "/cadastros/categorias-produtos" }))
+  let unavailable = true
+  await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { legalName: "Empresa de teste", tradeName: "", taxId: "00000000000000" } } }))
+  await page.goto("/preferencias/empresa")
+  await expect(page.getByText("Consulta temporariamente indisponível", { exact: true })).toBeVisible()
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
+  unavailable = false
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+  await expect(page.getByRole("link", { name: "Trocar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: "/preferencias/empresa" }))
 })

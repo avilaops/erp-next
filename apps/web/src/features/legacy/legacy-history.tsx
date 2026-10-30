@@ -1,5 +1,7 @@
 "use client"
 
+import { AccessLink } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -45,7 +47,7 @@ export function LegacyHistory() {
   }, [collection, offset])
   return <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
     <PageHeader eyebrow="Dados da empresa" title="Histórico do ERP anterior" description="Registros e arquivos originais preservados na migração. A consulta não altera pedidos nem repete operações financeiras ou fiscais." />
-    <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href="/cadastros/produtos">Cadastro atual de produtos</Link><Link className="text-primary underline" href="/entrar">Entrar com Ávila Ops</Link></div>
+    <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href="/cadastros/produtos">Cadastro atual de produtos</Link><AccessLink className="text-primary underline" >Entrar com Ávila Ops</AccessLink></div>
     {error && <p role="alert" className="form-section">{error}</p>}
     {!snapshot && !error && <p role="status">Carregando histórico…</p>}
     {snapshot && <>

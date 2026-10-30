@@ -95,10 +95,10 @@ test("acesso sem permissão fiscal é recusado e sair encerra a sessão do ERP",
 
 test("visita anônima mostra entrada e cadastro inicia o Auth com PKCE", async ({ page, context }) => {
   await page.goto("/")
-  await expect(page).toHaveURL(/\/entrar$/)
+  await expect(page).toHaveURL(/\/entrar\?returnTo=%2F$/)
   await expect(page.getByRole("heading", { name: "Bem-vindo ao Ávila ERP", exact: true })).toBeVisible()
   await expect(page.getByRole("navigation", { name: "Módulos do ERP", exact: true })).toHaveCount(0)
-  await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta")
+  await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta?returnTo=%2F")
   const signup = await context.request.get("/criar-conta", { maxRedirects: 0 })
   expect(new URL(signup.headers().location, origin).pathname).toBe("/api/auth/login")
   const begin = await context.request.get(signup.headers().location, { maxRedirects: 0 })

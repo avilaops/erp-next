@@ -1,11 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { accessHref, safeReturnTo } from "@/lib/return-to"
+import { AccessLink } from "@/components/session-recovery"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
 
 export function CompanyPicker() {
   const router = useRouter()
+  const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
   const [companies, setCompanies] = useState<{ id: string; legalName: string }[]>([])
   const [status, setStatus] = useState("Carregando suas empresas…")
   const [busy, setBusy] = useState(false)
@@ -23,15 +26,15 @@ export function CompanyPicker() {
     try {
       const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
       if (!response.ok) throw new Error((await response.json()).title)
-      router.push("/preferencias/empresa/dados")
+      router.push(returnTo)
       router.refresh()
     } catch (error) { setStatus(error instanceof Error ? error.message : "Tente novamente"); setBusy(false) }
   }
   return <section className="form-section space-y-4">
     <p role="status">{status}</p>
     {companies.map(company => <button disabled={busy} type="button" className="block rounded-xl border px-4 py-3" key={company.id} onClick={() => select(company.id)}>{company.legalName}</button>)}
-    <Link className="inline-block underline" href="/cadastro/empresa">Cadastrar nova empresa</Link>
-    <Link className="ml-4 inline-block underline" href="/entrar">Entrar com Ávila Ops</Link>
+    <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
+    <AccessLink className="ml-4 inline-block underline" />
   </section>
 }
 
@@ -39,6 +42,7 @@ const subscribe = () => () => {}
 
 export function CompanySignup() {
   const router = useRouter()
+  const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false)
   const [status, setStatus] = useState("")
   const [busy, setBusy] = useState(false)
@@ -63,7 +67,7 @@ export function CompanySignup() {
       }
       const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
       if (!selected.ok) throw new Error("Empresa cadastrada. Acesse Suas empresas para selecioná-la")
-      router.push("/preferencias/empresa/dados")
+      router.push(returnTo)
       router.refresh()
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }
   }
@@ -79,6 +83,6 @@ export function CompanySignup() {
     </fieldset>
     <p role="status" aria-live="polite">{status}</p>
     <button type="submit" disabled={!hydrated || busy} className="rounded-xl bg-primary px-4 py-3 text-primary-foreground">{busy ? "Salvando…" : created ? "Acessar empresa cadastrada" : "Cadastrar empresa"}</button>
-    <Link href="/empresas" className="ml-4 underline">Suas empresas</Link>
+    <Link href={accessHref("/empresas", returnTo)} className="ml-4 underline">Suas empresas</Link>
   </form>
 }

@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -23,7 +25,7 @@ function PayableList() {
   const result = useResource<Listing>(`/api/erp/payables?offset=${offset}&limit=25`)
   return <><PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Obrigações geradas pelos recebimentos de compras. O registro de pagamento é manual e não envia dinheiro nem confirma liquidação bancária." />
     <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
-      {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p>{result.error}</p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
+      {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar originada por recebimento de compra neste módulo.</p>}
         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(account => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={account.id}><Link className={`${purchaseLink} break-words`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><p>{situation(account)}</p><p>Valor: {money(account.amount)} · Saldo: {money(account.outstandingAmount)}</p><p>Vencimento: {account.dueDate}</p></li>)}</ul>
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><span>Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
@@ -35,7 +37,7 @@ function PayableList() {
 function PayableDetail({ id }: { id: string }) {
   const result = useResource<Detail>(`/api/erp/payables/${id}`)
   if (result.loading) return <p role="status">Carregando conta a pagar…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert">{result.error || "Conta indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Conta indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
   return <PayableForm key={result.etag} value={result.value} etag={result.etag} reload={result.reload} />
 }
 
@@ -76,7 +78,7 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
           <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do pagamento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
           <label className="min-w-0 space-y-2">{reversing ? "Motivo do estorno" : "Referência do pagamento"}<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
         </fieldset>
-        {command.error && <p role="alert">{command.error}</p>}
+        {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.uncertain && <p role="status">Confirmação pendente. A repetição confere o mesmo registro financeiro.</p>}
         {command.stale && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Descartar sua edição e recarregar a conta atual?")) { command.reset(); reload() } }}>Recarregar conta a pagar</Button>}
         <Button className="h-auto max-w-full whitespace-normal" type="submit" disabled={command.busy || command.stale || !etag}>{command.busy ? "Confirmando…" : command.uncertain ? "Repetir confirmação financeira" : reversing ? "Confirmar estorno do pagamento" : "Confirmar pagamento declarado"}</Button>

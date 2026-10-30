@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -26,7 +28,7 @@ function ReceivableList() {
   const result = useResource<Listing>(`/api/erp/receivables?offset=${offset}&limit=25`)
   return <><PageHeader eyebrow="Financeiro" title="Contas a receber" description="Títulos de pedidos concluídos. Os recebimentos são declarações manuais, sem confirmação bancária automática." />
     <section className="form-section min-w-0 space-y-4"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>
-      {result.loading ? <p role="status">Carregando contas…</p> : result.error ? <div role="alert"><p>{result.error}</p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
+      {result.loading ? <p role="status">Carregando contas…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} conta(s)</p>
         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(account => <li key={account.id} className="min-w-0 space-y-2 rounded-xl border p-4"><Link className={`${linkClass} break-words`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link><p>R$ {account.amount.replace(".", ",")} · {situation(account)}</p><p>Saldo restante: R$ {account.outstandingAmount.replace(".", ",")}</p><p>Vencimento: {account.dueDate}</p><p className="break-all text-xs text-muted-foreground">Pedido {account.orderId}</p></li>)}</ul>
         <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
@@ -53,7 +55,7 @@ function ReceivableDetail({ id }: { id: string }) {
   return <><PageHeader eyebrow="Financeiro" title="Conta a receber" description="Recebimentos manuais, parciais ou integrais. Estornar um recebimento recompõe o saldo e preserva o histórico. Não movimenta uma conta bancária." /><Link className={linkClass} href="/financeiro/contas-receber">Voltar às contas</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {notice && <p role="status">{notice}</p>}
-      {result.loading ? <p role="status">Carregando conta…</p> : result.error ? <p role="alert">{result.error}</p> : value && <>
+      {result.loading ? <p role="status">Carregando conta…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
         {!value.canEdit ? <p>Somente consulta.</p> : <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setNotice("")
@@ -67,7 +69,7 @@ function ReceivableDetail({ id }: { id: string }) {
             <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do recebimento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
             <label className="min-w-0 space-y-2">{reversing ? "Motivo do estorno" : "Referência do recebimento"}<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
           </fieldset>
-          {command.error && <p role="alert">{command.error}</p>}
+          {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
           {command.stale && <Button type="button" variant="outline" onClick={() => {
             if (window.confirm("Descartar o registro em edição e carregar a conta atual do servidor?")) { command.reset(); clearForm(); result.reload() }

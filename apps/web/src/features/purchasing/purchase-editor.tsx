@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -15,7 +17,7 @@ type DraftLine = PurchaseChoice & { quantity: string; unitCost: string }
 export function PurchaseEditor({ id }: { id?: string }) {
   const result = useResource<PurchaseDetail | PurchaseList>(id ? `/api/erp/purchase-orders/${id}` : "/api/erp/purchase-orders?limit=1")
   if (result.loading) return <p role="status">Carregando compra e permissões…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert">{result.error || "Compra indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.error || !result.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Compra indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section>
   const initial = "items" in result.value ? result.value : undefined
   if (!result.value.canEdit || initial && initial.data.status !== "draft") return <section className="form-section space-y-3"><PageHeader eyebrow="Compras" title="Pedido de compra" description="A edição exige permissão de gestão e um pedido em rascunho." /><p role="status">{!result.value.canEdit ? "Somente consulta. Solicite permissão para alterar compras." : "Este pedido não está em rascunho."}</p><Link className={purchaseLink} href={id ? `/compras/pedidos/${id}` : "/compras/pedidos"}>Voltar às compras</Link></section>
   return <PurchaseForm key={`${id || "new"}:${result.etag}`} initial={initial} tenantId={result.value.tenantId} etag={result.etag} reload={result.reload} />
@@ -79,7 +81,7 @@ function PurchaseForm({ initial, tenantId, etag, reload }: { initial?: PurchaseD
         </fieldset>
         <p className="text-sm text-muted-foreground">Use ponto nos valores decimais. Os custos da compra são informados por você; o preço de venda não é usado como custo.</p>
         {complete && <p className="font-medium">Total previsto: {money(fixedText(total, 2))}</p>}
-        {(error || command.error) && <p role="alert">{error || command.error}</p>}
+        {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
         {command.uncertain && <p role="status">Confirmação pendente. Conferir usa o mesmo comando, preservando os dados enviados.</p>}
         {command.stale && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Descartar sua edição e recarregar a compra atual?")) { command.reset(); reload() } }}>Recarregar compra</Button>}
         <Button className="h-auto max-w-full whitespace-normal" type="submit" disabled={command.busy || command.stale || !supplier || !items.length}>{command.busy ? "Confirmando…" : command.uncertain ? "Conferir gravação da compra" : initial ? "Salvar rascunho" : "Criar rascunho de compra"}</Button>

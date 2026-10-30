@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -25,7 +27,7 @@ function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label
     <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}>
       <label className="min-w-0 flex-1 space-y-2">Buscar {label}<Input name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
-    {result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert">{result.error}</p> : <>
+    {result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
       <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto max-w-full break-all whitespace-normal text-left" variant="outline" disabled={disabled} onClick={() => choose(value)}>Selecionar {value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum resultado encontrado.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Anterior {label}</Button><Button variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximo {label}</Button></div>
@@ -45,7 +47,7 @@ function OrderList() {
   return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
     <section className="form-section min-w-0 space-y-4">
       {result.value?.canEdit && <Link className={linkClass} href="/vendas/pedidos/novo">Novo pedido</Link>}
-      {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p>{result.error}</p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
+      {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} pedido(s)</p>
         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(order => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={order.id}><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>Pedido de {order.customerName}</Link><p>{labels[order.status]} · R$ {order.amount.replace(".", ",")}</p><p className="break-all text-xs text-muted-foreground">{order.id}</p></li>)}</ul>
         <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
@@ -57,7 +59,7 @@ function OrderList() {
 function OrderEditor({ id }: { id?: string }) {
   const access = useResource<Listing | Detail>(id ? `/api/erp/orders/${id}` : "/api/erp/orders?limit=1")
   if (access.loading) return <p role="status">Carregando rascunho e permissões…</p>
-  if (access.error || !access.value) return <section className="form-section space-y-3"><p role="alert">{access.error || "Pedido indisponível"}</p><Button onClick={access.reload}>Tentar novamente</Button></section>
+  if (access.error || !access.value) return <section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section>
   const initial = "items" in access.value ? access.value : undefined
   if (!access.value.canEdit || (initial && initial.data.status !== "draft")) {
     return <><PageHeader eyebrow="Vendas" title="Edição do pedido" description="Alterações são permitidas somente em rascunhos com autorização de gestão." /><section className="form-section space-y-3"><p role="status">{!access.value.canEdit ? "Somente consulta. Solicite permissão para alterar pedidos." : "Este pedido não está em rascunho e não pode ser editado."}</p><Link className={linkClass} href={id ? `/vendas/pedidos/${id}` : "/vendas/pedidos"}>Voltar aos pedidos</Link></section></>
@@ -99,7 +101,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
             {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})([.][0-9]{1,6})?" maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label><Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
-          {(error || command.error) && <p role="alert">{error || command.error}</p>}
+          {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
           {command.stale && <Button type="button" variant="outline" onClick={() => { if (!dirty || window.confirm("Recarregar e descartar as alterações locais deste rascunho?")) { command.reset(); reload() } }}>Recarregar rascunho</Button>}
           <Button type="submit" disabled={command.busy || command.stale || !customer || !items.length}>{command.busy ? "Confirmando…" : command.uncertain ? initial ? "Conferir alteração do pedido" : "Conferir criação do pedido" : initial ? "Salvar rascunho" : "Criar rascunho"}</Button>
@@ -123,13 +125,13 @@ function OrderDetail({ id }: { id: string }) {
   return <><PageHeader eyebrow="Vendas" title="Pedido de venda" description="Concluir registra saída de estoque e conta a receber. Não emite NF-e nem comprova entrega física." /><Link className={linkClass} href="/vendas/pedidos">Voltar aos pedidos</Link>
     <section className="form-section mt-5 min-w-0 space-y-4">
       {notice && <p role="status">{notice}</p>}
-      {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert">{result.error}</p> : value && <>
+      {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Situação: {labels[value.data.status]}</p><p>Total comercial: R$ {value.data.amount.replace(".", ",")}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Pedido {id} · Revisão {value.data.revision}</p>
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
         {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
         <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><strong className="block break-words">{item.name}</strong><p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
-        {command.error && <p role="alert">{command.error}</p>}
+        {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}
         {command.uncertain ? <Button disabled={command.busy} onClick={() => act(pendingAction)}>Repetir confirmação do pedido</Button> : value.canEdit && <div className="flex flex-wrap gap-3">
           {value.data.status === "draft" && <Button disabled={command.busy || command.stale || !result.etag} onClick={() => act("confirm")}>Confirmar e reservar estoque</Button>}

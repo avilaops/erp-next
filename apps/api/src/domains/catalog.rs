@@ -130,11 +130,13 @@ impl ProductInput {
 pub struct Product {
     pub id: Uuid,
     pub revision: i64,
+    pub has_photo: bool,
     #[serde(flatten)]
     pub data: ProductInput,
 }
 #[derive(FromRow)]
 struct ProductRow {
+    has_photo: bool,
     photo_data_url: Option<String>,
     id: Uuid,
     sku: String,
@@ -153,6 +155,7 @@ impl From<ProductRow> for Product {
         Self {
             id: r.id,
             revision: r.revision,
+            has_photo: r.has_photo,
             data: ProductInput {
                 photo_data_url: r.photo_data_url,
                 sku: r.sku,
@@ -217,7 +220,7 @@ pub async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Product, DomainError> {
-    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,photo_data_url FROM products WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.map(Into::into).ok_or(DomainError::NotFound)
 }
 fn product_error(error: sqlx::Error) -> DomainError {
@@ -251,7 +254,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,NULL::text AS photo_data_url FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) ORDER BY name,id LIMIT $4 OFFSET $5")
+    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,NULL::text AS photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) ORDER BY name,id LIMIT $4 OFFSET $5")
         .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0)")
         .bind(tenant).bind(&query.status).bind(&q).fetch_one(&mut *tx).await.map_err(db)?;

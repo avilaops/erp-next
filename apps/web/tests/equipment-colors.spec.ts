@@ -32,9 +32,17 @@ test("cores do equipamento são escolhidas, persistidas e preservadas após alte
   const productResponse = await context.request.get(`/api/erp/products/${productId}`)
   const product = (await productResponse.json()).data
   expect(product.photoDataUrl).toMatch(/^data:image\/jpeg;base64,/)
+  expect(product.hasPhoto).toBe(true)
   await expect(page.getByRole("img", { name: "Foto cadastrada do produto", exact: true })).toBeVisible()
   expect(product.structureColors).toEqual(["Preto fosco", "Branco"])
   expect(product.upholsteryColors).toEqual(["Preto", "Vermelho"])
+  await page.goto("/cadastros/produtos")
+  await page.getByLabel("Buscar nome ou SKU", { exact: true }).fill(sku)
+  await page.locator("#conteudo-principal").getByRole("button", { name: "Buscar", exact: true }).click()
+  await expect(page.getByRole("img", { name: `Foto de ${name}`, exact: true })).toBeVisible()
+  const listed = await (await context.request.get(`/api/erp/products?q=${sku}`)).json()
+  expect(listed.data[0].hasPhoto).toBe(true)
+  expect(listed.data[0].photoDataUrl).toBeUndefined()
 
   const customers = await (await context.request.get("/api/erp/parties?q=11222333000181")).json()
   let customer = customers.data[0]

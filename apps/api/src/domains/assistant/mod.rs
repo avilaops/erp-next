@@ -40,6 +40,7 @@ impl ChatInput {
     }
 }
 
+#[derive(Debug)]
 pub struct ChatError {
     status: StatusCode,
     title: &'static str,
@@ -147,7 +148,10 @@ pub async fn chat(
             if let Some(args) =
                 tools::navigation_request(input.questions.last().expect("validated question"))
             {
-                plan.push(("localizar_funcionalidade".to_owned(), args));
+                plan.push((
+                    "localizar_funcionalidade".to_owned(),
+                    tools::CallArguments::Search(args),
+                ));
             } else {
                 let reply = client
                     .generate(&input.questions)
@@ -161,21 +165,13 @@ pub async fn chat(
                 // Validate the entire plan before executing any tool. No arbitrary dispatch.
                 for call in reply.tool_calls {
                     let name = call.function.name;
-                    if ![
-                        "localizar_funcionalidade",
-                        "buscar_produtos",
-                        "consultar_estoque",
-                    ]
-                    .contains(&name.as_str())
-                    {
-                        return Err(ChatError::invalid(
-                            "O modelo solicitou uma ferramenta não permitida.",
-                        ));
-                    }
-                    plan.push((
-                        name,
-                        tools::arguments(call.function.arguments).map_err(ChatError::invalid)?,
-                    ));
+                    let args = tools::parse_call(
+                        &name,
+                        call.function.arguments,
+                        input.questions.last().expect("validated question"),
+                    )
+                    .map_err(ChatError::invalid)?;
+                    plan.push((name, args));
                 }
             }
             let mut results = Vec::new();
@@ -189,7 +185,7 @@ pub async fn chat(
                 .iter()
                 .all(|r| r["data"].as_array().is_some_and(Vec::is_empty))
             {
-                send(&sender, json!({"type":"answer","kind":"erp","text":"Nenhum resultado encontrado para o termo informado. Confira o nome ou SKU e tente novamente."})).await;
+                send(&sender, json!({"type":"answer","kind":"erp","text":"Nenhum resultado encontrado. Confira o nome, SKU ou identificador informado e tente novamente."})).await;
             } else if results
                 .iter()
                 .all(|result| result["tool"] == "localizar_funcionalidade")

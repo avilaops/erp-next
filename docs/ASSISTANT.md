@@ -19,10 +19,22 @@ inferência. Cada ferramenta revalida direitos e usa os handlers existentes:
 | `buscar_produtos` | `catalog::list`, até 5 registros por nome ou SKU | `catalog.products.read` |
 | `consultar_estoque` | `inventory::balances`, até 5 registros | `inventory.stock.read` |
 | `localizar_funcionalidade` | Rotas implementadas, catálogo fechado no Rust | Permissão de leitura da tela |
+| `buscar_clientes` | `parties::list`, filtro de cliente e até 5 registros por nome ou documento | `catalog.parties.read` |
+| `listar_pedidos` | `sales::list`, até 5 pedidos mais recentes | `sales.orders.read` |
+| `consultar_pedido` | `sales::get`, resumo por UUID informado na conversa | `sales.orders.read` |
 
 As ferramentas não recebem tenant, SQL, URL, caminho de arquivo ou comandos.
-Clientes, pedidos e financeiro têm navegação nesta versão; suas consultas de dados
-ainda não fazem parte das ferramentas. A UI identifica a empresa ativa.
+Financeiro tem apenas navegação nesta versão. A UI identifica a empresa ativa.
+Clientes retornam nome, nome fantasia, situação e link. Pedidos retornam
+identificador, cliente, valor, vencimento, situação e link. Documentos pessoais,
+contatos, endereços e itens completos não são incluídos nas respostas das ferramentas.
+A leitura de um pedido exige exatamente um UUID na pergunta atual. O Rust extrai
+esse identificador do texto original; o modelo escolhe a ferramenta sem transcrever
+UUIDs. Identificadores nos argumentos da ferramenta e perguntas ambíguas são recusados.
+A lista de pedidos não filtra por cliente, situação ou
+período e não representa um total financeiro. Para consultas adicionais, abra o
+cadastro vinculado nas fontes. Exemplos: “Busque o cliente Aurora”, “Liste os
+pedidos mais recentes” e “Consulte o pedido [UUID exibido no cadastro]”.
 
 O protocolo de resposta é NDJSON com eventos `status`, `tool`, `source`, `answer`,
 `error` e `done`. `source` contém somente campos selecionados pelo servidor,
@@ -30,7 +42,7 @@ origem, links internos gerados pelo Rust e total de resultados. O texto livre do
 modelo é exibido como texto, sem HTML, Markdown executável ou links automáticos.
 
 Resultados vazios, navegação e erros têm respostas determinadas pelo servidor. Falhas e
-recusas de permissão encerram a consulta sem síntese. Para registros de produtos e estoque,
+recusas de permissão encerram a consulta sem síntese. Para os registros consultados,
 uma segunda inferência resume os registros; não recebe ferramentas executáveis.
 Dados de ferramenta são delimitados como conteúdo não confiável. As fontes são
 exibidas separadamente e continuam sendo a referência para valores exatos.

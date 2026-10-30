@@ -6,8 +6,9 @@ import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProductPhoto } from "./product-photo"
 
-type ProductInput = { sku: string; name: string; unit: string; ncm: string | null; cest: string | null; basePrice: string; status: string; structureColors: string[]; upholsteryColors: string[] }
+type ProductInput = { sku: string; name: string; unit: string; ncm: string | null; cest: string | null; basePrice: string; status: string; structureColors: string[]; upholsteryColors: string[]; photoDataUrl?: string }
 type Product = ProductInput & { id: string; revision: number }
 type ProductList = { tenantId: string; canEdit: boolean; data: Product[]; total: number }
 type Snapshot = { tenantId: string; canEdit: boolean; data: Product }
@@ -67,6 +68,7 @@ export function CatalogEditor({ id, view = false }: { id?: string; view?: boolea
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [uncertain, setUncertain] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -80,7 +82,7 @@ export function CatalogEditor({ id, view = false }: { id?: string; view?: boolea
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [] } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], photoDataUrl: value.data.photoDataUrl || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: value.data }); setDraft(data); setBaseline(JSON.stringify(data)); setEtag(response.headers.get("etag") || ""); setError(""); setConflict(false); setUncertain(false)
     }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
@@ -92,7 +94,7 @@ export function CatalogEditor({ id, view = false }: { id?: string; view?: boolea
     window.addEventListener("beforeunload", prevent); return () => window.removeEventListener("beforeunload", prevent)
   }, [dirty, uncertain])
   async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!snapshot?.canEdit || pending.current || conflict || view) return
+    event.preventDefault(); if (!snapshot?.canEdit || pending.current || conflict || view || photoBusy) return
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
     const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
@@ -125,6 +127,7 @@ export function CatalogEditor({ id, view = false }: { id?: string; view?: boolea
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
+          <ProductPhoto value={draft.photoDataUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
             <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
             <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
@@ -133,8 +136,9 @@ export function CatalogEditor({ id, view = false }: { id?: string; view?: boolea
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-8 rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
           <p id="product-price-help" className="text-sm text-muted-foreground">Use vírgula ou ponto, com até duas casas decimais. Exemplo: 12,50. Não use separador de milhar.</p>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
-          <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
+          <Button type="submit" disabled={saving || photoBusy || conflict || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
+        {view && <ProductPhoto value={snapshot.data.photoDataUrl} readOnly />}
         {view && <section className="space-y-3 rounded-xl border p-4" aria-label="Cores disponíveis do equipamento"><h2 className="font-semibold">Cores disponíveis</h2>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</section>}
       </>}
     </section>

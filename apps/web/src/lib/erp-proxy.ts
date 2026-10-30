@@ -21,11 +21,12 @@ export async function forwardErp(request: Request, resource: string) {
       const reader = request.body?.getReader()
       const chunks: Uint8Array[] = []
       let size = 0
+      const bodyLimit = /^\/products(?:\/[a-f0-9-]{36})?$/i.test(resource) ? 400_000 : 65_536
       if (reader) for (;;) {
         const { done, value } = await reader.read()
         if (done) break
         size += value.byteLength
-        if (size > 65_536) { await reader.cancel(); return Response.json({ title: "Cadastro muito grande" }, { status: 413 }) }
+        if (size > bodyLimit) { await reader.cancel(); return Response.json({ title: "Cadastro muito grande" }, { status: 413 }) }
         chunks.push(value)
       }
       body = Buffer.concat(chunks).toString("utf8")

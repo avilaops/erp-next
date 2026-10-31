@@ -13,6 +13,48 @@ function cookie(token: string, expiresAt = Date.now() + 3600_000) {
   return { name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" as const }
 }
 
+test("configuração financeira persiste, trata conflito e preenche as baixas sem lançamentos", async ({ page, context }) => {
+  await context.addCookies([cookie("fixture-editor-token")])
+  await page.goto("/preferencias/financeiro")
+  const select = page.getByRole("combobox", { name: "Meio sugerido nas baixas manuais", exact: true })
+  await expect(select).toHaveValue("bank_transfer")
+  await select.selectOption("cash")
+  await page.getByRole("button", { name: "Salvar configuração financeira", exact: true }).click()
+  await expect(page.getByText("Configuração salva no servidor para esta empresa.")).toBeVisible()
+  await page.reload()
+  await expect(select).toHaveValue("cash")
+  const snapshot = await context.request.get("/api/erp/financial-settings")
+  expect((await context.request.put("/api/erp/financial-settings", { headers: { Origin: origin, "X-Tenant-Id": tenant, "If-Match": snapshot.headers().etag }, data: { defaultPaymentMethod: "card" } })).status()).toBe(200)
+  await select.selectOption("other")
+  await page.getByRole("button", { name: "Salvar configuração financeira", exact: true }).click()
+  await expect(page.locator("main").getByRole("alert")).toContainText(/revisão|alterado|alterada/i)
+  await expect(select).toHaveValue("other")
+  page.once("dialog", dialog => dialog.accept())
+  await page.getByRole("button", { name: "Recarregar configuração", exact: true }).click()
+  await expect(select).toHaveValue("card")
+  await page.setViewportSize({ width: 320, height: 740 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect(page.getByRole("link", { name: "Abrir contas financeiras", exact: true })).toBeVisible()
+  const id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+  // Only account details are fixtures; the saved financial setting is read from the real Rust API.
+  for (const resource of ["receivables", "payables"]) await page.route(`**/api/erp/${resource}/${id}`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { id, orderId: id, receiptId: id, customerName: "Cliente isolado", supplierName: "Fornecedor isolado", dueDate: "2026-10-31", amount: "100.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "100.00", status: "open", revision: 1, paymentId: null }, payments: [] } }))
+  for (const path of ["contas-receber", "contas-pagar"]) {
+    await page.goto(`/financeiro/${path}/${id}`)
+    const method = page.getByRole("combobox", { name: "Meio declarado", exact: true })
+    await expect(method).toHaveValue("card")
+    await method.selectOption("cash")
+    await expect(method).toHaveValue("cash")
+  }
+  await context.addCookies([cookie("fixture-reader-token")])
+  await page.goto("/preferencias/financeiro")
+  await expect(select).toHaveValue("card")
+  await expect(select).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Salvar configuração financeira", exact: true })).toHaveCount(0)
+  await context.addCookies([cookie("fixture-editor-token")])
+  const current = await context.request.get("/api/erp/financial-settings")
+  expect((await context.request.put("/api/erp/financial-settings", { headers: { Origin: origin, "X-Tenant-Id": tenant, "If-Match": current.headers().etag }, data: { defaultPaymentMethod: "bank_transfer" } })).status()).toBe(200)
+})
+
 test("auditoria real filtra eventos, preserva privacidade e recusa leitor sem permissão", async ({ page, context }) => {
   await context.addCookies([cookie("fixture-editor-token")])
   const snapshot = await context.request.get("/api/erp/preferences")

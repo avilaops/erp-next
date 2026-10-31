@@ -12,8 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 117);
-  assert.equal(assessment.bffOperations, 104);
+  assert.equal(assessment.apiOperations, 124);
+  assert.equal(assessment.bffOperations, 112);
   assert.equal(assessment.pendingFlows, 25);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
@@ -37,6 +37,10 @@ test('new undocumented routes, stale contracts, missing preconditions and false 
   const added = structuredClone(inventory);
   added.bff.push({ path: '/api/erp/undocumented', methods: ['POST'] });
   assert.ok(assessContracts(catalogue, added).findings.some(finding => finding.code === 'bff_without_action_contract'));
+  const invalidAsset = structuredClone(catalogue);
+  invalidAsset.assetActions = [{ method: 'GET', path: '/api/erp/undocumented', source: 'arbitrary', authentication: 'public_static_asset', action: 'invalid exemption' }];
+  assert.ok(assessContracts(invalidAsset, added).findings.some(finding => finding.code === 'invalid_asset_contract'));
+  assert.ok(assessContracts(invalidAsset, added).findings.some(finding => finding.code === 'bff_without_action_contract'));
 });
 
 test('blocked NF-e remains blocked and dynamic BFF actions cannot invent commands', async () => {

@@ -1,6 +1,6 @@
 FROM docuseal/docuseal@sha256:28d0ca583860e2c73e5b068756023a93a325799a22da1f788355d566865dd051
-# Upstream remains 3.3.3. This overlay changes presentation only; all original
-# attribution and signing behavior remain available. Build only in GitHub CI.
+# Upstream remains 3.3.3. Adds our authenticated model-publication API;
+# original attribution and signing behavior remain. Build only in GitHub CI.
 COPY overlay/ /app/
 COPY avila-source.tar.gz /app/public/avila-source.tar.gz
 ARG RELEASE_SHA

@@ -5,6 +5,12 @@
     "product": "erp",
     "flows": [
       {
+        "id": "financial-settings", "title": "Configurações financeiras", "goal": "Salvar o meio sugerido nas baixas manuais e acessar cadastros financeiros reais.", "kind": "product",
+        "actionGroups": ["financial-settings"], "dependencies": ["company_onboarding"], "nextStep": "Conferir gravação, revisão e preenchimento dos dois formulários financeiros.",
+        "additionalSources": ["docs/CONFIGURACOES-FINANCEIRAS.md"],
+        "journey": [{ "id": "configure", "title": "Consultar e salvar sugestão da empresa", "actionIds": ["get-financial-settings", "put-financial-settings"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
         "id": "audit", "title": "Segurança e auditoria", "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.", "kind": "product",
         "actionGroups": ["audit"], "dependencies": ["company_onboarding"],
         "nextStep": "Conferir consulta, filtros, paginação e autorização na versão publicada.",
@@ -601,6 +607,32 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "get-financial-settings", "flow": "financial-settings", "status": "implemented", "operation": { "method": "GET", "path": "/api/v1/financial-settings" },
+      "actor": "active_tenant_member", "permissions": [],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; leitura da empresa OU leitura de contas a pagar OU leitura de contas a receber."],
+      "transition": { "from": "configuração da empresa ou padrão virtual", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não cria baixa nem altera saldo."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Retorna revisão para gravação; ausência usa revisão virtual 1 e transferência." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "Consultar sugestão das baixas manuais" }, "recovery": "Repetir leitura; formulários avisam falha e usam transferência inicialmente.",
+      "ui": { "pages": ["/preferencias/financeiro", "/financeiro/contas-receber/[id]", "/financeiro/contas-pagar/[id]"], "bff": { "method": "GET", "path": "/api/erp/financial-settings" }, "gap": null },
+      "sources": ["apps/api/src/platform/financial_settings.rs", "apps/web/src/features/financial-settings/financial-settings.tsx", "apps/web/src/features/financial-settings/use-suggested-payment-method.ts"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "put-financial-settings", "flow": "financial-settings", "status": "implemented", "operation": { "method": "PUT", "path": "/api/v1/financial-settings" },
+      "actor": "company_manager", "permissions": ["platform.company.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": [], "body": { "source": "apps/api/src/platform/financial_settings.rs", "type": "FinancialSettingsInput" }, "query": null },
+      "preconditions": ["Vínculo e permissão revalidados sob bloqueio da empresa; revisão obrigatória; somente meios aceitos nas baixas."],
+      "transition": { "from": "revisão atual", "to": "configuração da empresa com revisão incrementada" },
+      "effects": { "writes": ["financial_settings", "audit_log na mesma transação"], "external": [], "excludes": ["Sem baixa, cobrança, saldo, transferência ou mudança em registros anteriores."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match e bloqueio de empresa; conflito preserva edição e requer recarga." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,412,422,428,500,503], "action": "Salvar meio sugerido nas baixas" }, "recovery": "Recarregar explicitamente; não repetir gravação com resultado incerto.",
+      "ui": { "pages": ["/preferencias/financeiro"], "bff": { "method": "PUT", "path": "/api/erp/financial-settings" }, "gap": null },
+      "sources": ["apps/api/src/platform/financial_settings.rs", "migrations/202610310005_financial_settings.sql", "apps/web/src/features/financial-settings/financial-settings.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
     {
       "id": "contract-template-publish",
       "flow": "commercial-contracts",
@@ -11655,7 +11687,7 @@
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
         "apps/web/src/lib/erp-fiscal-proxy.ts",
-        "migrations/202610310005_fiscal_monitor.sql"
+        "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -11752,7 +11784,7 @@
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
         "apps/web/src/lib/erp-fiscal-proxy.ts",
-        "migrations/202610310005_fiscal_monitor.sql"
+        "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -11840,7 +11872,7 @@
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
         "apps/web/src/lib/erp-fiscal-proxy.ts",
-        "migrations/202610310005_fiscal_monitor.sql"
+        "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -11942,7 +11974,7 @@
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
         "apps/web/src/lib/erp-fiscal-proxy.ts",
-        "migrations/202610310005_fiscal_monitor.sql"
+        "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",

@@ -6,9 +6,10 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
-const previewAlt = "Interface de produtos do Ávila ERP, com nome, SKU e preço. Os registros são demonstrativos."
+const previewAlt = "Interface de produtos do Ávila ERP, com SKU, unidade, preço e situação. Os registros são demonstrativos."
 
-const mobilePreviewMedia = "(max-width: 639px), (max-height: 500px) and (max-width: 959px)"
+const landscapePreviewMedia = "(orientation: landscape) and (max-height: 500px) and (max-width: 959px)"
+const mobilePreviewMedia = "(max-width: 639px)"
 
 export function ErpEntryPreview() {
   const [open, setOpen] = useState(false)
@@ -20,6 +21,7 @@ export function ErpEntryPreview() {
         className="group mt-5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-white/20 bg-white text-left text-stone-900 shadow-xl shadow-black/15 focus-visible:ring-white focus-visible:ring-offset-[#134e4a]"
       >
         <picture className="block">
+          <source media={landscapePreviewMedia} srcSet="/erp-preview-landscape.png" width={638} height={208} />
           <source media={mobilePreviewMedia} srcSet="/erp-preview-mobile.png" width={390} height={760} />
           <Image
             src="/erp-preview.webp"
@@ -36,7 +38,7 @@ export function ErpEntryPreview() {
         </span>
       </DialogTrigger>
 
-      <DialogContent showCloseButton={false} className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent showCloseButton={false} className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-2">
           <div className="space-y-1">
             <DialogTitle>Por dentro do Ávila ERP</DialogTitle>
@@ -48,6 +50,7 @@ export function ErpEntryPreview() {
         </DialogHeader>
         <div role="region" aria-label="Imagem ampliada do ERP" tabIndex={0} className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-white focus-visible:ring-inset">
           <picture className="block">
+            <source media={landscapePreviewMedia} srcSet="/erp-preview-landscape.png" width={638} height={208} />
             <source media={mobilePreviewMedia} srcSet="/erp-preview-mobile.png" width={390} height={760} />
             <Image src="/erp-preview.webp" alt={previewAlt} width={1120} height={760} unoptimized loading="eager" className="block h-auto w-full" />
           </picture>

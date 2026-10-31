@@ -4,17 +4,32 @@ import { NextResponse } from "next/server"
 import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, unseal, uuidPattern } from "@/lib/erp-session"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
 
+function callbackFailure(request: Request, origin: string | undefined, reason: "restart" | "denied" | "unavailable", status: number, destination: string) {
+  const title = reason === "restart" ? "Sessão de autenticação inválida ou expirada" : reason === "denied" ? "Não foi possível verificar seu acesso" : "Não foi possível concluir o acesso. Tente entrar novamente"
+  const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" }
+  if (!origin || !request.headers.get("accept")?.includes("text/html")) return Response.json({ title }, { status, headers })
+  const location = new URL(accessHref("/entrar", destination), origin)
+  location.searchParams.set("erro", reason)
+  const response = NextResponse.redirect(location, 303)
+  for (const [name, value] of Object.entries(headers)) response.headers.set(name, value)
+  return response
+}
+
 export async function GET(request: Request) {
+  let origin: string | undefined
+  let returnTo = safeReturnTo(null)
   try {
     const config = erpConfiguration()
+    origin = config.origin
     const jar = await cookies()
     const flow = unseal<{ state: string; verifier: string; tenantId: string | null; returnTo?: string; expiresAt: number }>(jar.get(cookieName("auth"))?.value || "", "erp-auth")
+    returnTo = safeReturnTo(flow?.returnTo)
     jar.set(cookieName("auth"), "", cookieOptions(0))
     const params = new URL(request.url).searchParams
     const state = params.get("state") || ""
     const code = params.get("code") || ""
     if (!flow || flow.expiresAt <= Date.now() || !Number.isFinite(flow.expiresAt) || (flow.tenantId !== null && (typeof flow.tenantId !== "string" || !uuidPattern.test(flow.tenantId))) || typeof flow.state !== "string" || typeof flow.verifier !== "string" || !code || code.length > 4096 || !timingSafeEqual(createHash("sha256").update(flow.state).digest(), createHash("sha256").update(state).digest()) || !config.clientId || !config.clientSecret) {
-      return Response.json({ title: "Sessão de autenticação inválida ou expirada" }, { status: 400, headers: { "Cache-Control": "no-store" } })
+      return callbackFailure(request, origin, "restart", 400, returnTo)
     }
     const endpoints = await authEndpoints()
     const tokenResponse = await fetch(endpoints.token, { method: "POST", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000), headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${Buffer.from(`${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`).toString("base64")}` }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: `${config.origin}/api/auth/callback`, code_verifier: flow.verifier }) })
@@ -25,7 +40,7 @@ export async function GET(request: Request) {
     let tenantId = flow.tenantId
     let destination = safeReturnTo(flow.returnTo)
     const access = await fetch(`${config.api}/api/v1/${tenantId ? "me" : "companies"}`, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${token.access_token}`, ...(tenantId ? { "X-Tenant-Id": tenantId } : {}) } })
-    if (!access.ok) return Response.json({ title: "Não foi possível verificar seu acesso" }, { status: access.status === 401 || access.status === 403 ? access.status : 503, headers: { "Cache-Control": "no-store" } })
+    if (!access.ok) return callbackFailure(request, origin, access.status === 401 || access.status === 403 ? "denied" : "unavailable", access.status === 401 || access.status === 403 ? access.status : 503, returnTo)
     if (!tenantId) {
       const companies = await access.json()
       if (!Array.isArray(companies.data) || companies.data.some((item: { id?: unknown }) => typeof item?.id !== "string" || !uuidPattern.test(item.id))) throw new Error("Lista de empresas inválida")
@@ -40,5 +55,5 @@ export async function GET(request: Request) {
     response.headers.set("Cache-Control", "no-store")
     response.headers.set("Referrer-Policy", "no-referrer")
     return response
-  } catch { return Response.json({ title: "Não foi possível concluir o acesso. Tente entrar novamente" }, { status: 503, headers: { "Cache-Control": "no-store" } }) }
+  } catch { return callbackFailure(request, origin, "unavailable", 503, returnTo) }
 }

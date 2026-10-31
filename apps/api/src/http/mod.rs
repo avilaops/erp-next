@@ -15,6 +15,8 @@ mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
+mod financial_settings_tests;
+#[cfg(test)]
 mod fiscal_tests;
 mod health;
 #[cfg(test)]
@@ -64,6 +66,11 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/financial-settings",
+            get(crate::platform::financial_settings::get)
+                .put(crate::platform::financial_settings::put),
+        )
         .route("/api/v1/audit", get(crate::platform::audit::list))
         .route(
             "/api/v1/preferences",

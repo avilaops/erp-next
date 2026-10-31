@@ -114,7 +114,7 @@ test("entry keeps access visible and its single preview supports keyboard readin
   }
 })
 
-test("entry preview keeps the image full width and close visible while scrolling in landscape", async ({ page }) => {
+test("entry preview shows complete product data with margins in landscape and adapts when rotated", async ({ page }) => {
   for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport)
     await page.goto("/entrar")
@@ -122,16 +122,25 @@ test("entry preview keeps the image full width and close visible while scrolling
     const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
     const image = dialog.getByRole("img")
     await image.evaluate((image: HTMLImageElement) => image.decode())
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-mobile.png")
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-landscape.png")
     const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
     const capture = dialog.getByRole("region")
     await expect(close).toBeInViewport({ ratio: 1 })
     expect(await capture.evaluate(element => element.clientHeight)).toBeGreaterThan(viewport.height / 2)
     expect(await capture.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     expect(await image.evaluate(element => element.clientWidth)).toBeGreaterThan(viewport.width - 40)
-    await capture.focus()
-    await page.keyboard.press("End")
-    await expect.poll(() => capture.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    await expect.poll(() => capture.evaluate(element => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
+    const box = await dialog.boundingBox()
+    expect(box!.x).toBeGreaterThanOrEqual(15.5)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width - 15.5)
+    await expect(image).toBeInViewport({ ratio: 1 })
+    expect(await image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([638, 208])
+
+    await page.setViewportSize({ width: 390, height: 680 })
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-mobile.png")
+    await image.evaluate((element: HTMLImageElement) => element.decode())
+    await expect(dialog).toBeVisible()
+    expect(await capture.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     await expect(close).toBeInViewport({ ratio: 1 })
     await close.click()
   }

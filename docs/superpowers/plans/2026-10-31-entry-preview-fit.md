@@ -3,9 +3,11 @@
 **Objetivo:** permitir ver a captura inteira ao abrir a prévia no celular e
 ampliar seus detalhes de forma explícita, preservando teclado e fechamento.
 
-**Base operacional:** fonte publicada `2ffa122`. A main contém o trabalho de
-preferências pessoais, com migração em preparação no AVL-375. Esta rodada não
-autoriza nem executa essa migração ou downgrade de uma publicação concorrente.
+**Base operacional:** a preparação começou sobre a fonte publicada `2ffa122`.
+Durante a validação, a produção avançou para `125e678`, incluindo preferências
+pessoais. A branch foi reaplicada sobre essa versão publicada e saudável.
+O diff de API, Cargo e migrations desta rodada é vazio. Não se executam migrações
+nem downgrade de uma publicação concorrente.
 
 **Implementação:** reutilizar Dialog e Button existentes, com estado local
 somente para “Visão geral” e “Ver detalhes”. Ao abrir, ajustar a imagem inteira

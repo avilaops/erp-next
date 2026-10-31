@@ -36,6 +36,47 @@ test("invalid callback consumes its secure flow cookie without deleting the sess
   expect(names).toContain("__Host-erp_session")
 })
 
+test("browser callback failure offers a clean restart without exposing authentication parameters", async ({ page, context }) => {
+  const response = await context.request.get(`${server}/api/auth/callback?state=invalid&code=secret-code&returnTo=https://evil.test`, { maxRedirects: 0, headers: { Accept: "text/html" } })
+  expect(response.status()).toBe(303)
+  const destination = new URL(response.headers().location)
+  expect(destination.origin).toBe(origin)
+  expect(destination.pathname).toBe("/entrar")
+  expect(destination.searchParams.get("erro")).toBe("restart")
+  expect(destination.href).not.toContain("secret-code")
+  expect(destination.href).not.toContain("evil.test")
+  expect(response.headers()["referrer-policy"]).toBe("no-referrer")
+  // The public HTTPS hostname is synthetic. Follow the verified Location via
+  // the local transport to render the real entry page without external DNS.
+  await page.goto(`${server}${destination.pathname}${destination.search}`)
+  await expect(page.getByRole("alert")).toContainText("outro navegador")
+  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
+  expect(response.headers()["set-cookie"]).toContain("__Host-erp_auth=;")
+  expect(response.headers()["set-cookie"]).not.toContain("__Host-erp_session")
+})
+
+test("expired flow keeps its validated destination for a new attempt", async ({ page, context }, testInfo) => {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
+  cipher.setAAD(Buffer.from("erp-auth"))
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ state: "expired", verifier: "verifier", tenantId: null, returnTo: "/cadastros/produtos?pagina=2", expiresAt: Date.now() - 1000 })), cipher.final()])
+  const flow = Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url")
+  const response = await context.request.get(`${server}/api/auth/callback?state=expired&code=expired-code`, { maxRedirects: 0, headers: { Accept: "text/html", Cookie: `__Host-erp_auth=${flow}` } })
+  expect(response.status()).toBe(303)
+  const destination = new URL(response.headers().location)
+  expect(destination.searchParams.get("returnTo")).toBe("/cadastros/produtos?pagina=2")
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`${server}${destination.pathname}${destination.search}`)
+    await expect(page.getByRole("alert")).toBeVisible()
+    await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue("/cadastros/produtos?pagina=2")
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.getByRole("button", { name: "Entrar", exact: true }).focus()
+    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeFocused()
+    await page.screenshot({ path: testInfo.outputPath(`reiniciar-acesso-${width}.png`), fullPage: true, caret: "initial" })
+  }
+})
+
 test("logout rejects an absent origin without changing either cookie", async ({ context }) => {
   const response = await context.request.post(`${server}/api/auth/logout`, { maxRedirects: 0 })
   expect(response.status()).toBe(403)

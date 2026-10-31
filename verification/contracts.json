@@ -602,6 +602,108 @@
   }],
   "actions": [
     {
+      "id": "contract-template-publish",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/contract-template-drafts/{id}/publish"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "platform.integrations.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Rascunho da empresa ativa, revisão atual e assinatura obrigatória por participante.",
+        "Serviço próprio valida PDF e páginas antes da publicação."
+      ],
+      "transition": {
+        "from": "rascunho salvo",
+        "to": "versão pendente de confirmação ou publicada"
+      },
+      "effects": {
+        "writes": [
+          "commercial_template_versions",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [
+          "Consulta e publicação idempotente na API própria do portal."
+        ],
+        "excludes": [
+          "Não envia convites nem altera contratos emitidos."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Snapshot durável antes da rede. Consulta por identificador antes de repetir; portal serializa publicação e recusa conteúdo divergente."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Publicar versão de modelo"
+      },
+      "recovery": "Conferir a mesma publicação após timeout; não criar outro identificador para a mesma revisão.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/contract-template-drafts/[id]/publish"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates/publish.rs",
+        "migrations/202610310004_contract_template_versions.sql",
+        "deploy/contracts-portal/overlay/app/controllers/api/avila_templates_controller.rb",
+        "apps/web/src/features/contracts/templates.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
       "id": "contract-template-list",
       "flow": "commercial-contracts",
       "status": "implemented",

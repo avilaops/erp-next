@@ -31,6 +31,7 @@ const failures: string[] = []
 let pdf: Buffer
 let templateDraft: { id: string; definition: unknown; revision: number } | null = null
 let templateSaves = 0
+let templatePublications = 0
 function detail() {
   return { tenantId: tenant, canEdit: true, canSend, emailReady, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
@@ -40,6 +41,14 @@ const upstream = createServer(async (request, response) => {
     expect(request.headers.authorization).toBe("Bearer contracts-fixture-token")
     expect(request.headers["x-tenant-id"]).toBe(tenant)
     const url = new URL(request.url!, origin)
+    if (/^\/api\/v1\/contract-template-drafts\/[a-f0-9-]+\/publish$/.test(url.pathname)) {
+      expect(templateDraft).not.toBeNull()
+      expect(request.headers["if-match"]).toBe(`"${templateDraft!.revision}"`)
+      expect(request.headers["idempotency-key"]).toBeTruthy()
+      templatePublications++
+      response.setHeader("ETag", `"${templateDraft!.revision}"`)
+      response.end(JSON.stringify({ revision: templateDraft!.revision, externalId: 99, status: "published" })); return
+    }
     if (url.pathname === "/api/v1/contract-template-drafts/catalog") {
       response.end(JSON.stringify({ configured: true, canEdit: true, data: [{ id: 1, name: "Modelo do serviço conectado", canImport: true, draftId: templateDraft?.id || null }] })); return
     }
@@ -134,7 +143,7 @@ test.beforeAll(async ({ browser }) => {
 })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(() => {
-  templateDraft = null; templateSaves = 0
+  templateDraft = null; templateSaves = 0; templatePublications = 0
   status = "created"; revision = 1; canSend = true; emailReady = false
   generated = false; sends = 0; reviewCalls = 0; commercial = false; generationCalls = 0
   generatedRecipients = []; generatedFields = {}; generationKeys = []; failures.length = 0
@@ -176,6 +185,30 @@ test("modelo conectado abre copia no editor sem envio ou alteracao do original",
   await expect(page.getByRole("textbox", { name: "Nome do modelo", exact: true })).toHaveValue("Modelo do serviço conectado")
   await expect(page.getByRole("button", { name: "Salvar rascunho", exact: true })).toBeEnabled({ timeout: 20000 })
   expect(templateSaves).toBe(0)
+  expect(sends).toBe(0)
+  expect(failures).toEqual([])
+})
+
+test("editor publica revisao salva com assinatura em multiplas posicoes sem convite", async ({ page, context }) => {
+  test.setTimeout(60000)
+  await context.addCookies([cookie()])
+  await page.goto("/servicos/contratos/modelos/novo")
+  await page.getByLabel("Nome do modelo", { exact: true }).fill("Modelo com assinatura repetida")
+  await page.getByLabel("PDF do modelo", { exact: true }).setInputFiles({ name: "modelo.pdf", mimeType: "application/pdf", buffer: pdf })
+  await page.getByRole("button", { name: "Adicionar campo", exact: true }).click()
+  await page.getByLabel("Tipo", { exact: true }).selectOption("signature")
+  await page.getByRole("button", { name: "Repetir campo em outra posição", exact: true }).click()
+  const extra = page.getByRole("group", { name: "Posição adicional 1 de campo_1", exact: true })
+  await extra.getByLabel("Vertical (%)", { exact: true }).fill("40")
+  const publish = page.getByRole("button", { name: "Publicar versão para os pedidos", exact: true })
+  await expect(publish).toBeDisabled()
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page).toHaveURL(/\/servicos\/contratos\/modelos\/[a-f0-9-]{36}$/)
+  await expect(publish).toBeEnabled({ timeout: 20000 })
+  await publish.click()
+  await expect(page.getByRole("status").filter({ hasText: "Revisão 1 publicada e disponível nos pedidos." })).toBeVisible()
+  await expect(publish).toBeDisabled()
+  expect(templatePublications).toBe(1)
   expect(sends).toBe(0)
   expect(failures).toEqual([])
 })

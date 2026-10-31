@@ -121,6 +121,11 @@ async fn imports_only_assigned_models_and_reuses_the_private_copy(admin: PgPool)
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}/", listener.local_addr().unwrap());
     let document_url = format!("{base}document.pdf");
+    let publication = std::sync::Arc::new(std::sync::Mutex::new(json!({"found":false})));
+    let publish_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let read_publication = publication.clone();
+    let write_publication = publication.clone();
+    let count_publication = publish_count.clone();
     let external = Router::new()
         .route("/userinfo",get(|headers: axum::http::HeaderMap| async move {
             let actor = headers["authorization"].to_str().unwrap().strip_prefix("Bearer ").unwrap();
@@ -129,7 +134,19 @@ async fn imports_only_assigned_models_and_reuses_the_private_copy(admin: PgPool)
         .route("/api/templates/1",get(move || {let url = document_url.clone(); async move {
             Json(json!({"id":1,"name":"Modelo existente","schema":[{"attachment_uuid":"document"}],"documents":[{"uuid":"document","url":url}],"submitters":[{"uuid":"customer","name":"Cliente"}],"fields":[{"uuid":"44444444-4444-4444-8444-444444444444","name":"cliente_nome","type":"text","required":true,"submitter_uuid":"customer","areas":[{"attachment_uuid":"document","page":0,"x":0.1,"y":0.2,"w":0.4,"h":0.05}]}]}))
         }}))
-        .route("/document.pdf",get(||async{"%PDF-1.4\nprivate import fixture\n%%EOF"}));
+        .route("/document.pdf",get(||async{"%PDF-1.4\nprivate import fixture\n%%EOF"}))
+        .route("/api/avila/templates/{id}",get(move || {let value=read_publication.clone(); async move { Json(value.lock().unwrap().clone()) }}).post(move |Json(body):Json<Value>| {
+            let value=write_publication.clone(); let count=count_publication.clone();
+            async move {
+                use sha2::{Digest,Sha256};
+                count.fetch_add(1,std::sync::atomic::Ordering::SeqCst);
+                let pdf=STANDARD.decode(body["pdfBase64"].as_str().unwrap()).unwrap();
+                let pdf_hash=format!("{:x}",Sha256::digest(pdf));
+                let hash=format!("{:x}",Sha256::digest(format!("{pdf_hash}:{}",body["definitionJson"].as_str().unwrap())));
+                *value.lock().unwrap()=json!({"found":true,"id":99,"archived":false,"requestHash":hash});
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+        }));
     let provider_server =
         tokio::spawn(async move { axum::serve(listener, external).await.unwrap() });
     let router = super::router(
@@ -195,6 +212,85 @@ async fn imports_only_assigned_models_and_reuses_the_private_copy(admin: PgPool)
     .await
     .unwrap();
     assert_eq!(audit, 1);
+    let mut definition: Value =
+        sqlx::query_scalar("SELECT definition FROM commercial_template_drafts WHERE id=$1")
+            .bind(id)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    definition["fields"][0]["kind"] = json!("signature");
+    assert_eq!(
+        call(
+            &router,
+            "editor",
+            id,
+            Uuid::now_v7(),
+            Some(1),
+            &json!({"definition":definition,"pdfBase64":null})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    async fn publish(
+        router: &Router,
+        id: Uuid,
+        key: Uuid,
+        actor: &str,
+        revision: i64,
+    ) -> StatusCode {
+        router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/contract-template-drafts/{id}/publish"))
+                    .header("authorization", format!("Bearer {actor}"))
+                    .header("x-tenant-id", "11111111-1111-4111-8111-111111111111")
+                    .header("idempotency-key", key.to_string())
+                    .header("if-match", format!("\"{revision}\""))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .status()
+    }
+    let publish_key = Uuid::now_v7();
+    assert_eq!(
+        publish(&router, id, publish_key, "reader", 2).await,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        publish(&router, id, publish_key, "editor", 1).await,
+        StatusCode::PRECONDITION_FAILED
+    );
+    assert_eq!(
+        publish(&router, id, publish_key, "editor", 2).await,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        publish(&router, id, publish_key, "editor", 2).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        publish(&router, id, Uuid::now_v7(), "editor", 2).await,
+        StatusCode::OK
+    );
+    assert_eq!(publish_count.load(std::sync::atomic::Ordering::SeqCst), 1);
+    let versions: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM commercial_template_versions WHERE external_id=99",
+    )
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(versions, 1);
+    assert!(
+        sqlx::query("UPDATE commercial_template_versions SET definition_json='{}'")
+            .execute(&admin)
+            .await
+            .is_err()
+    );
     provider_server.abort();
     auth_server.abort();
     pool.close().await;

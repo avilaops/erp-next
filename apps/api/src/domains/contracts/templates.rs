@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 use std::collections::HashSet;
 use uuid::Uuid;
 pub mod import;
+pub mod publish;
 use import::{catalog, import_template};
 
 const READ: &str = "sales.orders.read";
@@ -47,6 +48,30 @@ pub struct Field {
     height: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     font_size: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    additional_areas: Vec<Area>,
+}
+#[derive(Clone, Deserialize, Serialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Area {
+    page: u32,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+impl Area {
+    fn valid(&self, pages: u32) -> bool {
+        self.page > 0
+            && self.page <= pages
+            && [self.x, self.y, self.width, self.height]
+                .iter()
+                .all(|v| v.is_finite() && (0.0..=100.0).contains(v))
+            && self.width > 0.0
+            && self.height > 0.0
+            && self.x + self.width <= 100.0
+            && self.y + self.height <= 100.0
+    }
 }
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -89,6 +114,10 @@ impl Definition {
                     .any(|v| !v.is_finite() || *v < 0.0 || *v > 100.0)
                 || f.width <= 0.0
                 || f.height <= 0.0
+                || f.additional_areas.len() > 99
+                || f.additional_areas
+                    .iter()
+                    .any(|area| !area.valid(self.pages))
                 || f.font_size
                     .is_some_and(|size| !size.is_finite() || !(6.0..=72.0).contains(&size))
                 || f.x + f.width > 100.0
@@ -107,6 +136,10 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/contract-template-drafts", get(list))
         .route("/api/v1/contract-template-drafts/catalog", get(catalog))
+        .route(
+            "/api/v1/contract-template-drafts/{id}/publish",
+            axum::routing::post(publish::publish),
+        )
         .route(
             "/api/v1/contract-template-drafts/{id}/import",
             axum::routing::post(import_template),
@@ -155,11 +188,12 @@ pub async fn detail(
     .await
     .map_err(db)?
     .ok_or(DomainError::NotFound)?;
+    let versions:Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('revision',draft_revision,'externalId',external_id,'status',CASE WHEN external_id IS NULL THEN 'pending' ELSE 'published' END) FROM commercial_template_versions WHERE tenant_id=$1 AND draft_id=$2 ORDER BY draft_revision DESC").bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         Some(rev),
-        json!({"tenantId":tenant,"canEdit":edit,"id":id,"definition":definition,"revision":rev}),
+        json!({"tenantId":tenant,"canEdit":edit,"id":id,"definition":definition,"revision":rev,"versions":versions}),
     ))
 }
 
@@ -318,6 +352,7 @@ mod tests {
                 width: 80.0,
                 height: 5.0,
                 font_size: None,
+                additional_areas: Vec::new(),
             }],
         }
     }

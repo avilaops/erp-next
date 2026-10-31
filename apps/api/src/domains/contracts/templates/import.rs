@@ -176,7 +176,12 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
             return Err(unsupported());
         }
         let areas = field["areas"].as_array().ok_or_else(unsupported)?;
-        if areas.len() != 1 || areas[0]["attachment_uuid"].as_str() != Some(attachment) {
+        if areas.is_empty()
+            || areas.len() > 100
+            || areas
+                .iter()
+                .any(|area| area["attachment_uuid"].as_str() != Some(attachment))
+        {
             return Err(unsupported());
         }
         let area = &areas[0];
@@ -186,6 +191,31 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
             .ok_or_else(unsupported)? as u32
             + 1;
         pages = pages.max(page);
+        let additional_areas = areas
+            .iter()
+            .skip(1)
+            .map(|area| {
+                let position = |key: &str| {
+                    area[key]
+                        .as_f64()
+                        .map(|v| (v * 10000.0).round() / 100.0)
+                        .ok_or_else(unsupported)
+                };
+                let page = area["page"]
+                    .as_u64()
+                    .filter(|p| *p < 100)
+                    .ok_or_else(unsupported)? as u32
+                    + 1;
+                pages = pages.max(page);
+                Ok(Area {
+                    page,
+                    x: position("x")?,
+                    y: position("y")?,
+                    width: position("w")?,
+                    height: position("h")?,
+                })
+            })
+            .collect::<Result<Vec<_>, DomainError>>()?;
         let role = submitters
             .iter()
             .find(|s| s["uuid"] == field["submitter_uuid"])
@@ -211,6 +241,7 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
             y: position("y")?,
             width: position("w")?,
             height: position("h")?,
+            additional_areas,
             font_size: match &field["preferences"]["font_size"] {
                 Value::Null => None,
                 value => Some(
@@ -237,7 +268,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preserves_font_and_refuses_multiple_areas_instead_of_dropping_positions() {
+    fn preserves_font_and_all_positions() {
         let area = json!({"attachment_uuid":"pdf","page":0,"x":0.1,"y":0.2,"w":0.3,"h":0.05});
         let mut template = json!({"name":"Modelo","schema":[{"attachment_uuid":"pdf"}],"documents":[{"uuid":"pdf"}],"submitters":[{"uuid":"customer","name":"Cliente"}],"fields":[{"uuid":Uuid::new_v4(),"name":"Nome","type":"text","submitter_uuid":"customer","preferences":{"font_size":"14"},"areas":[area]}]});
         let imported = definition(&template).unwrap();
@@ -248,6 +279,11 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .push(area);
-        assert!(definition(&template).is_err());
+        assert_eq!(
+            definition(&template).unwrap().fields[0]
+                .additional_areas
+                .len(),
+            1
+        );
     }
 }

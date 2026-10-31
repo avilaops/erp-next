@@ -99,14 +99,16 @@ pub async fn options(
     let (tenant, mut tx, edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let snapshot = model::snapshot(&mut tx, tenant, id).await?;
+    let ids = if let Some(provider) = &state.contracts {
+        templates::publish::template_ids(&mut tx, tenant, provider).await?
+    } else {
+        Vec::new()
+    };
     tx.commit().await.map_err(db)?;
     let mut templates = Vec::new();
-    let configured = state
-        .contracts
-        .as_ref()
-        .is_some_and(|p| !p.template_ids(tenant).is_empty());
+    let configured = !ids.is_empty();
     if let Some(provider) = &state.contracts {
-        for id in provider.template_ids(tenant) {
+        for id in ids {
             let template = provider
                 .request(Method::GET, &format!("templates/{id}"), None)
                 .await?;
@@ -175,7 +177,10 @@ pub async fn generate(
         tx.commit().await.map_err(db)?;
         return reconcile_response(&state, &identity, &headers, tenant, id).await;
     }
-    if !provider.template_ids(tenant).contains(&input.template_id) {
+    if !templates::publish::template_ids(&mut tx, tenant, provider)
+        .await?
+        .contains(&input.template_id)
+    {
         return Err(access::AccessError::Forbidden.into());
     }
     let snapshot = model::snapshot(&mut tx, tenant, input.order_id).await?;

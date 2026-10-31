@@ -3,6 +3,8 @@ mod access_tests;
 #[cfg(test)]
 mod assistant_tests;
 #[cfg(test)]
+mod audit_tests;
+#[cfg(test)]
 mod certificate_tests;
 #[cfg(test)]
 mod company_tests;
@@ -58,6 +60,7 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route("/api/v1/audit", get(crate::platform::audit::list))
         .route(
             "/api/v1/preferences",
             get(crate::platform::preferences::get).put(crate::platform::preferences::put),

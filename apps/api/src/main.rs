@@ -46,22 +46,25 @@ async fn run() -> anyhow::Result<()> {
         .context("failed to bind HTTP listener")?;
     let local_address = listener.local_addr()?;
     let auth = AuthClient::new(config.auth_userinfo_url);
-    let app = http::router(
-        AppState::new(pool, auth)
-            .with_certificates(domains::fiscal::certificate_crypto::CertificateVault::from_env()?)
-            .with_assistant(domains::assistant::InferenceClient::from_env()?)
-            .with_danfe(config.danfe)
-            .with_contracts(config.contracts)
-            .with_invitations(config.invitations),
-    );
+    let state = AppState::new(pool, auth)
+        .with_fiscal_engine(domains::fiscal::engine_client::FiscalEngine::from_env()?)
+        .with_certificates(domains::fiscal::certificate_crypto::CertificateVault::from_env()?)
+        .with_assistant(domains::assistant::InferenceClient::from_env()?)
+        .with_danfe(config.danfe)
+        .with_contracts(config.contracts)
+        .with_invitations(config.invitations);
+    let fiscal_worker = domains::fiscal::incoming::worker::start(state.clone())?;
+    let app = http::router(state);
 
     info!(%local_address, "ERP Next API listening");
-    axum::serve(listener, app)
+    let result = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .context("HTTP server failed")?;
-
-    Ok(())
+        .context("HTTP server failed");
+    if let Some(worker) = fiscal_worker {
+        worker.abort();
+    }
+    result
 }
 
 fn init_tracing() {

@@ -1,0 +1,5 @@
+import { forwardFiscal } from "@/lib/erp-fiscal-proxy"
+
+export async function POST(request: Request) {
+  return forwardFiscal(request, `/number-voids`)
+}

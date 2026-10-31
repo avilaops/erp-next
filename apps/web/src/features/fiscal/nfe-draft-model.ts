@@ -8,12 +8,13 @@ export type DraftInput = {
   environment: "homologation"; model: 55; operationNature: string; taxRuleReference: string
   recipient: { taxId: string; legalName: string; state: string; municipalityCode: string; postalCode: string; street: string; number: string; district: string }
   items: DraftItem[]; productsTotal: string
+  payments?: { code: string; description: string | null; amount: string }[]
 }
 export type NfeDraft = {
   id: string; revision: number; status: "draft"; input: DraftInput; productsTotal: string; fiscalValidationComplete: false
   issuer: { taxId: string; legalName: string; companyRevision: number; profileRevision: number; profile: { state: string; crt: number; series: number } }
 }
-export type FiscalReadiness = { tenantId: string; profileConfigured: boolean; certificateVerified: boolean; canTransmit: false; productionEnabled: false; blockers: string[] }
+export type FiscalReadiness = { tenantId: string; profileConfigured: boolean; certificateVerified: boolean; canTransmit: boolean; productionEnabled: false; blockers: string[] }
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
@@ -42,10 +43,19 @@ export function submission(draft: DraftInput): DraftInput {
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
     return { ...item, quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
-  return { ...draft, items, productsTotal: productsTotal(items) }
+  return { ...draft, items, productsTotal: productsTotal(items), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }
 
 export const blockerLabels: Record<string, string> = {
+  fiscal_engine_not_configured: "O motor fiscal ainda não foi configurado",
+  homologation_emission_requires_sp: "Emissão em homologação disponível para emitente de São Paulo",
+  homologation_emission_requires_supported_tax_rule_scope: "O regime fiscal da empresa exige regras além do recorte disponível",
+  tax_rule_scope: "A classificação exige regras fiscais além do recorte disponível",
+  payments_required: "Informe as formas de pagamento declaradas na NF-e",
+  municipality_unresolved: "Confira o código IBGE e a UF",
+  amount_mismatch: "Confira os totais e valores dos itens",
+  certificate_invalid: "Confira a validade e o CNPJ do certificado",
+  invalid_fiscal_input: "Revise os dados fiscais antes de repetir",
   current_xsd_and_tax_rules_validation_not_implemented: "Validação fiscal e pacote XSD vigente ainda não integrados",
   xml_generation_and_xmldsig_not_implemented: "Geração e assinatura do XML ainda não integradas",
   sefaz_transport_and_reconciliation_not_implemented: "Transmissão e consulta à SEFAZ ainda não integradas",

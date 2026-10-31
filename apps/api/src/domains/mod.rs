@@ -10,6 +10,7 @@ mod party_complements;
 pub mod payables;
 pub mod purchasing;
 pub mod reference_data;
+pub mod returns;
 pub mod sales;
 mod settlements;
 pub mod staff;

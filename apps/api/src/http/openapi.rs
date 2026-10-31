@@ -7,7 +7,7 @@ use utoipa::{
 use super::health;
 use crate::domains::{
     assistant, catalog, contracts, finance, fiscal, inventory, legacy, parties, payables,
-    purchasing, reference_data, sales, staff,
+    purchasing, reference_data, returns, sales, staff,
 };
 use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
 
@@ -34,12 +34,19 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         reference_data::create_payment_method, reference_data::update_payment_method,
         sales::list, sales::get, sales::create, sales::update, sales::confirm, sales::cancel, sales::complete,
         finance::list, finance::get, finance::pay, finance::reverse,
+        returns::cancel_completed, returns::reverse_receipt, returns::sale_history, returns::purchase_history,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
         fiscal::certificates::get, fiscal::certificates::put, fiscal::certificates::remove,
-        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue, fiscal::order_source::get,
+        fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::emission::issue, fiscal::order_source::get,
         fiscal::received::import, fiscal::received::list, fiscal::received::get_document, fiscal::received::download_xml,
         fiscal::received::download_danfe, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::emission::list, fiscal::emission::get_document, fiscal::emission::download_xml, fiscal::emission::consult,
+        fiscal::emission::events::cancel, fiscal::emission::events::correction, fiscal::emission::events::void_numbers,
+        fiscal::emission::events::list, fiscal::emission::events::process_order_cancellation,
+        fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
+        fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
+        fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
     modifiers(&Security),
@@ -200,7 +207,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 81);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 102);
         assert!(doc["paths"]["/api/v1/audit"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["put"]["requestBody"].is_object());
@@ -240,7 +247,22 @@ mod tests {
         }
         let issue = &doc["paths"]["/api/v1/fiscal/nfe/{id}/issue"]["post"];
         assert!(issue["responses"].get("503").is_some());
-        assert!(issue["responses"].get("200").is_none());
+        assert!(issue["responses"].get("200").is_some());
+        assert!(issue["responses"].get("202").is_some());
+        for path in [
+            "/api/v1/orders/{id}/cancel-completed",
+            "/api/v1/purchase-receipts/{id}/reverse",
+            "/api/v1/fiscal/nfe/{id}/consult",
+            "/api/v1/fiscal/nfe/{id}/cancel",
+            "/api/v1/fiscal/nfe/{id}/correction",
+            "/api/v1/fiscal/number-voids",
+            "/api/v1/fiscal/distribution/query",
+            "/api/v1/fiscal/manifestations",
+            "/api/v1/fiscal/manifestations/{id}/reconcile",
+            "/api/v1/fiscal/received-nfes/{id}/purchase",
+        ] {
+            assert!(doc["paths"][path]["post"].is_object(), "missing {path}");
+        }
         assert!(
             doc["components"]["securitySchemes"]
                 .get("bearerAuth")

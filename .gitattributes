@@ -1,2 +1,6 @@
 # The reviewed manifest hashes these exact public certificate bundle bytes.
 deploy/fiscal/icp-brasil-intermediates.pem text eol=lf
+# Vendored official XSDs retain their original bytes and documentation spacing.
+# Runtime schemas are checked against the pinned SHA-256 manifest.
+apps/fiscal-engine/src/lib/fiscal/schemas/**/*.xsd -text whitespace=-trailing-space
+apps/fiscal-engine/tests/fixtures/nfe-xsd/**/*.xsd -text whitespace=-trailing-space

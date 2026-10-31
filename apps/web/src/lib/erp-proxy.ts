@@ -6,9 +6,11 @@ export async function forwardErp(request: Request, resource: string) {
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods)(?:\/[a-f0-9-]{36})?$/i.test(resource)
   const serviceKeyResource = /^\/integrations\/service-keys(?:\/[a-f0-9-]{36})?$/i.test(resource)
+  const returnResource = /^\/orders\/[a-f0-9-]{36}\/(?:cancel-completed|cancellations)$|^\/purchase-receipts\/[a-f0-9-]{36}\/(?:reverse|reversals)$/i.test(resource)
+  if (returnResource && (resource.endsWith("/cancellations") || resource.endsWith("/reversals") ? request.method !== "GET" : request.method !== "POST")) return Response.json({ title: "Método inválido" }, { status: 405 })
   const purchaseCollection = /^\/(?:purchase-orders|payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/payables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!auditResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!auditResource && !returnResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = resource === "/companies" ? await currentIdentitySession() : await currentSession()

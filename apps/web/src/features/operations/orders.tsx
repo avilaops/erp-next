@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { quantity, useCommand, useResource } from "./use-operation"
+import { CommercialReturn } from "./commercial-return"
 
 type Order = { id: string; customerId: string; customerName: string; customerTaxId: string; dueDate: string; amount: string; status: string; revision: number }
 type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string; structureColor?: string; upholsteryColor?: string }
@@ -144,7 +145,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
 
 function OrderDetail({ id }: { id: string }) {
   const result = useResource<Detail>(`/api/erp/orders/${id}`)
-  const access = useResource<{ permissions: string[] }>("/api/erp/me")
+  const access = useResource<{ tenant: { id: string }; permissions: string[] }>("/api/erp/me")
   const command = useCommand()
   const [notice, setNotice] = useState("")
   const [pendingAction, setPendingAction] = useState("")
@@ -173,6 +174,7 @@ function OrderDetail({ id }: { id: string }) {
           {["draft", "confirmed"].includes(value.data.status) && <Button variant="outline" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Cancelar o pedido e liberar sua reserva, se houver?")) void act("cancel") }}>Cancelar pedido</Button>}
         </div>}
         {value.data.status === "completed" && <Link className={linkClass} href="/financeiro/contas-receber">Consultar contas a receber</Link>}
+        {["completed", "cancelled"].includes(value.data.status) && <CommercialReturn kind="sale" id={id} tenantId={value.tenantId} etag={result.etag} reversed={value.data.status === "cancelled"} canManage={value.canEdit && access.value?.tenant.id === value.tenantId && ["inventory.stock.manage", "finance.receivables.manage"].every(permission => access.value!.permissions.includes(permission))} disabled={command.busy || command.uncertain || command.stale} onSuccess={() => { setNotice("Cancelamento integral confirmado. Consulte o histórico e acompanhe a situação fiscal da NF-e."); result.reload() }} onReload={result.reload} />}
       </>}
     </section>
   </>

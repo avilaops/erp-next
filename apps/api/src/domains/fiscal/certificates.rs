@@ -161,6 +161,55 @@ pub async fn verified(
     ))
 }
 
+/// Decrypt only within an authorized tenant transaction; callers never persist or log material.
+pub(crate) async fn material(
+    state: &AppState,
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+) -> Result<CertificateMaterial, DomainError> {
+    let tax_id = company_tax_id(tx, tenant).await?;
+    let row = load(tx, tenant)
+        .await?
+        .ok_or(DomainError::Conflict("Certificado A1 não configurado"))?;
+    let metadata: CertificateMetadata = serde_json::from_value(
+        row.metadata
+            .ok_or(DomainError::Conflict("Certificado A1 indisponível"))?,
+    )
+    .map_err(|_| access::AccessError::Internal)?;
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    if metadata.tax_id != tax_id
+        || metadata.valid_from > now
+        || metadata.valid_until <= now
+        || !metadata.chain_verified
+    {
+        return Err(DomainError::Conflict(
+            "Certificado A1 inválido, vencido ou de outra empresa",
+        ));
+    }
+    let vault = state
+        .certificates
+        .as_ref()
+        .ok_or(DomainError::Conflict("Cofre de certificados indisponível"))?;
+    vault
+        .open(
+            tenant,
+            row.revision,
+            &metadata,
+            &SealedCertificate {
+                key_id: row
+                    .encryption_key_id
+                    .ok_or(DomainError::Conflict("Certificado A1 indisponível"))?,
+                nonce: row
+                    .nonce
+                    .ok_or(DomainError::Conflict("Certificado A1 indisponível"))?,
+                ciphertext: row
+                    .ciphertext
+                    .ok_or(DomainError::Conflict("Certificado A1 indisponível"))?,
+            },
+        )
+        .map_err(|_| DomainError::Conflict("Não foi possível abrir o certificado A1"))
+}
+
 #[utoipa::path(get,path="/api/v1/fiscal/certificate",tag="Fiscal",operation_id="get_fiscal_certificate",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=CertificateSnapshot),(status=403,description="Sem permissão fiscal")))]
 pub async fn get(
     State(state): State<AppState>,

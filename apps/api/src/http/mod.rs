@@ -15,10 +15,14 @@ mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
+mod emission_tests;
+#[cfg(test)]
 mod fiscal_tests;
 mod health;
 #[cfg(test)]
 mod health_tests;
+#[cfg(test)]
+mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
 #[cfg(test)]
@@ -38,6 +42,8 @@ mod purchase_chain_tests;
 mod received_nfe_tests;
 #[cfg(test)]
 mod reference_tests;
+#[cfg(test)]
+mod returns_tests;
 #[cfg(test)]
 mod staff_tests;
 
@@ -61,6 +67,7 @@ pub fn router(state: AppState) -> Router {
 
     let protected = Router::new()
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .merge(crate::domains::returns::routes())
         .route(
             "/api/v1/preferences",
             get(crate::platform::preferences::get).put(crate::platform::preferences::put),

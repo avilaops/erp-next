@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Download, Eye, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
+import { ReceivedActions } from "./incoming-actions"
 
 type Detail = { tenantId: string; data: ReceivedNote }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -75,6 +76,7 @@ export function ReceivedDocumentDetail({ id }: { id: string }) {
         {preview && <div className="space-y-3"><p role="status" className="text-sm">DANFE gerado a partir do XML armazenado. Se a prévia não abrir no seu navegador, baixe o PDF.</p><iframe title="Visualização do DANFE" src={preview.url} className="h-[75vh] min-h-96 w-full rounded-xl border" /></div>}
         <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Integridade do XML</summary><p className="mt-2 break-all">SHA-256: {note.xmlSha256}</p><p className="mt-1">Importado em {new Date(note.createdAt).toLocaleString("pt-BR")}.</p></details>
       </section>
+      {detail && <ReceivedActions key={`${detail.tenantId}:${note.id}`} note={note} tenantId={detail.tenantId} />}
     </>}
   </main>
 }

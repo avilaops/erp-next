@@ -4,6 +4,9 @@ pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
 pub(crate) mod danfe_test_support;
+pub mod emission;
+pub mod engine_client;
+pub mod incoming;
 pub mod lojas;
 pub mod model;
 pub mod order_source;
@@ -31,15 +34,11 @@ use crate::platform::{CompanyData, access, auth::AuthenticatedIdentity, state::A
 use model::{DraftInput, ProfileInput, ProfileRequest};
 
 const BODY_LIMIT: usize = 1024 * 1024;
-const BLOCKERS: &[&str] = &[
-    "current_xsd_and_tax_rules_validation_not_implemented",
-    "xml_generation_and_xmldsig_not_implemented",
-    "sefaz_transport_and_reconciliation_not_implemented",
-    "r2_document_storage_not_implemented",
-];
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .merge(emission::routes())
+        .merge(incoming::routes())
         .route("/api/v1/fiscal/danfe", axum::routing::post(danfe::generate))
         .route("/api/v1/fiscal/config", get(get_profile).put(put_profile))
         .route(
@@ -308,12 +307,21 @@ pub async fn readiness(
     )
     .await?;
     let row = load_profile(&mut tx, tenant).await?;
-    let mut blockers = BLOCKERS.iter().map(|v| (*v).to_owned()).collect::<Vec<_>>();
+    let mut blockers = Vec::new();
+    if state.fiscal_engine.is_none() {
+        blockers.push("fiscal_engine_not_configured".into());
+    }
     let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
     if !certificate_verified {
         blockers.push("a1_certificate_missing_expired_or_unavailable".into());
     }
     if let Some(row) = row.as_ref() {
+        if profile_data(row)?.state != "SP" {
+            blockers.push("homologation_emission_requires_sp".into());
+        }
+        if profile_data(row)?.crt != 1 {
+            blockers.push("homologation_emission_requires_supported_tax_rule_scope".into());
+        }
         match issuer(&mut tx, tenant, &profile_data(row)?).await {
             Ok(_) => {}
             Err(DomainError::Conflict(_)) => {
@@ -324,6 +332,7 @@ pub async fn readiness(
     } else {
         blockers.push("fiscal_profile_missing".into());
     }
+    let can_transmit = blockers.is_empty();
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
@@ -332,7 +341,7 @@ pub async fn readiness(
             tenant_id: tenant,
             environment: model::Environment::Homologation,
             model: 55,
-            can_transmit: false,
+            can_transmit,
             production_enabled: false,
             profile_configured: row.is_some(),
             certificate_verified,
@@ -601,6 +610,9 @@ pub async fn update(
     .await?;
     let expected = revision(&headers)?;
     let current = load_draft(&mut tx, tenant, id).await?;
+    if sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2 AND (signed_xml IS NOT NULL OR lease_until>clock_timestamp()))").bind(tenant).bind(id).fetch_one(&mut *tx).await.map_err(db)? {
+        return Err(DomainError::Conflict("Rascunho com XML assinado ou operação em andamento não pode ser alterado").into());
+    }
     if current.revision != expected {
         return Err(DomainError::StaleRevision.into());
     }
@@ -613,6 +625,20 @@ pub async fn update(
     }
     order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
+    if let Some(series) = sqlx::query_scalar::<_, i32>(
+        "SELECT series FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+        && (series != i32::from(issuer.profile.series) || issuer.tax_id != current.issuer.tax_id)
+    {
+        return Err(
+            DomainError::Conflict("Preserve série e emitente da numeração já reservada").into(),
+        );
+    }
     let next = expected
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
@@ -644,34 +670,12 @@ pub async fn update(
     ))
 }
 
-/// A guard, not an emission adapter. No number, outbox request, XML or network call.
-#[utoipa::path(post,path="/api/v1/fiscal/nfe/{id}/issue",tag="Fiscal",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=403,description="Sem permissão para emissão"),(status=404,description="Rascunho não encontrado"),(status=412,description="Revisão desatualizada"),(status=428,description="Revisão e idempotência obrigatórias"),(status=503,description="Emissão indisponível: adaptadores fiscais ainda não implementados")))]
+#[utoipa::path(post,path="/api/v1/fiscal/nfe/{id}/issue",tag="Fiscal",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=emission::EmissionSnapshot),(status=202,body=emission::EmissionSnapshot),(status=403,description="Sem permissão para emissão"),(status=404,description="Rascunho não encontrado"),(status=412,description="Revisão desatualizada"),(status=428,description="Revisão e idempotência obrigatórias"),(status=503,description="Configure o motor fiscal e um certificado A1 válido")))]
 pub async fn issue(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Response, FiscalError> {
-    let (tenant, mut tx, _) = authorized(
-        &state,
-        &headers,
-        &identity,
-        "fiscal.nfe.read",
-        "fiscal.nfe.issue",
-        true,
-    )
-    .await?;
-    let expected = revision(&headers)?;
-    command_key(&headers)?;
-    let draft = load_draft(&mut tx, tenant, id).await?;
-    if draft.revision != expected {
-        return Err(DomainError::StaleRevision.into());
-    }
-    tx.commit().await.map_err(db)?;
-    Ok(problem(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "nfe_emission_unavailable",
-        "Emissão de NF-e ainda indisponível; rascunho preservado e nenhuma transmissão realizada",
-        serde_json::json!({"environment":"homologation","productionEnabled":false,"blockers":BLOCKERS}),
-    ))
+    emission::issue(State(state), Extension(identity), headers, Path(id)).await
 }

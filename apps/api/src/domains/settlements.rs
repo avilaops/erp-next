@@ -203,6 +203,11 @@ pub(super) async fn reverse(
     if current.revision != expected {
         return Err(DomainError::StaleRevision);
     }
+    if current.status == "cancelled" {
+        return Err(DomainError::Conflict(
+            "Título cancelado não admite novos estornos",
+        ));
+    }
     if current
         .payments
         .iter()

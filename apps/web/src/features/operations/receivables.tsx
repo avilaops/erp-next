@@ -19,6 +19,7 @@ const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 
 function situation(account: Receivable) {
+  if (account.status === "cancelled") return "Cancelado"
   return account.status === "paid" ? "Recebimento declarado" : account.receivedAmount === "0.00" ? "Em aberto" : "Recebimento parcial declarado"
 }
 
@@ -49,17 +50,18 @@ function ReceivableDetail({ id }: { id: string }) {
   const [selectedPaymentId, setSelectedPaymentId] = useState("")
   const value = result.value
   const paid = value?.data.status === "paid"
+  const cancelled = value?.data.status === "cancelled"
   const reversalId = selectedPaymentId || (paid ? value?.data.paymentId : null)
   const reversing = Boolean(reversalId)
   const frozen = command.busy || command.uncertain || command.stale
-  const activeReceipts = value?.payments.filter(payment => payment.kind === "receipt" && !value.payments.some(other => other.reversesId === payment.id)) || []
+  const activeReceipts = cancelled ? [] : value?.payments.filter(payment => payment.kind === "receipt" && !value.payments.some(other => other.reversesId === payment.id)) || []
   function clearForm() { setReference(""); setAmount(""); setOccurredOn(""); setSelectedPaymentId("") }
   return <><PageHeader eyebrow="Financeiro" title="Conta a receber" description="Recebimentos manuais, parciais ou integrais. Estornar um recebimento recompõe o saldo e preserva o histórico. Não movimenta uma conta bancária." /><Link className={linkClass} href="/financeiro/contas-receber">Voltar às contas</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando conta…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
-        {!value.canEdit ? <p>Somente consulta.</p> : <form className="space-y-4" onSubmit={async event => {
+        {!value.canEdit ? <p>Somente consulta.</p> : cancelled ? <p>Título cancelado. O histórico foi preservado.</p> : <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setNotice("")
           const normalizedAmount = normalizeDecimal(amount)
           if (!reversing && normalizedAmount === null) return

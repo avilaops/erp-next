@@ -12,6 +12,21 @@ importers:
         specifier: 8.20.0
         version: 8.20.0
 
+  apps/fiscal-engine:
+    dependencies:
+      '@xmldom/xmldom':
+        specifier: 0.9.12
+        version: 0.9.12
+      node-forge:
+        specifier: 1.4.0
+        version: 1.4.0
+      xml-crypto:
+        specifier: 6.3.3
+        version: 6.3.3
+      xmllint-wasm:
+        specifier: 5.3.0
+        version: 5.3.0(@types/node@20.19.43)
+
   apps/web:
     dependencies:
       '@base-ui/react':
@@ -1100,6 +1115,18 @@ packages:
     resolution: {integrity: sha512-nAB74NfSNKknqQ1RrYj6uz8FcXEomu/MATJZxh/x+BArzN2U3JbOYC0APYzUIGhVY3m5hRxA8VPNdPBoG8txlA==}
     cpu: [x64]
     os: [win32]
+
+  '@xmldom/is-dom-node@1.0.1':
+    resolution: {integrity: sha512-CJDxIgE5I0FH+ttq/Fxy6nRpxP70+e2O048EPe85J2use3XKdatVM7dDVvFNjQudd9B49NPoZ+8PG49zj4Er8Q==}
+    engines: {node: '>= 16'}
+
+  '@xmldom/xmldom@0.8.15':
+    resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
+    engines: {node: '>=10.0.0'}
+
+  '@xmldom/xmldom@0.9.12':
+    resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
+    engines: {node: '>=14.6'}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -2442,6 +2469,10 @@ packages:
     resolution: {integrity: sha512-kXs9Go0cah0qHVV2v389IXQLdLCeE1xfFtjOAF+iobu0OIoG1pje8At2vMHyaPMiPMnG/LWP50twML21eMcAag==}
     engines: {node: '>= 0.4'}
 
+  node-forge@1.4.0:
+    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+    engines: {node: '>= 6.13.0'}
+
   node-releases@2.0.60:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
@@ -3159,6 +3190,20 @@ packages:
   wsl-utils@1.0.1:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
     engines: {node: '>=20'}
+
+  xml-crypto@6.3.3:
+    resolution: {integrity: sha512-qJnp4Dv5tH8CPzXKitFcLiCxPcy3SnPVQ9eY4qKKsHahf7/Ri7zDwjWaBACarMkT0T6FP+LWzdibO+19b136rg==}
+    engines: {node: '>=16'}
+
+  xmllint-wasm@5.3.0:
+    resolution: {integrity: sha512-sEgRXdf2t13eYCFCURmCE6h2hwleEOIS9VL/jOh9JJJnez2YXIooi2Ghm05/JZEPXyPawN8sMASPVZlmh8Sd6A==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+
+  xpath@0.0.33:
+    resolution: {integrity: sha512-NNXnzrkDrAzalLhIUc01jO2mOzXGXh1JwPgkihcLLzw98c0WgYDmmjSh1Kl3wzaxSVWMuA+fe0WTWOBDWCBmNA==}
+    engines: {node: '>=0.6.0'}
 
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
@@ -4175,6 +4220,12 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
+
+  '@xmldom/is-dom-node@1.0.1': {}
+
+  '@xmldom/xmldom@0.8.15': {}
+
+  '@xmldom/xmldom@0.9.12': {}
 
   accepts@2.0.0:
     dependencies:
@@ -5614,6 +5665,8 @@ snapshots:
       object.entries: 1.1.9
       semver: 6.3.1
 
+  node-forge@1.4.0: {}
+
   node-releases@2.0.60: {}
 
   npm-run-path@4.0.1:
@@ -6486,6 +6539,18 @@ snapshots:
     dependencies:
       is-wsl: 3.1.1
       powershell-utils: 0.2.1
+
+  xml-crypto@6.3.3:
+    dependencies:
+      '@xmldom/is-dom-node': 1.0.1
+      '@xmldom/xmldom': 0.8.15
+      xpath: 0.0.33
+
+  xmllint-wasm@5.3.0(@types/node@20.19.43):
+    dependencies:
+      '@types/node': 20.19.43
+
+  xpath@0.0.33: {}
 
   yallist@3.1.1: {}
 

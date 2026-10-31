@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Access } from "@/features/access/access-client"
 import { quantity, useCommand, useResource } from "@/features/operations/use-operation"
+import { CommercialReturn } from "@/features/operations/commercial-return"
 import { fixedText, fixedValue, money, purchaseLabels, purchaseLink, type PurchaseDetail as Detail, type ReceiptDetail, type ReceiptList } from "./purchase-types"
 
 type PendingAction = { resource: string; body: object; notice: string }
@@ -100,7 +101,7 @@ function PurchaseReceipts({ id }: { id: string }) {
   return <section className="min-w-0 space-y-3 border-t pt-5"><h3 className="font-semibold">Recebimentos registrados</h3>
     {result.loading ? <p role="status">Carregando recebimentos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
       {!result.value?.data.length && <p>Nenhum recebimento registrado.</p>}
-      <ul className="space-y-3">{result.value?.data.map(receipt => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={receipt.id}><Link className={`${purchaseLink} break-words`} href={`/compras/recebimentos/${receipt.id}`}>Recebimento {receipt.reference}</Link><p>{receipt.occurredOn} · {money(receipt.amount)}</p>{receipt.payableId && <Link className={purchaseLink} href={`/financeiro/contas-pagar/${receipt.payableId}`}>Consultar conta a pagar</Link>}</li>)}</ul>
+      <ul className="space-y-3">{result.value?.data.map(receipt => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={receipt.id}><Link className={`${purchaseLink} break-words`} href={`/compras/recebimentos/${receipt.id}`}>Recebimento {receipt.reference}</Link><p>{receipt.occurredOn} · {money(receipt.amount)}</p>{receipt.reversalId && <p>Situação: Estornado</p>}{receipt.payableId && <Link className={purchaseLink} href={`/financeiro/contas-pagar/${receipt.payableId}`}>Consultar conta a pagar</Link>}</li>)}</ul>
       <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Recebimentos anteriores</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próximos recebimentos</Button></div>
     </>}
   </section>
@@ -108,17 +109,21 @@ function PurchaseReceipts({ id }: { id: string }) {
 
 export function PurchaseReceipt({ id }: { id: string }) {
   const result = useResource<ReceiptDetail>(`/api/erp/purchase-receipts/${id}`)
+  const [notice, setNotice] = useState("")
   return <><PageHeader eyebrow="Compras" title="Recebimento de compra" description="Registro da entrada física e da obrigação financeira originada pelo recebimento." />
-    <section className="form-section min-w-0 space-y-4">{result.loading ? <p role="status">Carregando recebimento…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <ReceiptContent receipt={result.value} />}</section>
+    <section className="form-section min-w-0 space-y-4">{notice && <p role="status">{notice}</p>}{result.loading ? <p role="status">Carregando recebimento…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <ReceiptContent receipt={result.value} reload={result.reload} reversed={() => { setNotice("Recebimento estornado com estoque e conta a pagar reconciliados."); result.reload() }} />}</section>
   </>
 }
 
-function ReceiptContent({ receipt }: { receipt: ReceiptDetail }) {
+function ReceiptContent({ receipt, reload, reversed }: { receipt: ReceiptDetail; reload: () => void; reversed: () => void }) {
   const order = useResource<Detail>(`/api/erp/purchase-orders/${receipt.data.orderId}`)
+  const access = useResource<Access>("/api/erp/me")
   return <><h2 className="break-words font-semibold">{receipt.data.reference}</h2><p>Data: {receipt.data.occurredOn} · Valor: {money(receipt.data.amount)}</p>
+    <p>Situação: {receipt.data.reversalId ? "Estornado" : "Registrado"}</p>
     <Link className={purchaseLink} href={`/compras/pedidos/${receipt.data.orderId}`}>Consultar pedido de compra</Link>
     {order.error && <p role="alert"><RequestError message={order.error} status={order.status} /></p>}
     <ul className="space-y-3">{receipt.items.map(item => <li className="rounded-xl border p-4" key={item.productId}><p className="break-words font-medium">{order.value?.items.find(line => line.productId === item.productId)?.name || "Produto do recebimento"}</p><p>{item.quantity} {item.unit} · {money(item.amount)}</p></li>)}</ul>
     {receipt.data.payableId ? <Link className={purchaseLink} href={`/financeiro/contas-pagar/${receipt.data.payableId}`}>Consultar conta a pagar</Link> : <p>Este recebimento não originou título com valor positivo.</p>}
+    <CommercialReturn kind="purchase" id={receipt.data.id} tenantId={receipt.tenantId} etag={order.etag} reversed={Boolean(receipt.data.reversalId)} canManage={Boolean(order.value?.canEdit && order.value.tenantId === receipt.tenantId && access.value?.tenant.id === receipt.tenantId && ["inventory.stock.manage", "finance.payables.manage"].every(permission => access.value!.permissions.includes(permission)))} disabled={order.loading} onSuccess={reversed} onReload={() => { order.reload(); reload() }} />
   </>
 }

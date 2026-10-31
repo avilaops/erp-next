@@ -18,13 +18,15 @@ async function bounded(stream: ReadableStream<Uint8Array> | null, maximum: numbe
 }
 
 export async function forwardFiscal(request: Request, resource: string) {
-  const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$/.exec(resource)
+  const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$|^\/nfe\/[a-f0-9-]{36}\/(xml)$/i.exec(resource)
   const document = /^\/received-nfes\/[1-9][0-9]{0,18}$/.test(resource)
   const draft = /^\/nfe\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const preparation = /^\/order-preparations\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
+  const operationRead = /^\/nfe\/[a-f0-9-]{36}\/(?:emission|events)$|^\/distribution\/(?:status|documents(?:\/[0-9]{15})?)$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/manifestations\/[a-f0-9-]{36}$/i.test(resource)
+  const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource)
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe"].includes(resource) || document || draft || preparation || !!download
-    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && ["/received-nfes/import", "/nfe"].includes(resource)
+    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations"].includes(resource) || operationRead || document || draft || preparation || !!download
+    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids"].includes(resource) || operationWrite)
   if (!valid) return failure("Recurso fiscal inválido", 400)
   let body: Uint8Array<ArrayBuffer> | undefined
   try {
@@ -37,7 +39,7 @@ export async function forwardFiscal(request: Request, resource: string) {
     const upstream = new URL(`${config.api}/api/v1/fiscal${resource}`)
     const query = new URL(request.url).searchParams
     for (const [key, value] of query) {
-      const allowed = resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : resource === "/nfe" ? ["cursor", "limit"] : []
+      const allowed = resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : resource === "/distribution/documents" ? ["offset", "limit"] : []
       if (!allowed.includes(key) || query.getAll(key).length !== 1) return failure("Filtro fiscal inválido", 400)
       upstream.searchParams.set(key, value)
     }
@@ -51,8 +53,8 @@ export async function forwardFiscal(request: Request, resource: string) {
     const etag = request.headers.get("if-match")
     if (write && etag) headers.set("If-Match", etag)
     const command = request.headers.get("idempotency-key")
-    if (write && resource === "/nfe" && command) headers.set("Idempotency-Key", command)
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(download ? 60_000 : resource === "/certificate" ? 45_000 : 15_000) })
+    if (write && command) headers.set("Idempotency-Key", command)
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(operationWrite || resource === "/manifestations" || resource === "/number-voids" ? 110_000 : download ? 60_000 : resource === "/certificate" ? 45_000 : 15_000) })
     let bytes: Buffer
     try { bytes = await bounded(response.body, 8 * 1024 * 1024) }
     catch { return failure("Resposta fiscal excede o limite de download", 502) }

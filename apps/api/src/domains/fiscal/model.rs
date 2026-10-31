@@ -227,6 +227,14 @@ pub struct DraftItem {
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct DraftPayment {
+    pub code: String,
+    pub description: Option<String>,
+    pub amount: String,
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftInput {
     /// Full domestic sales order copied into this draft; no billing effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -239,6 +247,9 @@ pub struct DraftInput {
     pub recipient: Recipient,
     pub items: Vec<DraftItem>,
     pub products_total: String,
+    /// Required by the emission adapter, optional for existing saved drafts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payments: Option<Vec<DraftPayment>>,
 }
 
 impl DraftInput {
@@ -311,6 +322,41 @@ impl DraftInput {
                 "Total de produtos diverge da soma dos itens ou excede o limite",
             ));
         }
+        if let Some(payments) = &self.payments {
+            if payments.is_empty() || payments.len() > 100 {
+                return Err(DomainError::Invalid(
+                    "Informe de 1 a 100 formas de pagamento",
+                ));
+            }
+            let mut payment_total = 0_i128;
+            for payment in payments {
+                if !["01", "03", "04", "15", "16", "17", "18", "90", "99"]
+                    .contains(&payment.code.as_str())
+                    || payment
+                        .description
+                        .as_ref()
+                        .is_some_and(|value| !text(value, 60))
+                    || payment.code == "99" && payment.description.is_none()
+                {
+                    return Err(DomainError::Invalid(
+                        "Forma de pagamento ou descrição fiscal inválida",
+                    ));
+                }
+                payment_total += exact_decimal(&payment.amount, 13, 2)?;
+            }
+            let no_payment = payments.iter().any(|payment| payment.code == "90");
+            if no_payment {
+                if payments.len() != 1 || payment_total != 0 {
+                    return Err(DomainError::Invalid(
+                        "Sem pagamento deve ser a única forma e ter valor zero",
+                    ));
+                }
+            } else if payment_total != i128::from(total) {
+                return Err(DomainError::Invalid(
+                    "Pagamentos declarados devem somar o total de produtos",
+                ));
+            }
+        }
         Ok(total)
     }
 }
@@ -380,6 +426,40 @@ mod tests {
         value.items[0].quantity = "0.0000".into();
         assert!(value.validate(&profile()).is_err());
     }
+    #[test]
+    fn payment_declarations_require_exact_totals_and_explicit_no_payment() {
+        let mut value = draft();
+        value.payments = Some(vec![DraftPayment {
+            code: "17".into(),
+            description: None,
+            amount: "1.00".into(),
+        }]);
+        assert_eq!(value.validate(&profile()).unwrap(), 100);
+        value.payments.as_mut().unwrap()[0].amount = "0.99".into();
+        assert!(value.validate(&profile()).is_err());
+        value.payments = Some(vec![DraftPayment {
+            code: "90".into(),
+            description: None,
+            amount: "0.00".into(),
+        }]);
+        assert_eq!(value.validate(&profile()).unwrap(), 100);
+        value.payments.as_mut().unwrap().push(DraftPayment {
+            code: "17".into(),
+            description: None,
+            amount: "1.00".into(),
+        });
+        assert!(value.validate(&profile()).is_err());
+        value.payments = Some(vec![DraftPayment {
+            code: "99".into(),
+            description: None,
+            amount: "1.00".into(),
+        }]);
+        assert!(value.validate(&profile()).is_err());
+        value.payments.as_mut().unwrap()[0].description =
+            Some("Pagamento declarado pelo operador".into());
+        assert!(value.validate(&profile()).is_ok());
+    }
+
     #[test]
     fn crt_cfop_and_recipient_are_checked_without_tax_inference() {
         let mut value = draft();

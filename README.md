@@ -60,6 +60,11 @@ por empresa e rascunhos persistentes em homologação. A emissão permanece
 bloqueada: XML, assinatura, SEFAZ, armazenamento documental e DANFE ainda não
 estão implementados. Mantenha `NFE_PRODUCTION_ENABLED=false`.
 
+O [monitor fiscal canônico](docs/MONITOR-FISCAL-CANONICO.md) acrescenta coleta
+incremental com cursor por empresa, XML original e manifestação explícita do
+destinatário. Usa o cofre A1 existente e permanece desativado por padrão, sem
+alterar emissão, estoque ou financeiro.
+
 ## Domínios planejados
 
 O [verificador de rotas e fluxos](verification/README.md) gera um inventário

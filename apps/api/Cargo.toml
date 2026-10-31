@@ -7,6 +7,8 @@ rust-version.workspace = true
 
 [dependencies]
 base64 = "=0.22.1"
+flate2 = "1"
+sha1 = { version = "0.10", features = ["oid"] }
 aes-gcm = "=0.10.3"
 p12-keystore = "=0.4.1"
 rsa = "=0.9.10"

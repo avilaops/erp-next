@@ -91,6 +91,9 @@ jobs:
       - name: Grant encrypted fiscal certificate storage to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON fiscal_a1_certificates TO erp_next_app'
+      - name: Grant fiscal monitor storage to the existing runtime role
+        if: ${{ inputs.schema_only }}
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-monitor.sql
       - name: Grant personal preferences to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON personal_preferences, financial_settings TO erp_next_app'

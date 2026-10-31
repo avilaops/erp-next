@@ -11332,7 +11332,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/received-nfes/[id]"
         },
-        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+        "gap": "Coleta A1/SEFAZ implementada no monitor; ativação e aceite externo permanecem pendentes."
       },
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
@@ -11416,7 +11416,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/received-nfes"
         },
-        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+        "gap": "Coleta A1/SEFAZ implementada no monitor; ativação e aceite externo permanecem pendentes."
       },
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
@@ -11504,7 +11504,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/received-nfes/[id]/xml"
         },
-        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+        "gap": "Coleta A1/SEFAZ implementada no monitor; ativação e aceite externo permanecem pendentes."
       },
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
@@ -11595,12 +11595,386 @@
           "method": "GET",
           "path": "/api/erp/fiscal/received-nfes/[id]/danfe"
         },
-        "gap": "Conexão A1 e sincronização SEFAZ permanecem pendentes."
+        "gap": "Coleta A1/SEFAZ implementada no monitor; ativação e aceite externo permanecem pendentes."
       },
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-monitor.tsx",
         "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-fiscal-monitor",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/monitor"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.monitor.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset e limit de 1 a 100"
+      },
+      "preconditions": [
+        "Sessão e associação ativas, permissão da ação e RLS da empresa."
+      ],
+      "transition": {
+        "from": "estado fiscal persistido",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite NF-e nem altera compras, recebimentos, estoque, contas a pagar ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem alteração; documentos têm escopo explícito de tenant."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          500
+        ],
+        "action": "Consultar cursor, resultados, documentos e manifestações da empresa."
+      },
+      "recovery": "Consultar estado persistido; coleta preserva cursor e pausa em falha; manifestação desconhecida exige conferência externa, sem reenviar.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/monitor"
+        },
+        "gap": "Ativação e aceite SEFAZ reais dependem de configuração e certificado autorizado."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/monitor.rs",
+        "apps/api/src/domains/fiscal/manifestation.rs",
+        "apps/api/src/domains/fiscal/monitor_store.rs",
+        "apps/api/src/domains/fiscal/distribution.rs",
+        "apps/api/src/domains/fiscal/sefaz_client.rs",
+        "apps/web/src/features/fiscal/fiscal-distribution.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610310006_fiscal_monitor.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "sync-fiscal-monitor",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/monitor/sync"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.monitor.read",
+        "fiscal.monitor.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": null
+      },
+      "preconditions": [
+        "Sessão e associação ativas, permissão da ação e RLS da empresa.",
+        "SEFAZ_MONITOR_ENABLED=true, A1 vigente, CNPJ coerente e autorização revalidada após rede."
+      ],
+      "transition": {
+        "from": "cursor com consulta liberada",
+        "to": "reserva → applied ou failed; crash conserva pending e pausa"
+      },
+      "effects": {
+        "writes": [
+          "Reserva persistente antes da rede; lote, notas canônicas, cursor, auditoria e outbox em transação."
+        ],
+        "external": [
+          "NFeDistribuicaoDFe por mTLS com A1 da empresa, um lote por comando."
+        ],
+        "excludes": [
+          "Não emite NF-e nem altera compras, recebimentos, estoque, contas a pagar ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Reserva sob bloqueio da empresa e chave persistente; repetição consulta o registro existente e nunca repete a transmissão."
+      },
+      "response": {
+        "successStatuses": [
+          202
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          429,
+          500,
+          503
+        ],
+        "action": "Consultar um lote e persistir documentos e cursor atomicamente."
+      },
+      "recovery": "Consultar estado persistido; coleta preserva cursor e pausa em falha; manifestação desconhecida exige conferência externa, sem reenviar.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/monitor/sync"
+        },
+        "gap": "Ativação e aceite SEFAZ reais dependem de configuração e certificado autorizado."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/monitor.rs",
+        "apps/api/src/domains/fiscal/manifestation.rs",
+        "apps/api/src/domains/fiscal/monitor_store.rs",
+        "apps/api/src/domains/fiscal/distribution.rs",
+        "apps/api/src/domains/fiscal/sefaz_client.rs",
+        "apps/web/src/features/fiscal/fiscal-distribution.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610310006_fiscal_monitor.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "download-monitor-xml",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/monitor/documents/{id}/xml"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.monitor.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null
+      },
+      "preconditions": [
+        "Sessão e associação ativas, permissão da ação e RLS da empresa."
+      ],
+      "transition": {
+        "from": "documento persistido nesta empresa",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite NF-e nem altera compras, recebimentos, estoque, contas a pagar ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem alteração; documentos têm escopo explícito de tenant."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          500
+        ],
+        "action": "Baixar XML original coletado com NSU, schema e SHA-256."
+      },
+      "recovery": "Consultar estado persistido; coleta preserva cursor e pausa em falha; manifestação desconhecida exige conferência externa, sem reenviar.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/monitor/documents/[id]/xml"
+        },
+        "gap": "Ativação e aceite SEFAZ reais dependem de configuração e certificado autorizado."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/monitor.rs",
+        "apps/api/src/domains/fiscal/manifestation.rs",
+        "apps/api/src/domains/fiscal/monitor_store.rs",
+        "apps/api/src/domains/fiscal/distribution.rs",
+        "apps/api/src/domains/fiscal/sefaz_client.rs",
+        "apps/web/src/features/fiscal/fiscal-distribution.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610310006_fiscal_monitor.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "manifest-monitor-nfe",
+      "flow": "fiscal-integrations",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/monitor/documents/{id}/manifest"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.monitor.read",
+        "fiscal.monitor.manifest"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/manifestation.rs",
+          "type": "ManifestInput"
+        }
+      },
+      "preconditions": [
+        "Sessão e associação ativas, permissão da ação e RLS da empresa.",
+        "SEFAZ_MONITOR_ENABLED=true, A1 vigente, CNPJ coerente e autorização revalidada após rede."
+      ],
+      "transition": {
+        "from": "resumo autorizado distribuído ao CNPJ da empresa",
+        "to": "unknown → accepted, rejected ou unknown; sem reenvio automático"
+      },
+      "effects": {
+        "writes": [
+          "Intenção assinada antes da rede; resultado, protocolo, resposta original, auditoria e outbox."
+        ],
+        "external": [
+          "NFeRecepcaoEvento4 por mTLS; evento assinado com A1 da empresa."
+        ],
+        "excludes": [
+          "Não emite NF-e nem altera compras, recebimentos, estoque, contas a pagar ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Reserva sob bloqueio da empresa e chave persistente; repetição consulta o registro existente e nunca repete a transmissão."
+      },
+      "response": {
+        "successStatuses": [
+          202
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Enviar somente o evento explicitamente selecionado e confirmado."
+      },
+      "recovery": "Consultar estado persistido; coleta preserva cursor e pausa em falha; manifestação desconhecida exige conferência externa, sem reenviar.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/monitor/documents/[id]/manifest"
+        },
+        "gap": "Ativação e aceite SEFAZ reais dependem de configuração e certificado autorizado."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/monitor.rs",
+        "apps/api/src/domains/fiscal/manifestation.rs",
+        "apps/api/src/domains/fiscal/monitor_store.rs",
+        "apps/api/src/domains/fiscal/distribution.rs",
+        "apps/api/src/domains/fiscal/sefaz_client.rs",
+        "apps/web/src/features/fiscal/fiscal-distribution.tsx",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -12020,14 +12394,15 @@
     },
     {
       "id": "pending-20",
-      "title": "Monitor de Notas",
+      "title": "Monitor de Notas — ativação e aceite externo",
       "status": "needs_definition",
-      "intent": "Consultar distribuição, manter cursor fiscal por empresa, baixar/vincular documento e manifestar conforme contrato",
+      "intent": "Habilitar e verificar a distribuição e manifestação implementadas com certificado e CNPJ autorizados",
       "proposedEndpoints": [
-        "/api/v1/fiscal/inbound"
+        "/api/v1/fiscal/monitor",
+        "/api/v1/fiscal/monitor/sync"
       ],
       "openDecisions": [
-        "AVL-320; cursor único, limites e autorização externa, XML/PDF com hashes e origem; sem confundir consulta com lançamento contábil"
+        "AVL-320: validar o primeiro lote e evento em ambiente autorizado, confirmar o consumidor único entre aplicações e definir reconciliação operacional de manifestações desconhecidas; sem efeitos contábeis automáticos"
       ],
       "requiredFields": [
         "actor",

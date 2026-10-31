@@ -21,7 +21,7 @@ test('every canonical action has one product owner and declared journeys are exp
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
   assert.equal(context.flows.length, 27);
-  assert.equal(context.actions.length, 126);
+  assert.equal(context.actions.length, 130);
   assert.equal(context.pendingFlows.length, 25);
   assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'financial-settings', 'personal-preferences', 'products', 'purchase_payment_chain', 'users']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');
@@ -44,7 +44,7 @@ test('a task includes its transitive dependencies and real Auth handler sources 
 
 test('unknown references, duplicate ownership, and invented runtime state are rejected', () => {
   const unknown = structuredClone(catalogue);
-  unknown.productFlows.flows[0].journey[0].actionIds.push('invented-action');
+  unknown.productFlows.flows.find(flow => flow.id === 'users').journey[0].actionIds.push('invented-action');
   assert.ok(validateProductFlows(unknown).some(item => item.code === 'unknown_journey_action'));
   const duplicate = structuredClone(catalogue);
   duplicate.productFlows.flows.find(flow => flow.id === 'runtime').actionGroups.push('users');
@@ -53,7 +53,7 @@ test('unknown references, duplicate ownership, and invented runtime state are re
   missing.productFlows.flows = missing.productFlows.flows.filter(flow => flow.id !== 'legacy-history');
   assert.ok(validateProductFlows(missing).some(item => item.code === 'unowned_action_group'));
   const falseState = structuredClone(catalogue);
-  falseState.productFlows.flows[0].execution = 'passed';
+  falseState.productFlows.flows.find(flow => flow.id === 'users').execution = 'passed';
   assert.ok(validateProductFlows(falseState).some(item => item.code === 'invalid_product_flow_schema'));
 });
 
@@ -62,10 +62,10 @@ test('cycles, unknown dependencies, and undeclared cross-flow actions fail befor
   cyclic.productFlows.flows.find(flow => flow.id === 'runtime').dependencies.push('users');
   assert.ok(validateProductFlows(cyclic).some(item => item.code === 'cyclic_flow_dependency'));
   const foreign = structuredClone(catalogue);
-  foreign.productFlows.flows[0].journey[0].actionIds.push('post-api-v1-payables-id-payments');
+  foreign.productFlows.flows.find(flow => flow.id === 'users').journey[0].actionIds.push('post-api-v1-payables-id-payments');
   assert.ok(validateProductFlows(foreign).some(item => item.code === 'undeclared_journey_dependency'));
   const unknown = structuredClone(catalogue);
-  unknown.productFlows.flows[0].dependencies.push('does-not-exist');
+  unknown.productFlows.flows.find(flow => flow.id === 'users').dependencies.push('does-not-exist');
   assert.ok(validateProductFlows(unknown).some(item => item.code === 'unknown_flow_dependency'));
   assert.throws(() => selectProductFlows(catalogue, 'unknown'), /não encontrada/);
 });

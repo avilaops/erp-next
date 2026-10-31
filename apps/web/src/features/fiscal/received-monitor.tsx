@@ -6,6 +6,7 @@ import { Download, FileText, RefreshCw, Upload } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { documentHash as hash, fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
+import { FiscalDistribution } from "./fiscal-distribution"
 
 type Note = ReceivedNote
 type Result = { tenantId: string; canImport: boolean; data: Note[]; total: number }
@@ -130,6 +131,7 @@ export function ReceivedMonitor() {
       <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><h1 className="mt-2 text-3xl font-semibold">Monitor de notas fiscais</h1><p className="mt-2 text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link>
     </header>
+    <FiscalDistribution />
     <section className="form-section space-y-4" aria-labelledby="import-title">
       <h2 id="import-title" className="flex items-center gap-2 text-lg font-semibold"><Upload className="size-5 text-primary" />Importar NF-e recebida</h2>
       <p className="text-sm text-muted-foreground">Escolha o XML completo, com protocolo de autorização, destinado ao CNPJ desta empresa. O arquivo original fica armazenado para consulta e download.</p>

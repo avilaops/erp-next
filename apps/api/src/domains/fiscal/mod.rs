@@ -4,11 +4,16 @@ pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
 pub(crate) mod danfe_test_support;
+pub mod distribution;
 pub mod lojas;
+pub mod manifestation;
 pub mod model;
+pub mod monitor;
+mod monitor_store;
 pub mod order_source;
 pub mod received;
 pub mod received_model;
+pub mod sefaz_client;
 pub mod sefaz_response;
 
 use axum::{
@@ -40,6 +45,19 @@ const BLOCKERS: &[&str] = &[
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/api/v1/fiscal/monitor", get(monitor::status))
+        .route(
+            "/api/v1/fiscal/monitor/sync",
+            axum::routing::post(monitor::sync),
+        )
+        .route(
+            "/api/v1/fiscal/monitor/documents/{id}/xml",
+            get(monitor::download_xml),
+        )
+        .route(
+            "/api/v1/fiscal/monitor/documents/{id}/manifest",
+            axum::routing::post(monitor::manifest),
+        )
         .route("/api/v1/fiscal/danfe", axum::routing::post(danfe::generate))
         .route("/api/v1/fiscal/config", get(get_profile).put(put_profile))
         .route(

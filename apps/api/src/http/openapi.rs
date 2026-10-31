@@ -44,6 +44,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::issue, fiscal::order_source::get,
         fiscal::received::import, fiscal::received::list, fiscal::received::get_document, fiscal::received::download_xml,
         fiscal::received::download_danfe, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
+        fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
     modifiers(&Security),
@@ -204,7 +206,13 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 88);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 92);
+        assert!(doc["paths"]["/api/v1/fiscal/monitor"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/fiscal/monitor/sync"]["post"].is_object());
+        assert!(
+            doc["paths"]["/api/v1/fiscal/monitor/documents/{id}/manifest"]["post"]["requestBody"]
+                .is_object()
+        );
         assert!(doc["paths"]["/api/v1/contract-template-drafts"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}/pdf"]["get"].is_object());

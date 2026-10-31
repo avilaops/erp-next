@@ -161,6 +161,38 @@ pub async fn verified(
     ))
 }
 
+pub(crate) async fn active_material(
+    state: &AppState,
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+) -> Result<CertificateMaterial, DomainError> {
+    if !verified(state, tx, tenant).await? {
+        return Err(DomainError::Conflict(
+            "Configure um certificado A1 vigente para esta empresa",
+        ));
+    }
+    let row = load(tx, tenant)
+        .await?
+        .ok_or(access::AccessError::Internal)?;
+    let metadata = serde_json::from_value(row.metadata.ok_or(access::AccessError::Internal)?)
+        .map_err(|_| access::AccessError::Internal)?;
+    state
+        .certificates
+        .as_ref()
+        .ok_or(access::AccessError::Internal)?
+        .open(
+            tenant,
+            row.revision,
+            &metadata,
+            &SealedCertificate {
+                key_id: row.encryption_key_id.ok_or(access::AccessError::Internal)?,
+                nonce: row.nonce.ok_or(access::AccessError::Internal)?,
+                ciphertext: row.ciphertext.ok_or(access::AccessError::Internal)?,
+            },
+        )
+        .map_err(|_| access::AccessError::Internal.into())
+}
+
 #[utoipa::path(get,path="/api/v1/fiscal/certificate",tag="Fiscal",operation_id="get_fiscal_certificate",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=CertificateSnapshot),(status=403,description="Sem permissão fiscal")))]
 pub async fn get(
     State(state): State<AppState>,

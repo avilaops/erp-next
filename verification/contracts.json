@@ -5,6 +5,21 @@
     "product": "erp",
     "flows": [
       {
+        "id": "personal-preferences",
+        "title": "Preferências pessoais do sistema",
+        "goal": "Salvar a quantidade de produtos por página da própria conta na empresa ativa e utilizá-la no catálogo.",
+        "kind": "product",
+        "actionGroups": ["personal-preferences"],
+        "dependencies": ["company_onboarding", "products"],
+        "nextStep": "Conferir persistência por usuário/empresa, revisão e aplicação da paginação sem prometer idioma, formatos ou notificações.",
+        "additionalSources": ["docs/PREFERENCIAS-SISTEMA.md"],
+        "journey": [
+          { "id": "read", "title": "Consultar a própria preferência", "actionIds": ["get-own-personal-preferences"], "authRefs": [], "externalSystems": [] },
+          { "id": "save", "title": "Salvar com revisão e auditoria", "actionIds": ["put-own-personal-preferences"], "authRefs": [], "externalSystems": [] },
+          { "id": "apply", "title": "Abrir o catálogo com o tamanho salvo", "actionIds": ["get-own-personal-preferences", "get-api-v1-products"], "authRefs": [], "externalSystems": [] }
+        ]
+      },
+      {
         "id": "users",
         "title": "Usuários e convites",
         "goal": "Convidar pessoas e administrar seus acessos dentro da empresa.",
@@ -573,6 +588,36 @@
     }
   ],
   "actions": [
+    {
+      "id": "get-own-personal-preferences", "flow": "personal-preferences", "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/preferences" },
+      "actor": "active_tenant_member", "permissions": [],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
+      "preconditions": ["Vínculo ativo na empresa; identidade vem do Auth, nunca do cliente.", "RLS exige empresa e auth_subject da transação."],
+      "transition": { "from": "preferência própria ou padrão virtual", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não cria registro ao consultar; sem registro, retorna 25 produtos e revisão virtual 1."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Leitura retorna ETag para a próxima intenção de gravação." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "Consultar a própria preferência de paginação da empresa ativa" },
+      "recovery": "Repetir leitura; catálogo informa indisponibilidade e usa 25 sem modificar o registro.",
+      "ui": { "pages": ["/preferencias/sistema", "/cadastros/produtos"], "bff": { "method": "GET", "path": "/api/erp/preferences" }, "gap": null },
+      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/system-preferences/system-preferences.tsx", "apps/web/src/features/catalog/catalog-workspace.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "put-own-personal-preferences", "flow": "personal-preferences", "status": "implemented",
+      "operation": { "method": "PUT", "path": "/api/v1/preferences" },
+      "actor": "active_tenant_member", "permissions": [],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": [], "body": { "source": "apps/api/src/platform/preferences.rs", "type": "Preferences" }, "query": null },
+      "preconditions": ["Revalidar vínculo ativo sob bloqueio de empresa.", "If-Match da preferência da identidade autenticada; tamanhos 10, 25, 50 ou 100; campos desconhecidos recusados."],
+      "transition": { "from": "revisão atual, inicialmente virtual 1", "to": "preferência própria persistida com revisão incrementada" },
+      "effects": { "writes": ["personal_preferences da própria identidade e empresa", "audit_log na mesma transação"], "external": [], "excludes": ["Não modifica outras pessoas, produtos, configuração fiscal ou notificações; não emite eventos externos."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "Revisão antiga retorna 412 sem sobrescrever; primeira gravação passa de 1 para 2." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,412,422,428,500,503], "action": "Salvar a própria quantidade de produtos por página" },
+      "recovery": "Preservar seleção; reler e conferir revisão após conflito ou confirmação ambígua antes de nova gravação.",
+      "ui": { "pages": ["/preferencias/sistema"], "bff": { "method": "PUT", "path": "/api/erp/preferences" }, "gap": null },
+      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/system-preferences/system-preferences.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
     {
       "id": "prepare-nfe-from-order",
       "flow": "fiscal-drafts",

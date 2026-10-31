@@ -5,6 +5,7 @@ pub mod company;
 mod company_data;
 pub mod invitations;
 pub mod onboarding;
+pub mod preferences;
 pub(crate) use company_data::{CompanyData, valid_document};
 pub mod langfuse;
 pub mod service_auth;

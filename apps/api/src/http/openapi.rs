@@ -15,6 +15,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+        crate::platform::preferences::get, crate::platform::preferences::put,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,

@@ -15,6 +15,8 @@ import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQu
 
 import { ProductPhoto } from "./product-photo"
 import { ProductThumbnail } from "./product-thumbnail"
+import { useResource } from "@/features/operations/use-operation"
+import type { PersonalPreferences } from "@/features/system-preferences/system-preferences"
 
 type Product = ProductInput & { id: string; revision: number; hasPhoto?: boolean }
 type ProductList = { tenantId: string; canEdit: boolean; data: Product[]; total: number }
@@ -26,11 +28,14 @@ const priceForRequest = normalizeDecimal
 
 export function CatalogList() {
   const params = useSearchParams()
-  const query = parseCatalogQuery(params)
-  return <CatalogResults key={catalogQueryString(query)} query={query} />
+  const preferences = useResource<PersonalPreferences>("/api/erp/preferences")
+  const size = preferences.value?.data.productPageSize ?? 25
+  const query = parseCatalogQuery(params, size)
+  if (preferences.loading) return <p role="status">Carregando preferências do catálogo…</p>
+  return <>{preferences.error && <p role="status" className="mb-4 text-sm text-muted-foreground">Preferência pessoal indisponível. O catálogo usa 25 produtos por página.</p>}<CatalogResults key={`${catalogQueryString(query)}:${size}`} query={query} pageSize={size} /></>
 }
 
-function CatalogResults({ query }: { query: CatalogQuery }) {
+function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
   const { q, status, offset } = query
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
@@ -38,7 +43,7 @@ function CatalogResults({ query }: { query: CatalogQuery }) {
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({ q, offset: String(offset), limit: "25" })
+    const params = new URLSearchParams({ q, offset: String(offset), limit: String(pageSize) })
     if (status) params.set("status", status)
     fetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
@@ -47,7 +52,7 @@ function CatalogResults({ query }: { query: CatalogQuery }) {
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [q, status, offset, retry])
+  }, [q, status, offset, retry, pageSize])
   function navigate(next: CatalogQuery) {
     const search = catalogQueryString(next)
     if (search === catalogQueryString(query)) { setLoading(true); setRetry(value => value + 1); return }
@@ -68,8 +73,8 @@ function CatalogResults({ query }: { query: CatalogQuery }) {
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={`${catalogLink} flex items-center gap-3`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span>{product.name}</span></Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
-        <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - 25) })}>Anterior</Button><span className="text-sm">Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + 25 >= result.total} onClick={() => navigate({ ...query, offset: offset + 25 })}>Próxima</Button></div>
-        {offset >= catalogMaxOffset && offset + 25 < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
+        <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - pageSize) })}>Anterior</Button><span className="text-sm">Página {Math.floor(offset / pageSize) + 1} · {pageSize} por página</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + pageSize >= result.total} onClick={() => navigate({ ...query, offset: offset + pageSize })}>Próxima</Button></div>
+        {offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
     </section>
   </div>

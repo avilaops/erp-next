@@ -1,260 +1,77 @@
-"use client";
+"use client"
 
-import { useMemo, useState } from "react";
-import {
-  Bell,
-  CalendarDays,
-  Globe2,
-  MonitorCog,
-  Save,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useTheme } from "@/components/theme-provider";
+import { useRef, useState } from "react"
+import { useTheme } from "@/components/theme-provider"
+import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/page-header"
+import { AccessLink } from "@/components/session-recovery"
+import { useNavigationGuard } from "@/components/navigation-guard"
+import { useResource } from "@/features/operations/use-operation"
 
-type Theme = "light" | "dark" | "system";
+export type PersonalPreferences = { tenantId: string; revision: number; data: { productPageSize: number } }
 
 export function SystemPreferences() {
-  const [theme, setTheme] = useTheme();
-  const [language, setLanguage] = useState("pt-BR");
-  const [dateFormat, setDateFormat] = useState("dd/MM/yyyy");
-  const [numberFormat, setNumberFormat] = useState("pt-BR");
-  const [pageSize, setPageSize] = useState("25");
-  const [notifications, setNotifications] = useState({
-    assignments: true,
-    fiscal: true,
-    integrations: false,
-  });
-  const preview = useMemo(
-    () => ({
-      date:
-        dateFormat === "yyyy-MM-dd"
-          ? "2026-10-24"
-          : dateFormat === "MM/dd/yyyy"
-            ? "10/24/2026"
-            : "24/10/2026",
-      number: numberFormat === "en-US" ? "1,234,567.89" : "1.234.567,89",
-    }),
-    [dateFormat, numberFormat],
-  );
+  const [theme, setTheme] = useTheme()
+  const resource = useResource<PersonalPreferences>("/api/erp/preferences")
+  const [draft, setDraft] = useState<number | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+  const pending = useRef(false)
+  const size = draft ?? resource.value?.data.productPageSize ?? 25
+  const dirty = !!resource.value && size !== resource.value.data.productPageSize
+  useNavigationGuard(dirty ? "Sair e descartar as preferências não salvas?" : null)
 
-  function applyTheme(next: Theme) {
-    setTheme(next);
+  async function save() {
+    if (!resource.value || !resource.etag || !dirty || blocked || pending.current) return
+    pending.current = true; setBusy(true); setError(""); setMessage("")
+    try {
+      const response = await fetch("/api/erp/preferences", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ productPageSize: size }) })
+      const result = await response.json()
+      if (!response.ok) {
+        if ([401,403,409,412].includes(response.status) || response.status >= 500) setBlocked(true)
+        throw new Error(result.title || "Não foi possível confirmar as preferências")
+      }
+      if (result.tenantId !== resource.value.tenantId || result.data?.productPageSize !== size || !response.headers.get("etag")) { setBlocked(true); throw new Error("Confirmação incompleta. Recarregue para conferir a revisão antes de salvar novamente.") }
+      setDraft(null); setMessage("Preferência salva no servidor para sua conta nesta empresa."); resource.reload()
+    } catch (reason) {
+      setBlocked(true)
+      setError(reason instanceof Error ? reason.message : "Falha de gravação. Recarregue para conferir.")
+    } finally { pending.current = false; setBusy(false) }
   }
 
-  return (
-    <div className="mx-auto max-w-5xl px-4 pb-24 pt-8 lg:px-6">
-      <header className="border-b border-border pb-7">
-        <p className="text-sm font-medium text-primary">
-          Preferências / Sistema
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-          Preferências do sistema
-        </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          A aparência é aplicada e salva neste navegador. As demais configurações
-          são prévias indisponíveis e não alteram a empresa.
-        </p>
-      </header>
-      <div className="mt-6 space-y-6">
-        <Section
-          icon={MonitorCog}
-          title="Aparência"
-          description="Mudança imediata e persistida neste navegador."
-        >
-          <fieldset>
-            <legend className="sr-only">Tema</legend>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {(["light", "dark", "system"] as Theme[]).map((item) => (
-                <label
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-4 has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10"
-                  key={item}
-                >
-                  <input
-                    checked={theme === item}
-                    name="theme"
-                    type="radio"
-                    value={item}
-                    onChange={() => applyTheme(item)}
-                  />
-                  <span className="capitalize">
-                    {item === "light"
-                      ? "Claro"
-                      : item === "dark"
-                        ? "Escuro"
-                        : "Sistema"}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        </Section>
-        <fieldset disabled className="min-w-0 space-y-6 border-0 p-0">
-        <legend className="mb-4 text-sm text-muted-foreground">Prévia de configurações indisponíveis. Os valores abaixo são exemplos.</legend>
-        <Section
-          icon={Globe2}
-          title="Idioma e região"
-          description="Formatos usados em toda a interface."
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              label="Idioma"
-              value={language}
-              onChange={setLanguage}
-              options={[{ value: "pt-BR", label: "Português (Brasil)" }]}
-            />
-            <SelectField
-              label="Fuso horário"
-              value="America/Sao_Paulo"
-              onChange={() => {}}
-              options={[
-                { value: "America/Sao_Paulo", label: "America/Sao_Paulo" },
-              ]}
-            />
-            <SelectField
-              label="Formato de data"
-              value={dateFormat}
-              onChange={setDateFormat}
-              options={[
-                { value: "dd/MM/yyyy", label: "DD/MM/AAAA" },
-                { value: "yyyy-MM-dd", label: "AAAA-MM-DD" },
-                { value: "MM/dd/yyyy", label: "MM/DD/AAAA" },
-              ]}
-            />
-            <SelectField
-              label="Formato numérico"
-              value={numberFormat}
-              onChange={setNumberFormat}
-              options={[
-                { value: "pt-BR", label: "1.234.567,89" },
-                { value: "en-US", label: "1,234,567.89" },
-              ]}
-            />
-          </div>
-          <div className="mt-4 grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-2">
-            <p className="text-sm">
-              <span className="text-muted-foreground">Data:</span>{" "}
-              {preview.date}
-            </p>
-            <p className="text-sm">
-              <span className="text-muted-foreground">Número:</span>{" "}
-              {preview.number}
-            </p>
-          </div>
-        </Section>
-        <Section
-          icon={CalendarDays}
-          title="Listagens"
-          description="Quantidade padrão de registros por página."
-        >
-          <SelectField
-            label="Itens por página"
-            value={pageSize}
-            onChange={setPageSize}
-            options={["10", "25", "50", "100"].map((value) => ({
-              value,
-              label: value,
-            }))}
-          />
-        </Section>
-        <Section
-          icon={Bell}
-          title="Notificações internas"
-          description="Avisos exibidos dentro do ERP."
-        >
-          <div className="space-y-3">
-            {(
-              [
-                { id: "assignments", label: "Tarefas e atribuições" },
-                { id: "fiscal", label: "Alertas fiscais" },
-                { id: "integrations", label: "Falhas em integrações" },
-              ] as const
-            ).map(({ id, label }) => (
-              <label
-                className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"
-                key={id}
-              >
-                <span className="text-sm font-medium">{label}</span>
-                <input
-                  checked={notifications[id]}
-                  className="size-5 accent-primary"
-                  type="checkbox"
-                  onChange={(event) => {
-                    setNotifications((current) => ({
-                      ...current,
-                      [id]: event.target.checked,
-                    }));
-                  }}
-                />
-              </label>
-            ))}
-          </div>
-        </Section>
-        </fieldset>
-      </div>
-      <div className="sticky bottom-20 mt-6 flex justify-end rounded-2xl border border-border bg-background/95 p-3 backdrop-blur lg:bottom-4">
-        <Button disabled>
-          <Save />
-          Salvar preferências
-        </Button>
-      </div>
-    </div>
-  );
-}
+  function reload() {
+    if (dirty && !window.confirm("Recarregar e descartar sua alteração de preferência?")) return
+    setDraft(null); setBlocked(false); setError(""); setMessage(""); resource.reload()
+  }
 
-function Section({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  icon: typeof MonitorCog;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-      <div className="mb-5 flex gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="size-5" />
-        </span>
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      {children}
+  return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
+    <PageHeader eyebrow="Preferências / Sistema" title="Preferências do sistema" description="Aparência deste navegador e opções pessoais da sua conta na empresa ativa." />
+    <section className="form-section space-y-4" aria-labelledby="theme-title">
+      <h2 id="theme-title" className="text-lg font-semibold">Aparência</h2>
+      <p className="text-sm text-muted-foreground">O tema é aplicado imediatamente e salvo somente neste navegador.</p>
+      <fieldset><legend className="sr-only">Tema</legend><div className="grid gap-3 sm:grid-cols-3">
+        {(["light", "dark", "system"] as const).map(value => <label className="flex min-h-11 items-center gap-3 rounded-xl border p-4 has-[:checked]:border-primary" key={value}>
+          <input type="radio" name="theme" checked={theme === value} onChange={() => setTheme(value)} />{value === "light" ? "Claro" : value === "dark" ? "Escuro" : "Sistema"}
+        </label>)}
+      </div></fieldset>
     </section>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="grid gap-2 text-sm font-medium">
-      {label}
-      <select
-        className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+    <section className="form-section space-y-4" aria-labelledby="listing-title">
+      <h2 id="listing-title" className="text-lg font-semibold">Catálogo de produtos</h2>
+      <p className="text-sm text-muted-foreground">Quantidade de produtos por página, salva no servidor para sua conta nesta empresa. Não altera a listagem de outras pessoas ou empresas.</p>
+      {resource.loading && <p role="status">Carregando preferências…</p>}
+      {resource.error && <div role="alert" className="space-y-3"><p>{resource.error}</p>{resource.status === 401 ? <AccessLink /> : <Button variant="outline" onClick={reload}>Tentar novamente</Button>}</div>}
+      {resource.value && <>
+        <label className="grid max-w-sm gap-2 text-sm font-medium">Produtos por página<select className="min-h-11 rounded-lg border bg-background px-3" value={size} disabled={busy || resource.loading || blocked} onChange={event => { setDraft(Number(event.target.value)); setMessage("") }}>
+          {[10,25,50,100].map(value => <option key={value} value={value}>{value}</option>)}
+        </select></label>
+        <div className="flex flex-wrap gap-3"><Button onClick={save} disabled={!dirty || busy || blocked || resource.loading}>Salvar preferências</Button><Button variant="outline" disabled={busy || resource.loading} onClick={reload}>Recarregar preferências</Button></div>
+      </>}
+      {error && <p role="alert">{error} Sua escolha foi preservada.</p>}
+      {message && <p role="status">{message}</p>}
+      {blocked && <p className="text-sm">Recarregue as preferências para conferir a gravação antes de tentar novamente.</p>}
+    </section>
+    <section className="form-section space-y-3"><h2 className="text-lg font-semibold">Idioma, formatos e notificações</h2><p className="text-sm text-muted-foreground">A escolha de idioma, formatos de data e número, fuso horário e notificações ainda não está disponível. Não há configuração ou envio desses avisos por esta tela.</p></section>
+  </div>
 }

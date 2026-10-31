@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
+import { companyFields } from "../src/features/company/company-types"
 
 test.setTimeout(process.env.ERP_BROWSER_DEV === "1" ? 30000 : 10000)
 
@@ -208,7 +209,7 @@ test("401 offers contextual login while 503 remains retryable and company switch
   await page.goto("/cadastros/categorias-produtos")
   await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: "/cadastros/categorias-produtos" }))
   let unavailable = true
-  await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { legalName: "Empresa de teste", tradeName: "", taxId: "00000000000000" } } }))
+  await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { ...Object.fromEntries(companyFields.map(field => [field, ""])), legalName: "Empresa de teste", taxId: "00000000000000", segments: [], substituteRegistrations: [] } } }))
   await page.goto("/preferencias/empresa")
   await expect(page.getByText("Consulta temporariamente indisponível", { exact: true })).toBeVisible()
   await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)

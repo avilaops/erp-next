@@ -12,6 +12,7 @@ use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 #[derive(Default, Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AuditQuery {
     q: Option<String>,

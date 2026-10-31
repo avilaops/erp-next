@@ -14,7 +14,7 @@ type Area = { page: number; x: number; y: number; width: number; height: number 
 type Field = Area & { id: string; name: string; kind: string; role: string; required: boolean; fontSize?: number; additionalAreas?: Area[] }
 type Definition = { name: string; pages: number; roles: string[]; fields: Field[] }
 type Detail = { tenantId: string; canEdit: boolean; id: string; definition: Definition; revision: number; versions?: { revision: number; status: string; externalId: number | null }[] }
-type Listing = { tenantId: string; canEdit: boolean; data: { id: string; name: string; revision: number }[] }
+type Listing = { tenantId: string; canEdit: boolean; data: { id: string; name: string; revision: number; publishedRevision?: number | null }[] }
 const linkClass = "text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background p-2"
 const sources = { empresa_nome: "Nome da empresa", empresa_documento: "Documento da empresa", empresa_endereco: "Endereço da empresa", cliente_nome: "Nome do cliente", cliente_documento: "Documento do cliente", cliente_endereco: "Endereço do cliente", cliente_email: "E-mail do cliente", pedido_numero: "Número do pedido", pedido_total: "Total do pedido", itens: "Itens e valores", vencimento: "Vencimento", condicoes: "Condições comerciais", entrega: "Entrega" }
@@ -28,7 +28,7 @@ export function Templates({ id }: { id?: string }) {
       <Editor tenant={listing.value.tenantId} canEdit={listing.value.canEdit} /> : id ? <Existing id={id} /> : <section className="form-section space-y-4">
         {listing.value.canEdit && <Link className={linkClass} href="/servicos/contratos/modelos/novo">Novo modelo</Link>}
         <p>Rascunhos em preparação. A publicação para uso nos pedidos é uma etapa separada.</p>
-        {!listing.value.data.length ? <p>Nenhum rascunho cadastrado.</p> : <ul className="space-y-3">{listing.value.data.map(model => <li key={model.id}><Link className={linkClass} href={`/servicos/contratos/modelos/${model.id}`}>{model.name}</Link> · Rascunho · Revisão {model.revision}</li>)}</ul>}
+        {!listing.value.data.length ? <p>Nenhum rascunho cadastrado.</p> : <ul className="space-y-3">{listing.value.data.map(model => <li key={model.id}><Link className={linkClass} href={`/servicos/contratos/modelos/${model.id}`}>{model.name}</Link> · Revisão {model.revision} · {model.publishedRevision ? `Publicada: revisão ${model.publishedRevision}` : "Ainda não publicado"}</li>)}</ul>}
       </section>}
     {!id && listing.value && <ConnectedModels tenant={listing.value.tenantId} />}
   </>

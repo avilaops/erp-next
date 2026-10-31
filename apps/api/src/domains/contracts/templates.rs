@@ -160,7 +160,7 @@ pub async fn list(
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let rows: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',definition->>'name','revision',revision,'updatedAt',updated_at) FROM commercial_template_drafts WHERE tenant_id=$1 ORDER BY updated_at DESC LIMIT 100")
+    let rows: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',d.id,'name',d.definition->>'name','revision',d.revision,'updatedAt',d.updated_at,'publishedRevision',(SELECT max(v.draft_revision) FROM commercial_template_versions v WHERE v.tenant_id=d.tenant_id AND v.draft_id=d.id AND v.external_id IS NOT NULL)) FROM commercial_template_drafts d WHERE d.tenant_id=$1 ORDER BY d.updated_at DESC LIMIT 100")
         .bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(

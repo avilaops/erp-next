@@ -29,7 +29,34 @@ export function Templates({ id }: { id?: string }) {
         <p>Rascunhos em preparação. A publicação para uso nos pedidos é uma etapa separada.</p>
         {!listing.value.data.length ? <p>Nenhum rascunho cadastrado.</p> : <ul className="space-y-3">{listing.value.data.map(model => <li key={model.id}><Link className={linkClass} href={`/servicos/contratos/modelos/${model.id}`}>{model.name}</Link> · Rascunho · Revisão {model.revision}</li>)}</ul>}
       </section>}
+    {!id && listing.value && <ConnectedModels tenant={listing.value.tenantId} />}
   </>
+}
+
+type Catalog = { configured: boolean; canEdit: boolean; data: { id: number; name: string; canImport: boolean; draftId: string | null }[] }
+function ConnectedModels({ tenant }: { tenant: string }) {
+  const resource = useResource<Catalog>("/api/erp/contract-template-drafts/catalog")
+  const command = useCommand()
+  const router = useRouter()
+  const [selection, setSelection] = useState<{ id: string; templateId: number } | null>(null)
+  async function importModel(templateId: number) {
+    const target = command.uncertain && selection ? selection : { id: crypto.randomUUID(), templateId }
+    setSelection(target)
+    const saved = await command.send<{ id: string }>(`/api/erp/contract-template-drafts/${target.id}/import`, tenant, { templateId: target.templateId }, "")
+    if (saved) router.push(`/servicos/contratos/modelos/${saved.id}`)
+  }
+  return <section className="form-section mt-5 space-y-4">
+    <h2 className="text-lg font-semibold">Modelos do serviço conectado</h2>
+    <p>Os modelos autorizados para esta empresa aparecem aqui. Abrir no editor cria uma cópia privada; o original e os contratos existentes são preservados.</p>
+    {resource.loading ? <p role="status">Consultando serviço…</p> : resource.error ? <RequestError message={resource.error} status={resource.status} /> : !resource.value?.configured ? <p>O serviço de contratos ainda não está conectado.</p> : !resource.value.data.length ? <p>Nenhum modelo associado à empresa.</p> : <ul className="space-y-4">{resource.value.data.map(model => <li key={model.id} className="space-y-2">
+      <p>{model.name}</p>
+      {model.draftId ? <Link className={linkClass} href={`/servicos/contratos/modelos/${model.draftId}`}>Abrir cópia no editor</Link> : <>
+        <Button type="button" variant="outline" disabled={!resource.value?.canEdit || !model.canImport || command.busy || (command.uncertain && selection?.templateId !== model.id)} onClick={() => void importModel(model.id)}>{command.uncertain && selection?.templateId === model.id ? "Conferir importação" : "Editar cópia no ERP"}</Button>
+        {!model.canImport && <p className="text-sm">Este modelo contém recursos ainda não suportados pelo editor. Continue usando o original nos pedidos.</p>}
+      </>}
+    </li>)}</ul>}
+    {command.error && <RequestError message={command.error} status={command.status} />}
+  </section>
 }
 
 function Existing({ id }: { id: string }) {

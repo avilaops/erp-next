@@ -19,6 +19,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::templates::list, contracts::templates::detail, contracts::templates::save, contracts::templates::pdf,
+        contracts::templates::import::catalog, contracts::templates::import::import_template,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,
         legacy::list, legacy::file, access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,
@@ -201,7 +202,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 83);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 85);
         assert!(doc["paths"]["/api/v1/contract-template-drafts"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}/pdf"]["get"].is_object());

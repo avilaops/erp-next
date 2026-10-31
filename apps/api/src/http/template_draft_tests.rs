@@ -108,3 +108,102 @@ async fn drafts_enforce_authorization_revisions_idempotency_and_private_pdf(admi
         .await
         .unwrap();
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn imports_only_assigned_models_and_reuses_the_private_copy(admin: PgPool) {
+    use crate::{
+        domains::contracts::provider::Docuseal,
+        platform::{auth::AuthClient, state::AppState},
+    };
+    use axum::{Json, routing::get};
+    let (_, pool, auth_server, role) = super::company_tests::setup(&admin).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','sales.orders.read'),('99999999-9999-4999-8999-999999999999','platform.integrations.manage'),('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','sales.orders.read') ON CONFLICT DO NOTHING;").execute(&admin).await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}/", listener.local_addr().unwrap());
+    let document_url = format!("{base}document.pdf");
+    let external = Router::new()
+        .route("/userinfo",get(|headers: axum::http::HeaderMap| async move {
+            let actor = headers["authorization"].to_str().unwrap().strip_prefix("Bearer ").unwrap();
+            Json(json!({"sub":actor,"email":format!("{actor}@example.test"),"name":actor}))
+        }))
+        .route("/api/templates/1",get(move || {let url = document_url.clone(); async move {
+            Json(json!({"id":1,"name":"Modelo existente","schema":[{"attachment_uuid":"document"}],"documents":[{"uuid":"document","url":url}],"submitters":[{"uuid":"customer","name":"Cliente"}],"fields":[{"uuid":"44444444-4444-4444-8444-444444444444","name":"cliente_nome","type":"text","required":true,"submitter_uuid":"customer","areas":[{"attachment_uuid":"document","page":0,"x":0.1,"y":0.2,"w":0.4,"h":0.05}]}]}))
+        }}))
+        .route("/document.pdf",get(||async{"%PDF-1.4\nprivate import fixture\n%%EOF"}));
+    let provider_server =
+        tokio::spawn(async move { axum::serve(listener, external).await.unwrap() });
+    let router = super::router(
+        AppState::new(pool.clone(), AuthClient::new(format!("{base}userinfo"))).with_contracts(
+            Some(Docuseal::for_test(
+                base.parse().unwrap(),
+                "11111111-1111-4111-8111-111111111111".parse().unwrap(),
+                false,
+            )),
+        ),
+    );
+    async fn import(
+        router: &Router,
+        actor: &str,
+        id: Uuid,
+        key: Uuid,
+        source: i64,
+    ) -> (StatusCode, Value) {
+        let result = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/contract-template-drafts/{id}/import"))
+                    .header("authorization", format!("Bearer {actor}"))
+                    .header("x-tenant-id", "11111111-1111-4111-8111-111111111111")
+                    .header("idempotency-key", key.to_string())
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({"templateId":source}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = result.status();
+        let bytes = to_bytes(result.into_body(), 1_000_000).await.unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+    let id = Uuid::now_v7();
+    let key = Uuid::now_v7();
+    assert_eq!(
+        import(&router, "reader", id, key, 1).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        import(&router, "editor", id, key, 2).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let first = import(&router, "editor", id, key, 1).await;
+    assert_eq!(first.0, StatusCode::OK, "{}", first.1);
+    assert_eq!(import(&router, "editor", id, key, 1).await, first);
+    assert_eq!(
+        import(&router, "editor", Uuid::now_v7(), Uuid::now_v7(), 1).await,
+        first
+    );
+    let (count,x,page): (i64,Value,Value) = sqlx::query_as("SELECT count(*) OVER(), definition->'fields'->0->'x', definition->'fields'->0->'page' FROM commercial_template_drafts").fetch_one(&admin).await.unwrap();
+    assert_eq!(count, 1);
+    assert_eq!(x, json!(10.0));
+    assert_eq!(page, json!(1));
+    let audit: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM audit_log WHERE action='contract_template.imported'",
+    )
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(audit, 1);
+    provider_server.abort();
+    auth_server.abort();
+    pool.close().await;
+    sqlx::query(&format!("DROP OWNED BY {role}"))
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query(&format!("DROP ROLE {role}"))
+        .execute(&admin)
+        .await
+        .unwrap();
+}

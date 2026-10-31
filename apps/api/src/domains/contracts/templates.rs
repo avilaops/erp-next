@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use uuid::Uuid;
+pub mod import;
+use import::{catalog, import_template};
 
 const READ: &str = "sales.orders.read";
 const MANAGE: &str = "platform.integrations.manage";
@@ -100,6 +102,11 @@ impl Definition {
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/contract-template-drafts", get(list))
+        .route("/api/v1/contract-template-drafts/catalog", get(catalog))
+        .route(
+            "/api/v1/contract-template-drafts/{id}/import",
+            axum::routing::post(import_template),
+        )
         .route(
             "/api/v1/contract-template-drafts/{id}",
             get(detail).post(save),

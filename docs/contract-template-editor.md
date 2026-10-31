@@ -12,6 +12,21 @@ O comando de gravação exige idempotência; atualizações exigem `If-Match`.
 A auditoria registra a revisão e a quantidade de campos. O histórico do comando
 recebe o hash do PDF em vez de duplicar seu conteúdo. Cada gravação é atômica.
 
+## Modelos do serviço conectado
+
+A tela consulta pelo backend os modelos explicitamente associados à empresa
+na instalação própria. A ação **Editar cópia no ERP** importa o PDF e os campos
+para um rascunho privado. O original no serviço não é alterado.
+Uma restrição por empresa e modelo de origem, junto da trava transacional e
+idempotência, impede cópias duplicadas por cliques simultâneos ou novas tentativas.
+A origem e sua definição são preservadas no armazenamento privado.
+
+A importação suporta um documento estático com campos simples, cada um com uma
+área. Modelos com múltiplos documentos, conteúdo dinâmico, campos condicionais
+ou configurações não representáveis no editor ficam identificados como não
+suportados, sem conversão parcial. A contagem inicial cobre as páginas dos campos;
+ao abrir o PDF, o editor calcula a contagem completa antes de salvar.
+
 ## Limites desta etapa
 
 - Salvar não publica o modelo, não modifica os modelos do provedor e não envia
@@ -23,8 +38,9 @@ recebe o hash do PDF em vez de duplicar seu conteúdo. Cada gravação é atômi
 - Os campos representam posições do rascunho; salvar ainda não grava essas
   posições no modelo do serviço de assinatura.
 - A lista mostra até 100 rascunhos recentes.
-- Sincronização, importação dos modelos existentes e publicação de versões
-  ainda precisam ser implementadas antes do aceite completo da AVL-318.
+- Publicação de versões e importação de estruturas avançadas ainda precisam
+  ser implementadas antes do aceite completo da AVL-318. A API instalada permite
+  clonar/atualizar modelos, mas não criar um modelo a partir de um PDF novo.
 
 ## Validação
 

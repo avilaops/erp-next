@@ -11,7 +11,7 @@ export async function contractTemplatesProxy(request: Request, path = "") {
 }
 
 async function forwardContracts(request: Request, path: string, templates: boolean) {
-  const allowedPath = templates ? /^(?:|\/[a-f0-9-]{36}(?:\/pdf)?)$/i : contractPath
+  const allowedPath = templates ? /^(?:|\/catalog|\/[a-f0-9-]{36}(?:\/(?:pdf|import))?)$/i : contractPath
   if (!allowedPath.test(path)) return Response.json({ title: "Recurso inválido" }, { status: 404 })
   try {
     const session = await currentSession()

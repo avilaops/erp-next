@@ -6,31 +6,45 @@ import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { quantity, useCommand, useResource } from "./use-operation"
 
 type Order = { id: string; customerId: string; customerName: string; customerTaxId: string; dueDate: string; amount: string; status: string; revision: number }
-type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string }
+type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string; structureColor?: string; upholsteryColor?: string }
 type Detail = { tenantId: string; canEdit: boolean; data: Order; items: Item[] }
 type Listing = { tenantId: string; canEdit: boolean; data: Order[]; total: number }
-type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string }
+type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
+type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
+
+function ColorChoice({ label, options = [], value, onChange }: { label: string; options?: string[]; value: string; onChange: (value: string) => void }) {
+  const id = useId()
+  return <div className="grid min-w-0 gap-2 text-sm">
+    <label htmlFor={id}>{label}</label>
+    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={options.length > 0} disabled={!options.length && !value} onChange={event => onChange(event.target.value)}>
+      <option value="">{options.length ? "Escolha uma cor" : "Sem opções cadastradas"}</option>
+      {value && !options.includes(value) && <option value={value}>{value} · seleção registrada</option>}
+      {options.map(color => <option key={color} value={color}>{color}</option>)}
+    </select>
+  </div>
+}
 
 function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "10", status: "active" })
   if (endpoint === "parties") params.set("role", "customer")
-  const result = useResource<{ data: Choice[]; total: number }>(`/api/erp/${endpoint}?${params}`)
+  const result = useResource<{ data: Choice[]; total: number; tenantId: string }>(`/api/erp/${endpoint}?${params}`)
   return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label={`Seleção de ${label}`}>
     <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}>
       <label className="min-w-0 flex-1 space-y-2">Buscar {label}<Input name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
     {result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
-      <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto max-w-full break-all whitespace-normal text-left" variant="outline" disabled={disabled} onClick={() => choose(value)}>Selecionar {value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</Button></li>)}</ul>
+      <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto max-w-full gap-3 break-all whitespace-normal text-left" variant="outline" disabled={disabled} onClick={() => choose(value)}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">Selecionar {value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum resultado encontrado.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Anterior {label}</Button><Button variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximo {label}</Button></div>
     </>}
@@ -74,11 +88,24 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
   const command = useCommand()
   const originalCustomer: Choice | null = initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null
   const [customer, setCustomer] = useState<Choice | null>(originalCustomer)
-  const [items, setItems] = useState<(Choice & { quantity: string; preserved: boolean })[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true })) || [])
+  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
   const [dueDate, setDueDate] = useState(initial?.data.dueDate || "")
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
   const frozen = command.busy || command.uncertain || command.stale
+  useEffect(() => {
+    if (!initial) return
+    const controller = new AbortController()
+    void Promise.all(initial.items.map(async item => {
+      const response = await fetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
+      const value = await response.json()
+      if (!response.ok || value.tenantId !== tenantId) throw new Error("Não foi possível consultar as opções de cores. As escolhas registradas foram mantidas; recarregue para alterar o acabamento.")
+      return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], hasPhoto: value.data.hasPhoto }
+    })).then(products => {
+      if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) })))
+    }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar cores") })
+    return () => controller.abort()
+  }, [initial, tenantId])
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
     window.addEventListener("beforeunload", prevent); return () => window.removeEventListener("beforeunload", prevent)
@@ -90,18 +117,21 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade no item existente."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
-          setItems(previous => [...previous, { ...choice, quantity: "1", preserved: Boolean(saved) }]); setDirty(true); setError("")
+          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
         }} /></div>
         <p className="break-words">Cliente selecionado: {customer?.legalName || "Nenhum"}</p>
         <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
-          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity) })) }, initial ? etag : "", initial ? "PUT" : "POST")
+          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, upholsteryColor: item.upholsteryColor })) }, initial ? etag : "", initial ? "PUT" : "POST")
           if (value) { setDirty(false); router.replace(`/vendas/pedidos/${value.data.id}`) }
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} className="min-w-0 space-y-3 rounded-xl border p-4"><strong className="block break-words">{item.name}</strong><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label><Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
+            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
+              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor do estofado de ${item.name}`} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} /></div>
+              <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
+              <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
           {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
@@ -133,7 +163,7 @@ function OrderDetail({ id }: { id: string }) {
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
-        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><strong className="block break-words">{item.name}</strong><p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
+        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="text-xs text-muted-foreground">Foto de referência do cadastro atual.</p>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}

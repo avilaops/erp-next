@@ -129,3 +129,48 @@ test("assistant displays Rust permission refusal without sources and recovers fo
   await expect(input).toBeEnabled()
   await expect(conversation.getByRole("alert")).toHaveCount(0)
 })
+
+test("assistant real model finds customers and reads recent and specific orders", async ({ page, context }) => {
+  test.skip(!process.env.ERP_ASSISTANT_OLLAMA_URL, "Requires an explicitly configured local inference service")
+  await session(context)
+  const headers = { Origin: origin, "X-Tenant-Id": tenant }
+  const customerResponse = await context.request.post("/api/erp/parties", { headers: { ...headers, "Idempotency-Key": randomUUID() }, data: {
+    personType: "juridica", legalName: "Aurora Assistente", tradeName: "Aurora", taxId: "04252011000110", email: "private-contact@example.test", phone: null, isCustomer: true, isSupplier: false, status: "active",
+  } })
+  expect(customerResponse.status()).toBe(201)
+  const customer = (await customerResponse.json()).data
+  const productResponse = await context.request.post("/api/erp/products", { headers: { ...headers, "Idempotency-Key": randomUUID() }, data: { sku: "ASSIST-ORDER", name: "Produto do pedido de teste", unit: "UN", basePrice: "12.34", ncm: null, cest: null, status: "active" } })
+  expect(productResponse.status()).toBe(201)
+  const product = (await productResponse.json()).data
+  const orderResponse = await context.request.post("/api/erp/orders", { headers: { ...headers, "Idempotency-Key": randomUUID() }, data: { customerId: customer.id, dueDate: "2099-12-01", items: [{ productId: product.id, quantity: "2.000000" }] } })
+  expect(orderResponse.status()).toBe(201)
+  const order = (await orderResponse.json()).data
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/assistente")
+  const input = page.getByRole("textbox", { name: "Mensagem para o assistente" })
+  const conversation = page.getByRole("region", { name: "Conversa com o assistente" })
+  async function ask(question: string, source: string) {
+    await expect(input).toBeEnabled({ timeout: 105_000 })
+    await input.fill(question)
+    await page.getByRole("button", { name: "Enviar", exact: true }).click()
+    await expect(conversation.getByText(`Origem: ${source}`, { exact: true })).toBeVisible({ timeout: 105_000 })
+    await expect(input).toBeEnabled({ timeout: 105_000 })
+    await expect(conversation.getByRole("alert")).toHaveCount(0)
+  }
+  await ask("Busque o cliente pelo nome Aurora", "API ERP · Clientes")
+  const customerLink = conversation.getByRole("link", { name: "Aurora Assistente", exact: true })
+  await expect(customerLink).toHaveAttribute("href", `/cadastros/clientes-fornecedores/${customer.id}`)
+  await expect(conversation).not.toContainText("private-contact@example.test")
+  await expect(conversation).not.toContainText("04252011000110")
+  await customerLink.click()
+  await expect(page).toHaveURL(new RegExp(`/cadastros/clientes-fornecedores/${customer.id}$`))
+  await page.goto("/assistente")
+  await ask("Liste os pedidos mais recentes", "API ERP · Pedidos recentes")
+  await expect(conversation.locator(`a[href="/vendas/pedidos/${order.id}"]`)).toBeVisible()
+  await expect(conversation.getByText("Valor do pedido: R$ 24,68", { exact: true })).toBeVisible()
+  await expect(conversation).not.toContainText("04252011000110")
+  await ask(`Consulte o pedido ${order.id}`, "API ERP · Pedido")
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await conversation.locator(`a[href="/vendas/pedidos/${order.id}"]`).last().click()
+  await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${order.id}$`))
+})

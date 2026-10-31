@@ -52,6 +52,17 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
         ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222','SKU-123','SEGREDO OUTRA EMPRESA','UN',99999,'active');
         INSERT INTO stock_balances(tenant_id,product_id,quantity_micros) VALUES ('11111111-1111-4111-8111-111111111111','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',42000000);")
         .execute(&admin).await.unwrap();
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','catalog.parties.read'), ('99999999-9999-4999-8999-999999999999','sales.orders.read');
+        INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,email,is_customer,is_supplier,status) VALUES
+        ('aaaaaaaa-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fisica','Aurora','11111111111','private-contact@example.test',true,false,'active'),
+        ('aaaaaaaa-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','fisica','Aurora SEGREDO OUTRA EMPRESA','11111111111',null,true,false,'active'),
+        ('aaaaaaaa-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','fisica','Aurora SOMENTE FORNECEDOR','22222222222',null,false,true,'active');
+        INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) VALUES
+        ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','11111111-1111-4111-8111-111111111111','aaaaaaaa-0000-4000-8000-000000000001','Aurora','PRIVATE_DOCUMENT','2026-11-01',1234,'draft'),
+        ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','22222222-2222-4222-8222-222222222222','aaaaaaaa-0000-4000-8000-000000000002','SEGREDO OUTRA EMPRESA','PRIVATE_DOCUMENT','2026-11-01',99999,'draft');
+        INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status)
+        SELECT md5('assistant-order-' || i)::uuid,'11111111-1111-4111-8111-111111111111','aaaaaaaa-0000-4000-8000-000000000001','Aurora','PRIVATE_DOCUMENT','2026-11-01',1234,'draft' FROM generate_series(1,5) i;")
+        .execute(&admin).await.unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let model = tokio::spawn(async move {
@@ -61,6 +72,8 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
                 if body["tools"].as_array().unwrap().is_empty() {
                     // The summary cannot invoke new tools or receive another tenant's rows.
                     assert!(!body.to_string().contains("SEGREDO OUTRA EMPRESA"));
+                    assert!(!body.to_string().contains("PRIVATE_DOCUMENT"));
+                    assert!(!body.to_string().contains("private-contact@example.test"));
                     return Ok(Json(json!({"done":true,"message":{"content":"Consulte as fontes confirmadas."}})));
                 }
                 let question = body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap();
@@ -73,6 +86,11 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
                     "injection" => ("buscar_produtos", json!({"q":"SKU-123","tenantId":"other"})),
                     "write" => ("alterar_preco", json!({"q":"SKU-123"})),
                     "navigation" => ("localizar_funcionalidade", json!({"q":"produtos"})),
+                    "customer" => ("buscar_clientes", json!({"q":"Aurora"})),
+                    "missing-customer" => ("buscar_clientes", json!({"q":"NONEXISTENT"})),
+                    "recent-orders" => ("listar_pedidos", json!({})),
+                    "invented-order" => ("consultar_pedido", json!({"id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"})),
+                    value if value.starts_with("order ") => ("consultar_pedido", json!({})),
                     _ => ("buscar_produtos", json!({"q":"SKU-123"})),
                 };
                 Ok(Json(json!({"done":true,"message":{"content":"","tool_calls":[{"function":{"name":name,"arguments":args}}]}})))
@@ -121,12 +139,57 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
         stock_page.iter().find(|e| e["type"] == "answer").unwrap()["kind"],
         "erp"
     );
+    let customer = events(request(&router, TENANT, "customer").await).await;
+    let source = &customer.iter().find(|e| e["type"] == "source").unwrap()["source"];
+    assert_eq!(source["total"], 1);
+    assert_eq!(source["data"][0]["title"], "Aurora");
+    assert_eq!(
+        source["data"][0]["href"],
+        "/cadastros/clientes-fornecedores/aaaaaaaa-0000-4000-8000-000000000001"
+    );
+    assert!(!format!("{customer:?}").contains("private-contact@example.test"));
+    let recent = events(request(&router, TENANT, "recent-orders").await).await;
+    let source = &recent.iter().find(|e| e["type"] == "source").unwrap()["source"];
+    assert_eq!(source["total"], 6);
+    assert_eq!(source["data"].as_array().unwrap().len(), 5);
+    assert!(!format!("{recent:?}").contains("SEGREDO OUTRA EMPRESA"));
+    assert!(!format!("{recent:?}").contains("PRIVATE_DOCUMENT"));
+    let order = events(
+        request(
+            &router,
+            TENANT,
+            "order dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        )
+        .await,
+    )
+    .await;
+    let source = &order.iter().find(|e| e["type"] == "source").unwrap()["source"];
+    assert_eq!(source["data"][0]["amount"], "12.34");
+    assert_eq!(
+        source["data"][0]["href"],
+        "/vendas/pedidos/dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    );
+    for question in [
+        "missing-customer",
+        "order eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "order ffffffff-ffff-4fff-8fff-ffffffffffff",
+    ] {
+        let empty = events(request(&router, TENANT, question).await).await;
+        assert_eq!(
+            empty.iter().find(|e| e["type"] == "source").unwrap()["source"]["total"],
+            0
+        );
+        assert_eq!(
+            empty.iter().find(|e| e["type"] == "answer").unwrap()["kind"],
+            "erp"
+        );
+    }
     let missing = events(request(&router, TENANT, "missing").await).await;
     assert_eq!(
         missing.iter().find(|e| e["type"] == "answer").unwrap()["kind"],
         "erp"
     );
-    for question in ["write", "injection", "offline"] {
+    for question in ["write", "injection", "offline", "invented-order"] {
         let failed = events(request(&router, TENANT, question).await).await;
         assert!(failed.iter().any(|e| e["type"] == "error"));
         assert!(
@@ -164,6 +227,25 @@ async fn assistant_reads_only_authorized_tenant_data_and_reports_failures(admin:
     }
     sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='inventory.stock.read'").execute(&admin).await.unwrap();
     for question in ["stock", "Onde vejo os saldos de estoque?"] {
+        let denied = events(request(&router, TENANT, question).await).await;
+        assert_eq!(
+            denied.iter().find(|e| e["type"] == "error").unwrap()["status"],
+            403
+        );
+        assert!(
+            !denied
+                .iter()
+                .any(|e| e["type"] == "source" || e["type"] == "answer")
+        );
+    }
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code IN ('catalog.parties.read','sales.orders.read')").execute(&admin).await.unwrap();
+    for question in [
+        "customer",
+        "recent-orders",
+        "order dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "Onde vejo clientes?",
+        "Onde vejo pedidos?",
+    ] {
         let denied = events(request(&router, TENANT, question).await).await;
         assert_eq!(
             denied.iter().find(|e| e["type"] == "error").unwrap()["status"],

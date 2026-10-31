@@ -47,6 +47,14 @@ Na validação local, 16 testes passaram no Edge e cinco cenários no WebKit em 
 
 O CI revelou também uma falha intermitente na fixture HTTP do inventário: conversão independente de buffers corrompia caracteres UTF-8 divididos entre pacotes. A fixture usa agora o decodificador do stream com `setEncoding('utf8')`; as verificações de corpo, revisão e leitura divergente foram mantidas.
 
+## Reconciliação dos PRs em 31/10/2026
+
+A base foi atualizada para `9e07052`, preservando as consultas de clientes/pedidos do assistente, fotos privadas e acabamentos de equipamentos. Os conflitos de shell, catálogo e pedidos foram resolvidos mantendo a proteção de edição, navegação compacta, recuperação de acesso e entrada decimal da auditoria.
+
+A recuperação de produtos aceita os campos opcionais de foto/cores e comporta a imagem no rascunho, baseline e comando pendente. Rascunhos anteriores sem esses campos recuperam os valores atuais do servidor. A gravação continua bloqueada enquanto a foto é preparada ou o armazenamento contém um rascunho inválido. Dois testes de navegador cobrem recuperação/gravação com foto acima de 20 KB e compatibilidade com rascunho anterior.
+
+Os heads dos PRs #5, #6, #9 e #12 já são ancestrais de `main`, incorporados pela consolidação #14. Os heads #20, #24, #25 e #26 estão integralmente contidos no #27. Encerrar os primeiros evita duplicar alterações; integrar o #27 permite encerrar a pilha de frontend preservando seu histórico.
+
 ## Acessibilidade e limites
 
 O critério visual considera hierarquia, contraste, rótulos, teclado, foco, movimento reduzido e temas. As [diretrizes Apple de acessibilidade](https://developer.apple.com/design/human-interface-guidelines/accessibility) são referência de princípios; esta aplicação web não usa SwiftUI.

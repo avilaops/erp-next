@@ -13,10 +13,13 @@ import { Input } from "@/components/ui/input"
 import { readProductDraft, writeProductDraft, type ProductInput, type ProductCommand, type ProductDraft } from "./product-draft"
 import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
-type Product = ProductInput & { id: string; revision: number }
+import { ProductPhoto } from "./product-photo"
+import { ProductThumbnail } from "./product-thumbnail"
+
+type Product = ProductInput & { id: string; revision: number; hasPhoto?: boolean }
 type ProductList = { tenantId: string; canEdit: boolean; data: Product[]; total: number }
 type Snapshot = { tenantId: string; canEdit: boolean; data: Product }
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active" }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal
@@ -64,7 +67,7 @@ function CatalogResults({ query }: { query: CatalogQuery }) {
       </form>
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={catalogLink} href={`/cadastros/produtos/${product.id}`}>{product.name}</Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
+        {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={`${catalogLink} flex items-center gap-3`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span>{product.name}</span></Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
         <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - 25) })}>Anterior</Button><span className="text-sm">Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + 25 >= result.total} onClick={() => navigate({ ...query, offset: offset + 25 })}>Próxima</Button></div>
         {offset >= catalogMaxOffset && offset + 25 < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
@@ -81,6 +84,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [uncertain, setUncertain] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -101,7 +105,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], photoDataUrl: value.data.photoDataUrl || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -111,7 +115,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       command.current = recoveredDraft?.command || null
       setStorageError(stored.error); setRecovered(!!recoveredDraft)
       setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: value.data })
-      setDraft(recoveredDraft?.draft || data); setBaseline(recoveredDraft?.baseline || JSON.stringify(data)); setEtag(recoveredDraft?.etag || serverEtag)
+      setDraft(recoveredDraft ? { ...data, ...recoveredDraft.draft } : data); setBaseline(recoveredDraft?.baseline || JSON.stringify(data)); setEtag(recoveredDraft?.etag || serverEtag)
       setError(changedRevision ? "O produto mudou no servidor. Sua edição foi recuperada; confira os dados antes de recarregar o cadastro." : recoveredDraft?.conflict ? "A gravação anterior precisa ser conferida. Sua edição foi recuperada; recarregue o cadastro para conferir o estado do servidor." : "")
       setConflict(changedRevision || !!recoveredDraft?.conflict); setUncertain(!!recoveredDraft?.uncertain)
     }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
@@ -126,10 +130,11 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     }
   }, [draft, baseline, etag, dirty, uncertain, conflict, saving, loading, snapshot, storageKey, storageInvalid, view])
   async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!snapshot?.canEdit || pending.current || conflict || view || storageInvalid) return
+    event.preventDefault(); if (!snapshot?.canEdit || pending.current || conflict || view || photoBusy || storageInvalid) return
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
-    const body = JSON.stringify({ ...draft, basePrice })
+    const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
+    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []) })
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body }
     // Persist the in-flight command before dispatch. A reload must not create a new command.
     if (!writeProductDraft(storageKey, { version: 1, draft, baseline, etag, uncertain: !id, conflict: !!id, command: command.current })) {
@@ -172,11 +177,19 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
+          <ProductPhoto value={draft.photoDataUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
+            <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
+            <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
+            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores do estofado"]] as const).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "structureColors" ? "Uma cor de pintura por linha" : "Uma cor de revestimento por linha"} /></label>)}</div>
+          </fieldset>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-8 rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
           <p id="product-price-help" className="text-sm text-muted-foreground">Use vírgula ou ponto, com até duas casas decimais. Exemplo: 12,50. Não use separador de milhar.</p>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
-          <Button type="submit" disabled={saving || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
+          <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
+        {view && <ProductPhoto value={snapshot.data.photoDataUrl} readOnly />}
+        {view && <section className="space-y-3 rounded-xl border p-4" aria-label="Cores disponíveis do equipamento"><h2 className="font-semibold">Cores disponíveis</h2>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</section>}
       </>}
     </section>
   </div>

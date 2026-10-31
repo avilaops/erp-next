@@ -72,6 +72,61 @@ test("reabrir recupera o rascunho e descartar o remove", async ({ page }) => {
   await expect(name).toHaveValue("")
 })
 
+test("rascunho preserva foto grande e cores ao reabrir e salvar", async ({ page }) => {
+  await page.goto("/cadastros/produtos")
+  const photoDataUrl = await page.evaluate(() => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 256; canvas.height = 256
+    const context = canvas.getContext("2d")!
+    const image = context.createImageData(256, 256)
+    for (let i = 0; i < image.data.length; i += 4) {
+      image.data[i] = (i * 13) % 251; image.data[i + 1] = (i * 29) % 253
+      image.data[i + 2] = (i * 7) % 255; image.data[i + 3] = 255
+    }
+    context.putImageData(image, 0, 0)
+    return canvas.toDataURL("image/jpeg", 0.85)
+  })
+  expect(photoDataUrl.length).toBeGreaterThan(20_000)
+  const stored = { ...product, structureColors: ["Preto"], upholsteryColors: ["Azul"], photoDataUrl }
+  let saved: Record<string, unknown> | undefined
+  await page.route(`**/api/erp/products/${productId}`, async route => {
+    if (route.request().method() === "PUT") saved = route.request().postDataJSON()
+    await route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { ...stored, ...saved } }, headers: { etag: '"revision-1"' } })
+  })
+  await page.goto(`/cadastros/produtos/${productId}/editar`)
+  await page.getByRole("textbox", { name: "Nome do produto", exact: true }).fill("Produto com foto recuperada")
+  await page.getByRole("textbox", { name: "Cores da estrutura", exact: true }).fill("Preto\nBranco")
+  page.on("dialog", dialog => dialog.accept())
+  await page.reload()
+  await expect(page.getByRole("status").filter({ hasText: "Rascunho recuperado" })).toBeVisible({ timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
+  await expect(page.getByRole("img", { name: "Foto cadastrada do produto" })).toHaveAttribute("src", photoDataUrl)
+  await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto\nBranco")
+  await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Produto salvo" })).toBeVisible()
+  expect(saved).toMatchObject({ photoDataUrl, structureColors: ["Preto", "Branco"], upholsteryColors: ["Azul"], name: "Produto com foto recuperada" })
+})
+
+test("rascunho antigo mantém os acabamentos atuais do servidor", async ({ page }) => {
+  await page.route(`**/api/erp/products/${productId}`, route => route.fulfill({
+    json: { tenantId: tenant, canEdit: true, data: { ...product, structureColors: ["Preto"], upholsteryColors: ["Azul"] } },
+    headers: { etag: '"revision-1"' },
+  }))
+  await page.goto(`/cadastros/produtos/${productId}/editar`)
+  await page.getByRole("textbox", { name: "Nome do produto", exact: true }).fill("Edição anterior")
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStorage).some(key => key.startsWith("erp:product-draft:")))).toBe(true)
+  await page.evaluate(() => {
+    const key = Object.keys(sessionStorage).find(key => key.startsWith("erp:product-draft:"))!
+    const stored = JSON.parse(sessionStorage.getItem(key)!)
+    for (const field of ["structureColors", "upholsteryColors", "photoDataUrl"]) delete stored.draft[field]
+    sessionStorage.setItem(key, JSON.stringify(stored))
+  })
+  page.on("dialog", dialog => dialog.accept())
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("Edição anterior", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
+  await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
+  await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")
+})
+
 test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento", async ({ page }) => {
   await page.setViewportSize({ width: 1749, height: 950 })
   await page.goto("/cadastros/produtos/novo")

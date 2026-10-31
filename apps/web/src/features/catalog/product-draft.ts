@@ -1,4 +1,4 @@
-export type ProductInput = { sku: string; name: string; unit: string; ncm: string | null; cest: string | null; basePrice: string; status: string }
+export type ProductInput = { sku: string; name: string; unit: string; ncm: string | null; cest: string | null; basePrice: string; status: string; structureColors?: string[]; upholsteryColors?: string[]; photoDataUrl?: string }
 export type ProductCommand = { key: string; body: string }
 export type ProductDraft = { version: 1; draft: ProductInput; baseline: string; etag: string; uncertain: boolean; conflict: boolean; command: ProductCommand | null }
 
@@ -9,13 +9,16 @@ function isProductInput(value: unknown): value is ProductInput {
     && (input.ncm === null || (typeof input.ncm === "string" && input.ncm.length <= 8))
     && (input.cest === null || (typeof input.cest === "string" && input.cest.length <= 7))
     && (input.status === "active" || input.status === "archived")
+    && [input.structureColors, input.upholsteryColors].every(colors => colors === undefined || (Array.isArray(colors) && colors.every(color => typeof color === "string") && colors.join("\n").length <= 1951))
+    && (input.photoDataUrl === undefined || (typeof input.photoDataUrl === "string" && input.photoDataUrl.length <= 349000))
 }
 
 export function readProductDraft(key: string): { value: ProductDraft | null; error: string } {
   try {
     const raw = sessionStorage.getItem(key)
     if (!raw) return { value: null, error: "" }
-    if (raw.length > 20_000) throw new Error("Invalid draft")
+    // A draft may retain the photo in the edit, baseline and pending command.
+    if (raw.length > 1_100_000) throw new Error("Invalid draft")
     const value = JSON.parse(raw) as ProductDraft
     if (value.version !== 1 || !isProductInput(value.draft) || typeof value.baseline !== "string" || !isProductInput(JSON.parse(value.baseline))
       || typeof value.etag !== "string" || typeof value.uncertain !== "boolean" || typeof value.conflict !== "boolean") throw new Error("Invalid draft")

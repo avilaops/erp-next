@@ -38,6 +38,8 @@ mod received_nfe_tests;
 mod reference_tests;
 #[cfg(test)]
 mod staff_tests;
+#[cfg(test)]
+mod template_draft_tests;
 
 use axum::{Router, middleware, routing::get};
 use tower_http::{

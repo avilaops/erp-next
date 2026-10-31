@@ -18,6 +18,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::preferences::get, crate::platform::preferences::put,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
+        contracts::templates::list, contracts::templates::detail, contracts::templates::save, contracts::templates::pdf,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,
         legacy::list, legacy::file, access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,

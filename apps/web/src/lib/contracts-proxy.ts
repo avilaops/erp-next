@@ -3,16 +3,25 @@ import { currentSession, erpConfiguration, uuidPattern } from "@/lib/erp-session
 const contractPath = /^(?:|\/options\/[a-f0-9-]{36}|\/[a-f0-9-]{36}(?:\/(?:review|send|sync)|\/files\/[a-f0-9-]{36})?)$/i
 
 export async function contractsProxy(request: Request, path = "") {
-  if (!contractPath.test(path)) return Response.json({ title: "Recurso inválido" }, { status: 404 })
+  return forwardContracts(request, path, false)
+}
+
+export async function contractTemplatesProxy(request: Request, path = "") {
+  return forwardContracts(request, path, true)
+}
+
+async function forwardContracts(request: Request, path: string, templates: boolean) {
+  const allowedPath = templates ? /^(?:|\/[a-f0-9-]{36}(?:\/pdf)?)$/i : contractPath
+  if (!allowedPath.test(path)) return Response.json({ title: "Recurso inválido" }, { status: 404 })
   try {
     const session = await currentSession()
     if (!session) return Response.json({ title: "Entre para acessar os contratos" }, { status: 401 })
     const config = erpConfiguration()
     if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ title: "Origem não autorizada" }, { status: 403 })
     if (request.method !== "GET" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Recarregue antes de continuar" }, { status: 409 })
-    const url = new URL(`${config.api}/api/v1/commercial-contracts${path}`)
+    const url = new URL(`${config.api}/api/v1/${templates ? "contract-template-drafts" : "commercial-contracts"}${path}`)
     for (const [key, value] of new URL(request.url).searchParams) {
-      if (path || !["orderId", "customerId", "offset"].includes(key) || new URL(request.url).searchParams.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
+      if (templates || path || !["orderId", "customerId", "offset"].includes(key) || new URL(request.url).searchParams.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
       url.searchParams.set(key, value)
     }
     const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": session.tenantId })
@@ -27,7 +36,7 @@ export async function contractsProxy(request: Request, path = "") {
         const { done, value } = await reader.read()
         if (done) break
         size += value.byteLength
-        if (size > 65_536) { await reader.cancel(); return Response.json({ title: "Contrato muito grande" }, { status: 413 }) }
+        if (size > (templates ? 8 * 1024 * 1024 : 65_536)) { await reader.cancel(); return Response.json({ title: "Documento muito grande" }, { status: 413 }) }
         chunks.push(value)
       }
       body = Buffer.concat(chunks)

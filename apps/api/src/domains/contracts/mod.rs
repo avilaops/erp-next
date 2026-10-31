@@ -1,6 +1,7 @@
 mod model;
 pub mod provider;
 mod sync;
+pub mod templates;
 
 use axum::{
     Extension, Json, Router,
@@ -29,6 +30,7 @@ const SEND: &str = "sales.contracts.send";
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .merge(templates::routes())
         .route("/api/v1/commercial-contracts", get(list).post(generate))
         .route("/api/v1/commercial-contracts/options/{id}", get(options))
         .route("/api/v1/commercial-contracts/{id}", get(detail))

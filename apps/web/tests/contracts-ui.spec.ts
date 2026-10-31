@@ -58,7 +58,7 @@ const upstream = createServer(async (request, response) => {
       expect(request.headers["idempotency-key"]).toBeTruthy()
       let body = ""; for await (const chunk of request) body += chunk
       expect(JSON.parse(body)).toEqual({ templateId: 1 })
-      templateDraft = { id: importMatch[1], revision: 1, definition: { name: "Modelo do serviço conectado", pages: 1, roles: ["Cliente"], fields: [] } }
+      templateDraft = { id: importMatch[1], revision: 1, definition: { name: "Modelo do serviço conectado", pages: 1, roles: ["Cliente"], fields: [{ id: "imported-signature", name: "assinatura", kind: "signature", role: "Cliente", required: true, page: 1, x: 8.57, y: 84.51, width: 82.86, height: 8.42, additionalAreas: [{ page: 1, x: 8.57, y: 45.23, width: 40.42, height: 8.42 }] }] } }
       response.setHeader("ETag", '"1"')
       response.end(JSON.stringify({ id: templateDraft.id, tenantId: tenant, revision: 1 })); return
     }
@@ -185,6 +185,11 @@ test("modelo conectado abre copia no editor sem envio ou alteracao do original",
   await expect(page.getByRole("textbox", { name: "Nome do modelo", exact: true })).toHaveValue("Modelo do serviço conectado")
   await expect(page.getByRole("button", { name: "Salvar rascunho", exact: true })).toBeEnabled({ timeout: 20000 })
   expect(templateSaves).toBe(0)
+  await page.getByLabel("Nome do modelo", { exact: true }).fill("Modelo importado editado")
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page.getByText("Rascunho salvo. Ainda não publicado para os pedidos.", { exact: true })).toBeVisible()
+  expect(templateSaves).toBe(1)
+  expect(templateDraft!.definition).toMatchObject({ fields: [{ x: 8.57, width: 82.86, additionalAreas: [{ page: 1, x: 8.57, y: 45.23, width: 40.42, height: 8.42 }] }] })
   expect(sends).toBe(0)
   expect(failures).toEqual([])
 })

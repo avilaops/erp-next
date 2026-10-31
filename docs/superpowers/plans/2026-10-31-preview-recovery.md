@@ -6,13 +6,16 @@
 
 A tentativa é compartilhada entre miniatura e imagem ampliada: recuperar a imagem atualiza ambas, sem deixar uma mensagem de falha antiga na entrada.
 
+Mudanças de fonte por orientação também recriam as capturas. Foi reproduzido no navegador que uma troca para uma fonte com falha, depois de uma imagem já pronta, pode não emitir o evento de erro esperado. A assinatura das duas media queries evita atualizações duplicadas e preserva o foco quando o conteúdo da região é substituído.
+
 ## Plano
 
 - [x] Reproduzir falha de rede na captura pública e inspecionar a tela.
 - [x] Implementar estados de carregamento, imagem pronta e erro nas duas apresentações.
 - [x] Preservar proporção, fontes responsivas e rolagem aprovadas; respeitar redução de movimento.
 - [x] Testar espera controlada, falha, tentativa e recuperação; fechar e acessar o ERP continuam disponíveis.
-- [x] Executar lint/build/TypeScript e os 14 testes de onboarding sobre o build de produção (30s); revisão independente sem achados.
+- [x] Executar lint/build/TypeScript e os 14 testes iniciais de onboarding sobre o build de produção (30s); revisão independente sem achados.
+- [x] Validar a cobertura adicional de falha durante rotação e recuperação ao voltar, e a opacidade da captura pronta: lint/build/TypeScript e 15 testes de onboarding aprovados no build de produção (28,2s); nova revisão independente sem achados.
 - [ ] Aprovar CI/release completos e validar a publicação pública na base então vigente.
 
 ## Limites

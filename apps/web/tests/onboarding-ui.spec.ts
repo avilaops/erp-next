@@ -77,6 +77,7 @@ test("entry keeps access visible and its single preview supports keyboard readin
     await expect(dialog).toBeVisible()
     const image = dialog.getByRole("img")
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+    await expect(image).toHaveCSS("opacity", "1")
 
     const capture = dialog.getByRole("region", { name: "Imagem ampliada do ERP", exact: true })
     await expect(dialog.getByRole("button")).toHaveCount(1)
@@ -188,6 +189,25 @@ test("entry preview announces loading and recovers from a failed image without l
   await expect(trigger).toBeFocused()
   await expect(trigger.getByRole("alert")).toHaveCount(0)
   await expect.poll(() => trigger.locator("img").evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
+})
+
+test("a loaded preview reports a failed source after rotation and recovers when rotated back", async ({ page }) => {
+  await page.route("**/erp-preview-landscape.png*", route => route.abort("failed"))
+  await page.setViewportSize({ width: 390, height: 680 })
+  await page.goto("/entrar")
+  await page.getByRole("button", { name: "Ampliar imagem do ERP", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
+  await expect(dialog.getByRole("status")).toHaveCount(0)
+  await page.setViewportSize({ width: 568, height: 320 })
+  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
+  await dialog.getByRole("button", { name: "Tentar novamente", exact: true }).focus()
+  await page.setViewportSize({ width: 390, height: 680 })
+  await expect(dialog.getByRole("alert")).toHaveCount(0)
+  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
+  await expect(dialog.getByRole("region")).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
 })
 
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { Expand, LoaderCircle, X } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
@@ -45,7 +45,30 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
 export function ErpEntryPreview() {
   const [open, setOpen] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [layoutVersion, setLayoutVersion] = useState(0)
   const capture = useRef<HTMLDivElement>(null)
+  const captureKey = `${attempt}-${layoutVersion}`
+
+  useEffect(() => {
+    const landscape = window.matchMedia(landscapePreviewMedia)
+    const mobile = window.matchMedia(mobilePreviewMedia)
+    const layout = () => landscape.matches ? "landscape" : mobile.matches ? "mobile" : "desktop"
+    let current = layout()
+    function update() {
+      const next = layout()
+      if (next === current) return
+      current = next
+      if (capture.current?.contains(document.activeElement)) capture.current.focus()
+      // A new picture makes load/error state follow the newly selected source.
+      setLayoutVersion(value => value + 1)
+    }
+    landscape.addEventListener("change", update)
+    mobile.addEventListener("change", update)
+    return () => {
+      landscape.removeEventListener("change", update)
+      mobile.removeEventListener("change", update)
+    }
+  }, [])
 
   function retry() {
     capture.current?.focus()
@@ -58,7 +81,7 @@ export function ErpEntryPreview() {
         aria-label="Ampliar imagem do ERP"
         className="group mt-5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-white/20 bg-white text-left text-stone-900 shadow-xl shadow-black/15 focus-visible:ring-white focus-visible:ring-offset-[#134e4a]"
       >
-        <PreviewCapture key={attempt} attempt={attempt} />
+        <PreviewCapture key={captureKey} attempt={attempt} />
         <span className="flex min-h-12 items-center justify-between gap-3 border-t border-stone-200 px-4 text-xs font-medium transition-colors group-hover:bg-teal-50">
           Ampliar imagem<Expand aria-hidden="true" className="size-4 shrink-0 text-teal-700" />
         </span>
@@ -75,7 +98,7 @@ export function ErpEntryPreview() {
           </DialogClose>
         </DialogHeader>
         <div ref={capture} role="region" aria-label="Imagem ampliada do ERP" tabIndex={0} className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-white focus-visible:ring-inset">
-          <PreviewCapture key={attempt} attempt={attempt} expanded onRetry={retry} />
+          <PreviewCapture key={captureKey} attempt={attempt} expanded onRetry={retry} />
         </div>
       </DialogContent>
     </Dialog>

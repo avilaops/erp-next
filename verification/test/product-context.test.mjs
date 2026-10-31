@@ -17,13 +17,13 @@ const source = {
   contextFiles: [{ path: 'verification/contracts.json', sha256: '5'.repeat(64) }],
 };
 
-test('every canonical action has one product owner and only three journeys are explicitly defined', async () => {
+test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 24);
-  assert.equal(context.actions.length, 114);
+  assert.equal(context.flows.length, 25);
+  assert.equal(context.actions.length, 116);
   assert.equal(context.pendingFlows.length, 25);
-  assert.equal(context.flows.filter(flow => flow.definitionState === 'journey_defined').length, 3);
+  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['personal-preferences', 'products', 'purchase_payment_chain', 'users']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
 });
@@ -47,7 +47,7 @@ test('unknown references, duplicate ownership, and invented runtime state are re
   unknown.productFlows.flows[0].journey[0].actionIds.push('invented-action');
   assert.ok(validateProductFlows(unknown).some(item => item.code === 'unknown_journey_action'));
   const duplicate = structuredClone(catalogue);
-  duplicate.productFlows.flows[1].actionGroups.push('users');
+  duplicate.productFlows.flows.find(flow => flow.id === 'runtime').actionGroups.push('users');
   assert.ok(validateProductFlows(duplicate).some(item => item.code === 'duplicate_action_group_owner'));
   const missing = structuredClone(catalogue);
   missing.productFlows.flows = missing.productFlows.flows.filter(flow => flow.id !== 'legacy-history');

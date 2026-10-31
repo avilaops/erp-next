@@ -380,6 +380,28 @@ impl CertificateVault {
         if private.to_public_key() != public {
             return Err("A chave privada não corresponde ao certificado");
         }
+        self.verified_chain(&store, chain, now)?;
+        Ok(CertificateMetadata {
+            subject: certificate.subject().to_string(),
+            issuer: certificate.issuer().to_string(),
+            tax_id: tax_id.to_owned(),
+            fingerprint: format!("{:x}", Sha256::digest(leaf.as_der())),
+            serial_number: certificate.raw_serial_as_string(),
+            valid_from,
+            valid_until,
+            validated_at: now.unix_timestamp(),
+            chain_verified: true,
+            revocation_checked: false,
+        })
+    }
+
+    fn verified_chain(
+        &self,
+        store: &KeyStore,
+        chain: &p12_keystore::PrivateKeyChain,
+        now: OffsetDateTime,
+    ) -> Result<Vec<Vec<u8>>, &'static str> {
+        let leaf = chain.certs().first().ok_or("Certificado sem identidade")?;
         let leaf_der = CertificateDer::from(leaf.as_der());
         let anchors = self
             .roots
@@ -393,45 +415,56 @@ impl CertificateVault {
             .skip(1)
             .map(|cert| CertificateDer::from(cert.as_der()))
             .collect::<Vec<_>>();
-        // Some PKCS#12 exporters put CA certificates in separate trusted bags.
-        // They are issuer candidates only: an uploaded CA never becomes an anchor.
+        // Trusted bags and the pinned ITI archive are candidates, never anchors.
         for (_, entry) in store.entries() {
             if let KeyStoreEntry::Certificate(cert) = entry {
                 intermediates.push(CertificateDer::from(cert.as_der()));
             }
         }
-        // Resolve incomplete exports locally using the checksum-pinned ITI archive.
-        // Never fetch AIA URLs from an uploaded certificate (SSRF / availability).
         intermediates.extend(self.intermediates.iter().cloned());
-        webpki::EndEntityCert::try_from(&leaf_der)
-            .and_then(|certificate| {
-                certificate
-                    .verify_for_usage(
-                        webpki::ALL_VERIFICATION_ALGS,
-                        &anchors,
-                        &intermediates,
-                        UnixTime::since_unix_epoch(Duration::from_secs(
-                            now.unix_timestamp().max(0) as u64,
-                        )),
-                        webpki::KeyUsage::client_auth(),
-                        None,
-                        None,
-                    )
-                    .map(|_| ())
-            })
+        let certificate = webpki::EndEntityCert::try_from(&leaf_der).map_err(chain_error)?;
+        let path = certificate
+            .verify_for_usage(
+                webpki::ALL_VERIFICATION_ALGS,
+                &anchors,
+                &intermediates,
+                UnixTime::since_unix_epoch(Duration::from_secs(now.unix_timestamp().max(0) as u64)),
+                webpki::KeyUsage::client_auth(),
+                None,
+                None,
+            )
             .map_err(chain_error)?;
-        Ok(CertificateMetadata {
-            subject: certificate.subject().to_string(),
-            issuer: certificate.issuer().to_string(),
-            tax_id: tax_id.to_owned(),
-            fingerprint: format!("{:x}", Sha256::digest(leaf.as_der())),
-            serial_number: certificate.raw_serial_as_string(),
-            valid_from,
-            valid_until,
-            validated_at: now.unix_timestamp(),
-            chain_verified: true,
-            revocation_checked: false,
-        })
+        let mut result = vec![leaf.as_der().to_vec()];
+        result.extend(
+            path.intermediate_certificates()
+                .map(|cert| cert.der().to_vec()),
+        );
+        Ok(result)
+    }
+
+    /// Send precisely the validated path in the TLS handshake, excluding its root.
+    pub(crate) fn transport_certificates(
+        &self,
+        material: &CertificateMaterial,
+    ) -> Result<Vec<Vec<u8>>, &'static str> {
+        let store = KeyStore::from_pkcs12(
+            &material.pkcs12,
+            &material.password,
+            Pkcs12ImportPolicy::Strict,
+        )
+        .map_err(|_| "Certificado indisponível")?;
+        let mut chains = store.entries().filter_map(|(_, entry)| {
+            if let KeyStoreEntry::PrivateKeyChain(chain) = entry {
+                Some(chain)
+            } else {
+                None
+            }
+        });
+        let chain = chains.next().ok_or("Certificado sem chave privada")?;
+        if chains.next().is_some() {
+            return Err("Identidade fiscal ambígua");
+        }
+        self.verified_chain(&store, chain, OffsetDateTime::now_utc())
     }
 
     fn aad(tenant: uuid::Uuid, revision: i64, metadata: &CertificateMetadata) -> Vec<u8> {

@@ -81,9 +81,11 @@ quando fechado. Sem novas dependências, mudanças de autenticação ou publica�
   fechada. A página fechada não apresentou resultados inconclusivos. No modal,
   a ferramenta pediu revisão manual do foco por causa dos focus guards e do
   fundo aria-hidden do BaseUI; o ciclo de oito Tabs ficou dentro do modal,
-  Escape e botão de fechar devolveram o foco ao acionador. Uma medição de
-  contraste durante a abertura foi inconclusiva; não é prova de conformidade
-  integral de acessibilidade.
+  Escape e botão de fechar devolveram o foco ao acionador. A detecção automática
+  do fundo do título também foi inconclusiva no modal móvel claro. A leitura
+  manual dos estilos confirmou título `#1c1917` e descrição `#57534e` sobre o
+  fundo branco do diálogo, sem sobreposição visual. Essas verificações não são
+  prova de conformidade integral de acessibilidade.
 - Prévia ampliada usa o WebP original para preservar os detalhes e evitar uma
   segunda otimização da imagem ao abrir. O painel inicial mantém otimização.
 - Revisão independente sem achados acionáveis. Console sem erros na versão

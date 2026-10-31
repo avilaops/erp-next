@@ -237,7 +237,7 @@ jobs:
 
   web-browser:
     needs: web
-    timeout-minutes: 5
+    timeout-minutes: 7
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -255,6 +255,10 @@ jobs:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
       - run: timeout 240s pnpm --filter web test:danfe
+        env:
+          ERP_BROWSER_CHANNEL: chrome
+      - name: Verify secure session cookie removal in the browser
+        run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts
         env:
           ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4

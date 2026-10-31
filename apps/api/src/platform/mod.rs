@@ -1,5 +1,6 @@
 pub mod access;
 pub mod access_management;
+pub mod audit;
 pub mod auth;
 pub mod company;
 mod company_data;

@@ -21,7 +21,7 @@ test('every canonical action has one product owner and declared journeys are exp
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
   assert.equal(context.flows.length, 25);
-  assert.equal(context.actions.length, 122);
+  assert.equal(context.actions.length, 123);
   assert.equal(context.pendingFlows.length, 25);
   assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['personal-preferences', 'products', 'purchase_payment_chain', 'users']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');

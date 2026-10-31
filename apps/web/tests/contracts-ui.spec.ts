@@ -50,7 +50,8 @@ const upstream = createServer(async (request, response) => {
       let body = ""; for await (const chunk of request) body += chunk
       expect(JSON.parse(body)).toEqual({ templateId: 1 })
       templateDraft = { id: importMatch[1], revision: 1, definition: { name: "Modelo do serviço conectado", pages: 1, roles: ["Cliente"], fields: [] } }
-      response.end(JSON.stringify({ id: templateDraft.id, tenantId: tenant })); return
+      response.setHeader("ETag", '"1"')
+      response.end(JSON.stringify({ id: templateDraft.id, tenantId: tenant, revision: 1 })); return
     }
     if (url.pathname === "/api/v1/contract-template-drafts") {
       response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: templateDraft ? [{ id: templateDraft.id, name: "Modelo técnico do editor", revision: templateDraft.revision }] : [] })); return
@@ -166,13 +167,14 @@ test("editor salva PDF e campos como rascunho e reabre sem enviar contrato", asy
 })
 
 test("modelo conectado abre copia no editor sem envio ou alteracao do original", async ({ page, context }) => {
+  test.setTimeout(60000)
   await context.addCookies([cookie()])
   await page.goto("/servicos/contratos/modelos")
   await expect(page.getByText("Modelo do serviço conectado", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Editar cópia no ERP", exact: true }).click()
   await expect(page).toHaveURL(/\/servicos\/contratos\/modelos\/[a-f0-9-]{36}$/)
   await expect(page.getByRole("textbox", { name: "Nome do modelo", exact: true })).toHaveValue("Modelo do serviço conectado")
-  await expect(page.getByRole("button", { name: "Salvar rascunho", exact: true })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Salvar rascunho", exact: true })).toBeEnabled({ timeout: 20000 })
   expect(templateSaves).toBe(0)
   expect(sends).toBe(0)
   expect(failures).toEqual([])

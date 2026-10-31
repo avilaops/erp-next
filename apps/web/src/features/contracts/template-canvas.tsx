@@ -21,7 +21,7 @@ export function TemplateCanvas({ source, fields, disabled, onPages, onMove }: {
     async function load() {
       try {
         const engine = await import("pdfjs-dist")
-        engine.GlobalWorkerOptions.workerSrc = "/api/contract-editor-worker"
+        engine.GlobalWorkerOptions.workerSrc = "/assets/contract-editor-worker"
         const response = await fetch(source, { signal: controller.signal, cache: "no-store" })
         if (!response.ok) throw new Error("Não foi possível carregar o PDF.")
         const data = new Uint8Array(await response.arrayBuffer())

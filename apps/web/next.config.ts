@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   devIndicators: process.env.ERP_BROWSER_DEV === "1" ? false : undefined,
   output: "standalone",
   outputFileTracingIncludes: {
-    "/api/contract-editor-worker": ["./node_modules/pdfjs-dist/build/pdf.worker.min.mjs"],
+    "/assets/contract-editor-worker": ["./node_modules/pdfjs-dist/build/pdf.worker.min.mjs"],
   },
   distDir: process.env.ERP_NEXT_DIST_DIR || ".next",
   /* config options here */

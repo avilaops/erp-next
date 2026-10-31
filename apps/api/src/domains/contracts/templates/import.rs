@@ -70,7 +70,7 @@ pub async fn import_template(
     .await?
     {
         tx.commit().await.map_err(db)?;
-        return Ok(response(StatusCode::OK, None, value));
+        return Ok(response(StatusCode::OK, value["revision"].as_i64(), value));
     }
     let existing: Option<Uuid> = sqlx::query_scalar(
         "SELECT id FROM commercial_template_drafts WHERE tenant_id=$1 AND source_template_id=$2",
@@ -111,7 +111,15 @@ pub async fn import_template(
         record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"contract_template_draft",id,event:"contract_template.imported",details:json!({"sourceTemplateId":input.template_id,"sourceUpdatedAt":template["updated_at"]})}).await?;
         id
     };
-    let value = json!({"id":draft_id,"tenantId":tenant});
+    let rev: i64 = sqlx::query_scalar(
+        "SELECT revision FROM commercial_template_drafts WHERE tenant_id=$1 AND id=$2",
+    )
+    .bind(tenant)
+    .bind(draft_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let value = json!({"id":draft_id,"tenantId":tenant,"revision":rev});
     remember(
         &mut tx,
         tenant,
@@ -123,7 +131,7 @@ pub async fn import_template(
     )
     .await?;
     tx.commit().await.map_err(db)?;
-    Ok(response(StatusCode::OK, None, value))
+    Ok(response(StatusCode::OK, Some(rev), value))
 }
 
 fn unsupported() -> DomainError {

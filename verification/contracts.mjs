@@ -83,6 +83,12 @@ export function assessContracts(catalogue, inventory) {
     else coveredBff.add(key(auth));
   }
   for (const target of api) if (!covered.has(target)) fail('api_without_action_contract', target, 'Operação descoberta sem ficha de ação.');
+  for (const asset of catalogue.assetActions || []) {
+    if (asset?.method !== 'GET' || !asset?.path?.startsWith('/assets/') || !bff.has(key(asset))
+        || !text(asset.source) || asset.authentication !== 'public_static_asset' || !text(asset.action)) {
+      fail('invalid_asset_contract', asset?.path, 'Ativo público precisa de rota GET, origem fixa e contrato explícito.');
+    } else coveredBff.add(key(asset));
+  }
   for (const target of bff) if (!coveredBff.has(target)) fail('bff_without_action_contract', target, 'Handler descoberto sem ação ou contrato de autenticação associado.');
   const pendingIds = new Set();
   for (const pending of catalogue.pendingFlows) {

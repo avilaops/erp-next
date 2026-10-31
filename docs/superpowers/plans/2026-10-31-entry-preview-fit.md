@@ -48,3 +48,17 @@ Sem dependências ou alterações em autenticação, API e dados.
   Os avisos inconclusivos de foco e detecção de fundo do título no BaseUI
   permanecem sujeitos à conferência manual; não se declara conformidade integral.
 - Console local sem erros. Entrada e autenticação não foram alteradas.
+- Sobre a base publicada `125e678`, build, TypeScript, lint e os 13 testes de
+  onboarding também passaram. Os três testes Python do verificador passaram.
+
+## Correção necessária no inventário herdado da main
+
+O catálogo de preferências acrescentou duas operações e um fluxo. Os testes de
+inventário ainda fixavam 114 operações de API, 101 de BFF e 24 fluxos. A origem
+atual declara 116, 103 e 25, respectivamente. Um cenário de duplicidade também
+usava a posição 1 da lista, que passou a ser o próprio dono de `users`.
+As expectativas foram alinhadas ao catálogo e o cenário de duplicidade passou
+a selecionar `runtime` pelo ID. As quatro jornadas são conferidas pelos IDs
+declarados, mantendo verificações de propriedade, dependências e evidência.
+Os 35 testes do inventário passaram após essas correções, sem mudanças no
+catálogo, API ou esquema de produção.

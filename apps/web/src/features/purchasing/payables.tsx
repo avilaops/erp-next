@@ -1,5 +1,7 @@
 "use client"
 
+import { useSuggestedPaymentMethod } from "@/features/financial-settings/use-suggested-payment-method"
+
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/session-recovery"
@@ -45,12 +47,12 @@ function PayableDetail({ id }: { id: string }) {
 
 function PayableForm({ value, etag, reload }: { value: Detail; etag: string; reload: () => void }) {
   const command = useCommand()
-  const [method, setMethod] = useState("bank_transfer")
+  const { method, setMethod, loading: methodLoading, error: methodError } = useSuggestedPaymentMethod()
   const [reference, setReference] = useState("")
   const [occurredOn, setOccurredOn] = useState("")
   const [amount, setAmount] = useState("")
   const [paymentId, setPaymentId] = useState("")
-  const frozen = command.busy || command.uncertain || command.stale
+  const frozen = methodLoading || command.busy || command.uncertain || command.stale
   const dirty = Boolean(reference || occurredOn || amount || paymentId)
   useEffect(() => {
     const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
@@ -64,7 +66,9 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
     <section className="form-section mt-5 min-w-0 space-y-5">
       <h2 className="break-words font-semibold">{value.data.supplierName}</h2><p>Valor: {money(value.data.amount)}</p><p>Pago declarado: {money(value.data.paidAmount)}</p><p>Saldo restante: {money(value.data.outstandingAmount)}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate} · Revisão {value.data.revision}</p>
       {!dirty && <Link className={purchaseLink} href={`/compras/recebimentos/${value.data.receiptId}`}>Consultar recebimento de origem</Link>}
-      {!value.canEdit ? <p>Somente consulta.</p> : (!paid || reversing) && <form className="min-w-0 space-y-4" onSubmit={async event => {
+      {methodError && <p role="status">Sugestão indisponível. Confira o meio declarado antes de confirmar.</p>}
+      {!value.canEdit ? <p>Somente consulta.</p> : (!paid || reversing) &&
+      <form className="min-w-0 space-y-4" onSubmit={async event => {
         event.preventDefault()
         if (!command.uncertain && !window.confirm(reversing ? "Registrar o estorno deste pagamento declarado? O estoque e o recebimento da compra serão preservados." : "Registrar este pagamento manual no ERP? Nenhum dinheiro será transferido.")) return
         const normalizedAmount = normalizeDecimal(amount)

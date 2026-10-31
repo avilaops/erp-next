@@ -16,6 +16,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
+        crate::platform::financial_settings::get, crate::platform::financial_settings::put,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::templates::list, contracts::templates::detail, contracts::templates::save, contracts::templates::pdf,
@@ -203,7 +204,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 87);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 88);
         assert!(doc["paths"]["/api/v1/contract-template-drafts"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}/pdf"]["get"].is_object());

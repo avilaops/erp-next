@@ -99,7 +99,7 @@ test("identity-only sessions cannot access existing tenant data and company sele
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
-  await expect(page.getByRole("heading", { name: "Bem-vindo ao Ávila ERP", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Sua operação, sob controle.", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
   await context.addCookies([cookie()])

@@ -12,7 +12,13 @@ O ERP confere o conteúdo PKCS#12, a presença de uma única chave privada, a
 correspondência da chave com o certificado, o CNPJ ICP-Brasil da empresa ativa,
 a política A1, a permissão de assinatura digital, a validade e a cadeia de
 confiança. O formato fiscal suportado usa chave RSA de 2048 a 8192 bits.
-O PFX deve incluir os certificados intermediários da cadeia.
+O ERP identifica a emissora pelo certificado. Quando o PFX não inclui todos os
+intermediários, a cadeia é completada usando os certificados públicos do pacote
+oficial do ITI incluído na versão do ERP. Não é necessário informar a certificadora.
+Certificados de AC presentes em bags separados do PFX também são considerados.
+Esses certificados são candidatos a emissores, nunca novas raízes confiáveis:
+o caminho inteiro continua exigindo assinatura, validade, usos e restrições
+compatíveis até uma das raízes aprovadas.
 
 Após conectar, a tela mostra titular, autoridade certificadora, validade,
 número de série, SHA-256 e data da verificação. Há aviso quando faltam até
@@ -93,6 +99,20 @@ validade das raízes obtidas por HTTPS. Não há download de URLs fornecidas pel
 usuário durante a validação. `FISCAL_A1_CA_BUNDLE_FILE` pode indicar um arquivo
 PEM de raízes aprovado pelo operador; é usado nos testes para uma CA isolada,
 que nunca deve ser instalada na produção.
+
+`deploy/fiscal/icp-brasil-intermediates.pem` contém somente ACs intermediárias,
+separadas das raízes. O manifesto `.json` registra o SHA-512 do ZIP oficial,
+o SHA-256 do PEM e de cada certificado. Para atualizar, execute localmente
+`python scripts/fetch-icp-intermediates.py` (requer `cryptography`), revise o
+manifesto e publique pelo CI. O script confere o hash publicado pelo ITI.
+O pacote é fixado na release: não há download durante o upload nem acesso a
+URLs AIA fornecidas pelo PFX. Uma nova emissora pode exigir atualização do pacote.
+
+Falhas diferenciam cadeia incompleta, intermediário vencido ou ainda não vigente,
+uso incompatível, assinatura inválida, restrições de cadeia e extensões/algoritmos
+não suportados. O log contém apenas a categoria do erro, sem PFX, senha ou dados
+da empresa. Uma tentativa recusada não grava nem substitui a credencial existente.
+Este incremento não acrescenta consulta de revogação nem libera emissão de NF-e.
 
 A migração `202610290002_fiscal_a1_certificates.sql` cria a tabela cifrada.
 Publique as imagens aprovadas e aplique a migração pelo workflow de produção

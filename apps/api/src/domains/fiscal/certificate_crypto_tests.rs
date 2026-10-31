@@ -112,3 +112,87 @@ fn production_trust_anchors_reject_the_synthetic_test_ca() {
     );
     assert!(result.err().unwrap().contains("cadeia"));
 }
+
+#[test]
+fn incomplete_exports_resolve_from_issuer_candidates_without_trusting_them() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/a1-chain-synthetic.json"
+    ))
+    .unwrap();
+    let keyring =
+        serde_json::json!({"active":"test","keys":{"test":STANDARD.encode([7_u8;32])}}).to_string();
+    let mut vault =
+        CertificateVault::new(&keyring, fixture["rootPem"].as_str().unwrap().as_bytes()).unwrap();
+    let now = OffsetDateTime::from_unix_timestamp(1793232000).unwrap();
+    let inspect = |vault: &CertificateVault, name: &str| {
+        vault.inspect(
+            &STANDARD.decode(fixture[name].as_str().unwrap()).unwrap(),
+            fixture["password"].as_str().unwrap(),
+            "04252011000110",
+            now,
+        )
+    };
+    assert!(inspect(&vault, "complete").unwrap().chain_verified);
+    assert!(
+        inspect(&vault, "leafOnly")
+            .unwrap_err()
+            .contains("completar a cadeia")
+    );
+    vault.intermediates =
+        issuer_candidates(fixture["intermediatePem"].as_str().unwrap().as_bytes()).unwrap();
+    assert!(inspect(&vault, "leafOnly").unwrap().chain_verified);
+    assert!(
+        inspect(&vault, "incompatibleUsage")
+            .unwrap_err()
+            .contains("autenticação")
+    );
+    vault.intermediates = issuer_candidates(
+        fixture["expiredIntermediatePem"]
+            .as_str()
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    assert!(inspect(&vault, "leafOnly").unwrap_err().contains("vencido"));
+    // Even a correctly signed issuer candidate cannot introduce a new trusted root.
+    let mut production = CertificateVault::new(
+        &keyring,
+        include_bytes!("../../../../../deploy/fiscal/icp-brasil-roots.pem"),
+    )
+    .unwrap();
+    production.intermediates =
+        issuer_candidates(fixture["intermediatePem"].as_str().unwrap().as_bytes()).unwrap();
+    assert!(
+        inspect(&production, "leafOnly")
+            .unwrap_err()
+            .contains("cadeia")
+    );
+    // A damaged issuer signature must not be accepted through name matching alone.
+    let mut broken = production.intermediates[0].to_vec();
+    *broken.last_mut().unwrap() ^= 1;
+    vault.intermediates = vec![CertificateDer::from(broken)];
+    assert!(inspect(&vault, "leafOnly").is_err());
+    assert!(issuer_candidates(fixture["rootPem"].as_str().unwrap().as_bytes()).is_err());
+}
+
+#[test]
+fn official_issuer_bundle_matches_its_reviewed_manifest() {
+    let pem = include_bytes!("../../../../../deploy/fiscal/icp-brasil-intermediates.pem");
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../deploy/fiscal/icp-brasil-intermediates.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        format!("{:x}", Sha256::digest(pem)),
+        manifest["bundleSha256"].as_str().unwrap()
+    );
+    let certificates = issuer_candidates(pem).unwrap();
+    let entries = manifest["certificates"].as_array().unwrap();
+    assert_eq!(certificates.len(), entries.len());
+    for (certificate, entry) in certificates.iter().zip(entries) {
+        assert_eq!(
+            format!("{:x}", Sha256::digest(certificate.as_ref())),
+            entry["sha256"].as_str().unwrap()
+        );
+    }
+}

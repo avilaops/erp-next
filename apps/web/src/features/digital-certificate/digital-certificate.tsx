@@ -122,7 +122,7 @@ export function DigitalCertificate() {
       </section>
       {certificate.canEdit && <section className="form-section space-y-5" aria-labelledby="certificate-upload-title">
         <h2 id="certificate-upload-title" className="flex items-center gap-2 text-lg font-semibold"><Upload className="size-5 text-primary" />{certificate.data ? "Substituir certificado A1" : "Conectar certificado A1"}</h2>
-        <p className="text-sm text-muted-foreground">Escolha o arquivo .pfx ou .p12 diretamente. Não é necessário instalar o certificado no Windows. O arquivo deve conter a chave privada e a cadeia da empresa.</p>
+        <p className="text-sm text-muted-foreground">Escolha o arquivo .pfx ou .p12 com o certificado e a chave privada da empresa. Não é necessário instalar no Windows nem informar a certificadora. O ERP identifica a emissora e completa a cadeia com os certificados oficiais disponíveis.</p>
         {!certificate.uploadAvailable && <p role="alert" className="rounded-xl border p-4 text-sm">O armazenamento seguro de certificados precisa ser configurado para habilitar o envio.</p>}
         <form className="space-y-4" onSubmit={event => { event.preventDefault(); void save() }}>
           <label className="block space-y-2 text-sm">Arquivo do certificado A1<input ref={fileInput} type="file" aria-label="Arquivo do certificado A1" accept=".pfx,.p12,application/x-pkcs12" className="block w-full rounded-xl border p-3" disabled={!!busy || blocked || loading || !certificate.uploadAvailable} onChange={event => { setFile(event.target.files?.[0] || null); setError(""); setNotice("") }} /><span className="block text-xs text-muted-foreground">Até 64 KiB. O CNPJ deve corresponder à empresa ativa.</span></label>

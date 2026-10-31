@@ -24,6 +24,79 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 pub const MAX_A1_BYTES: usize = 64 * 1024;
 
+fn issuer_candidates(pem: &[u8]) -> anyhow::Result<Vec<CertificateDer<'static>>> {
+    anyhow::ensure!(
+        pem.len() <= 8 * 1024 * 1024,
+        "Fiscal A1 issuer bundle exceeds limit"
+    );
+    let certificates = x509_parser::pem::Pem::iter_from_buffer(pem)
+        .map(|value| {
+            let pem = value.map_err(|_| anyhow::anyhow!("Invalid fiscal A1 issuer bundle"))?;
+            anyhow::ensure!(pem.label == "CERTIFICATE", "Invalid fiscal A1 issuer label");
+            let (_, cert) = X509Certificate::from_der(&pem.contents)
+                .map_err(|_| anyhow::anyhow!("Invalid fiscal A1 issuer certificate"))?;
+            anyhow::ensure!(
+                cert.subject() != cert.issuer()
+                    && cert
+                        .basic_constraints()?
+                        .is_some_and(|extension| extension.value.ca),
+                "Fiscal A1 issuer candidates must be intermediate CA certificates"
+            );
+            Ok(CertificateDer::from(pem.contents))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    anyhow::ensure!(
+        !certificates.is_empty() && certificates.len() <= 4096,
+        "Invalid fiscal A1 issuer count"
+    );
+    Ok(certificates)
+}
+
+fn chain_error(error: webpki::Error) -> &'static str {
+    // Only a diagnostic category is logged: never the PFX, password or identity.
+    let (reason, message) = match error {
+        webpki::Error::UnknownIssuer => (
+            "unknown_issuer",
+            "Não foi possível completar a cadeia ICP-Brasil com os certificados do arquivo e do repositório oficial. Exporte o PFX com a cadeia completa ou solicite a atualização das intermediárias no ERP",
+        ),
+        webpki::Error::CertExpired { .. } => (
+            "expired_issuer",
+            "Um certificado da cadeia está vencido. Exporte o A1 com a cadeia atualizada da certificadora",
+        ),
+        webpki::Error::CertNotValidYet { .. } => (
+            "future_issuer",
+            "Um certificado da cadeia ainda não está vigente",
+        ),
+        webpki::Error::InvalidSignatureForPublicKey => (
+            "invalid_signature",
+            "A assinatura de um certificado da cadeia é inválida",
+        ),
+        webpki::Error::RequiredEkuNotFoundContext(_) => (
+            "incompatible_usage",
+            "A cadeia do certificado não permite autenticação de cliente para uso fiscal",
+        ),
+        webpki::Error::UnsupportedCriticalExtension => (
+            "unsupported_critical_extension",
+            "A cadeia contém uma extensão crítica ainda não suportada pelo validador do ERP. Solicite a análise de compatibilidade",
+        ),
+        webpki::Error::UnsupportedSignatureAlgorithmContext(_)
+        | webpki::Error::UnsupportedSignatureAlgorithmForPublicKeyContext(_) => (
+            "unsupported_algorithm",
+            "A cadeia usa um algoritmo de assinatura não suportado pelo validador do ERP",
+        ),
+        webpki::Error::NameConstraintViolation | webpki::Error::PathLenConstraintViolated => (
+            "path_constraint",
+            "A cadeia viola as restrições de certificação da autoridade emissora",
+        ),
+        _ => (
+            "invalid_chain",
+            "A estrutura da cadeia do certificado não passou na validação ICP-Brasil",
+        ),
+    };
+    tracing::warn!(reason, "fiscal A1 chain validation rejected");
+    message
+}
+
 #[cfg(test)]
 #[path = "certificate_crypto_tests.rs"]
 pub(crate) mod tests;
@@ -39,6 +112,7 @@ pub struct CertificateVault {
     active: String,
     keys: BTreeMap<String, Zeroizing<Vec<u8>>>,
     roots: Vec<CertificateDer<'static>>,
+    intermediates: Vec<CertificateDer<'static>>,
     permits: Arc<tokio::sync::Semaphore>,
 }
 
@@ -48,7 +122,7 @@ impl std::fmt::Debug for CertificateVault {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CertificateMetadata {
     pub subject: String,
@@ -162,6 +236,9 @@ impl CertificateVault {
             active: parsed.active,
             keys,
             roots,
+            intermediates: issuer_candidates(include_bytes!(
+                "../../../../../deploy/fiscal/icp-brasil-intermediates.pem"
+            ))?,
             permits: Arc::new(tokio::sync::Semaphore::new(2)),
         })
     }
@@ -310,12 +387,22 @@ impl CertificateVault {
             .map(webpki::anchor_from_trusted_cert)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "Cadeia de confiança indisponível")?;
-        let intermediates = chain
+        let mut intermediates = chain
             .certs()
             .iter()
             .skip(1)
             .map(|cert| CertificateDer::from(cert.as_der()))
             .collect::<Vec<_>>();
+        // Some PKCS#12 exporters put CA certificates in separate trusted bags.
+        // They are issuer candidates only: an uploaded CA never becomes an anchor.
+        for (_, entry) in store.entries() {
+            if let KeyStoreEntry::Certificate(cert) = entry {
+                intermediates.push(CertificateDer::from(cert.as_der()));
+            }
+        }
+        // Resolve incomplete exports locally using the checksum-pinned ITI archive.
+        // Never fetch AIA URLs from an uploaded certificate (SSRF / availability).
+        intermediates.extend(self.intermediates.iter().cloned());
         webpki::EndEntityCert::try_from(&leaf_der)
             .and_then(|certificate| {
                 certificate
@@ -332,9 +419,7 @@ impl CertificateVault {
                     )
                     .map(|_| ())
             })
-            .map_err(
-                |_| "A cadeia do certificado não foi reconhecida como confiável na ICP-Brasil",
-            )?;
+            .map_err(chain_error)?;
         Ok(CertificateMetadata {
             subject: certificate.subject().to_string(),
             issuer: certificate.issuer().to_string(),

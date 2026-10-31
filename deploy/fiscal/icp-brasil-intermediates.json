@@ -1,0 +1,709 @@
+{
+  "source": "https://acraiz.icpbrasil.gov.br/credenciadas/CertificadosAC-ICP-Brasil/ACcompactado.zip",
+  "checksumSource": "https://acraiz.icpbrasil.gov.br/credenciadas/CertificadosAC-ICP-Brasil/hashsha512.txt",
+  "archiveSha512": "ac977665ec8405230ef75186356f237184be801676c558523f330fb25e9162d45d94a13b29decd06656e14f7bb58a07d9557bf5e7bf548a4b8dac32949318185",
+  "bundleSha256": "8fdc6b73cf2f516379db073a9de8ba6403a78e79c2c0bb7b8f10690debaecd9c",
+  "purpose": "Untrusted issuer candidates; never root trust anchors",
+  "certificates": [
+    {
+      "sha256": "01335ad9a0f1701988f72e0ee93b001132959856a1423f872b753c68460dab50",
+      "subject": "CN=AC CONSULTI RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "04265991d40b9fe940d4e080ceb555170c37d331dcf8093bfd5cee5e14d9edb9",
+      "subject": "CN=AC DIGITALSIGN G2,OU=DigitalSign Certificacao Digital Ltda,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "044f059b2d162320ba41d1b048fad3a8f817fc41444d6ec4a8b5cdd3a57af37f",
+      "subject": "CN=AC Certisign Multipla G7,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "066cacab9fccfb26e7fd8d1ad20a0f2d1a7c0c7f73b3b38dfbf17edbe57d2f6f",
+      "subject": "CN=AC SINCOR RFB G5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "080cdb1bfc8f0e64d0516466ee5f49ae83ddab923dc3001f7e508b42ea34ac08",
+      "subject": "CN=Autoridade Certificadora da Justica v6,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "08fc942d5176e568acbef9c595f36a20de6acf9ea30c6f5fcedd48216ed5b070",
+      "subject": "CN=Autoridade Certificadora do SERPRO SSLv1,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "0a5615dc389acf39d1cb32a034dd430c4ebe65fe1873faac9ce8857f9d4f247d",
+      "subject": "CN=AC Safeweb v12,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "0c022fc1371afab87f8a10b6f87d50f5981c5487cc374177880a21536a784178",
+      "subject": "CN=AC CONSULTI BRASIL RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "12764307145d35b9b49a58840736497029deb4bc46d87afe0326764bc3810bf0",
+      "subject": "CN=AC SAFEWEB CD V12,OU=AC Safeweb v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "138c195408aabd70daf6afd0fe75ff60c2793633f49ea01bc7fbb90b875f2297",
+      "subject": "CN=AC VALID PLUS v5,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "161b13851d3b5224d6f001c909539505830681384885e2f5c1af6a410500e492",
+      "subject": "CN=AC Imprensa Oficial SP RFB G5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "17d1d4919e3b9d3b5d80b460ea769b3c3af42b4e96e862f1a43d316a7527cd7e",
+      "subject": "CN=AC CERTISIGN-JUS G7,OU=Autoridade Certificadora da Justica v6,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "1df99eea3441412a790786fd6891f9303c0aceb7e4ad5c727836d3e5a9fb5a5f",
+      "subject": "CN=AC A R A CERTIFICACAO DIGITAL v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "1e36dcc28bc6fbdb23d5df49e55cfb6b27e29d99cc0d555226c2e1e07b838a23",
+      "subject": "CN=AC Certisign ICP-Brasil SSL EV G4,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "20755aa36ed586de60da09014101eb589bc1b1ce4ae7278782be97830f23672f",
+      "subject": "CN=AC FCDL SC v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2118d007109598023f9cdc7dcacabf4e5f4a7ba7d8d8a00118f588989c8f30ba",
+      "subject": "CN=AC LINK RFB v2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "26a242f8d1d4b56f47481d7501a6aafc151c262204895dc08da2daa89bc8933f",
+      "subject": "CN=AC EGBA Multipla G2,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "27d1643ff97b4e80b23ffbd7cde72177f25327062b7acac3e9093c9f53005868",
+      "subject": "CN=AC CERTISIGN-JUS G6,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "287f046480095871b20c714fc4bb2ae7e6ff05898c76dfe631e596811bfc9496",
+      "subject": "CN=AC CERTIFICA ANAPOLIS v5 G2,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "297371bff1594c210791d6b36d0c6f75afbc11b88bbe4b63465d0e97d006da19",
+      "subject": "CN=AC SOLUTI v12,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2974393f5533dcdb56ad298236ce08bf6a8422857cb7d178a95cc4d197f59817",
+      "subject": "CN=AC CCN COMPANHIA CERTIFICADORA NACIONAL v5,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2b06a3fdae08ab1663699d2e5b31796f37667110bce765df08df18d03675194e",
+      "subject": "CN=AC LINK CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2bc067a88eae745d722e4329d6e3fba6bed3d14dd07eec22f9a057a334b48f71",
+      "subject": "CN=Autoridade Certificadora SEFAZCE,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2c7a8ad75458f7e2fe8d7f7884a585127e4f242bd5c3ebea499dacb630315e21",
+      "subject": "CN=AC Secretaria da Receita Federal do Brasil v4,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "2f4dbb50f0cea00dcb4cd6bb958fdddd669c13ec04ebf119deb7d8448c4bbc6f",
+      "subject": "CN=Instituto Nacional de Metrologia Qualidade e Tecnologia INMETRO,OU=Autoridade Certificadora Raiz Brasileira v6,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "307171d7bd0fc96b9ec6b09dcb788b21e6951ce2f0911a48fada13ab7bccb8f4",
+      "subject": "CN=AC Certisign Multipla SSL,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "30a997c193a13b3bfc51053cb255948be707b7fa1ede9568e32c8df1d9c47de9",
+      "subject": "CN=AC PRODEMGE RFB G4,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3133e61b8b1ca0607dc323dd62b2d72bae114c8dae147df4b4003542e9f01a44",
+      "subject": "CN=AC SAFEWEB CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "32fc6dc9b74a29abac47756a2a3c23a9352714cd8c452570b8aa973d640cf04c",
+      "subject": "CN=AC A DIGIFORTE RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "336978ed70470d51cd65ca230a8680541671c6d7186a630255f068e7a9e71e11",
+      "subject": "CN=AC OAB G3,OU=ORDEM DOS ADVOGADOS DO BRASIL CONSELHO FEDERAL,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "34923090881c8e9c4d59daf7cac2eb36f42bac68690f90847b28e0da05660fbe",
+      "subject": "CN=AC Solucao Digital Multipla,O=ICP-Brasil,OU=AC SyngularID,C=BR"
+    },
+    {
+      "sha256": "34afd324c54c54a2e94fdacb22b52bf4430fe00411bf1871ed81a692ada4b773",
+      "subject": "CN=Autoridade Certificadora NACIONAL,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "35330581e9224b72cb340fa44b8f57da79ac0a3c95160cbd4519ecc11bab5c12",
+      "subject": "CN=Autoridade Certificadora SERPRO v4,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3639771e7ecd0b0b579a7084ad43202c48cfb0bdd63d33e368ee213cb61483df",
+      "subject": "CN=AC CERTBANK,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3743253d35ae0a0a84babca06ca0b4d3c2a7e42d2f8cf070fc6c2194e2c0ac97",
+      "subject": "CN=AC Instituto Fenacon G3,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "37ba00eb866ed49726dc31798ed452ec58c14ea6e992d746b728a2e2ef9de275",
+      "subject": "CN=AC ONLINE BRASIL v5,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "37cc4f50599432929de11c5ebdb3a154b771671ed152e53937958880553ca827",
+      "subject": "CN=AC VALID-JUS v6,OU=Autoridade Certificadora da Justica v6,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "39dce45ee25f4594bdeba99e45e73df5ff80c93fe8f22569d46d95ae698c50e6",
+      "subject": "CN=AC VALID PLUS CODESIGNING,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3c56109e34da5e473559e26f2dc9db4b396e79ca1507c3994d10034f629c59d5",
+      "subject": "CN=AC MAXIMUS TECNOLOGIA E EVENTOS v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3f7be6ed5880be90a97502273f564456b0a6c95047e8eada87a1b2e9f2783da0",
+      "subject": "CN=AC SEMPRE RFB v2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "3fd6429b82030b1eaefacbe7c877e00a274439d921e7e3e017f59a85375b9892",
+      "subject": "CN=AC PRIME v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "408e1f561f964e955f338b941895e520d1c75a182c9163fa84ba94bb5c3da6e6",
+      "subject": "CN=AC VALID v5,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "408eb48982301b89608826633b3d530975fa6621e2dcc77e3d838ee0197dd3ea",
+      "subject": "CN=AC SEMPRE CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "41aee78e09ed33ed838f7432493fd6bd3408eeb8f2c0b37dabf05b2310025f03",
+      "subject": "CN=AC SAFEWEB,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "41b479294f819f5838367082581a0d66e6b67acf6521458910fb091709ff46c8",
+      "subject": "CN=Autoridade Certificadora SIRIUS,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "422001f772cc9d6e6cc5fe0035f2779977d5d99c0ce15857e52db7c92d3dc36f",
+      "subject": "CN=AC DOCCLOUD RFB v2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "424f89ecc158757d5bf225b120466411beac463112334cd133c80524fb218dba",
+      "subject": "CN=AC Prodemge RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "44d87346d313416611ed55d69d1756a9c7f74241e74af3d9dd440726e986d7c0",
+      "subject": "CN=SERASA Certificadora Digital v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "46141cf3a91175430b44f336a837eee38a142b5315a74dce4d13184e9fae1255",
+      "subject": "CN=AC SERASA-JUS v5,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "465f8a6d027423b1546cc686728a1d354860e4ce2a8d422a452f98df3c47f7ee",
+      "subject": "CN=AC REDE BRASIL v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "46decfc8c13d810f4e9e2c52370961a6cff958252a60382a028ff009dcb01979",
+      "subject": "CN=AC SOLUTI Multipla TIMESTAMPING v5,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "48e33502c111394103200a6fbb7d917bc02b9b2441545a230fb0b7fd3785df5e",
+      "subject": "CN=SERASA Autoridade Certificadora Principal v5,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "48e7841baf1329afdf1a83d8822ec12fa4dee43da138cfadb3c56cb29c7d1b3f",
+      "subject": "CN=AC PRODESP RFB v1,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "4a83edc8346a3dc887fded4eb897e06ead2fb169fb4d0cdf0db56bb82c7b5c04",
+      "subject": "CN=AC VALID SPB v5,OU=CSPB-6,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "4c0edc7e602dcb316982d7f82514ca17532e5058285c37474341da421df4045c",
+      "subject": "CN=AC SAFETECH RFB v5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "4cc8475949709251fb91ae9fc94863e35b122dcea3670d19257c9b2d9e0cb8bf",
+      "subject": "CN=AC FENACOR RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "4f41fb87ab2aba36ad13843a5f59258b6c9ba68b039efc7809c059161264ad0d",
+      "subject": "CN=AC SOLUTI-JUS SSL v5,OU=SSL,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "541514cc3289190fc5c18ffb4487a15043ffcbf114cb3024c52e709536589c4d",
+      "subject": "CN=AC SOLUTI SSL EV G3,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "543b8b0ab442bf00999db644b14a793b4dc3d6749fe1488f462a08904c7637d5",
+      "subject": "CN=AC SyngularID Multipla v12,O=ICP-Brasil,OU=AC SyngularID v12,L=Florianopolis,ST=SC,C=BR"
+    },
+    {
+      "sha256": "558754e75fe998fae17fa541e35456d0ce5e64109ecb04d1e675de7919dd5f4c",
+      "subject": "CN=AC SOLUTI-JUS CODESIGNING v5,OU=CODESIGNING,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "55a489f60f785bebe042e99a69ac8ec33c9f17374cc4b766f604cf7079ea09ba",
+      "subject": "CN=AC Certisign ICP-Brasil SSL G2,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "56658d1e25f21fecb83d4c492a73463138bfc6de152698a434638b2e68a81151",
+      "subject": "CN=AC Instituto Fenacon G4,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "57bd58bca70f911b3138e5e60d8c38944c940b5849f24a40793c7c613e8b236b",
+      "subject": "CN=AC Certisign Multipla CodeSigning,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "5acb552f0d2088d12aef1ce3fb4ee9b9fa98bac07ca0206246585841c997a090",
+      "subject": "CN=AC QUALITYCERT v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "5bc816b252fd71cde92fb177356d2cefb3ee82a7ab977e5a55e696aa59ccef90",
+      "subject": "CN=AC SyngularID v12,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6117c39881680895531a25a5084be1861cf27d3aca43767dea8916685a036113",
+      "subject": "CN=AC SINCOR G4,OU=SINCOR-SP - Sindicato dos Corretores de Seguros no Estado de SP,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "641da20e042a0f0fdf83f7452739dc471432d3fa417f410eb2e78f1e3103e645",
+      "subject": "CN=AC PRODESP v1,OU=AC PRODESP SP,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "642511549b34edb2f5062a9707a1c54548a4d1e0c3248b39c56cbca153708b64",
+      "subject": "CN=AC SOLUTI v5 G2,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "643a6952838d2ab34963ffd120923f01ce3f5dfe322e26096d812040819ab54f",
+      "subject": "CN=AC SOLUTI-JUS v5,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "64e78f499939ead95af3cabed953edba0e33b2d7285e1831e2019ce23f3e3b20",
+      "subject": "CN=AC CNDL RFB v3,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "65343be047cfdb1d84ca185cd0cc97a65bb1b539724c8f28d9aed3cb82dfdf8f",
+      "subject": "CN=AC ACD v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "66d2e6206d826cbdd4c9dcae16cbfad20231b0f6b403b40fd6029c65793c8c65",
+      "subject": "CN=AC Certisign SPB G6,OU=CSPB-2,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "68ee66d364050632821fde5a8265664fedb180baa65b0be0c1bc974cabbf6f94",
+      "subject": "CN=AC SAFETECH CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "692f652f1fb5593a1701284d97fc847ee5bf17793c1f3eb56db552c5ac685b32",
+      "subject": "CN=AC Certisign ICP-Brasil SSL EV G3,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "69c9b9eb11ffafa9f3626b67bb5589a038e2c32b4aceb48d276b685ce046a3fa",
+      "subject": "CN=Autoridade Certificadora ZAPSIGN,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "69f391d3cad060672fe3833bab95070352b1ebd53c2a4eb6190da3b5815faf14",
+      "subject": "CN=AC VALID PLUS SSL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6d41e3193b432765cd6f0c40bedbbf16ed550ab3df18c51a8aa11d577ee2eef6",
+      "subject": "CN=AC DIGITAL MAIS,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6df1ab759ee5958cf10e7fd32255a9d0f5429a0040b93d8310dd49d55d71d4b4",
+      "subject": "CN=AC MULT v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6dff7840fd529baa06c28d8999ab1d74d95cd7736a2e1dfc0e935a9b11e04b09",
+      "subject": "CN=AC CERTMAIS CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6ec2d9ca0b038e99f14648196d8368fa9edf68aef31062d779b29104af3abe89",
+      "subject": "CN=AC CACB RFB G2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "6fa0127b16b56d93d9041da74084ec84fb6a1324eee5b8cdc4588b020f642482",
+      "subject": "CN=AC PRODESP SP,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "7143f26c9bc783df57f41e066d0a6b80511666cc8399e4ed76dc2d2a9522f2a8",
+      "subject": "CN=Autoridade Certificadora INVIA,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "76376e7eddc6c75dd4248aff7f566359b0eaf1b8caa0cf9c7c860772ba3c47ff",
+      "subject": "CN=AC Certisign OM-BR,OU=Instituto Nacional de Metrologia Qualidade e Tecnologia INMETRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "778dd0ef727edb74ae90d0612fa91b109f42f9752faba2ca654a4dca12421e5d",
+      "subject": "CN=AC ONLINE RFB v5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "7b3a4be434dccfb19009d4835104a052a8ab64850145a48c625784e821e053ea",
+      "subject": "CN=AC SAFEWEB RFB v5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "7cfaf77a82f5207ded3b12e24625dd2c20aa163606c13ee93167b75d30ebd0a7",
+      "subject": "CN=AC DIGITALSIGN RFB G2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "7d4b0e33b897cbb23651baab55d4dfc75ec8f6bb2cbc284c6c35fa47c4db0b66",
+      "subject": "CN=AC VALID-JUS SSL v5,OU=SSL,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "7d59e874faad8548b7ab4658db01e85d8201c9db3169dcb2f98d39e8137d2db6",
+      "subject": "CN=AC SENHA DIGITAL BRASIL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "801a159d4e717134e22c9b53efac6902bd75058ab5c0bbf2b4a7282f82544393",
+      "subject": "CN=AC Imprensa Oficial SP RFB SSL,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "80e5bdc5ea02d066098a6a94acbf29868431006e0bfc6f32d600cdbb0a44f972",
+      "subject": "CN=AC SIC RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "811ef0a4d237fcc38f9ba4f37dca35f8ea8f1ef00bdb711d1b90acaa526ce5cf",
+      "subject": "CN=AC REDE IDEIA CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "81f0890dc4c06155c8736a7e599ec1a070e2cefc161d46ed5a0af6fff6a320cd",
+      "subject": "CN=AC SIG BRASIL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8340083c2e39e6dc1db7aec1729c3568d2126a1786f0c1c553a893af704b3f4f",
+      "subject": "CN=Autoridade Certificadora BRASIL CERTEC,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8606539037b8ff9d1eb2e8831312cbc667c824e9e5aa2dbb326172446f441e27",
+      "subject": "CN=AC SOLUTI SSL EV G2,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "86d458365cfabffae4542ab98b99390f519ec9d831812b530045c412ae6eb5b6",
+      "subject": "CN=AC SOLUTI v5,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "88219fcbc3939aa0a9b3f98e67eb32936eca0f0c0d0d91fbce8a048c3fb76e16",
+      "subject": "CN=Autoridade Certificadora ALTERNATIVE,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "88b3c1b2c26371d007713740ef4735fb05069aff2f1bbf90a0d2219978c7237d",
+      "subject": "CN=AC DIGITALSIGN G3,OU=DigitalSign Certificacao Digital Ltda,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8923c77ba2866bb17480fb2a035b683217abff27b7f455141535dbae54073301",
+      "subject": "CN=Autoridade Certificadora SDI,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8d8dcc33d5d22133639eadb7d24ad5c99dd94963b16ae52ffd7a19c9ac2e9e77",
+      "subject": "CN=AC CERTIFICA ANAPOLIS v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8e30f7f0b678ca1440a94a5be416bed9ae5aff7f0f2e08d4bbe28af2c8eb8660",
+      "subject": "CN=AC SOLUTI SSL EV G4,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "8e8f60fd420fc03859cd0d134e8cfdef5b871f71e11615af22592bf8dca25fd2",
+      "subject": "CN=AC FCDL SC v5 G2,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "925862b2baa67d33390fe4ff7ce6f58c425201ac0346fb9b86fe59d5c2c43af3",
+      "subject": "CN=AC VALID BRASIL v5,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "928815242aa5ba0324f6e969a67cade023388decfd6c9a7a4018090db7e0a70d",
+      "subject": "CN=AC CERTDATA BRASIL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "94ebd763dcd39a858748d1433854f7d472b1dd47ddd27043236f83802faaf1ab",
+      "subject": "CN=AC Certisign G7,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "9699d2c03365c8a1cdc0c3b420b16755f2a7cfd581ca7767f751c9f3774d3bea",
+      "subject": "CN=Autoridade Certificadora INFOCOMEX,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "98c4101a3208b59712655b250b520bc2b5ecfb5c964f42a473d4c3821f92c5a9",
+      "subject": "CN=Autoridade Certificadora da Presidencia da Republica v5,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "99ad65f6e92b830f4ab878cf6d6dd49ca28b2be0dcd9e430020c4054dc689357",
+      "subject": "CN=AC SINCOR RIO RFB G2,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "9c2299a27df45a50a7d85dfb18366e199d6677a66f6a27476029bd257e0f0097",
+      "subject": "CN=AC Certisign Multipla G8,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "9f4a9c50c168dba3e99b9909af817ca426f165ad5da3d66db42653bb339c7dd6",
+      "subject": "CN=AC VALID-JUS v5,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "9fd456e4c617047b95f57dc7ff4482a0550c07308896f7b7ca46a9f4b099385f",
+      "subject": "CN=AC Validar Multipla,O=ICP-Brasil,OU=AC SyngularID,C=BR"
+    },
+    {
+      "sha256": "a1646bcc36a7f56c7cf51cb046ee1aef46fc62a9f2c65902a51ca5c62da6e89d",
+      "subject": "CN=AC VALID RFB v5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a50b367ed610583c922b10aa2a6285c5898e1a61f9d0bad360368f6fa2e6a3bd",
+      "subject": "CN=Autoridade Certificadora SDI v2,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a517e77e9f362c6af120cf64f130d026d8064a595ede6c0caa3dc08559b85f56",
+      "subject": "CN=Autoridade Certificadora da Justica v5,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a58e08559827da8607c444879530ac0cd1efd51e89ed18862fd4a1f1422a5eae",
+      "subject": "CN=AC DIGITAL MULTIPLA G1,OU=AC DIGITAL MAIS,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a5f034e2b84c10f9d57555984f8a22571fd01b032d7bce6ed6d2c85e46094384",
+      "subject": "CN=AC VALID BRASIL CODESIGNING,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a662265119e95e01b257a5aefac4b8e1c09725d8e59081b7785522f33b1a150f",
+      "subject": "CN=Autoridade Certificadora do SERPRO Final SSL,OU=Servico Federal de Processamento de Dados - SERPRO,OU=CSPB-1,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a8926532136f0a2671ba0c15cedb7a768a136990fc14174bf15b15d028605056",
+      "subject": "CN=AC SyngularID Multipla,O=ICP-Brasil,OU=AC SyngularID,C=BR"
+    },
+    {
+      "sha256": "a9b2f6467ee2d778c6f64d2ce59a4166a5d264302173e22340ed0aa04fe1967e",
+      "subject": "CN=AC Notarial RFB G4,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "a9c0a24d692735dfdd4c1c6d8e1caccab301933889a9888af283f9f0c651d0ad",
+      "subject": "CN=AC SERPRO-JUS v5,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "acfafa8684de4a3df15e5c8f35b30f4cd5d0d999c260788ce00f2d360ef65abb",
+      "subject": "CN=AC CERTISIGN-JUS SSL G6,OU=SSL,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ad0788306436e95724980583c810ad112a1a8ef0f048a574059b79a98fa1ddb2",
+      "subject": "CN=AC SAFEWEB TIMESTAMPING,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ad960d6a51af58e1ec09ee05e6df827a7718379cabf0a5529de4b01c122908c0",
+      "subject": "CN=AC VALID SSL EV,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ade74944cb0d06d466d8f0d4a1bed8e5e962aa799876f63a50f5aeb88490483a",
+      "subject": "CN=Autoridade Certificadora IDFEDERAL,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "af9185dae914df58880df5322474719a501bff277ca024ff84674ff8ed89f13a",
+      "subject": "CN=AC VALID PLUS TIMESTAMPING,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "afb07a26389b12501c78e90ccc5393d8eb0fd9e9e9e664e493329b2a89fe84e4",
+      "subject": "CN=AC SINCOR G5,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "b1e93a025411fed62316e99953d61446f1bc3c205f7d8a746c4d8149c24959ab",
+      "subject": "CN=Autoridade Certificadora SERPRORFBv5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "b1f9f3b18662de9ba95aba28b56d57e715db740470cf4860ae196db2550a409a",
+      "subject": "CN=AC SOLUTI-JUS v6,OU=Autoridade Certificadora da Justica v6,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "b33c7791cb4cf4d287e8b9d9a70e2e229cb8114ed794f68501cf44116580f134",
+      "subject": "CN=AC VALID-JUS CODESIGNING v5,OU=CODESIGNING,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "b5c8c963b2acd8464124acd189e13ed8f49483faddc0926eb469d0718326a5e4",
+      "subject": "CN=AC REDE IDEIA RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "bbdc7e24ce9a6f0ef7f63947d46831829531df73e71cb3df4b94deaecdf2962f",
+      "subject": "CN=AC SOLUTI Multipla v5 G2,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "bd567bb5abd082f04d1fbafe0facc8f141345631f99e6cf537d4ff7fb2727d77",
+      "subject": "CN=AC INTERCERT v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "bd7e29bdecff589bd8fbf6ab2e7b67af57866cb82e4ab65f5016c73c9b7c2d78",
+      "subject": "CN=AC CERTFACIL v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c0b14b86c5c9f3276bdce4bc8f6df4c448c22709d7ee70922ebebdd1f70895a3",
+      "subject": "CN=AC VALID V12,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c210da2fdd8004ddacdf0502d1bfb3baefbccb055909635a2f974aae5e1832da",
+      "subject": "CN=AC SERASA RFB v5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c2224cdf6a64b7303ffc1b2fd76b7a779ef1c01a80c8b83765e26bb0a105c0cd",
+      "subject": "CN=AC VALID BRASIL V12,OU=Autoridade Certificadora VALID V12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c2a4dec225fb2c940ca5465aabd6742b9de9466c2530f069acd06d24852d7a4e",
+      "subject": "CN=AC SOLUTI Multipla v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c5c6c559e5cfdbfe6cbc3b84ce64df6464f9c3eafa13a8fc366381d4d33579b4",
+      "subject": "CN=Autoridade Certificadora SERPRO v5,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c6e7eeb6f3e89b690205f1066c257fb714d885229ff89ec2798964ca8a167b80",
+      "subject": "CN=AC CERTISIGN-JUS G5,OU=SMIME,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c747659dbcefcdce3a1cb6b63ead065ceb1beaf7c0a20081d0a1bd885adac634",
+      "subject": "CN=AC Instituto Fenacon RFB G3,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c7a8c891431df21d862b1ce626190451e96ab83138455c8dfaeee34a8b4b3db1",
+      "subject": "CN=AC SyngularID,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c88f8369aea9bcf3df322a9590ad3bff1bd0950dc0b1b32d514dd34751be5fa2",
+      "subject": "CN=AC OAB G4,OU=ORDEM DOS ADVOGADOS DO BRASIL CONSELHO FEDERAL,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c98b8c986c6e46386fb8b1190e1c993fcd71c996e30ff110ed757fb9c56c3e7e",
+      "subject": "CN=AC Certisign ICP-Brasil SSL G5,OU=Autoridade Certificadora Raiz Brasileira v10,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "c9bd3a441486a6207d2109ee12d24e02b0e909f8c2deb709014a2f03f2f32e49",
+      "subject": "CN=AC Secretaria da Receita Federal do Brasil v5,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "cc261d62a24f27da25cfea4b5a78586dc8a3b65dbb37a620d9cb03b34e74fc6e",
+      "subject": "CN=AC Certisign Tempo G2,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "cc7c467933f0ddb6f94e869d10d02cec3edcde55eea5bf970d969b067555f870",
+      "subject": "CN=AC DIGITALSIGN ACP G2,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "cea3dcc425b766bfddf651d9bebe950b7ba129b143e66daa87885f18611d4249",
+      "subject": "CN=AC SIC BRASIL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d3109d5bb1cd529cd9714bad78d164031a90dd9ee395c6bb8fab531ca51994d6",
+      "subject": "CN=AC CERTISIGN-JUS CODESIGNING G6,OU=CODESIGNING,OU=Autoridade Certificadora da Justica v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d4e68bdb73c0ff9160a8dbec971f640a7a0f71145100a6c6c94b187577ae575f",
+      "subject": "CN=Autoridade Certificadora do SERPRO Final v5,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d55ea4e2a2f3a12868a46b6c527f5b12c982057cb65c055a3481045a32d45267",
+      "subject": "CN=Autoridade Certificadora de Defesa,OU=Autoridade Certificadora Raiz Brasileira v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d7c450633dfe0aa9be40939c8fc83bcef9adb181b182be73c925e783bfb7919b",
+      "subject": "CN=AC MAXIMUS TECNOLOGIA E EVENTOS v5 G2,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d97522fa422f3c24dca6d3eefbfb17ae3a38c87c040f2f6f5aa0c07a2a8431e7",
+      "subject": "CN=Autoridade Certificadora do SERPRO Final v6,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "d99aca784642d0f35b459eb062a39ff4bc3d2083338a7d5e5c16c29f5bbdd490",
+      "subject": "CN=AC VALID BRASIL SSL,OU=Autoridade Certificadora VALID - AC VALID v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "db186f616db0f3ac8b083f821c8d2813682f62bbdd8f5039a601961f512cd72c",
+      "subject": "CN=AC Soluti OM-BR,OU=Instituto Nacional de Metrologia Qualidade e Tecnologia INMETRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "dc606ccb14acad5bab0a0137e87551c4ad6596a62d10f3138edb4ad29d481b94",
+      "subject": "CN=Autoridade Certificadora FECOMERCIO MG RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "dfc41f014f87246a9846f3b342eeaed21d20bf11baf2f87a81d7821a38cac8fa",
+      "subject": "CN=Autoridade Certificadora DIGITAL CERTY,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e4c03634bfb8140aecc38eb87125e1e94a91a5438c25eb3e63fe2a05f9c7e54d",
+      "subject": "CN=AC Certisign RFB G5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e4f8c8383ec5c82535da991f0a0145988401201e907116238ed23fc2b1cc37e4",
+      "subject": "CN=AC DIGISEC v5,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e51966d3698bf7c9f003f1790789b779e670661ebb1f5b5ba218fda3e8252347",
+      "subject": "CN=AC Certisign Tempo G3,OU=Certisign Certificadora Digital S.A.,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e5afdcc630ef0042d6fa93524d3a4678d59c08caefee0c55fe23e171849028fb",
+      "subject": "CN=AC DIGITALSIGN RFB G3,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e5c7e6d559ad25adbc66daeca7e9d97bbdd5d8acbb021a455b27b4033f79fffb",
+      "subject": "CN=AC INFOCO DIGITAL v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e78ba5c40fdf78415e08e8ba759b5cacb0d0faeeb18e7b09f9b8df528a4c73e5",
+      "subject": "CN=Autoridade Certificadora PROCERTI,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e8433949434fac5388dc75b261578ca2b524c17a35e9ef82a0a47697631ada76",
+      "subject": "CN=Autoridade Certificadora da Presidencia da Republica v6,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "e9c0c998e32ce0bae781698dfd6b72f69700a0aa0fdf9789b353d0bf97ef5472",
+      "subject": "CN=AC DIGITALSIGN ACP G3,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ed64b83902b2286301143cd2c33a19d53ff58d4fca1375cebc29f6809cba4a6a",
+      "subject": "CN=AC SEGURA ID v5,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ee933126a9d74ff47614a41f571450e639748da2a6846260b4c20c17c3b0261d",
+      "subject": "CN=AC Certisign G8,OU=Autoridade Certificadora Raiz Brasileira v12,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "ee93335f03d59890da917b364ea905a77ce1cbf36c8d43da48b7adb56e5ec64e",
+      "subject": "CN=AC REDE BRASIL v5 G2,OU=AC SOLUTI v5 G2,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f212b7695b9190ed1ad9923cd405aad439d0578948a4f9e588ea799be26ddfbd",
+      "subject": "CN=SERASA CD SSL V5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f2b90985d0bb905d7bfbeaea84eedcda5b8a6817ed8b2cfcf528443c31fc5af9",
+      "subject": "CN=AC SOLUTI RFB V5,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f3da57309d1d966d9971c67f348d56984b49c68a15098199e21c2ad27128604a",
+      "subject": "CN=AC CERTIFICA MINAS v5,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f5dba49351500b1b9b4bb8e8e613057d5e6f0bbf56b5ef24fae5a11e1964a405",
+      "subject": "CN=AC CERTIPE CD,OU=AC SAFEWEB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f7641df15120ad6895f93430d5d7a2272dcb500239d5e623fec4c2692215f34f",
+      "subject": "CN=Autoridade Certificadora SAFE-ID BRASIL,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f817e14d535a6b31e838bbb33d78c09a7e38434dc6f9651a55808422ee81ab00",
+      "subject": "CN=AC SOLUTI SPB v5,OU=CSPB-7,OU=AC SOLUTI v5,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "f834cba03d07ba6c65cae4098b39ba601ec20accabc439b6793df0a0319c4f02",
+      "subject": "CN=AC BR RFB G4,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "fe7ae1eef13e8ecf01f2838afd1925d1c8470a10594ae7f2d352a24f548ad7a6",
+      "subject": "CN=Autoridade Certificadora PRIMECERT,OU=Servico Federal de Processamento de Dados - SERPRO,O=ICP-Brasil,C=BR"
+    },
+    {
+      "sha256": "fffd61fb8c91526508ba37101764ee9d7822ab67795bfcab2f410585195c6349",
+      "subject": "CN=AC EGBA RFB,OU=Secretaria da Receita Federal do Brasil - RFB,O=ICP-Brasil,C=BR"
+    }
+  ]
+}

@@ -40,6 +40,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
   return <>
     <PageHeader eyebrow="Ávila Ops · Comercial" title="Contratos" description="Documentos vinculados à empresa, ao cliente e ao pedido, da revisão à assinatura." />
     <div className="mb-5 flex flex-wrap gap-4">
+      <Link className={linkClass} href="/servicos/contratos/modelos">Modelos de contrato</Link>
       {orderId && <Link className={linkClass} href={`/vendas/pedidos/${orderId}`}>Voltar ao pedido</Link>}
       {customerId && <Link className={linkClass} href={`/cadastros/clientes-fornecedores/${customerId}`}>Voltar ao cliente</Link>}
       {orderId && result.value?.canEdit && <Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos/novo`}>Gerar contrato</Link>}

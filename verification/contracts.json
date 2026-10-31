@@ -594,7 +594,709 @@
       "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; preservar sessão anterior"
     }
   ],
+  "assetActions": [{
+    "method": "GET", "path": "/assets/contract-editor-worker",
+    "source": "apps/web/src/app/assets/contract-editor-worker/route.ts",
+    "authentication": "public_static_asset",
+    "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
+  }],
   "actions": [
+    {
+      "id": "contract-template-publish",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/contract-template-drafts/{id}/publish"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "platform.integrations.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Rascunho da empresa ativa, revisão atual e assinatura obrigatória por participante.",
+        "Serviço próprio valida PDF e páginas antes da publicação."
+      ],
+      "transition": {
+        "from": "rascunho salvo",
+        "to": "versão pendente de confirmação ou publicada"
+      },
+      "effects": {
+        "writes": [
+          "commercial_template_versions",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [
+          "Consulta e publicação idempotente na API própria do portal."
+        ],
+        "excludes": [
+          "Não envia convites nem altera contratos emitidos."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Snapshot durável antes da rede. Consulta por identificador antes de repetir; portal serializa publicação e recusa conteúdo divergente."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Publicar versão de modelo"
+      },
+      "recovery": "Conferir a mesma publicação após timeout; não criar outro identificador para a mesma revisão.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/contract-template-drafts/[id]/publish"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates/publish.rs",
+        "migrations/202610310004_contract_template_versions.sql",
+        "deploy/contracts-portal/overlay/app/controllers/api/avila_templates_controller.rb",
+        "apps/web/src/features/contracts/templates.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-list",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/contract-template-drafts"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem efeitos de gravação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: list"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/contract-template-drafts"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-detail",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/contract-template-drafts/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem efeitos de gravação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: detail"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/contract-template-drafts/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-save",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/contract-template-drafts/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "platform.integrations.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/contracts/templates.rs",
+          "type": "Save"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust.",
+        "If-Match exigido somente para atualizar rascunho existente; criação não aceita revisão."
+      ],
+      "transition": {
+        "from": "modelo em preparação",
+        "to": "rascunho privado preservado"
+      },
+      "effects": {
+        "writes": [
+          "commercial_template_drafts",
+          "audit_log",
+          "domain_commands",
+          "outbox_events"
+        ],
+        "external": [],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Trava transacional, revisão na atualização e replay do comando; importação reutiliza a cópia por empresa e origem."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: save"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/contract-template-drafts/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-pdf",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/contract-template-drafts/{id}/pdf"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem efeitos de gravação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: pdf"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/contract-template-drafts/[id]/pdf"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-catalog",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/contract-template-drafts/catalog"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust.",
+        "Modelo explicitamente associado à empresa na configuração privada."
+      ],
+      "transition": {
+        "from": "consulta",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Consulta autenticada à instalação própria; importação baixa o PDF pela mesma origem."
+        ],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem efeitos de gravação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: catalog"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/contract-template-drafts/catalog"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "contract-template-import",
+      "flow": "commercial-contracts",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/contract-template-drafts/{id}/import"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "platform.integrations.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/contracts/templates/import.rs",
+          "type": "Import"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão e vínculo ativo na empresa, com RLS e permissão conferidas no Rust.",
+        "Modelo explicitamente associado à empresa na configuração privada."
+      ],
+      "transition": {
+        "from": "modelo em preparação",
+        "to": "rascunho privado preservado"
+      },
+      "effects": {
+        "writes": [
+          "commercial_template_drafts",
+          "audit_log",
+          "domain_commands",
+          "outbox_events"
+        ],
+        "external": [
+          "Consulta autenticada à instalação própria; importação baixa o PDF pela mesma origem."
+        ],
+        "excludes": [
+          "Não publica modelos nem modifica o original no serviço; não envia convites."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Trava transacional, revisão na atualização e replay do comando; importação reutiliza a cópia por empresa e origem."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          413,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Modelos de contrato: import"
+      },
+      "recovery": "Reabrir o rascunho; em resultado desconhecido repetir o mesmo comando. Modelo não suportado preserva o original.",
+      "ui": {
+        "pages": [
+          "/servicos/contratos/modelos",
+          "/servicos/contratos/modelos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/contract-template-drafts/[id]/import"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/contracts/templates.rs",
+        "apps/api/src/domains/contracts/templates/import.rs",
+        "apps/web/src/features/contracts/templates.tsx",
+        "apps/web/src/lib/contracts-proxy.ts",
+        "migrations/202610310002_contract_template_drafts.sql",
+        "migrations/202610310003_contract_template_import.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-company-audit", "flow": "audit", "status": "implemented",
       "operation": { "method": "GET", "path": "/api/v1/audit" },

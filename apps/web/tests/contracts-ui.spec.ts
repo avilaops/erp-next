@@ -29,6 +29,9 @@ let sends = 0
 let reviewCalls = 0
 const failures: string[] = []
 let pdf: Buffer
+let templateDraft: { id: string; definition: unknown; revision: number } | null = null
+let templateSaves = 0
+let templatePublications = 0
 function detail() {
   return { tenantId: tenant, canEdit: true, canSend, emailReady, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
@@ -38,6 +41,47 @@ const upstream = createServer(async (request, response) => {
     expect(request.headers.authorization).toBe("Bearer contracts-fixture-token")
     expect(request.headers["x-tenant-id"]).toBe(tenant)
     const url = new URL(request.url!, origin)
+    if (/^\/api\/v1\/contract-template-drafts\/[a-f0-9-]+\/publish$/.test(url.pathname)) {
+      expect(templateDraft).not.toBeNull()
+      expect(request.headers["if-match"]).toBe(`"${templateDraft!.revision}"`)
+      expect(request.headers["idempotency-key"]).toBeTruthy()
+      templatePublications++
+      response.setHeader("ETag", `"${templateDraft!.revision}"`)
+      response.end(JSON.stringify({ revision: templateDraft!.revision, externalId: 99, status: "published" })); return
+    }
+    if (url.pathname === "/api/v1/contract-template-drafts/catalog") {
+      response.end(JSON.stringify({ configured: true, canEdit: true, data: [{ id: 1, name: "Modelo do serviço conectado", canImport: true, draftId: templateDraft?.id || null }] })); return
+    }
+    const importMatch = url.pathname.match(/^\/api\/v1\/contract-template-drafts\/([a-f0-9-]+)\/import$/)
+    if (importMatch) {
+      expect(request.method).toBe("POST")
+      expect(request.headers["idempotency-key"]).toBeTruthy()
+      let body = ""; for await (const chunk of request) body += chunk
+      expect(JSON.parse(body)).toEqual({ templateId: 1 })
+      templateDraft = { id: importMatch[1], revision: 1, definition: { name: "Modelo do serviço conectado", pages: 1, roles: ["Cliente"], fields: [] } }
+      response.setHeader("ETag", '"1"')
+      response.end(JSON.stringify({ id: templateDraft.id, tenantId: tenant, revision: 1 })); return
+    }
+    if (url.pathname === "/api/v1/contract-template-drafts") {
+      response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: templateDraft ? [{ id: templateDraft.id, name: "Modelo técnico do editor", revision: templateDraft.revision }] : [] })); return
+    }
+    const templateMatch = url.pathname.match(/^\/api\/v1\/contract-template-drafts\/([a-f0-9-]+)(\/pdf)?$/)
+    if (templateMatch) {
+      if (templateMatch[2]) { response.setHeader("Content-Type", "application/pdf"); response.end(pdf); return }
+      if (request.method === "POST") {
+        request.setEncoding("utf8")
+        let body = ""; for await (const chunk of request) body += chunk
+        const value = JSON.parse(body)
+        expect(request.headers["idempotency-key"]).toBeTruthy()
+        if (templateDraft) expect(request.headers["if-match"]).toBe(`"${templateDraft.revision}"`)
+        else expect(Buffer.from(value.pdfBase64, "base64").equals(pdf)).toBe(true)
+        templateDraft = { id: templateMatch[1], definition: value.definition, revision: (templateDraft?.revision || 0) + 1 }
+        templateSaves++
+      }
+      if (!templateDraft) { response.statusCode = 404; response.end(JSON.stringify({ title: "Não encontrado" })); return }
+      response.setHeader("ETag", `"${templateDraft.revision}"`)
+      response.end(JSON.stringify({ tenantId: tenant, canEdit: true, ...templateDraft })); return
+    }
     if (url.pathname === "/api/v1/me") { response.end(JSON.stringify({ tenant: { id: tenant, legalName: "Empresa de validação" }, permissions: ["sales.orders.read", "sales.orders.manage", "sales.contracts.send"] })); return }
     if (url.pathname === `/api/v1/orders/${orderId}`) { response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: { id: orderId, customerId, customerName: snapshot.customer.name, amount: "100.00", dueDate: "2026-12-01", status: "draft", revision: 1 }, items: [] })); return }
     if (url.pathname === `/api/v1/commercial-contracts/options/${orderId}`) {
@@ -99,9 +143,74 @@ test.beforeAll(async ({ browser }) => {
 })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(() => {
+  templateDraft = null; templateSaves = 0; templatePublications = 0
   status = "created"; revision = 1; canSend = true; emailReady = false
   generated = false; sends = 0; reviewCalls = 0; commercial = false; generationCalls = 0
   generatedRecipients = []; generatedFields = {}; generationKeys = []; failures.length = 0
+})
+
+test("editor salva PDF e campos como rascunho e reabre sem enviar contrato", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/servicos/contratos/modelos")
+  await page.getByRole("link", { name: "Novo modelo", exact: true }).click()
+  await page.getByLabel("Nome do modelo", { exact: true }).fill("Modelo técnico do editor")
+  await page.getByLabel("PDF do modelo", { exact: true }).setInputFiles({ name: "modelo.pdf", mimeType: "application/pdf", buffer: pdf })
+  await page.getByRole("button", { name: "Adicionar campo", exact: true }).click()
+  await page.getByLabel("Dado do ERP", { exact: true }).selectOption("cliente_nome")
+  const positioned = page.getByRole("button", { name: "Posicionar cliente_nome", exact: true })
+  await expect(positioned).toBeVisible()
+  await positioned.focus()
+  await positioned.press("ArrowRight")
+  await expect(page.getByRole("spinbutton", { name: "Horizontal (%)", exact: true })).toHaveValue("6")
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page).toHaveURL(/\/servicos\/contratos\/modelos\/[a-f0-9-]{36}$/)
+  await expect(page.getByRole("textbox", { name: "Nome do campo", exact: true })).toHaveValue("cliente_nome")
+  await page.getByRole("spinbutton", { name: "Vertical (%)", exact: true }).fill("20")
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: /^Rascunho salvo\. Ainda não publicado para os pedidos\.$/ })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("spinbutton", { name: "Vertical (%)", exact: true })).toHaveValue("20")
+  expect(templateSaves).toBe(2)
+  expect(sends).toBe(0)
+  expect(failures).toEqual([])
+})
+
+test("modelo conectado abre copia no editor sem envio ou alteracao do original", async ({ page, context }) => {
+  test.setTimeout(60000)
+  await context.addCookies([cookie()])
+  await page.goto("/servicos/contratos/modelos")
+  await expect(page.getByText("Modelo do serviço conectado", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Editar cópia no ERP", exact: true }).click()
+  await expect(page).toHaveURL(/\/servicos\/contratos\/modelos\/[a-f0-9-]{36}$/)
+  await expect(page.getByRole("textbox", { name: "Nome do modelo", exact: true })).toHaveValue("Modelo do serviço conectado")
+  await expect(page.getByRole("button", { name: "Salvar rascunho", exact: true })).toBeEnabled({ timeout: 20000 })
+  expect(templateSaves).toBe(0)
+  expect(sends).toBe(0)
+  expect(failures).toEqual([])
+})
+
+test("editor publica revisao salva com assinatura em multiplas posicoes sem convite", async ({ page, context }) => {
+  test.setTimeout(60000)
+  await context.addCookies([cookie()])
+  await page.goto("/servicos/contratos/modelos/novo")
+  await page.getByLabel("Nome do modelo", { exact: true }).fill("Modelo com assinatura repetida")
+  await page.getByLabel("PDF do modelo", { exact: true }).setInputFiles({ name: "modelo.pdf", mimeType: "application/pdf", buffer: pdf })
+  await page.getByRole("button", { name: "Adicionar campo", exact: true }).click()
+  await page.getByLabel("Tipo", { exact: true }).selectOption("signature")
+  await page.getByRole("button", { name: "Repetir campo em outra posição", exact: true }).click()
+  const extra = page.getByRole("group", { name: "Posição adicional 1 de campo_1", exact: true })
+  await extra.getByLabel("Vertical (%)", { exact: true }).fill("40")
+  const publish = page.getByRole("button", { name: "Publicar versão para os pedidos", exact: true })
+  await expect(publish).toBeDisabled()
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page).toHaveURL(/\/servicos\/contratos\/modelos\/[a-f0-9-]{36}$/)
+  await expect(publish).toBeEnabled({ timeout: 20000 })
+  await publish.click()
+  await expect(page.getByRole("status").filter({ hasText: "Revisão 1 publicada e disponível nos pedidos." })).toBeVisible()
+  await expect(publish).toBeDisabled()
+  expect(templatePublications).toBe(1)
+  expect(sends).toBe(0)
+  expect(failures).toEqual([])
 })
 
 test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato pelo cliente", async ({ page, context }) => {

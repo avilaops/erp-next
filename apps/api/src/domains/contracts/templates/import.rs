@@ -166,9 +166,12 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
             || ["conditions", "options"]
                 .iter()
                 .any(|key| field[*key].as_array().is_some_and(|a| !a.is_empty()))
-            || ["validation", "preferences"]
-                .iter()
-                .any(|key| field[*key].as_object().is_some_and(|o| !o.is_empty()))
+            || field["validation"]
+                .as_object()
+                .is_some_and(|o| !o.is_empty())
+            || field["preferences"]
+                .as_object()
+                .is_some_and(|o| o.keys().any(|key| key != "font_size"))
         {
             return Err(unsupported());
         }
@@ -208,6 +211,15 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
             y: position("y")?,
             width: position("w")?,
             height: position("h")?,
+            font_size: match &field["preferences"]["font_size"] {
+                Value::Null => None,
+                value => Some(
+                    value
+                        .as_f64()
+                        .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+                        .ok_or_else(unsupported)?,
+                ),
+            },
         });
     }
     let result = Definition {
@@ -218,4 +230,24 @@ fn definition(template: &Value) -> Result<Definition, DomainError> {
     };
     result.validate()?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preserves_font_and_refuses_multiple_areas_instead_of_dropping_positions() {
+        let area = json!({"attachment_uuid":"pdf","page":0,"x":0.1,"y":0.2,"w":0.3,"h":0.05});
+        let mut template = json!({"name":"Modelo","schema":[{"attachment_uuid":"pdf"}],"documents":[{"uuid":"pdf"}],"submitters":[{"uuid":"customer","name":"Cliente"}],"fields":[{"uuid":Uuid::new_v4(),"name":"Nome","type":"text","submitter_uuid":"customer","preferences":{"font_size":"14"},"areas":[area]}]});
+        let imported = definition(&template).unwrap();
+        assert_eq!(imported.fields[0].font_size, Some(14.0));
+        assert_eq!(imported.fields[0].page, 1);
+        assert_eq!(imported.fields[0].x, 10.0);
+        template["fields"][0]["areas"]
+            .as_array_mut()
+            .unwrap()
+            .push(area);
+        assert!(definition(&template).is_err());
+    }
 }

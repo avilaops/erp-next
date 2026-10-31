@@ -45,6 +45,8 @@ pub struct Field {
     y: f64,
     width: f64,
     height: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    font_size: Option<f64>,
 }
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -87,6 +89,8 @@ impl Definition {
                     .any(|v| !v.is_finite() || *v < 0.0 || *v > 100.0)
                 || f.width <= 0.0
                 || f.height <= 0.0
+                || f.font_size
+                    .is_some_and(|size| !size.is_finite() || !(6.0..=72.0).contains(&size))
                 || f.x + f.width > 100.0
                 || f.y + f.height > 100.0
             {
@@ -313,6 +317,7 @@ mod tests {
                 y: 10.0,
                 width: 80.0,
                 height: 5.0,
+                font_size: None,
             }],
         }
     }

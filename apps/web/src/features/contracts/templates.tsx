@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/session-recovery"
 import { useCommand, useResource } from "@/features/operations/use-operation"
 
-type Field = { id: string; name: string; kind: string; role: string; required: boolean; page: number; x: number; y: number; width: number; height: number }
+type Field = { id: string; name: string; kind: string; role: string; required: boolean; page: number; x: number; y: number; width: number; height: number; fontSize?: number }
 type Definition = { name: string; pages: number; roles: string[]; fields: Field[] }
 type Detail = { tenantId: string; canEdit: boolean; id: string; definition: Definition; revision: number }
 type Listing = { tenantId: string; canEdit: boolean; data: { id: string; name: string; revision: number }[] }
@@ -123,6 +123,7 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
         <label className="block">Participante<select className={selectClass} value={field.role} onChange={e => changeField(field.id, { role: e.target.value })}>{!definition.roles.includes(field.role) && <option value={field.role}>Participante removido: {field.role}</option>}{definition.roles.map((role, i) => <option key={i} value={role}>{role || "Sem nome"}</option>)}</select></label>
         <div className="grid gap-3 sm:grid-cols-5">{([["page", "Página"], ["x", "Horizontal (%)"], ["y", "Vertical (%)"], ["width", "Largura (%)"], ["height", "Altura (%)"]] as const).map(([key, label]) => <label key={key}>{label}<Input type="number" required step={key === "page" ? 1 : 0.1} min={key === "page" ? 1 : key === "width" || key === "height" ? 0.1 : 0} max={key === "page" ? definition.pages : 100} value={field[key]} onChange={e => changeField(field.id, { [key]: Number(e.target.value) })} /></label>)}</div>
         <label className="flex gap-2"><input type="checkbox" checked={field.required} onChange={e => changeField(field.id, { required: e.target.checked })} />Obrigatório</label>
+        {field.kind !== "signature" && field.kind !== "initials" && <label className="block">Tamanho da fonte (pt)<Input type="number" min={6} max={72} step={0.5} value={field.fontSize ?? 12} onChange={e => changeField(field.id, { fontSize: Number(e.target.value) })} /></label>}
         <Button type="button" variant="outline" onClick={() => setDefinition(value => ({ ...value, fields: value.fields.filter(item => item.id !== field.id) }))}>Remover campo {index + 1}</Button>
       </fieldset>)}
       <Button type="button" variant="outline" disabled={definition.fields.length >= 100} onClick={() => setDefinition(value => ({ ...value, fields: [...value.fields, { id: crypto.randomUUID(), name: `campo_${value.fields.length + 1}`, kind: "text", role: value.roles[0], required: true, page: 1, x: 5, y: 5, width: 40, height: 5 }] }))}>Adicionar campo</Button>

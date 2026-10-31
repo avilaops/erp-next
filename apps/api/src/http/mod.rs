@@ -22,6 +22,8 @@ mod invitation_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
+mod monitor_tests;
+#[cfg(test)]
 mod onboarding_tests;
 mod openapi;
 #[cfg(test)]

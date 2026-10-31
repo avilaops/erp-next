@@ -112,8 +112,10 @@ O Lojas pode listar as notas e baixar XML ou DANFE pelas rotas
 configurado e mantém os limites de validação descritos na documentação de DANFE.
 
 O [contrato, provisionamento e limites](INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md)
-detalham o fluxo. Não foram implementados distribuição NSU, manifestação,
-consulta de cancelamento, compras, contas a pagar ou movimentação de estoque.
+detalham o fluxo de importação. O [monitor fiscal canônico](MONITOR-FISCAL-CANONICO.md)
+acrescenta distribuição NSU e manifestação explícita, desativadas por padrão até
+configuração e aceite externo. A coleta não lança compras, contas a pagar ou
+estoque, nem substitui uma consulta atual de cancelamento.
 
 ## Configuração do acesso real
 
@@ -147,7 +149,7 @@ Nenhum token deve usar prefixo `NEXT_PUBLIC_`.
 | Pedidos de venda | Criação e edição de rascunho, reserva, cancelamento e conclusão com saída e título na mesma transação | Descontos, frete, devoluções e integração fiscal |
 | Contas a receber | Títulos vinculados a pedidos, recebimento integral declarado e estorno persistentes | Recebimentos parciais, conciliação externa e integração bancária |
 | Financeiro e comercial restantes | Interfaces demonstrativas | Contas a pagar, contas financeiras, caixa, propostas e canais |
-| Fiscal | Preparação de NF-e 55, DANFE de XML apresentado e armazenamento append-only de NF-e recebida importada | Distribuição NSU, manifestação, XML/XSD/XMLDSig/A1 para emissão, SEFAZ e primeira autorização real |
+| Fiscal | Preparação NF-e 55, DANFE, armazenamento de recebidas e monitor NSU com manifestação explícita por A1, desativado por padrão | Ativação/aceite externo do monitor, reconciliação de eventos desconhecidos, XML/XSD/XMLDSig/A1 para emissão e primeira autorização real |
 | Logística e serviços | Superfícies previstas e demonstrativas | Contratos, adaptadores e integrações verificadas por domínio |
 | Preferências restantes | Mocks e comportamento local | Contratos específicos e persistência por empresa |
 | Implantação do ERP Next | Não realizada nesta rodada | Destino próprio, credenciais, migração, healthchecks e rollback |

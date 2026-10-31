@@ -1,6 +1,7 @@
 mod model;
 pub mod provider;
 mod sync;
+pub mod templates;
 
 use axum::{
     Extension, Json, Router,
@@ -29,6 +30,7 @@ const SEND: &str = "sales.contracts.send";
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .merge(templates::routes())
         .route("/api/v1/commercial-contracts", get(list).post(generate))
         .route("/api/v1/commercial-contracts/options/{id}", get(options))
         .route("/api/v1/commercial-contracts/{id}", get(detail))
@@ -97,21 +99,35 @@ pub async fn options(
     let (tenant, mut tx, edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let snapshot = model::snapshot(&mut tx, tenant, id).await?;
+    let published_revisions: Vec<(i64,i64)> = sqlx::query_as("SELECT external_id,draft_revision FROM commercial_template_versions WHERE tenant_id=$1 AND external_id IS NOT NULL").bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
+    let ids = if let Some(provider) = &state.contracts {
+        templates::publish::template_ids(&mut tx, tenant, provider).await?
+    } else {
+        Vec::new()
+    };
     tx.commit().await.map_err(db)?;
     let mut templates = Vec::new();
-    let configured = state
-        .contracts
-        .as_ref()
-        .is_some_and(|p| !p.template_ids(tenant).is_empty());
+    let configured = !ids.is_empty();
     if let Some(provider) = &state.contracts {
-        for id in provider.template_ids(tenant) {
+        for id in ids {
             let template = provider
                 .request(Method::GET, &format!("templates/{id}"), None)
                 .await?;
             if !template["archived_at"].is_null() {
                 continue;
             }
-            templates.push(json!({"id":id,"name":template["name"],"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template)}));
+            let name = if let Some((_, revision)) = published_revisions
+                .iter()
+                .find(|(external, _)| *external == id)
+            {
+                format!(
+                    "{} · revisão {revision} (ERP)",
+                    template["name"].as_str().unwrap_or("Modelo")
+                )
+            } else {
+                template["name"].as_str().unwrap_or("Modelo").to_owned()
+            };
+            templates.push(json!({"id":id,"name":name,"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template)}));
         }
     }
     Ok(response(
@@ -173,7 +189,10 @@ pub async fn generate(
         tx.commit().await.map_err(db)?;
         return reconcile_response(&state, &identity, &headers, tenant, id).await;
     }
-    if !provider.template_ids(tenant).contains(&input.template_id) {
+    if !templates::publish::template_ids(&mut tx, tenant, provider)
+        .await?
+        .contains(&input.template_id)
+    {
         return Err(access::AccessError::Forbidden.into());
     }
     let snapshot = model::snapshot(&mut tx, tenant, input.order_id).await?;

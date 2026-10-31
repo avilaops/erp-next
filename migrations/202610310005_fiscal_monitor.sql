@@ -1,4 +1,4 @@
--- After personal preferences: keep a unique migration version for the monitor.
+-- After contract templates: keep a unique migration version for the monitor.
 -- NF-e may be issued by a producer identified by CPF, padded in the access key.
 ALTER TABLE fiscal_received_nfes DROP CONSTRAINT fiscal_received_nfes_issuer_document_check;
 ALTER TABLE fiscal_received_nfes ADD CONSTRAINT fiscal_received_nfes_issuer_document_check

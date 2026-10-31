@@ -319,7 +319,7 @@ pub async fn readiness(
         if profile_data(row)?.state != "SP" {
             blockers.push("homologation_emission_requires_sp".into());
         }
-        if profile_data(row)?.crt != 1 {
+        if ![1, 3].contains(&profile_data(row)?.crt) {
             blockers.push("homologation_emission_requires_supported_tax_rule_scope".into());
         }
         match issuer(&mut tx, tenant, &profile_data(row)?).await {

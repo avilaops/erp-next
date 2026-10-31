@@ -1,4 +1,4 @@
-import { InventoryScreen } from "@/features/inventory/inventory-screen"
-export default function Page(){return <InventoryScreen kind="production"/>}
+import { ProductionWorkspace } from "@/features/production/production-workspace"
+export default function Page(){return <ProductionWorkspace />}
 
 export const metadata = { title: "Ordens de produção" }

@@ -23,7 +23,7 @@ test("cancelamento integral repete o mesmo comando após resposta perdida e most
     cancelled = true
     return calls.length === 1 ? route.abort("failed") : route.fulfill({ headers: { ETag: '"4"' }, json: { tenantId: tenant, data: { id: reversalId, revision: 4 } } })
   })
-  await page.route(`**/api/erp/orders/${record}/cancellations`, route => route.fulfill({ json: { tenantId: tenant, data: [{ id: reversalId, reason, occurredOn, revision: 4 }] } }))
+  await page.route(`**/api/erp/orders/${record}/cancellations`, route => route.fulfill({ json: { tenantId: tenant, data: [{ id: reversalId, reason, occurredOn, revision: 4, reconciliation: { commission: { status: "applied" }, production: { status: "applied", cancelledCount: 1, stockMovementIds: [record] } }, fiscalCancellation: { requested: true } }] } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/vendas/pedidos/${record}`)
   await page.getByLabel("Motivo do cancelamento integral", { exact: true }).fill(reason)
@@ -41,6 +41,9 @@ test("cancelamento integral repete o mesmo comando após resposta perdida e most
   expect(dialogs[0]).toContain("estoque")
   await page.getByRole("button", { name: "Consultar histórico de cancelamento", exact: true }).click()
   await expect(page.getByText(reason, { exact: true })).toBeVisible()
+  await expect(page.getByText("Comissões de recebimentos estornadas. Pagamentos anteriores preservados.", { exact: true })).toBeVisible()
+  await expect(page.getByText("Produção: 1 ordem(ns) cancelada(s) e 1 consumo(s) estornado(s).", { exact: true })).toBeVisible()
+  await expect(page.getByText("Solicitação de cancelamento fiscal registrada. Confira a situação da NF-e.", { exact: true })).toBeVisible()
   await expect(page.getByLabel("Motivo do cancelamento integral", { exact: true })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

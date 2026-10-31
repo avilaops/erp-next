@@ -256,6 +256,9 @@ async fn cancel_title(
         let id = Uuid::now_v7();
         sqlx::query(&format!("INSERT INTO {payments}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8)"))
             .bind(id).bind(tenant).bind(account).bind(original.amount_cents).bind(&original.method).bind(input.reason.trim()).bind(occurred).bind(original.id).execute(&mut **tx).await.map_err(db)?;
+        if matches!(kind, Kind::Sale) {
+            super::commissions::on_reversal(tx, tenant, original.id, id, identity, headers).await?;
+        }
         record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.payment_reversed",Kind::Purchase=>"payable.payment_reversed"},details:json!({"paymentId":id,"reversesId":original.id,"amount":decimal(original.amount_cents,2),"source":"commercial_return","bankTransferExecuted":false})}).await?;
         ids.push(id);
     }
@@ -264,6 +267,65 @@ async fn cancel_title(
         .bind(tenant).bind(account).bind(next).execute(&mut **tx).await.map_err(db)?;
     record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.cancelled",Kind::Purchase=>"payable.cancelled"},details:json!({"sourceId":source,"reason":input.reason.trim(),"previousRevision":revision,"revision":next,"status":"cancelled","outstandingAmount":"0.00"})}).await?;
     Ok((Some(account), ids))
+}
+
+/// Reconcile an unshipped cancellation initiated by the existing sales command.
+/// The caller owns the tenant lock, has checked the order state and updates its
+/// revision in this same transaction. No finished-product issue is reversed.
+pub(super) async fn reconcile_unshipped(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    identity: &AuthenticatedIdentity,
+    headers: &HeaderMap,
+    order: Uuid,
+    next_revision: i64,
+) -> Result<(), DomainError> {
+    let pending: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_order_id=$2 AND (status IN ('preparing','prepared','unknown') OR lease_until>clock_timestamp()))")
+        .bind(tenant).bind(order).fetch_one(&mut **tx).await.map_err(db)?;
+    if pending {
+        return Err(DomainError::Conflict(
+            "Concilie a emissão fiscal em andamento antes de cancelar a venda",
+        ));
+    }
+    let fiscal_required: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_order_id=$2 AND status='authorized')")
+        .bind(tenant).bind(order).fetch_one(&mut **tx).await.map_err(db)?;
+    let id = Uuid::now_v7();
+    let reason = "Cancelamento do pedido antes da expedição";
+    let occurred = time::OffsetDateTime::now_utc().date();
+    let production =
+        super::production::cancel_for_order(tx, tenant, identity, headers, order, id, reason)
+            .await?;
+    let commission = super::commissions::order_reconciliation(tx, tenant, order).await?;
+    let summary = json!({"id":id,"kind":"sale_cancellation","sourceId":order,"orderId":order,"cancellationId":id,"revision":next_revision,"reason":reason,"occurredOn":occurred.to_string(),"receivableId":null,"stockMovementIds":[],"paymentReversalIds":[],"beforeShipment":true,"fiscalCancellation":{"requested":fiscal_required,"status":if fiscal_required {"pending"} else {"not_required"}},"reconciliation":{"commission":commission,"production":production}});
+    sqlx::query("INSERT INTO sales_order_cancellations(id,tenant_id,order_id,reason,occurred_on,order_revision,summary) VALUES($1,$2,$3,$4,$5,$6,$7)")
+        .bind(id).bind(tenant).bind(order).bind(reason).bind(occurred).bind(next_revision).bind(&summary).execute(&mut **tx).await.map_err(db)?;
+    let contracts = sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id,status FROM commercial_contracts WHERE tenant_id=$1 AND order_id=$2 ORDER BY id",
+    )
+    .bind(tenant)
+    .bind(order)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    for (contract, status) in contracts {
+        if !["completed", "declined", "expired"].contains(&status.as_str()) {
+            record(tx,tenant,identity,headers,DomainChange{kind:"commercial_contract",id:contract,event:"contract.withdrawal_requested",details:json!({"orderId":order,"cancellationId":id,"reason":reason,"status":"pending","filesPreserved":true})}).await?;
+        }
+    }
+    record(
+        tx,
+        tenant,
+        identity,
+        headers,
+        DomainChange {
+            kind: "sales_order",
+            id: order,
+            event: "sales.order.reconciliation_requested",
+            details: summary,
+        },
+    )
+    .await?;
+    Ok(())
 }
 
 async fn apply_sale(
@@ -316,7 +378,18 @@ async fn apply_sale(
         cancel_title(tx, tenant, order, Kind::Sale, actor, input, occurred).await?;
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let id = Uuid::now_v7();
-    let summary = json!({"id":id,"kind":"sale_cancellation","sourceId":order,"orderId":order,"cancellationId":id,"revision":next,"reason":input.reason.trim(),"occurredOn":input.occurred_on,"receivableId":account,"stockMovementIds":movements,"paymentReversalIds":payments,"fiscalCancellation":{"requested":fiscal_required,"status":if fiscal_required {"pending"} else {"not_required"}},"reconciliation":{"commission":"domain_unavailable","production":"domain_unavailable"}});
+    let commission = super::commissions::order_reconciliation(tx, tenant, order).await?;
+    let production = super::production::cancel_for_order(
+        tx,
+        tenant,
+        identity,
+        headers,
+        order,
+        id,
+        input.reason.trim(),
+    )
+    .await?;
+    let summary = json!({"id":id,"kind":"sale_cancellation","sourceId":order,"orderId":order,"cancellationId":id,"revision":next,"reason":input.reason.trim(),"occurredOn":input.occurred_on,"receivableId":account,"stockMovementIds":movements,"paymentReversalIds":payments,"fiscalCancellation":{"requested":fiscal_required,"status":if fiscal_required {"pending"} else {"not_required"}},"reconciliation":{"commission":commission,"production":production}});
     sqlx::query("INSERT INTO sales_order_cancellations(id,tenant_id,order_id,reason,occurred_on,order_revision,summary) VALUES($1,$2,$3,$4,$5,$6,$7)")
         .bind(id).bind(tenant).bind(order).bind(input.reason.trim()).bind(occurred).bind(next).bind(&summary).execute(&mut **tx).await.map_err(db)?;
     sqlx::query("UPDATE sales_orders SET status='cancelled',revision=$3,updated_at=now() WHERE tenant_id=$1 AND id=$2")
@@ -334,7 +407,7 @@ async fn apply_sale(
             record(tx,tenant,identity,headers,DomainChange{kind:"commercial_contract",id:contract,event:"contract.withdrawal_requested",details:json!({"orderId":order,"cancellationId":id,"reason":input.reason.trim(),"status":"pending","filesPreserved":true})}).await?;
         }
     }
-    record(tx,tenant,identity,headers,DomainChange{kind:"sales_order",id:order,event:"sales.order.reconciliation_requested",details:json!({"orderId":order,"cancellationId":id,"commission":{"status":"domain_unavailable","applied":false},"production":{"status":"domain_unavailable","applied":false}})}).await?;
+    record(tx,tenant,identity,headers,DomainChange{kind:"sales_order",id:order,event:"sales.order.reconciliation_requested",details:json!({"orderId":order,"cancellationId":id,"commission":commission,"production":production})}).await?;
     record(
         tx,
         tenant,
@@ -472,6 +545,11 @@ async fn command(
     let digest = format!("{:x}", Sha256::digest(body));
     let request = json!({"id":id,"revision":expected,"bodySha256":digest,"input":input});
     let scope = kind.names().3;
+    if matches!(kind, Kind::Sale) {
+        super::commissions::require_cancellation_permissions(&mut tx, tenant, &identity, id)
+            .await?;
+        super::production::require_cancellation_permissions(&mut tx, tenant, &identity, id).await?;
+    }
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
     {
         let rev = previous["data"]["revision"].as_i64();

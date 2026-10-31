@@ -233,6 +233,203 @@ pub struct DraftPayment {
     pub amount: String,
 }
 
+/// Percentages, never fractions: fixed four decimal places, e.g. 18.0000.
+/// These are declarations by the fiscal operator, not rates inferred by ERP.
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct IbsCbsDeclaration {
+    pub cst: String,
+    pub class_code: String,
+    pub ibs_state_rate: String,
+    pub ibs_city_rate: String,
+    pub cbs_rate: String,
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TaxDeclaration {
+    pub recipient_taxpayer: bool,
+    pub recipient_state_registration: Option<String>,
+    pub final_consumer: bool,
+    pub icms_rate: Option<String>,
+    pub pis_rate: Option<String>,
+    pub cofins_rate: Option<String>,
+    pub ipi_cst: Option<String>,
+    pub ipi_frame_code: Option<String>,
+    pub ipi_rate: Option<String>,
+    pub ipi_in_icms_base: bool,
+    pub icms_out_of_contributions: bool,
+    pub ibs_cbs: IbsCbsDeclaration,
+}
+
+fn declared_rate(value: Option<&str>, required: bool) -> Result<i128, DomainError> {
+    let rate = match value {
+        Some(value) => exact_decimal(value, 2, 4)?,
+        None if !required => 0,
+        None => {
+            return Err(DomainError::Invalid(
+                "Declare a alíquota exigida pelo CST, inclusive zero",
+            ));
+        }
+    };
+    if rate >= 1_000_000 || !required && rate != 0 {
+        return Err(DomainError::Invalid(
+            "Alíquota percentual exige 4 casas, de zero a menos de 100; CST sem tributação aceita somente zero",
+        ));
+    }
+    Ok(rate)
+}
+
+fn rounded_tax(base: i128, rate: i128) -> i128 {
+    (base * rate + 500_000) / 1_000_000
+}
+
+impl TaxDeclaration {
+    fn validate(&self, draft: &DraftInput, profile: &ProfileInput) -> Result<i128, DomainError> {
+        if profile.crt != 3 || profile.state != "SP" || draft.recipient.state != "SP" {
+            return Err(DomainError::Invalid(
+                "Declaração tributária disponível para CRT 3 em operação interna SP",
+            ));
+        }
+        let first = &draft.items[0];
+        if self.recipient_taxpayer {
+            if !self
+                .recipient_state_registration
+                .as_ref()
+                .is_some_and(|value| {
+                    (2..=14).contains(&value.len())
+                        && value.bytes().all(|byte| byte.is_ascii_digit())
+                })
+            {
+                return Err(DomainError::Invalid(
+                    "Contribuinte exige inscrição estadual de 2 a 14 dígitos",
+                ));
+            }
+        } else if self.recipient_state_registration.is_some()
+            || !self.final_consumer
+            || first.icms_cst.as_deref() == Some("50")
+        {
+            return Err(DomainError::Invalid(
+                "Não contribuinte exige consumidor final, sem IE; CST 50 fora do recorte",
+            ));
+        }
+        let taxed_icms = first.icms_cst.as_deref() == Some("00");
+        if !matches!(first.icms_cst.as_deref(), Some("00" | "40" | "41" | "50"))
+            || first.csosn.is_some()
+            || !["01", "02", "04", "05", "06", "07", "08", "09"].contains(&first.pis_cst.as_str())
+            || !["01", "02", "04", "05", "06", "07", "08", "09"]
+                .contains(&first.cofins_cst.as_str())
+        {
+            return Err(DomainError::Invalid(
+                "CST fora do recorte da declaração tributária",
+            ));
+        }
+        let icms_rate = declared_rate(self.icms_rate.as_deref(), taxed_icms)?;
+        let pis_rate = declared_rate(
+            self.pis_rate.as_deref(),
+            ["01", "02"].contains(&first.pis_cst.as_str()),
+        )?;
+        let cofins_rate = declared_rate(
+            self.cofins_rate.as_deref(),
+            ["01", "02"].contains(&first.cofins_cst.as_str()),
+        )?;
+        let taxed_ipi = matches!(self.ipi_cst.as_deref(), Some("00" | "49" | "50" | "99"));
+        if let Some(cst) = &self.ipi_cst {
+            if ![
+                "00", "49", "50", "99", "01", "02", "03", "04", "05", "51", "52", "53", "54", "55",
+            ]
+            .contains(&cst.as_str())
+                || !self
+                    .ipi_frame_code
+                    .as_ref()
+                    .is_some_and(|value| digits(value, 3))
+            {
+                return Err(DomainError::Invalid(
+                    "IPI exige CST suportado e enquadramento de 3 dígitos",
+                ));
+            }
+        } else if self.ipi_frame_code.is_some() {
+            return Err(DomainError::Invalid(
+                "Enquadramento do IPI exige CST declarado",
+            ));
+        }
+        let ipi_rate = declared_rate(self.ipi_rate.as_deref(), taxed_ipi)?;
+        if self.ibs_cbs.cst != "000" || self.ibs_cbs.class_code != "000001" {
+            return Err(DomainError::Invalid(
+                "IBS/CBS limitado ao recorte tributado integral 000/000001",
+            ));
+        }
+        let ibs_state_rate = declared_rate(Some(&self.ibs_cbs.ibs_state_rate), true)?;
+        let ibs_city_rate = declared_rate(Some(&self.ibs_cbs.ibs_city_rate), true)?;
+        let cbs_rate = declared_rate(Some(&self.ibs_cbs.cbs_rate), true)?;
+        let mut total_ipi = 0;
+        let mut tax_totals = [0_i128; 8];
+        for item in &draft.items {
+            if item.icms_cst != first.icms_cst
+                || item.csosn != first.csosn
+                || item.pis_cst != first.pis_cst
+                || item.cofins_cst != first.cofins_cst
+                || item.cfop != first.cfop
+            {
+                return Err(DomainError::Invalid(
+                    "Declaração exige a mesma classificação fiscal por item",
+                ));
+            }
+            let product = exact_decimal(&item.gross_total, 13, 2)?;
+            let ipi = rounded_tax(product, ipi_rate);
+            let base = if taxed_icms {
+                product
+                    + if self.final_consumer && self.ipi_in_icms_base {
+                        ipi
+                    } else {
+                        0
+                    }
+            } else {
+                0
+            };
+            let icms = rounded_tax(base, icms_rate);
+            let contribution_base = product
+                - if self.icms_out_of_contributions {
+                    icms
+                } else {
+                    0
+                };
+            let pis = rounded_tax(contribution_base, pis_rate);
+            let cofins = rounded_tax(contribution_base, cofins_rate);
+            let reform_base = product - icms - pis - cofins;
+            if contribution_base < 0 || reform_base < 0 {
+                return Err(DomainError::Invalid(
+                    "Base tributária negativa fora do recorte",
+                ));
+            }
+            for (total, amount) in tax_totals.iter_mut().zip([
+                base,
+                icms,
+                pis,
+                cofins,
+                reform_base,
+                rounded_tax(reform_base, ibs_state_rate),
+                rounded_tax(reform_base, ibs_city_rate),
+                rounded_tax(reform_base, cbs_rate),
+            ]) {
+                *total += amount;
+            }
+            total_ipi += ipi;
+        }
+        if tax_totals
+            .iter()
+            .any(|amount| *amount > 999_999_999_999_999)
+            || tax_totals[5] + tax_totals[6] > 999_999_999_999_999
+            || total_ipi > 999_999_999_999_999
+        {
+            return Err(DomainError::Invalid(
+                "Totais tributários excedem o limite fiscal",
+            ));
+        }
+        Ok(total_ipi)
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftInput {
@@ -250,6 +447,9 @@ pub struct DraftInput {
     /// Required by the emission adapter, optional for existing saved drafts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payments: Option<Vec<DraftPayment>>,
+    /// Optional for historical drafts. CRT 3 emission requires this declaration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tax_declaration: Option<TaxDeclaration>,
 }
 
 impl DraftInput {
@@ -322,6 +522,18 @@ impl DraftInput {
                 "Total de produtos diverge da soma dos itens ou excede o limite",
             ));
         }
+        let ipi_total = self
+            .tax_declaration
+            .as_ref()
+            .map(|declaration| declaration.validate(self, profile))
+            .transpose()?
+            .unwrap_or(0);
+        let invoice_total = i128::from(total) + ipi_total;
+        if invoice_total > 999_999_999_999_999 {
+            return Err(DomainError::Invalid(
+                "Total da NF-e incluindo IPI excede o limite fiscal",
+            ));
+        }
         if let Some(payments) = &self.payments {
             if payments.is_empty() || payments.len() > 100 {
                 return Err(DomainError::Invalid(
@@ -351,9 +563,9 @@ impl DraftInput {
                         "Sem pagamento deve ser a única forma e ter valor zero",
                     ));
                 }
-            } else if payment_total != i128::from(total) {
+            } else if payment_total != invoice_total {
                 return Err(DomainError::Invalid(
-                    "Pagamentos declarados devem somar o total de produtos",
+                    "Pagamentos declarados devem somar o total da NF-e, incluindo IPI",
                 ));
             }
         }
@@ -458,6 +670,90 @@ mod tests {
         value.payments.as_mut().unwrap()[0].description =
             Some("Pagamento declarado pelo operador".into());
         assert!(value.validate(&profile()).is_ok());
+    }
+
+    fn declared_normal_draft() -> (DraftInput, ProfileInput) {
+        let mut profile = profile();
+        profile.crt = 3;
+        let mut value = draft();
+        value.items[0].icms_cst = Some("00".into());
+        value.items[0].csosn = None;
+        value.items[0].pis_cst = "01".into();
+        value.items[0].cofins_cst = "01".into();
+        value.tax_declaration = Some(serde_json::from_value(serde_json::json!({
+            "recipientTaxpayer":true,"recipientStateRegistration":"110042490114","finalConsumer":false,
+            "icmsRate":"18.0000","pisRate":"1.6500","cofinsRate":"7.6000",
+            "ipiCst":"50","ipiFrameCode":"999","ipiRate":"10.0000",
+            "ipiInIcmsBase":false,"icmsOutOfContributions":true,
+            "ibsCbs":{"cst":"000","classCode":"000001","ibsStateRate":"0.1000","ibsCityRate":"0.0000","cbsRate":"0.9000"}
+        })).unwrap());
+        value.payments = Some(vec![DraftPayment {
+            code: "17".into(),
+            description: None,
+            amount: "1.10".into(),
+        }]);
+        (value, profile)
+    }
+
+    #[test]
+    fn declared_taxes_require_exact_rates_and_payments_include_ipi() {
+        let (value, profile) = declared_normal_draft();
+        assert_eq!(value.validate(&profile).unwrap(), 100);
+        let mut wrong_payment = value.clone();
+        wrong_payment.payments.as_mut().unwrap()[0].amount = "1.00".into();
+        assert!(wrong_payment.validate(&profile).is_err());
+        for rate in [
+            None,
+            Some("18.00001"),
+            Some("100.0000"),
+            Some("-1.0000"),
+            Some("1e1"),
+        ] {
+            let mut invalid = value.clone();
+            invalid.tax_declaration.as_mut().unwrap().icms_rate = rate.map(str::to_owned);
+            assert!(invalid.validate(&profile).is_err());
+        }
+        let mut zero = value;
+        let declaration = zero.tax_declaration.as_mut().unwrap();
+        declaration.icms_rate = Some("0.0000".into());
+        declaration.pis_rate = Some("0.0000".into());
+        declaration.cofins_rate = Some("0.0000".into());
+        declaration.ipi_rate = Some("0.0000".into());
+        zero.payments.as_mut().unwrap()[0].amount = "1.00".into();
+        assert!(zero.validate(&profile).is_ok());
+    }
+
+    #[test]
+    fn tax_declaration_preserves_cent_rounding_and_refuses_unsupported_combinations() {
+        let (mut value, profile) = declared_normal_draft();
+        value.items[0].quantity = "1.0000".into();
+        value.items[0].unit_price = "0.0500000000".into();
+        value.items[0].gross_total = "0.05".into();
+        value.items.push(value.items[0].clone());
+        value.products_total = "0.10".into();
+        value.payments.as_mut().unwrap()[0].amount = "0.12".into();
+        assert_eq!(value.validate(&profile).unwrap(), 10);
+        value.payments.as_mut().unwrap()[0].amount = "0.11".into();
+        assert!(value.validate(&profile).is_err());
+        let (value, profile) = declared_normal_draft();
+        let mut mixed = value.clone();
+        mixed.items.push(mixed.items[0].clone());
+        mixed.items[1].pis_cst = "02".into();
+        mixed.products_total = "2.00".into();
+        assert!(mixed.validate(&profile).is_err());
+        let mut unsupported = value.clone();
+        unsupported.tax_declaration.as_mut().unwrap().ibs_cbs.cst = "200".into();
+        assert!(unsupported.validate(&profile).is_err());
+        let mut unsupported = value.clone();
+        unsupported
+            .tax_declaration
+            .as_mut()
+            .unwrap()
+            .recipient_taxpayer = false;
+        assert!(unsupported.validate(&profile).is_err());
+        let mut declaration = serde_json::to_value(value.tax_declaration.unwrap()).unwrap();
+        declaration["unknownRate"] = serde_json::json!("18.0000");
+        assert!(serde_json::from_value::<TaxDeclaration>(declaration).is_err());
     }
 
     #[test]

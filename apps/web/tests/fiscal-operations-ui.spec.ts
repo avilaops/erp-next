@@ -55,5 +55,16 @@ test("BFF encaminha empresa revisão e idempotência e recusa origem ou sessão 
     expect((await context.request.post(`${origin}/api/erp/fiscal/nfe/${record}/issue`, { headers: { ...headers, Origin: "https://untrusted.example" }, data: {} })).status()).toBe(403)
     expect((await context.request.post(`${origin}/api/erp/fiscal/nfe/${record}/issue`, { headers: { ...headers, "X-Tenant-Id": record }, data: {} })).status()).toBe(409)
     expect(seen).toHaveLength(1)
+    const production = await context.request.post(`${origin}/api/erp/production/orders/${record}/consumptions`, { headers, data: { productId: record, quantity: "1.000000", unitCost: "1.00", reason: "Consumo de teste" } })
+    expect(production.status()).toBe(202)
+    const commission = await context.request.put(`${origin}/api/erp/orders/${record}/commission`, { headers, data: { sellerStaffId: record, commissionRate: "5.0000", ipiRate: "0.0000", paymentDay: 10 } })
+    expect(commission.status()).toBe(202)
+    expect(seen.slice(1)).toEqual([
+      { path: `/api/v1/production/orders/${record}/consumptions`, key: record, revision: '"1"', tenant },
+      { path: `/api/v1/orders/${record}/commission`, key: record, revision: '"1"', tenant },
+    ])
+    expect((await context.request.post(`${origin}/api/erp/commissions/${record}`, { headers, data: {} })).status()).toBe(400)
+    expect((await context.request.get(`${origin}/api/erp/production/orders?unknown=1`)).status()).toBe(400)
+    expect(seen).toHaveLength(3)
   } finally { backend.closeAllConnections(); await new Promise<void>(resolve => backend.close(() => resolve())) }
 })

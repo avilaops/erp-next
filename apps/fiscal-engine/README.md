@@ -43,15 +43,62 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
 - `distribute`: consulta lote sequencial, limita descompressão e retorna NSUs e
   documentos. O cursor somente é confirmado pela transação da API Rust.
 
-Emissão cobre NF-e 55/SP em homologação e o subconjunto explícito do rascunho:
-CRT 1, CSOSN 102/103/300/400, PIS e COFINS sem alíquota (CST 04–09), classificação
-uniforme por documento e destinatário não contribuinte/consumidor final. Casos
-que exigem alíquotas ou dados ausentes são recusados; não há inferência tributária.
+Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
+
+- CRT 1: CSOSN 102/103/300/400, PIS e COFINS sem alíquota (CST 04–09),
+  destinatário não contribuinte/consumidor final, sem IPI ou IBS/CBS.
+- CRT 3: operação interna SP, ICMS CST 00/40/41/50, PIS e COFINS CST 01/02 ou
+  04–09, com `draft.taxDeclaration` preenchida. ICMS CST 50 exige contribuinte.
+  Destinatário contribuinte, IE, consumidor final, composição das bases,
+  alíquotas e IPI são declarados pelo responsável, conforme `taxRuleReference`.
+  O recorte IBS/CBS é tributação integral CST 000 / classificação 000001,
+  com todas as alíquotas declaradas, inclusive zero. Reduções, diferimentos,
+  créditos, monofásicos, DIFAL e operações interestaduais CRT 3 não são aceitos.
+
+Classificação e alíquotas são uniformes por documento. Casos que exigem dados
+ausentes são recusados; não há inferência tributária por NCM ou regime.
+As alíquotas são strings percentuais de quatro casas: `"18.0000"` significa
+18%, `"0.0000"` é uma declaração explícita de zero. CST tributado exige a
+alíquota; CST sem tributação aceita somente zero ou ausência. Para IPI,
+declare CST/enquadramento e alíquota quando tributado. Não informar CST
+significa nota sem grupo IPI; não permite uma alíquota positiva.
+
+Exemplo de declaração CRT 3 para testes de homologação (valores fictícios;
+nunca são preenchidos automaticamente):
+
+```json
+{
+  "recipientTaxpayer": true,
+  "recipientStateRegistration": "110042490114",
+  "finalConsumer": false,
+  "icmsRate": "18.0000",
+  "pisRate": "1.6500",
+  "cofinsRate": "7.6000",
+  "ipiCst": "50",
+  "ipiFrameCode": "999",
+  "ipiRate": "10.0000",
+  "ipiInIcmsBase": false,
+  "icmsOutOfContributions": true,
+  "ibsCbs": {
+    "cst": "000",
+    "classCode": "000001",
+    "ibsStateRate": "0.1000",
+    "ibsCityRate": "0.0000",
+    "cbsRate": "0.9000"
+  }
+}
+```
+
+O motor compara os valores arredondados por item e os totais com aritmética
+inteira e recusa valores que o construtor XML não consegue preservar. O total
+da NF-e neste recorte é produtos mais IPI arredondado por item.
 O rascunho deve declarar formas/valores de pagamento; não são inferidos dos
 recebimentos. Ausência de pagamento exige `tPag=90`, único, com valor zero.
 Registrar recebimentos no ERP não comprova pagamento bancário nem muda
 automaticamente o documento fiscal.
-Produção permanece bloqueada. Outras UFs/regimes exigem extensão explícita.
+Produção permanece bloqueada. Outros recortes exigem extensão explícita.
+`GET /healthz` exige o mesmo Bearer e retorna apenas estado do processo e
+ambiente de homologação; não acessa certificado nem SEFAZ.
 
 Referências técnicas consultadas:
 

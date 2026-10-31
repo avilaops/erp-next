@@ -16,6 +16,7 @@ export function createHandler(token: string) {
   return async (request: IncomingMessage, response: ServerResponse) => {
     const candidate = Buffer.from(request.headers.authorization ?? "");
     if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) { reply(response, 401, { code: "unauthorized" }); return; }
+    if (request.method === "GET" && request.url === "/healthz") { reply(response, 200, { status: "ok", environment: "homologation" }); return; }
     const match = /^\/v1\/(prepare|authorize|consult|event|void|distribute|manifest)$/.exec(request.url ?? "");
     if (request.method !== "POST" || !match) { reply(response, 404, { code: "not_found" }); return; }
     if (!request.headers["content-type"]?.startsWith("application/json")) { reply(response, 415, { code: "json_required" }); return; }

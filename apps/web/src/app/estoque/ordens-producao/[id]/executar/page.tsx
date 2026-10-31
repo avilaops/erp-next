@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { ExecuteProductionOrder } from "@/features/inventory/details-operations-production";
+import { ProductionWorkspace } from "@/features/production/production-workspace";
 
 async function ResolvedExecuteProductionOrderPage({
   params,
@@ -7,7 +7,7 @@ async function ResolvedExecuteProductionOrderPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ExecuteProductionOrder id={id} />;
+  return <ProductionWorkspace id={id} />;
 }
 
 export const metadata = { title: "Executar ordem de produção" }

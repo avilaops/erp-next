@@ -26,7 +26,7 @@ test("inventário de páginas exige título e preserva rotas operacionais nas pr
   for (const file of pages) {
     const source = readFileSync(file, "utf8")
     expect(source, file).toMatch(/export (?:const metadata = \{ title: ".+" \}|async function generateMetadata)/)
-    if (/import \{ (?:CatalogAccess|ReferenceAccess|PurchaseAccess|OperationsAccess|StaffAccess|PartyAccess|ContractsAccess|StockAccess|ServiceKeys|NfeDrafts|NfeDraftEditor|DigitalCertificate) \}/.test(source)) {
+    if (/import \{ (?:CatalogAccess|ReferenceAccess|PurchaseAccess|OperationsAccess|StaffAccess|PartyAccess|ContractsAccess|StockAccess|ServiceKeys|NfeDrafts|NfeDraftEditor|DigitalCertificate|CommissionsWorkspace|ProductionWorkspace) \}/.test(source)) {
       const route = "/" + path.relative(root, path.dirname(file)).split(path.sep).join("/").replace("[id]", "22222222-2222-4222-8222-222222222222")
       expect(isDemonstrationRoute(route), route).toBe(false)
     }

@@ -30,10 +30,18 @@ incerto conserva corpo, chave e revisão do comando. Títulos cancelados não
 oferecem novas baixas. Compensar o livro financeiro não executa transferência
 bancária nem comprova devolução física: são declarações registradas pelo operador.
 
-Produção e comissões ainda não são domínios operacionais do ERP Next. O evento
-de cancelamento registra essa limitação e solicita reconciliação; não inventa
-estornos nesses domínios. Contratos preservam arquivos e recebem pedido de
-retirada na outbox; pedido cancelado não pode originar novo envio de contrato.
+Comissões agora possuem configuração explícita por pedido, apuração no
+recebimento e livro append-only. Cancelar estorna exatamente as comissões dos
+recebimentos revertidos, preserva pagamentos anteriores e deixa o débito aberto
+na competência do estorno. Produção mantém ordens e consumos declarados: o
+cancelamento fecha as ordens e compensa seus consumos ativos na mesma transação.
+Sem vínculos, a reconciliação informa `not_required`. Ver contratos e limites em
+[COMISSOES-PRODUCAO-E-FISCAL.md](COMISSOES-PRODUCAO-E-FISCAL.md).
+
+O cancelamento anterior à expedição também reconcilia produção e solicita os
+eventos fiscais necessários. Emissão em andamento ou incerta bloqueia o
+cancelamento até a conferência. Contratos preservam arquivos e recebem pedido
+de retirada na outbox; pedido cancelado não origina novo envio de contrato.
 
 ## Documentos de saída
 
@@ -70,9 +78,10 @@ pagamento explícito. `90` exige valor zero e não pode acompanhar outra forma.
 Outras formas devem somar o total da operação. Esses dados não são inferidos do
 livro financeiro nem disparam cobrança.
 
-O recorte desta implementação é NF-e 55/SP em homologação, CRT 1 e classificações
-sem alíquotas previstas no mapper. Não há inferência de tributos ou promessa de
-atendimento de outros regimes. `NFE_PRODUCTION_ENABLED` permanece falso.
+O recorte desta implementação é NF-e 55/SP em homologação: CRT 1 no subconjunto
+anterior e CRT 3 interno com declaração tributária explícita, conforme o README
+do motor. Rascunhos antigos permanecem legíveis. Não há inferência de alíquotas
+nem cobertura de outras combinações. `NFE_PRODUCTION_ENABLED` permanece falso.
 Inutilização com resultado incerto permanece reservada e exige conferência
 operacional: não há consulta oficial integrada para afirmar sua homologação.
 
@@ -116,11 +125,11 @@ pela conta de migração. Para o runtime existente, o workflow de atualização 
 schema executa `deploy/grant-retornos-fiscal.sql`; não concede acesso aos schemas
 legados nem ao material do certificado fora da API.
 
-O motor tem Dockerfile próprio e pode rodar ao lado da API em rede privada. Na
-topologia atual com rede compartilhada, usar origem loopback, token privado e
-nenhuma porta pública. Em máquinas diferentes, configurar TLS. O processo de
-build/teste está na CI, mas o serviço não é iniciado automaticamente pela
-implantação existente: provisionamento e homologação reais são etapas distintas.
+O motor tem Dockerfile próprio e imagem por SHA produzida pelo workflow de
+release, após seus testes. O overlay opcional `deploy/fiscal-compose.yaml` usa
+loopback compartilhado com a API, token privado e nenhuma porta pública. Em
+máquinas diferentes, configurar TLS. Provisionamento e homologação reais são
+etapas distintas; esta implementação não iniciou o serviço no servidor.
 
 ## Verificação reproduzível
 

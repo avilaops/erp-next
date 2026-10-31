@@ -6,8 +6,8 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, contracts, finance, fiscal, inventory, legacy, parties, payables,
-    purchasing, reference_data, returns, sales, staff,
+    assistant, catalog, commissions, contracts, finance, fiscal, inventory, legacy, parties,
+    payables, production, purchasing, reference_data, returns, sales, staff,
 };
 use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
 
@@ -34,6 +34,11 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         reference_data::create_payment_method, reference_data::update_payment_method,
         sales::list, sales::get, sales::create, sales::update, sales::confirm, sales::cancel, sales::complete,
         finance::list, finance::get, finance::pay, finance::reverse,
+        commissions::get_order, commissions::configure_order, commissions::list,
+        commissions::get_seller, commissions::adjust, commissions::pay,
+        production::list_orders, production::get_order, production::create_orders,
+        production::move_order, production::consume, production::reverse_consumption,
+        production::list_stages, production::create_stage, production::update_stage,
         returns::cancel_completed, returns::reverse_receipt, returns::sale_history, returns::purchase_history,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
@@ -49,6 +54,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
+    components(schemas(fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
     modifiers(&Security),
     tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -77,6 +83,9 @@ impl Modify for Security {
                         Some("list" | "create" | "get" | "update")
                     ) || (path.starts_with("/api/v1/purchase-orders")
                         || path.starts_with("/api/v1/payables")
+                        || path.starts_with("/api/v1/commissions")
+                        || path.starts_with("/api/v1/production")
+                        || path.ends_with("/commission")
                         || path.starts_with("/api/v1/invitations"))
                     {
                         operation.operation_id = Some(format!("{method}:{path}"));
@@ -207,7 +216,9 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 102);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 114);
+        assert!(doc["paths"]["/api/v1/commissions"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/production/orders"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/audit"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["put"]["requestBody"].is_object());

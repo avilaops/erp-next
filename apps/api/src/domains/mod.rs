@@ -1,5 +1,6 @@
 pub mod assistant;
 pub mod catalog;
+pub mod commissions;
 pub mod contracts;
 pub mod finance;
 pub mod fiscal;
@@ -8,6 +9,7 @@ pub mod legacy;
 pub mod parties;
 mod party_complements;
 pub mod payables;
+pub mod production;
 pub mod purchasing;
 pub mod reference_data;
 pub mod returns;

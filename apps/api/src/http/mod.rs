@@ -7,6 +7,8 @@ mod audit_tests;
 #[cfg(test)]
 mod certificate_tests;
 #[cfg(test)]
+mod commission_tests;
+#[cfg(test)]
 mod company_tests;
 #[cfg(test)]
 mod contracts_tests;
@@ -37,9 +39,13 @@ mod parties_tests;
 #[cfg(test)]
 mod preferences_tests;
 #[cfg(test)]
+mod production_tests;
+#[cfg(test)]
 mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
+#[cfg(test)]
+mod reconciliation_tests;
 #[cfg(test)]
 mod reference_tests;
 #[cfg(test)]
@@ -66,6 +72,8 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .merge(crate::domains::commissions::routes())
+        .merge(crate::domains::production::routes())
         .route("/api/v1/audit", get(crate::platform::audit::list))
         .merge(crate::domains::returns::routes())
         .route(

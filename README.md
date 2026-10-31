@@ -63,6 +63,12 @@ configuração do motor estão documentados; não há inferência de tributaçã
 Mantenha `NFE_PRODUCTION_ENABLED=false`. Testes locais não substituem homologação
 com certificado real nem publicam a funcionalidade em produção.
 
+A [segunda etapa de reconciliação](docs/COMISSOES-PRODUCAO-E-FISCAL.md) adiciona
+comissões sobre recebimentos, produção com consumo declarado e reconciliação
+atômica de cancelamentos. Também amplia a declaração fiscal para CRT 3 interno
+SP e prepara a imagem/overlay privado do motor. Percentuais e decisões fiscais
+continuam explícitos, sem preenchimento presumido.
+
 ## Domínios planejados
 
 O [verificador de rotas e fluxos](verification/README.md) gera um inventário

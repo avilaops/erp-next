@@ -1,0 +1,37 @@
+# Overlay for the existing ERP deployment. No fiscal port is published.
+# Usage: docker compose -f compose.yaml -f fiscal-compose.yaml up -d --no-build --wait
+services:
+  api:
+    environment:
+      ERP_FISCAL_ENGINE_URL: http://127.0.0.1:8091
+      ERP_FISCAL_ENGINE_TOKEN: ${ERP_FISCAL_ENGINE_TOKEN:?Private fiscal token required}
+  fiscal-engine:
+    image: ${ERP_FISCAL_ENGINE_IMAGE:?Validated CI fiscal image required}
+    restart: unless-stopped
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      FISCAL_ENGINE_BIND: 127.0.0.1
+      FISCAL_ENGINE_PORT: "8091"
+      ERP_FISCAL_ENGINE_TOKEN: ${ERP_FISCAL_ENGINE_TOKEN:?Private fiscal token required}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:8091/healthz',
+          {headers:{Authorization:'Bearer '+process.env.ERP_FISCAL_ENGINE_TOKEN},signal:AbortSignal.timeout(3000)})
+          .then(async r=>{const v=await r.json();process.exit(r.status===200&&v.status==='ok'&&v.environment==='homologation'?0:1)})
+          .catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

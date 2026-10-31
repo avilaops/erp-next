@@ -3,12 +3,20 @@ export type DraftItem = {
   quantity: string; unitPrice: string; grossTotal: string; origin: number
   icmsCst: string | null; csosn: string | null; pisCst: string; cofinsCst: string
 }
+export type TaxDeclaration = {
+  recipientTaxpayer: boolean | null; recipientStateRegistration: string | null; finalConsumer: boolean | null
+  icmsRate: string | null; pisRate: string | null; cofinsRate: string | null
+  ipiCst: string | null; ipiFrameCode: string | null; ipiRate: string | null
+  ipiInIcmsBase: boolean | null; icmsOutOfContributions: boolean | null
+  ibsCbs: { cst: string; classCode: string; ibsStateRate: string; ibsCityRate: string; cbsRate: string }
+}
 export type DraftInput = {
   sourceOrderId?: string
   environment: "homologation"; model: 55; operationNature: string; taxRuleReference: string
   recipient: { taxId: string; legalName: string; state: string; municipalityCode: string; postalCode: string; street: string; number: string; district: string }
   items: DraftItem[]; productsTotal: string
   payments?: { code: string; description: string | null; amount: string }[]
+  taxDeclaration?: TaxDeclaration
 }
 export type NfeDraft = {
   id: string; revision: number; status: "draft"; input: DraftInput; productsTotal: string; fiscalValidationComplete: false
@@ -18,6 +26,7 @@ export type FiscalReadiness = { tenantId: string; profileConfigured: boolean; ce
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
+export const blankTaxDeclaration = (): TaxDeclaration => ({ recipientTaxpayer: null, recipientStateRegistration: null, finalConsumer: null, icmsRate: null, pisRate: null, cofinsRate: null, ipiCst: null, ipiFrameCode: null, ipiRate: null, ipiInIcmsBase: null, icmsOutOfContributions: null, ibsCbs: { cst: "", classCode: "", ibsStateRate: "", ibsCityRate: "", cbsRate: "" } })
 
 export function fixed(value: string, scale: number, wholeDigits: number): string {
   const match = /^(\d+)(?:[.,](\d+))?$/.exec(value.trim())
@@ -37,13 +46,42 @@ export function productsTotal(items: DraftItem[]): string {
   return cents(items.reduce((sum, item) => sum + scaled(itemTotal(item.quantity, item.unitPrice)), BigInt(0)))
 }
 
+function percent(value: string): string {
+  const result = fixed(value, 4, 2)
+  if (scaled(result) >= BigInt(1_000_000)) throw new Error("A alíquota percentual deve ser menor que 100")
+  return result
+}
+
+export function invoiceTotal(draft: DraftInput): string {
+  const ipiRate = draft.taxDeclaration?.ipiRate
+  const rate = ipiRate ? scaled(percent(ipiRate)) : BigInt(0)
+  return cents(draft.items.reduce((sum, item) => {
+    const product = scaled(itemTotal(item.quantity, item.unitPrice))
+    return sum + product + (product * rate + BigInt(500_000)) / BigInt(1_000_000)
+  }, BigInt(0)))
+}
+
+function declaredTaxes(declaration: TaxDeclaration): TaxDeclaration {
+  for (const field of ["recipientTaxpayer", "finalConsumer", "ipiInIcmsBase", "icmsOutOfContributions"] as const) {
+    if (typeof declaration[field] !== "boolean") throw new Error("Declare contribuinte, consumidor final e composição das bases conforme a instrução fiscal")
+  }
+  return {
+    ...declaration,
+    icmsRate: declaration.icmsRate ? percent(declaration.icmsRate) : null,
+    pisRate: declaration.pisRate ? percent(declaration.pisRate) : null,
+    cofinsRate: declaration.cofinsRate ? percent(declaration.cofinsRate) : null,
+    ipiRate: declaration.ipiRate ? percent(declaration.ipiRate) : null,
+    ibsCbs: { ...declaration.ibsCbs, ibsStateRate: percent(declaration.ibsCbs.ibsStateRate), ibsCityRate: percent(declaration.ibsCbs.ibsCityRate), cbsRate: percent(declaration.ibsCbs.cbsRate) },
+  }
+}
+
 export function submission(draft: DraftInput): DraftInput {
   const items = draft.items.map((item, index) => {
     if (item.origin < 0) throw new Error(`Informe a origem da mercadoria no item ${index + 1}`)
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
     return { ...item, quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
-  return { ...draft, items, productsTotal: productsTotal(items), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
+  return { ...draft, items, productsTotal: productsTotal(items), ...(draft.taxDeclaration ? { taxDeclaration: declaredTaxes(draft.taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }
 
 export const blockerLabels: Record<string, string> = {

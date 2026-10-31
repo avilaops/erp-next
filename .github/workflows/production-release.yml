@@ -9,6 +9,28 @@ on:
 permissions:
   contents: read
 jobs:
+  fiscal-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: apps/fiscal-engine
+      - run: npm test
+        working-directory: apps/fiscal-engine
+      - run: docker build -f apps/fiscal-engine/Dockerfile -t erp-next-fiscal:sha-${{ inputs.source_ref }} .
+      - run: docker save erp-next-fiscal:sha-${{ inputs.source_ref }} | gzip > fiscal-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-fiscal-${{ inputs.source_ref }}
+          path: fiscal-image.tar.gz
+          compression-level: 0
+          retention-days: 7
   api:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -61,6 +83,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web lint
+      - run: node --test tests/fiscal-tax-model.node.mjs
+        working-directory: apps/web
       - run: pnpm --filter web build
       - run: pnpm --filter web test:danfe
         env:

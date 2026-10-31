@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/navigation-guard"
 import { ChevronLeft } from "lucide-react"
 import { Suspense } from "react"
 import { CompanyWorkspace } from "@/features/company/company-workspace"

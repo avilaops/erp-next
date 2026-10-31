@@ -56,8 +56,15 @@ export function CompanyEditor() {
         setStatus("ready")
         return false
       }
+      const nextEtag = response.headers.get("etag")
+      if (!nextEtag || result.tenantId !== snapshot.tenantId) {
+        setProblem({ title: "Gravação recebida sem confirmação da empresa ou revisão. Sua edição foi preservada; recarregue para conferir." })
+        setConflict(true)
+        setStatus("ready")
+        return false
+      }
       setSnapshot(result)
-      setEtag(response.headers.get("etag") || "")
+      setEtag(nextEtag)
       setStatus("saved")
       return true
     } catch {

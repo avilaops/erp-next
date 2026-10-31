@@ -34,7 +34,7 @@ export async function contractsProxy(request: Request, path = "") {
       headers.set("Content-Type", "application/json")
     }
     const upstream = await fetch(url, { method: request.method, headers, body: body as BodyInit | undefined, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(60000) })
-    const output = new Headers({ "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Type": upstream.headers.get("content-type") || "application/json" })
+    const output = new Headers({ "Cache-Control": "no-store, no-transform", "X-Content-Type-Options": "nosniff", "Content-Type": upstream.headers.get("content-type") || "application/json" })
     for (const key of ["etag", "content-disposition"]) { const value = upstream.headers.get(key); if (value) output.set(key, value) }
     return new Response(upstream.body, { status: upstream.status, headers: output })
   } catch {

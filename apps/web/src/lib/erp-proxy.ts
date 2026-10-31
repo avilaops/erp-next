@@ -46,7 +46,8 @@ export async function forwardErp(request: Request, resource: string) {
       }
     }
     const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(invitationResource ? 20000 : 10000) })
-    const output = new Headers({ "Cache-Control": "no-store", "Content-Type": response.headers.get("content-type") || "application/json" })
+    // ETag is the backend revision used by If-Match; proxy encoding must not rewrite it.
+    const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }
     return new Response(response.status === 204 ? null : await response.text(), { status: response.status, headers: output })
   } catch { return Response.json({ title: "Serviço do ERP indisponível. Sua edição foi preservada" }, { status: 503, headers: { "Cache-Control": "no-store" } }) }

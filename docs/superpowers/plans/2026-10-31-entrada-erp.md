@@ -55,3 +55,36 @@ O usuário aprovou a direção proposta e pediu a execução nesta conversa.
 - A suíte fiscal de integração depende do backend e não foi executada nesta
   alteração de apresentação; somente sua expectativa de título foi atualizada.
 - Publicação em produção não executada nesta entrega.
+
+## Refinamento solicitado após a primeira entrega
+
+O usuário pediu para continuar melhorando a mesma entrada. Manter o acesso na
+primeira tela e refinar a composição: reduzir a altura do painel no desktop,
+ajustar tipografia em 320 px, explicitar os benefícios e oferecer ampliação da
+captura usando o Dialog existente. A região da imagem ampliada deve permitir
+rolagem em telas estreitas, preservar foco no modal e devolver o foco ao botão
+quando fechado. Sem novas dependências, mudanças de autenticação ou publicação.
+
+- [x] Refinar composição, tipografia e faixa de benefícios.
+- [x] Ampliar a captura com o Dialog existente e fechamento em português.
+- [x] Verificar foco, Escape, rolagem móvel, contraste, build e onboarding.
+- [x] Revisar e atualizar a PR #30 e o AVL-382.
+
+### Validação do refinamento
+
+- Build, TypeScript e lint completos aprovados; 12 testes de onboarding
+  aprovados no Chrome, incluindo ampliação/leitura/fechamento pelo teclado em
+  320, 390 e 1440 px e preservação do destino de cadastro.
+- Página inteira em 1440 × 900; acesso permanece na primeira tela móvel.
+- Sem overflow horizontal em 320, 390, 768, 1024 e 1440 px.
+- Axe sem violações nos dois temas, em 390 e 1440 px, com prévia aberta e
+  fechada. A página fechada não apresentou resultados inconclusivos. No modal,
+  a ferramenta pediu revisão manual do foco por causa dos focus guards e do
+  fundo aria-hidden do BaseUI; o ciclo de oito Tabs ficou dentro do modal,
+  Escape e botão de fechar devolveram o foco ao acionador. Uma medição de
+  contraste durante a abertura foi inconclusiva; não é prova de conformidade
+  integral de acessibilidade.
+- Prévia ampliada usa o WebP original para preservar os detalhes e evitar uma
+  segunda otimização da imagem ao abrir. O painel inicial mantém otimização.
+- Revisão independente sem achados acionáveis. Console sem erros na versão
+  de produção local. Produção pública permanece sem publicação desta PR.

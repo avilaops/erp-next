@@ -62,6 +62,39 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
 test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0 })
 
+test("entry keeps access visible and its preview supports keyboard reading and closing", async ({ page }) => {
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 900 })
+    await page.goto("/entrar?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
+    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
+
+    const trigger = page.getByRole("button", { name: "Ampliar prévia do ERP", exact: true })
+    await trigger.focus()
+    await page.keyboard.press("Enter")
+    const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+    await expect(dialog).toBeVisible()
+    const image = dialog.getByRole("img")
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+
+    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
+    await close.focus()
+    await page.keyboard.press("Tab")
+    const capture = dialog.getByRole("region", { name: "Captura ampliada do catálogo", exact: true })
+    await expect(capture).toBeFocused()
+    if (width < 640) {
+      await page.keyboard.press("ArrowRight")
+      await expect.poll(() => capture.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+    }
+    await page.keyboard.press("Tab")
+    await expect(close).toBeFocused()
+    await page.keyboard.press("Escape")
+    await expect(dialog).toBeHidden()
+    await expect(trigger).toBeFocused()
+    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
+  }
+})
+
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {
   for (const [count, destination] of [[0, "/cadastro/empresa"], [1, "/preferencias/empresa/dados"], [2, "/empresas"]] as const) {
     companyCount = count

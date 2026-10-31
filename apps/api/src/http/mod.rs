@@ -31,6 +31,8 @@ mod operations_tests;
 #[cfg(test)]
 mod parties_tests;
 #[cfg(test)]
+mod preferences_tests;
+#[cfg(test)]
 mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
@@ -58,6 +60,10 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/preferences",
+            get(crate::platform::preferences::get).put(crate::platform::preferences::put),
+        )
         .merge(crate::domains::contracts::routes())
         .route(
             "/api/v1/assistant",

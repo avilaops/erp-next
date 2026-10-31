@@ -17,13 +17,13 @@ const source = {
   contextFiles: [{ path: 'verification/contracts.json', sha256: '5'.repeat(64) }],
 };
 
-test('every canonical action has one product owner and only three journeys are explicitly defined', async () => {
+test('every canonical action has one product owner and four journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 24);
-  assert.equal(context.actions.length, 118);
+  assert.equal(context.flows.length, 25);
+  assert.equal(context.actions.length, 120);
   assert.equal(context.pendingFlows.length, 25);
-  assert.equal(context.flows.filter(flow => flow.definitionState === 'journey_defined').length, 3);
+  assert.equal(context.flows.filter(flow => flow.definitionState === 'journey_defined').length, 4);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
 });
@@ -44,16 +44,16 @@ test('a task includes its transitive dependencies and real Auth handler sources 
 
 test('unknown references, duplicate ownership, and invented runtime state are rejected', () => {
   const unknown = structuredClone(catalogue);
-  unknown.productFlows.flows[0].journey[0].actionIds.push('invented-action');
+  unknown.productFlows.flows.find(flow => flow.id === 'users').journey[0].actionIds.push('invented-action');
   assert.ok(validateProductFlows(unknown).some(item => item.code === 'unknown_journey_action'));
   const duplicate = structuredClone(catalogue);
-  duplicate.productFlows.flows[1].actionGroups.push('users');
+  duplicate.productFlows.flows.find(flow => flow.id === 'legacy-history').actionGroups.push('users');
   assert.ok(validateProductFlows(duplicate).some(item => item.code === 'duplicate_action_group_owner'));
   const missing = structuredClone(catalogue);
   missing.productFlows.flows = missing.productFlows.flows.filter(flow => flow.id !== 'legacy-history');
   assert.ok(validateProductFlows(missing).some(item => item.code === 'unowned_action_group'));
   const falseState = structuredClone(catalogue);
-  falseState.productFlows.flows[0].execution = 'passed';
+  falseState.productFlows.flows.find(flow => flow.id === 'users').execution = 'passed';
   assert.ok(validateProductFlows(falseState).some(item => item.code === 'invalid_product_flow_schema'));
 });
 
@@ -62,10 +62,10 @@ test('cycles, unknown dependencies, and undeclared cross-flow actions fail befor
   cyclic.productFlows.flows.find(flow => flow.id === 'runtime').dependencies.push('users');
   assert.ok(validateProductFlows(cyclic).some(item => item.code === 'cyclic_flow_dependency'));
   const foreign = structuredClone(catalogue);
-  foreign.productFlows.flows[0].journey[0].actionIds.push('post-api-v1-payables-id-payments');
+  foreign.productFlows.flows.find(flow => flow.id === 'users').journey[0].actionIds.push('post-api-v1-payables-id-payments');
   assert.ok(validateProductFlows(foreign).some(item => item.code === 'undeclared_journey_dependency'));
   const unknown = structuredClone(catalogue);
-  unknown.productFlows.flows[0].dependencies.push('does-not-exist');
+  unknown.productFlows.flows.find(flow => flow.id === 'users').dependencies.push('does-not-exist');
   assert.ok(validateProductFlows(unknown).some(item => item.code === 'unknown_flow_dependency'));
   assert.throws(() => selectProductFlows(catalogue, 'unknown'), /não encontrada/);
 });

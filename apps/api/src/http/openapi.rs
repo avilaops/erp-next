@@ -15,6 +15,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+        crate::platform::preferences::get, crate::platform::preferences::put,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,
@@ -201,13 +202,16 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 83);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 84);
         assert!(doc["paths"]["/api/v1/fiscal/monitor"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/fiscal/monitor/sync"]["post"].is_object());
         assert!(
             doc["paths"]["/api/v1/fiscal/monitor/documents/{id}/manifest"]["post"]["requestBody"]
                 .is_object()
         );
+        assert!(doc["paths"]["/api/v1/preferences"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/preferences"]["put"]["requestBody"].is_object());
+        assert!(doc["paths"]["/api/v1/preferences"]["put"]["responses"]["412"].is_object());
         assert!(doc["paths"]["/api/v1/invitations"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/invitations"]["post"]["requestBody"].is_object());
         for action in ["resend", "revoke"] {

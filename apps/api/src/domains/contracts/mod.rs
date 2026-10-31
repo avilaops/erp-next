@@ -99,6 +99,7 @@ pub async fn options(
     let (tenant, mut tx, edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let snapshot = model::snapshot(&mut tx, tenant, id).await?;
+    let published_revisions: Vec<(i64,i64)> = sqlx::query_as("SELECT external_id,draft_revision FROM commercial_template_versions WHERE tenant_id=$1 AND external_id IS NOT NULL").bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
     let ids = if let Some(provider) = &state.contracts {
         templates::publish::template_ids(&mut tx, tenant, provider).await?
     } else {
@@ -115,7 +116,18 @@ pub async fn options(
             if !template["archived_at"].is_null() {
                 continue;
             }
-            templates.push(json!({"id":id,"name":template["name"],"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template)}));
+            let name = if let Some((_, revision)) = published_revisions
+                .iter()
+                .find(|(external, _)| *external == id)
+            {
+                format!(
+                    "{} · revisão {revision} (ERP)",
+                    template["name"].as_str().unwrap_or("Modelo")
+                )
+            } else {
+                template["name"].as_str().unwrap_or("Modelo").to_owned()
+            };
+            templates.push(json!({"id":id,"name":name,"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template)}));
         }
     }
     Ok(response(

@@ -6,7 +6,7 @@ import { ErpEntryPreview } from "@/components/erp-entry-preview"
 import { isErpLoginConfigured, WorkspaceAccessNotice } from "@/components/workspace-access"
 import { safeReturnTo } from "@/lib/return-to"
 
-type LoginProps = { searchParams: Promise<{ returnTo?: string | string[] }> }
+type LoginProps = { searchParams: Promise<{ returnTo?: string | string[]; erro?: string | string[] }> }
 
 const benefits = [
   { icon: Boxes, title: "Produtos e estoque", description: "Catálogo, saldos e movimentações." },
@@ -20,7 +20,15 @@ export default function LoginPage({ searchParams }: LoginProps) {
 
 async function LoginForm({ searchParams }: LoginProps) {
   await connection()
-  const returnTo = safeReturnTo((await searchParams).returnTo)
+  const params = await searchParams
+  const returnTo = safeReturnTo(params.returnTo)
+  const errorMessage = params.erro === "restart"
+    ? "Não foi possível validar esta tentativa de acesso. Ela pode ter expirado ou sido aberta em outro navegador. Clique em Entrar para começar novamente."
+    : params.erro === "denied"
+      ? "Não foi possível confirmar o acesso desta conta. Confira se está usando o e-mail do convite e, se necessário, fale com quem administra a empresa."
+      : params.erro === "unavailable"
+        ? "Não foi possível concluir o acesso agora. Tente entrar novamente em instantes."
+        : null
   const ready = isErpLoginConfigured()
 
   return (
@@ -38,6 +46,7 @@ async function LoginForm({ searchParams }: LoginProps) {
         </header>
 
         <main>
+          {errorMessage && <p role="alert" className="mt-6 rounded-xl border border-border bg-card p-4 text-sm leading-6">{errorMessage}</p>}
           <div className="grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:py-8">
             <section aria-labelledby="welcome-title" className="min-w-0">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">

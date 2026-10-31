@@ -77,6 +77,7 @@ test("entry keeps access visible and its single preview supports keyboard readin
     await expect(dialog).toBeVisible()
     const image = dialog.getByRole("img")
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+    await expect(image).toHaveCSS("opacity", "1")
 
     const capture = dialog.getByRole("region", { name: "Imagem ampliada do ERP", exact: true })
     await expect(dialog.getByRole("button")).toHaveCount(1)
@@ -144,6 +145,69 @@ test("entry preview shows complete product data with margins in landscape and ad
     await expect(close).toBeInViewport({ ratio: 1 })
     await close.click()
   }
+})
+
+test("entry preview announces loading and recovers from a failed image without losing keyboard access", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 680 })
+  let fail = false
+  let releaseImage!: () => void
+  const pending = new Promise<void>(resolve => { releaseImage = resolve })
+  await page.route("**/erp-preview-mobile.png*", async route => {
+    await pending
+    if (fail) return route.abort("failed")
+    return route.continue()
+  })
+  await page.goto("/entrar", { waitUntil: "domcontentloaded" })
+  const trigger = page.getByRole("button", { name: "Ampliar imagem do ERP", exact: true })
+  await expect(trigger.getByRole("status")).toHaveText("Carregando prévia…")
+  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeEnabled()
+  await trigger.click()
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  await expect(dialog.getByRole("status")).toHaveText("Carregando prévia…")
+  fail = true
+  releaseImage()
+  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
+  await dialog.getByRole("button", { name: "Fechar prévia", exact: true }).click()
+  await expect(trigger.getByRole("alert")).toContainText("Prévia indisponível.")
+  expect(await trigger.locator("button").count()).toBe(0)
+  await trigger.click()
+  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
+  const retry = dialog.getByRole("button", { name: "Tentar novamente", exact: true })
+  await expect(retry).toBeInViewport({ ratio: 1 })
+  await expect(dialog.getByRole("button", { name: "Fechar prévia", exact: true })).toBeInViewport({ ratio: 1 })
+  fail = false
+  await retry.focus()
+  await page.keyboard.press("Enter")
+  await expect(dialog.getByRole("region")).toBeFocused()
+  await expect(dialog.getByRole("alert")).toHaveCount(0)
+  const image = dialog.getByRole("img")
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
+  expect(await image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).searchParams.get("retry"))).toBe("1")
+  await expect(dialog.getByRole("status")).toHaveCount(0)
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await expect(trigger.getByRole("alert")).toHaveCount(0)
+  await expect.poll(() => trigger.locator("img").evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
+})
+
+test("a loaded preview reports a failed source after rotation and recovers when rotated back", async ({ page }) => {
+  await page.route("**/erp-preview-landscape.png*", route => route.abort("failed"))
+  await page.setViewportSize({ width: 390, height: 680 })
+  await page.goto("/entrar")
+  await page.getByRole("button", { name: "Ampliar imagem do ERP", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
+  await expect(dialog.getByRole("status")).toHaveCount(0)
+  await page.setViewportSize({ width: 568, height: 320 })
+  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
+  await dialog.getByRole("button", { name: "Tentar novamente", exact: true }).focus()
+  await page.setViewportSize({ width: 390, height: 680 })
+  await expect(dialog.getByRole("alert")).toHaveCount(0)
+  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
+  await expect(dialog.getByRole("region")).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
 })
 
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {

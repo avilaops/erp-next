@@ -78,22 +78,52 @@ test("entry keeps access visible and its preview supports keyboard reading and c
     const image = dialog.getByRole("img")
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
 
-    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
-    await close.focus()
-    await page.keyboard.press("Tab")
+    const overview = dialog.getByRole("button", { name: "Visão geral", exact: true })
+    const details = dialog.getByRole("button", { name: "Ver detalhes", exact: true })
     const capture = dialog.getByRole("region", { name: "Captura ampliada do catálogo", exact: true })
-    await expect(capture).toBeFocused()
+    await expect(overview).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => capture.evaluate(element => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true)
+    await details.click()
+    await expect(details).toHaveAttribute("aria-pressed", "true")
+    await capture.focus()
     if (width < 640) {
       await page.keyboard.press("ArrowRight")
       await expect.poll(() => capture.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
     }
+    await overview.click()
+    await expect.poll(() => capture.evaluate(element => element.scrollLeft)).toBe(0)
+
+    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
+    await close.focus()
+    await page.keyboard.press("Tab")
+    await expect(overview).toBeFocused()
+    await page.keyboard.press("Tab")
+    await expect(details).toBeFocused()
+    await page.keyboard.press("Tab")
+    await expect(capture).toBeFocused()
     await page.keyboard.press("Tab")
     await expect(close).toBeFocused()
     await page.keyboard.press("Escape")
     await expect(dialog).toBeHidden()
     await expect(trigger).toBeFocused()
+    await trigger.click()
+    await expect(overview).toHaveAttribute("aria-pressed", "true")
+    await close.click()
+    await expect(dialog).toBeHidden()
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
   }
+})
+
+test("entry preview keeps its overview and controls visible in landscape", async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 320 })
+  await page.goto("/entrar")
+  await page.getByRole("button", { name: "Ampliar prévia do ERP", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  await dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.decode())
+  for (const name of ["Visão geral", "Ver detalhes", "Fechar prévia"]) {
+    await expect(dialog.getByRole("button", { name, exact: true })).toBeInViewport({ ratio: 1 })
+  }
+  await expect.poll(() => dialog.getByRole("region").evaluate(element => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true)
 })
 
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {

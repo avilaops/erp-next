@@ -24,6 +24,109 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn schema_only_upgrade_grants_monitor_storage_to_the_existing_restricted_role(admin: PgPool) {
+    let (router, app, auth, role) = setup(&admin).await;
+    grant(&admin).await;
+    // Simulate tables created after the runtime role was originally provisioned.
+    sqlx::raw_sql(&format!("REVOKE ALL ON fiscal_monitor_state,fiscal_monitor_runs,fiscal_monitor_documents,fiscal_monitor_manifestations FROM {role}; REVOKE ALL ON SEQUENCE fiscal_monitor_documents_id_seq FROM {role};"))
+        .execute(&admin).await.unwrap();
+    assert_eq!(
+        call(&router, "GET", "/api/v1/fiscal/monitor", "editor", None)
+            .await
+            .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let workflow = include_str!("../../../../.github/workflows/production-migrate.yml");
+    assert!(
+        workflow.contains("-f deploy/grant-fiscal-monitor.sql"),
+        "schema_only migration must provision the new monitor tables and sequence"
+    );
+    let script = include_str!("../../../../deploy/grant-fiscal-monitor.sql");
+    sqlx::raw_sql(&script.replace("erp_next_app", &role))
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&router, "GET", "/api/v1/fiscal/monitor", "editor", None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    for table in [
+        "fiscal_monitor_state",
+        "fiscal_monitor_runs",
+        "fiscal_monitor_manifestations",
+        "fiscal_monitor_documents",
+    ] {
+        for permission in ["SELECT", "INSERT"] {
+            assert!(
+                sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,$3)")
+                    .bind(&role)
+                    .bind(table)
+                    .bind(permission)
+                    .fetch_one(&admin)
+                    .await
+                    .unwrap()
+            );
+        }
+        assert!(
+            !sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,'DELETE')")
+                .bind(&role)
+                .bind(table)
+                .fetch_one(&admin)
+                .await
+                .unwrap()
+        );
+    }
+    for permission in ["UPDATE", "DELETE"] {
+        assert!(
+            !sqlx::query_scalar::<_, bool>(
+                "SELECT has_table_privilege($1,'fiscal_monitor_documents',$2)"
+            )
+            .bind(&role)
+            .bind(permission)
+            .fetch_one(&admin)
+            .await
+            .unwrap()
+        );
+    }
+    for table in [
+        "fiscal_monitor_state",
+        "fiscal_monitor_runs",
+        "fiscal_monitor_manifestations",
+    ] {
+        assert!(
+            sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,'UPDATE')")
+                .bind(&role)
+                .bind(table)
+                .fetch_one(&admin)
+                .await
+                .unwrap()
+        );
+    }
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT has_sequence_privilege($1,'fiscal_monitor_documents_id_seq','USAGE')"
+        )
+        .bind(&role)
+        .fetch_one(&admin)
+        .await
+        .unwrap()
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT NOT rolsuper AND NOT rolbypassrls FROM pg_roles WHERE rolname=$1"
+        )
+        .bind(&role)
+        .fetch_one(&admin)
+        .await
+        .unwrap()
+    );
+    cleanup(&admin, app, auth, &role).await;
+}
+
 async fn grant(admin: &PgPool) {
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code LIKE 'fiscal.monitor.%' OR code='fiscal.received_nfe.manage'")
         .execute(admin).await.unwrap();

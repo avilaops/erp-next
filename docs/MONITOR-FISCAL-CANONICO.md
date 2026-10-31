@@ -7,7 +7,11 @@ Lojas e o Monitor de Notas continuam consumindo a API do ERP.
 
 ## Configuração
 
-1. Aplicar as migrations pelo processo de implantação do ERP.
+1. Aplicar as migrations pelo processo de implantação do ERP. Na atualização
+   `schema_only`, o workflow também executa `deploy/grant-fiscal-monitor.sql`
+   para conceder à conta existente da API acesso às tabelas e à sequência novas.
+   O XML distribuído recebe somente permissões de leitura/inserção; as políticas
+   RLS e a proteção append-only permanecem ativas.
 2. Configurar o cofre A1 existente e cadastrar certificado vigente da empresa.
 3. Conferir CNPJ e UF no cadastro da empresa.
 4. Atribuir as permissões `fiscal.monitor.read`, `fiscal.monitor.manage` e,

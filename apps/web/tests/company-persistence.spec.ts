@@ -52,6 +52,40 @@ test("conflito preserva a edição e exige recarregar explicitamente", async ({ 
   await expect(name).toHaveValue("Edição de outra pessoa")
 })
 
+test("atalhos abrem a seção correta e endereço e contatos persistem sem perder edição ao sair", async ({ page, context }) => {
+  await context.addCookies([cookie("fixture-editor-token")])
+  for (const [card, section, heading] of [
+    ["Dados cadastrais", "identificacao", "Dados cadastrais"],
+    ["Endereço", "endereco", "Endereço"],
+    ["Contatos", "contato", "Contato"],
+    ["Configuração tributária", "fiscal", "Dados fiscais e atividade"],
+    ["Inscrições estaduais", "inscricoes", "Inscrições estaduais substitutas"],
+  ]) {
+    await page.goto("/preferencias/empresa")
+    await page.locator(".settings-row").filter({ has: page.getByText(card, { exact: true }) }).click()
+    await expect(page).toHaveURL(new RegExp(`secao=${section}$`))
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeFocused()
+  }
+  await page.goto("/preferencias/empresa/dados?secao=endereco")
+  await expect(page.getByRole("heading", { name: "Endereço", exact: true })).toBeFocused()
+  await page.getByLabel("Complemento", { exact: true }).fill("Sala de conferência 374")
+  await page.getByLabel("Pessoa de contato", { exact: true }).fill("Responsável do cadastro")
+  await page.getByLabel("E-mail de cobrança", { exact: true }).fill("cadastro374@example.test")
+  page.once("dialog", dialog => dialog.dismiss())
+  await page.getByRole("link", { name: "Empresa", exact: true }).click()
+  await expect(page).toHaveURL(/secao=endereco$/)
+  await expect(page.getByLabel("Complemento", { exact: true })).toHaveValue("Sala de conferência 374")
+  await page.getByRole("button", { name: "Salvar alterações", exact: true }).click()
+  await expect(page.getByText("Cadastro salvo no servidor.", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel("Complemento", { exact: true })).toHaveValue("Sala de conferência 374")
+  await expect(page.getByLabel("E-mail de cobrança", { exact: true })).toHaveValue("cadastro374@example.test")
+  await page.goto("/preferencias/empresa")
+  await expect(page.getByText("6 de 6 campos de endereço informados", { exact: true })).toBeVisible()
+  await expect(page.locator(".settings-row").filter({ has: page.getByText("Contatos", { exact: true }) })).toContainText("campos de contato informados")
+  await expect(page.getByText("Configuração de logotipo e identidade ainda indisponível nesta tela", { exact: true })).toBeVisible()
+})
+
 test("BFF bloqueia anônimo, origem externa, troca de empresa e credencial expirada", async ({ context }) => {
   expect((await context.request.get("/api/erp/company")).status()).toBe(401)
   await context.addCookies([cookie("fixture-editor-token")])

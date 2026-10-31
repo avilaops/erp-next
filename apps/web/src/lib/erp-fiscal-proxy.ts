@@ -1,6 +1,6 @@
 import { currentSession, erpConfiguration } from "./erp-session"
 
-const noStore = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
+const noStore = { "Cache-Control": "no-store, no-transform", "X-Content-Type-Options": "nosniff" }
 const failure = (title: string, status: number) => Response.json({ title }, { status, headers: noStore })
 
 async function bounded(stream: ReadableStream<Uint8Array> | null, maximum: number) {

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const config = erpConfiguration()
     const jar = await cookies()
     const flow = unseal<{ state: string; verifier: string; tenantId: string | null; returnTo?: string; expiresAt: number }>(jar.get(cookieName("auth"))?.value || "", "erp-auth")
-    jar.delete(cookieName("auth"))
+    jar.set(cookieName("auth"), "", cookieOptions(0))
     const params = new URL(request.url).searchParams
     const state = params.get("state") || ""
     const code = params.get("code") || ""

@@ -7,17 +7,19 @@ import { preferenceGroups } from "@/components/navigation-catalog"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useCompanyProfile } from "./company-profile-context"
+import { companySectionStatus, type CompanySection } from "./company-sections"
 
 const settingsGroups = [
   { title: "Identidade", description: "Informações que identificam a empresa em documentos e operações.", items: [
-    { title: "Dados cadastrais", description: "Razão social, nome fantasia, CNPJ, porte e atividade", icon: Building2, href: "/preferencias/empresa/dados" },
-    { title: "Endereço", description: "Endereço fiscal e localização principal", icon: Landmark, href: "/preferencias/empresa/dados" },
-    { title: "Contatos", description: "E-mails, telefones e responsáveis", icon: Users, href: "/preferencias/empresa/dados" },
+    { title: "Dados cadastrais", description: "Razão social, nome fantasia e CPF ou CNPJ", icon: Building2, href: "/preferencias/empresa/dados?secao=identificacao", section: "identificacao" },
+    { title: "Endereço", description: "Endereço fiscal e localização principal", icon: Landmark, href: "/preferencias/empresa/dados?secao=endereco", section: "endereco" },
+    { title: "Contatos", description: "E-mails, telefones e responsáveis", icon: Users, href: "/preferencias/empresa/dados?secao=contato", section: "contato" },
     { title: "Marca", description: "Configuração de logotipo e identidade ainda indisponível nesta tela", icon: BadgeCheck, href: null },
   ] },
   { title: "Fiscal", description: "Dados tributários e credenciais necessárias para a operação fiscal.", items: [
-    { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", icon: ReceiptText, href: "/preferencias/empresa/dados" },
-    { title: "Inscrições estaduais", description: "Substituição tributária por unidade federativa", icon: CircleDollarSign, href: "/preferencias/empresa/dados" },
+    { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", icon: ReceiptText, href: "/preferencias/empresa/dados?secao=fiscal", section: "fiscal" },
+    { title: "Inscrições estaduais", description: "Inscrições estaduais substitutas por unidade federativa", icon: CircleDollarSign, href: "/preferencias/empresa/dados?secao=inscricoes", section: "inscricoes" },
     { title: "Certificado digital", description: "Conexão, validade e substituição do certificado A1", icon: Fingerprint, href: "/preferencias/certificado-digital" },
   ] },
   { title: "Governança e conexões", description: "Controle de acesso, rastreabilidade e serviços conectados.", items: [
@@ -38,6 +40,7 @@ function PreferenceLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function CompanyPreferences({ summary }: { summary: ReactNode }) {
+  const { company } = useCompanyProfile()
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const search = normalize(query)
@@ -58,7 +61,7 @@ export function CompanyPreferences({ summary }: { summary: ReactNode }) {
         {query && <Button variant="outline" onClick={() => setQuery("")} aria-label="Limpar pesquisa">Limpar</Button>}
       </div>
       {summary}
-      <p className="mt-6 text-sm text-muted-foreground">Abra cada configuração para consultar seu estado atual. Esta visão não verifica a conclusão dos cadastros nem o estado das conexões.</p>
+      <p className="mt-6 text-sm text-muted-foreground">Os indicadores mostram somente o preenchimento do cadastro carregado. Não comprovam validação fiscal, autorização de notas ou conexão com serviços externos.</p>
       <p className="sr-only" role="status">{groups.reduce((total, group) => total + group.items.length, 0)} configurações encontradas.</p>
       <div className="mt-6 space-y-8">
         {!groups.length && <p role="status">Nenhuma configuração encontrada.</p>}
@@ -66,7 +69,8 @@ export function CompanyPreferences({ summary }: { summary: ReactNode }) {
           <div className="mb-3"><h2 className="text-lg font-semibold" id={`company-settings-${index}`}>{group.title}</h2><p className="mt-1 text-sm text-muted-foreground">{group.description}</p></div>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">{group.items.map(item => {
             const Icon = item.icon
-            const content = <><span className="settings-symbol"><Icon className="size-5" aria-hidden="true" /></span><span className="min-w-0 flex-1"><strong className="block text-sm font-medium">{item.title}</strong><span className="mt-1 block text-sm text-muted-foreground">{item.description}</span><span className="mt-1 block text-xs text-muted-foreground">{item.href ? "Não verificado" : "Indisponível"}</span></span>{item.href && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}</>
+            const status = !item.href ? "Indisponível" : "section" in item && item.section && company ? companySectionStatus(company.data, item.section as CompanySection) : "Não verificado"
+            const content = <><span className="settings-symbol"><Icon className="size-5" aria-hidden="true" /></span><span className="min-w-0 flex-1"><strong className="block text-sm font-medium">{item.title}</strong><span className="mt-1 block text-sm text-muted-foreground">{item.description}</span><span className="mt-1 block text-xs text-muted-foreground">{status}</span></span>{item.href && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}</>
             return item.href ? <Link className="settings-row" href={item.href} key={item.title}>{content}</Link> : <div className="flex min-h-20 items-center gap-4 border-b border-border px-4 py-3 last:border-b-0 sm:px-5" key={item.title}>{content}</div>
           })}</div>
         </section>)}

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
+import { companyFields } from "../src/features/company/company-types"
 
 test.setTimeout(process.env.ERP_BROWSER_DEV === "1" ? 30000 : 10000)
 
@@ -62,6 +63,39 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
 test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0 })
 
+test("entry keeps access visible and its preview supports keyboard reading and closing", async ({ page }) => {
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 900 })
+    await page.goto("/entrar?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
+    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
+
+    const trigger = page.getByRole("button", { name: "Ampliar prévia do ERP", exact: true })
+    await trigger.focus()
+    await page.keyboard.press("Enter")
+    const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+    await expect(dialog).toBeVisible()
+    const image = dialog.getByRole("img")
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
+
+    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
+    await close.focus()
+    await page.keyboard.press("Tab")
+    const capture = dialog.getByRole("region", { name: "Captura ampliada do catálogo", exact: true })
+    await expect(capture).toBeFocused()
+    if (width < 640) {
+      await page.keyboard.press("ArrowRight")
+      await expect.poll(() => capture.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+    }
+    await page.keyboard.press("Tab")
+    await expect(close).toBeFocused()
+    await page.keyboard.press("Escape")
+    await expect(dialog).toBeHidden()
+    await expect(trigger).toBeFocused()
+    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
+  }
+})
+
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {
   for (const [count, destination] of [[0, "/cadastro/empresa"], [1, "/preferencias/empresa/dados"], [2, "/empresas"]] as const) {
     companyCount = count
@@ -99,7 +133,7 @@ test("identity-only sessions cannot access existing tenant data and company sele
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
-  await expect(page.getByRole("heading", { name: "Bem-vindo ao Ávila ERP", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Sua operação, sob controle.", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
   await context.addCookies([cookie()])
@@ -203,16 +237,19 @@ test("multiple companies keep the requested destination until verified selection
 })
 
 test("401 offers contextual login while 503 remains retryable and company switch opens picker", async ({ page, context }) => {
+  const errors: string[] = []
+  page.on("pageerror", error => errors.push(error.message))
   await context.addCookies([cookie(tenant)])
   await page.route("**/api/erp/product-categories?*", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
   await page.goto("/cadastros/categorias-produtos")
   await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: "/cadastros/categorias-produtos" }))
   let unavailable = true
-  await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { legalName: "Empresa de teste", tradeName: "", taxId: "00000000000000" } } }))
+  await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { ...Object.fromEntries(companyFields.map(field => [field, ""])), legalName: "Empresa de teste", tradeName: "", taxId: "11222333000181", segments: [], substituteRegistrations: [] } } }))
   await page.goto("/preferencias/empresa")
   await expect(page.getByText("Consulta temporariamente indisponível", { exact: true })).toBeVisible()
   await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
   unavailable = false
   await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
   await expect(page.getByRole("link", { name: "Trocar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: "/preferencias/empresa" }))
+  expect(errors).toEqual([])
 })

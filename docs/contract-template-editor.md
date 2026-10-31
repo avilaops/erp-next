@@ -2,7 +2,8 @@
 
 O editor em `/servicos/contratos/modelos` salva rascunhos privados por empresa.
 O cadastro recebe PDF de até 5 MiB, participantes, campos, tipos e posições
-percentuais. A edição exige `platform.integrations.manage`; a consulta exige
+percentuais, com arraste e ajuste por teclado sobre o PDF renderizado com PDF.js.
+A edição exige `platform.integrations.manage`; a consulta exige
 `sales.orders.read`. O BFF usa a sessão da empresa, sem expor credenciais do
 serviço de contratos.
 
@@ -16,11 +17,11 @@ recebe o hash do PDF em vez de duplicar seu conteúdo. Cada gravação é atômi
 - Salvar não publica o modelo, não modifica os modelos do provedor e não envia
   solicitações de assinatura.
 - Os modelos já associados ao serviço continuam sendo usados pelos pedidos.
-- A prévia mostra o PDF original. Os campos são configurados por posição
-  percentual; ainda não há desenho ou arraste sobre a página.
-- O número de páginas é informado pelo operador e validado contra as posições
-  declaradas. A análise estrutural do PDF e a publicação precisam confirmar a
+- O PDF é analisado no navegador para renderização e contagem de páginas.
+  A publicação precisa validar também no backend a estrutura do PDF e a
   quantidade real de páginas antes de permitir uso em pedidos.
+- Os campos representam posições do rascunho; salvar ainda não grava essas
+  posições no modelo do serviço de assinatura.
 - A lista mostra até 100 rascunhos recentes.
 - Sincronização, importação dos modelos existentes e publicação de versões
   ainda precisam ser implementadas antes do aceite completo da AVL-318.

@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useCallback, useState } from "react"
+import { TemplateCanvas } from "./template-canvas"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
@@ -48,6 +49,8 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
   const [loadingFile, setLoadingFile] = useState(false)
   const [revision, setRevision] = useState(initial?.revision)
   const [notice, setNotice] = useState("")
+  const [pdfReady, setPdfReady] = useState(false)
+  const readPages = useCallback((pages: number) => { setDefinition(value => ({ ...value, pages })); setPdfReady(true) }, [])
   const blocked = !canEdit || command.busy || command.uncertain || command.stale || loadingFile
   const changeField = (id: string, change: Partial<Field>) => setDefinition(value => ({ ...value, fields: value.fields.map(field => field.id === id ? { ...field, ...change } : field) }))
   async function loadFile(file?: File) {
@@ -59,6 +62,7 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
       if (new TextDecoder().decode(await file.slice(0, 5).arrayBuffer()) !== "%PDF-") throw new Error("O arquivo não é um PDF.")
       const value = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Não foi possível ler o arquivo.")); reader.readAsDataURL(file) })
       setPdf(value)
+      setPdfReady(false)
     } catch (error) { setFileError(error instanceof Error ? error.message : "Arquivo indisponível.") }
     finally { setLoadingFile(false) }
   }
@@ -76,14 +80,14 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
     <fieldset disabled={blocked} className="form-section space-y-4">
       <label className="block">Nome do modelo<Input required maxLength={200} value={definition.name} onChange={e => setDefinition({ ...definition, name: e.target.value })} /></label>
       <label className="block">PDF do modelo<Input type="file" accept="application/pdf,.pdf" required={!revision && !pdf} onChange={e => void loadFile(e.target.files?.[0])} /></label>
-      <label className="block">Número de páginas do PDF<Input type="number" min={1} max={100} required value={definition.pages} onChange={e => setDefinition({ ...definition, pages: Number(e.target.value) })} /></label>
+      <p>Número de páginas: {definition.pages} · identificado ao abrir o PDF.</p>
       <label className="block">Participantes, separados por ponto e vírgula<Input required value={definition.roles.join(";")} onChange={e => setDefinition({ ...definition, roles: e.target.value.split(";") })} /></label>
-      <p className="text-sm">Use nomes como Cliente;Empresa;Testemunha. Confira a quantidade de páginas no documento.</p>
+      <p className="text-sm">Use nomes como Cliente;Empresa;Testemunha.</p>
     </fieldset>
-    {(pdf || revision) && <section className="form-section space-y-3"><h2 className="text-lg font-semibold">Documento de referência</h2><iframe title="PDF do modelo" className="h-[600px] w-full rounded-lg border" src={pdf || `/api/erp/contract-template-drafts/${id}/pdf`} /></section>}
+    {(pdf || revision) && <section className="form-section space-y-3"><h2 className="text-lg font-semibold">Documento e posição dos campos</h2><TemplateCanvas key={pdf || id} source={pdf || `/api/erp/contract-template-drafts/${id}/pdf`} fields={definition.fields} disabled={blocked} onPages={readPages} onMove={changeField} /></section>}
     <fieldset disabled={blocked} className="form-section space-y-4">
       <h2 className="text-lg font-semibold">Campos e assinaturas</h2>
-      <p>As posições são percentuais da página, medidos a partir do canto superior esquerdo. O PDF serve como referência; esta tela ainda não desenha os campos sobre ele.</p>
+      <p>Adicione um campo e posicione-o sobre o PDF. Para ajustes precisos, use os percentuais abaixo, medidos a partir do canto superior esquerdo da página.</p>
       {definition.fields.map((field, index) => <fieldset key={field.id} className="space-y-3 rounded-xl border p-4">
         <legend>Campo {index + 1}</legend>
         <label className="block">Nome do campo<Input required maxLength={200} value={field.name} onChange={e => changeField(field.id, { name: e.target.value })} /></label>
@@ -99,6 +103,6 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
     {fileError && <p role="alert">{fileError}</p>}
     {command.error && <RequestError message={command.error} status={command.status} />}
     {notice && <p role="status">{notice}</p>}
-    <Button type="submit" disabled={!canEdit || command.busy || command.stale || loadingFile || !!fileError}>{command.busy ? "Salvando…" : command.uncertain ? "Conferir salvamento" : "Salvar rascunho"}</Button>
+    <Button type="submit" disabled={!canEdit || command.busy || command.stale || loadingFile || !!fileError || !pdfReady}>{command.busy ? "Salvando…" : command.uncertain ? "Conferir salvamento" : "Salvar rascunho"}</Button>
   </form>
 }

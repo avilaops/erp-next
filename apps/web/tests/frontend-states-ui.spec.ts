@@ -99,8 +99,11 @@ test("configurações mistas preservam tema local e não simulam gravação ou a
   await expect(page.getByRole("button", { name: "Salvar preferências", exact: true })).toHaveCount(0)
   for (const select of await page.locator("main select").all()) await expect(select).toBeDisabled()
   await page.goto("/preferencias/seguranca")
-  await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
-  for (const control of await page.locator("main input, main select, main button").all()) await expect(control).toBeDisabled()
+  await expect(page.getByRole("heading", { name: "Segurança e auditoria", exact: true })).toBeVisible()
+  await expect(page.locator("main").getByRole("alert")).toContainText("Consulta indisponível no teste")
+  await expect(page.getByRole("button", { name: "Tentar novamente", exact: true })).toBeEnabled()
+  await expect(page.getByLabel("Simular estado")).toHaveCount(0)
+  await expect(page.locator("main ol li")).toHaveCount(0)
 })
 
 test("estoque aceita seis casas com vírgula e conserva o comando na repetição", async ({ page }) => {

@@ -13,6 +13,36 @@ function cookie(token: string, expiresAt = Date.now() + 3600_000) {
   return { name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" as const }
 }
 
+test("auditoria real filtra eventos, preserva privacidade e recusa leitor sem permissão", async ({ page, context }) => {
+  await context.addCookies([cookie("fixture-editor-token")])
+  const snapshot = await context.request.get("/api/erp/preferences")
+  expect(snapshot.status()).toBe(200)
+  const saved = await context.request.put("/api/erp/preferences", { headers: { Origin: origin, "X-Tenant-Id": tenant, "If-Match": snapshot.headers().etag }, data: { productPageSize: 25 } })
+  expect(saved.status()).toBe(200)
+  const api = await context.request.get("/api/erp/audit?action=preferences.updated")
+  expect(api.status()).toBe(200)
+  const events = await api.json()
+  expect(events.data.length).toBeGreaterThan(0)
+  expect(Object.keys(events.data[0]).sort()).toEqual(["action", "actor", "entityType", "id", "occurredAt"])
+  expect((await context.request.get("/api/erp/audit?tenantId=other")).status()).toBe(400)
+  await page.goto("/preferencias/seguranca")
+  await expect(page.getByRole("heading", { name: "Eventos de auditoria", exact: true })).toBeVisible()
+  await page.getByLabel("Código exato da ação").fill("preferences.updated")
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click()
+  await expect(page.locator("main ol li").first()).toContainText("preferences.updated")
+  await expect(page.getByLabel("Simular estado")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Revogar/ })).toHaveCount(0)
+  await page.setViewportSize({ width: 320, height: 740 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByLabel("Código exato da ação").fill("unrecorded.action")
+  await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click()
+  await expect(page.getByText("Nenhum evento encontrado para estes filtros.")).toBeVisible()
+  await context.addCookies([cookie("fixture-reader-token")])
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Acesso não autorizado", exact: true })).toBeVisible()
+  expect((await context.request.get("/api/erp/audit")).status()).toBe(403)
+})
+
 test("login com PKCE grava a empresa e mantém a gravação após recarregar", async ({ page, context }) => {
   await page.goto("/entrar")
   await page.getByRole("button", { name: "Entrar", exact: true }).click()

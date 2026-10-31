@@ -1,49 +1,56 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { AlertCircle, KeyRound, Laptop, LockKeyhole, Search, ShieldCheck } from "lucide-react"
+import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
+import { PageHeader } from "@/components/page-header"
+import { AccessLink } from "@/components/session-recovery"
+import { useResource } from "@/features/operations/use-operation"
 
-type ScreenState = "ready" | "loading" | "error" | "forbidden"
-const events = [
-  { id: 1, date: "2026-10-24", at: "24/10/2026 18:42", user: "Nicolas Ávila", action: "Atualizou", entity: "Empresa", detail: "Dados cadastrais da empresa" },
-  { id: 2, date: "2026-10-24", at: "24/10/2026 17:10", user: "Mariana Costa", action: "Entrou", entity: "Sessão", detail: "Acesso por dispositivo reconhecido" },
-  { id: 3, date: "2026-10-23", at: "23/10/2026 14:25", user: "Carlos Mendes", action: "Consultou", entity: "Financeiro", detail: "Relatório consolidado" },
-]
+type AuditEvent = { id: string; occurredAt: string; actor: string | null; action: string; entityType: string }
+type AuditResponse = { tenantId: string; data: AuditEvent[]; nextCursor: string | null }
+const empty = { q: "", action: "", entity: "", startDate: "", endDate: "" }
+const formatDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium", timeZone: "UTC" })
 
 export function SecurityAudit() {
-  const [state, setState] = useState<ScreenState>("ready")
-  const [query, setQuery] = useState("")
-  const [action, setAction] = useState("all")
-  const [user, setUser] = useState("all")
-  const [entity, setEntity] = useState("all")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const filtered = useMemo(() => events.filter((event) => (action === "all" || event.action === action) && (user === "all" || event.user === user) && (entity === "all" || event.entity === entity) && (!startDate || event.date >= startDate) && (!endDate || event.date <= endDate) && `${event.user} ${event.entity} ${event.detail}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"))), [action, endDate, entity, query, startDate, user])
+  const [draft, setDraft] = useState(empty)
+  const [filters, setFilters] = useState(empty)
+  const [cursors, setCursors] = useState<string[]>([])
+  const [validation, setValidation] = useState("")
+  const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== ""))
+  if (cursors.length) params.set("before", cursors[cursors.length - 1])
+  const resource = useResource<AuditResponse>(`/api/erp/audit?${params}`)
 
-  if (state === "forbidden") return <State title="Acesso não autorizado" description="Solicite a permissão Consultar auditoria a um administrador." icon={LockKeyhole}><Button variant="outline" onClick={() => setState("ready")}>Voltar à demonstração</Button></State>
+  function apply(event: FormEvent) {
+    event.preventDefault()
+    if (draft.startDate && draft.endDate && draft.startDate > draft.endDate) {
+      setValidation("Data final deve ser igual ou posterior à inicial."); return
+    }
+    setValidation(""); setCursors([]); setFilters({ ...draft })
+    if (!cursors.length && JSON.stringify(draft) === JSON.stringify(filters)) resource.reload()
+  }
 
-  return <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 lg:px-6">
-    <header className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-sm font-medium text-primary">Preferências / Segurança e auditoria</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Segurança e auditoria</h1><p className="mt-3 max-w-2xl text-muted-foreground">Consulte sessões, políticas e eventos seguros. Nenhuma ação altera autenticação sem backend.</p></div><label className="grid gap-1 text-xs text-muted-foreground">Simular estado<select className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={state} onChange={(event) => setState(event.target.value as ScreenState)}><option value="ready">Conteúdo</option><option value="loading">Carregamento</option><option value="error">Erro</option><option value="forbidden">Sem permissão</option></select></label></header>
-    <div className="mt-7 grid gap-6 lg:grid-cols-2">
-      <section className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-center gap-3"><Laptop className="size-5 text-primary" /><div><h2 className="font-semibold">Sessões recentes</h2><p className="text-sm text-muted-foreground">Somente leitura</p></div></div><div className="mt-5 space-y-3">{[{ device: "Windows · Edge", place: "Votuporanga, SP", when: "Sessão atual" }, { device: "Android · Chrome", place: "São José do Rio Preto, SP", when: "Ontem, 20:14" }].map((session) => <article className="rounded-xl border border-border p-4" key={session.device}><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-medium">{session.device}</h3><p className="mt-1 text-xs text-muted-foreground">{session.place} · IP 189.***.***.42</p></div><span className="text-xs text-muted-foreground">{session.when}</span></div><Button className="mt-3" disabled size="sm" variant="outline">Revogar indisponível</Button></article>)}</div></section>
-      <section className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-center gap-3"><ShieldCheck className="size-5 text-primary" /><div><h2 className="font-semibold">Políticas de autenticação</h2><p className="text-sm text-muted-foreground">Gerenciadas pelo provedor de identidade</p></div></div><dl className="mt-5 divide-y divide-border">{[["MFA", "Recomendado; alteração indisponível"], ["Tempo de sessão", "8 horas"], ["Tentativas de acesso", "Bloqueio progressivo"], ["Senha", "Não armazenada pelo ERP"]].map(([term, value]) => <div className="flex justify-between gap-4 py-3 text-sm" key={term}><dt className="text-muted-foreground">{term}</dt><dd className="text-right font-medium">{value}</dd></div>)}</dl><div className="mt-4 flex gap-2 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground"><KeyRound className="mt-0.5 size-4 shrink-0" />Segredos e payloads de autenticação não são exibidos.</div></section>
+  function clear() { setDraft(empty); setFilters(empty); setCursors([]); setValidation("") }
+
+  return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
+    <PageHeader eyebrow="Preferências / Segurança e auditoria" title="Segurança e auditoria" description="Consulte os eventos registrados pelo ERP para a empresa ativa. Esta tela não altera a autenticação." />
+    <div className="grid gap-6 md:grid-cols-2">
+      <section className="form-section space-y-2"><h2 className="text-lg font-semibold">Sessões e dispositivos</h2><p className="text-sm text-muted-foreground">A consulta e a revogação de sessões do provedor de identidade ainda não estão integradas nesta tela.</p></section>
+      <section className="form-section space-y-2"><h2 className="text-lg font-semibold">Políticas de autenticação</h2><p className="text-sm text-muted-foreground">O estado atual das políticas do Auth não está disponível nesta tela. Eventos de auditoria do ERP não comprovam login, MFA ou duração de sessão.</p></section>
     </div>
-    <section className="mt-6 overflow-hidden rounded-2xl border border-border bg-card" aria-labelledby="audit-title"><div className="border-b border-border p-5"><h2 className="font-semibold" id="audit-title">Eventos de auditoria</h2><div className="mt-4 grid gap-2 md:grid-cols-3 xl:grid-cols-6"><label className="relative md:col-span-3 xl:col-span-2"><span className="sr-only">Buscar eventos</span><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Descrição do evento" value={query} onChange={(event) => setQuery(event.target.value)} /></label><AuditSelect label="Filtrar por usuário" value={user} onChange={setUser} options={["all", ...new Set(events.map((event) => event.user))]} /><AuditSelect label="Filtrar por ação" value={action} onChange={setAction} options={["all", "Atualizou", "Entrou", "Consultou"]} /><AuditSelect label="Filtrar por entidade" value={entity} onChange={setEntity} options={["all", ...new Set(events.map((event) => event.entity))]} /><div className="grid grid-cols-2 gap-2"><label><span className="sr-only">Data inicial</span><Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label><span className="sr-only">Data final</span><Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label></div></div></div>
-      {state === "loading" && <div className="space-y-3 p-5">{[1, 2, 3].map((id) => <Skeleton className="h-16 w-full" key={id} />)}</div>}
-      {state === "error" && <State title="Não foi possível carregar a auditoria" description="Tente novamente. Nenhum dado foi alterado." icon={AlertCircle}><Button onClick={() => setState("ready")}>Tentar novamente</Button></State>}
-      {state === "ready" && filtered.length === 0 && <State title="Nenhum evento encontrado" description="Ajuste os filtros para consultar outros eventos." icon={Search}><Button variant="outline" onClick={() => { setQuery(""); setAction("all"); setUser("all"); setEntity("all"); setStartDate(""); setEndDate("") }}>Limpar filtros</Button></State>}
-      {state === "ready" && filtered.length > 0 && <div className="divide-y divide-border">{filtered.map((event) => <article className="grid gap-2 p-4 text-sm sm:grid-cols-[150px_180px_110px_minmax(0,1fr)] sm:px-5" key={event.id}><time className="text-muted-foreground">{event.at}</time><strong>{event.user}</strong><span>{event.action}</span><span><span className="text-muted-foreground">{event.entity} · </span>{event.detail}</span></article>)}</div>}
+    <section className="form-section space-y-5" aria-labelledby="audit-title">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="audit-title" className="text-lg font-semibold">Eventos de auditoria</h2><p className="mt-1 text-sm text-muted-foreground">25 eventos por página, do mais recente para o mais antigo. Datas e filtros em UTC. Dados internos dos eventos não são exibidos.</p></div><Button variant="outline" disabled={resource.loading} onClick={() => { setCursors([]); resource.reload() }}>Atualizar eventos</Button></div>
+      <form onSubmit={apply} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {([['q', 'Buscar ação, tipo ou responsável'], ['action', 'Código exato da ação'], ['entity', 'Tipo exato de registro'], ['startDate', 'Data inicial (UTC)'], ['endDate', 'Data final (UTC)']] as const).map(([key, label]) => <label key={key} className="grid gap-1 text-sm">{label}<Input type={key.endsWith("Date") ? "date" : "text"} maxLength={120} placeholder={key === "action" ? "company.updated" : key === "entity" ? "company" : undefined} value={draft[key]} onChange={event => setDraft(previous => ({ ...previous, [key]: event.target.value }))} /></label>)}
+        <div className="flex flex-wrap items-end gap-2"><Button type="submit" disabled={resource.loading}>Aplicar filtros</Button><Button type="button" variant="outline" disabled={resource.loading} onClick={clear}>Limpar filtros</Button></div>
+      </form>
+      {validation && <p role="alert">{validation}</p>}
+      {resource.loading && <p role="status">Carregando eventos…</p>}
+      {!resource.loading && resource.error && <div role="alert" className="space-y-3"><h3 className="font-semibold">{resource.status === 403 ? "Acesso não autorizado" : "Não foi possível carregar a auditoria"}</h3><p>{resource.status === 403 ? "Solicite a permissão Consultar a trilha de auditoria da empresa a um administrador." : resource.error}</p>{resource.status === 401 ? <AccessLink /> : resource.status !== 403 && <Button variant="outline" onClick={resource.reload}>Tentar novamente</Button>}</div>}
+      {!resource.loading && !resource.error && resource.value && <>
+        {resource.value.data.length === 0 ? <p role="status" className="py-8 text-center text-muted-foreground">Nenhum evento encontrado para estes filtros.</p> : <ol className="divide-y divide-border">{resource.value.data.map(event => <li key={event.id} className="grid min-w-0 gap-2 py-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]"><time dateTime={event.occurredAt} className="text-muted-foreground">{formatDate.format(new Date(event.occurredAt))} UTC</time><div className="min-w-0 space-y-1 break-words"><p className="font-medium">{event.actor ?? "Processo do sistema"}</p><p>Ação: <code>{event.action}</code></p><p className="text-muted-foreground">Tipo: <code>{event.entityType}</code></p></div></li>)}</ol>}
+        <nav aria-label="Paginação da auditoria" className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-sm text-muted-foreground">Página {cursors.length + 1} · {resource.value.data.length} evento(s)</p><div className="flex gap-2"><Button variant="outline" disabled={!cursors.length} onClick={() => setCursors(previous => previous.slice(0, -1))}>Anterior</Button><Button variant="outline" disabled={!resource.value.nextCursor} onClick={() => { const cursor = resource.value?.nextCursor; if (cursor) setCursors(previous => [...previous, cursor]) }}>Próxima</Button></div></nav>
+      </>}
     </section>
   </div>
-}
-
-function AuditSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
-  return <label><span className="sr-only">{label}</span><select className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option === "all" ? label : option}</option>)}</select></label>
-}
-
-function State({ title, description, icon: Icon, children }: { title: string; description: string; icon: typeof Search; children?: React.ReactNode }) {
-  return <div className="grid min-h-64 place-items-center p-6 text-center"><div><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-muted"><Icon className="size-5" /></span><h2 className="mt-4 font-semibold">{title}</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p>{children && <div className="mt-5">{children}</div>}</div></div>
 }

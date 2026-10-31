@@ -61,7 +61,6 @@ export const demonstrationRoutes = [
   "/preferencias/integracoes",
   "/preferencias/integracoes/[provider]",
   "/preferencias/plano",
-  "/preferencias/seguranca",
   "/relatorios",
   "/relatorios/auditoria",
   "/relatorios/estoque",

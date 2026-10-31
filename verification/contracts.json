@@ -5,6 +5,13 @@
     "product": "erp",
     "flows": [
       {
+        "id": "audit", "title": "Segurança e auditoria", "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.", "kind": "product",
+        "actionGroups": ["audit"], "dependencies": ["company_onboarding"],
+        "nextStep": "Conferir consulta, filtros, paginação e autorização na versão publicada.",
+        "additionalSources": ["docs/SEGURANCA-AUDITORIA.md"],
+        "journey": [{ "id": "read", "title": "Consultar e filtrar eventos", "actionIds": ["get-company-audit"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
         "id": "personal-preferences",
         "title": "Preferências pessoais do sistema",
         "goal": "Salvar a quantidade de produtos por página da própria conta na empresa ativa e utilizá-la no catálogo.",
@@ -588,6 +595,21 @@
     }
   ],
   "actions": [
+    {
+      "id": "get-company-audit", "flow": "audit", "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/audit" },
+      "actor": "active_tenant_member", "permissions": ["platform.audit.read"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": { "source": "apps/api/src/platform/audit.rs", "type": "AuditQuery" } },
+      "preconditions": ["Empresa e vínculo ativos; permissão de auditoria.", "Filtros validados; cursor pertence à empresa; RLS na transação."],
+      "transition": { "from": "eventos persistidos", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não retorna details, entity_id ou request_id; não consulta sessões e políticas do Auth."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "25 eventos por página, cursor por data e UUID; atualizar reinicia a consulta." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,422,500,503], "action": "Consultar auditoria autorizada" },
+      "recovery": "Repetir consulta; não altera dados ou permissões.",
+      "ui": { "pages": ["/preferencias/seguranca"], "bff": { "method": "GET", "path": "/api/erp/audit" }, "gap": null },
+      "sources": ["apps/api/src/platform/audit.rs", "apps/web/src/features/security/security-audit.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
     {
       "id": "get-own-personal-preferences", "flow": "personal-preferences", "status": "implemented",
       "operation": { "method": "GET", "path": "/api/v1/preferences" },

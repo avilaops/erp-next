@@ -27,7 +27,7 @@ test("configuração financeira persiste, trata conflito e preenche as baixas se
   expect((await context.request.put("/api/erp/financial-settings", { headers: { Origin: origin, "X-Tenant-Id": tenant, "If-Match": snapshot.headers().etag }, data: { defaultPaymentMethod: "card" } })).status()).toBe(200)
   await select.selectOption("other")
   await page.getByRole("button", { name: "Salvar configuração financeira", exact: true }).click()
-  await expect(page.locator("main").getByRole("alert")).toContainText(/revisão|alterado|alterada/i)
+  await expect(page.locator("main").getByRole("alert")).toContainText("Outra pessoa alterou o cadastro. Sua edição foi preservada")
   await expect(select).toHaveValue("other")
   page.once("dialog", dialog => dialog.accept())
   await page.getByRole("button", { name: "Recarregar configuração", exact: true }).click()

@@ -66,7 +66,7 @@ async fn load(
     .unwrap_or((1, "bank_transfer".into())))
 }
 
-#[utoipa::path(get,path="/api/v1/financial-settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=serde_json::Value),(status=403,description="Sem acesso à configuração")))]
+#[utoipa::path(get,path="/api/v1/financial-settings",operation_id="get_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=serde_json::Value),(status=403,description="Sem acesso à configuração")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -82,7 +82,7 @@ pub async fn get(
     ))
 }
 
-#[utoipa::path(put,path="/api/v1/financial-settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=FinancialSettingsInput,responses((status=200,body=serde_json::Value),(status=403,description="Exige gestão da empresa"),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
+#[utoipa::path(put,path="/api/v1/financial-settings",operation_id="put_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=FinancialSettingsInput,responses((status=200,body=serde_json::Value),(status=403,description="Exige gestão da empresa"),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

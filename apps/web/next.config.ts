@@ -1,13 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: process.env.ERP_BROWSER_DEV === "1" ? false : undefined,
   output: "standalone",
   distDir: process.env.ERP_NEXT_DIST_DIR || ".next",
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   async redirects() {
-    return [{ source: "/criar-conta", destination: "/api/auth/login?intent=signup", permanent: false }];
+    return [
+      { source: "/criar-conta", destination: "/api/auth/login?intent=signup", permanent: false },
+      { source: "/dashboard", destination: "/", permanent: false },
+    ];
   },
   turbopack: {
     rules: {

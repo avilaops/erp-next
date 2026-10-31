@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -29,7 +31,7 @@ function List({ kind }: { kind: ReferenceKind }) {
       <label className="space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
       <Button type="submit" disabled={result.loading}>Buscar</Button>
     </form>
-    {result.loading ? <p role="status">Carregando cadastros…</p> : result.error ? <div className="space-y-3" role="alert"><p>{result.error}</p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
+    {result.loading ? <p role="status">Carregando cadastros…</p> : result.error ? <div className="space-y-3" role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
       <p>{result.value.total} registro(s) · {result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
       {!result.value.data.length ? <p>Nenhum cadastro encontrado.</p> : <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value.data.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.id}>
         <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${item.id}`}>{item.name}</Link><p className="break-all text-sm">{item.code}</p><p>{item.status === "active" ? "Ativo" : "Arquivado"}</p>
@@ -43,7 +45,7 @@ function RecordAccess({ kind, id, mode }: { kind: ReferenceKind; id?: string; mo
   const config = referenceConfigs[kind]
   const result = useResource<ReferenceSnapshot | ReferenceList>(id ? `/api/erp/${config.endpoint}/${id}` : `/api/erp/${config.endpoint}?limit=1`)
   if (result.loading) return <p role="status">Carregando cadastro e permissões…</p>
-  if (result.error || !result.value) return <><PageHeader eyebrow="Cadastros" title={config.title} description={config.description} /><section className="form-section space-y-3"><p role="alert">{result.error || "Cadastro indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button><Link className={linkClass} href={`/cadastros/${kind}`}>Voltar à listagem</Link></section></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Cadastros" title={config.title} description={config.description} /><section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Cadastro indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button><Link className={linkClass} href={`/cadastros/${kind}`}>Voltar à listagem</Link></section></>
   const initial = id && !Array.isArray(result.value.data) ? result.value as ReferenceSnapshot : undefined
   if (mode === "view" && initial) return <Detail kind={kind} value={initial} />
   if (!result.value.canEdit) return <><PageHeader eyebrow="Cadastros" title={config.title} description={config.description} /><section className="form-section space-y-3"><p role="status">Somente consulta. Solicite permissão para alterar este cadastro.</p><Link className={linkClass} href={`/cadastros/${kind}`}>Voltar à listagem</Link></section></>
@@ -77,7 +79,7 @@ function ParentPicker({ kind, id, selected, disabled, choose }: { kind: Referenc
   return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label="Seleção de categoria superior">
     <p>Categoria superior: {selected ? <ParentName kind={kind} id={selected} /> : "Nenhuma"}</p><Button type="button" variant="outline" disabled={disabled || !selected} onClick={() => choose(null)}>Sem categoria superior</Button>
     <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}><label className="min-w-0 flex-1 space-y-2">Buscar categoria superior<Input name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar categoria</Button></form>
-    {result.loading ? <p role="status">Consultando categorias…</p> : result.error ? <p role="alert">{result.error}</p> : <>
+    {result.loading ? <p role="status">Consultando categorias…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
       <ul className="space-y-2">{result.value?.data.filter(item => item.id !== id).map(item => <li key={item.id}><Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal break-words text-left" disabled={disabled} onClick={() => choose(item.id)}>Usar {item.name} · {item.code}</Button></li>)}</ul>
       {!result.value?.data.filter(item => item.id !== id).length && <p>Nenhuma categoria disponível nesta página.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button type="button" variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Categorias anteriores</Button><Button type="button" variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximas categorias</Button></div>
@@ -120,7 +122,7 @@ function Editor({ kind, initial, tenantId, etag, reload }: { kind: ReferenceKind
           {select("status", "Situação", { active: "Ativo", archived: "Arquivado" })}
           <label className="block min-w-0 space-y-2 sm:col-span-2">Observações<Input maxLength={1000} value={draft.notes || ""} onChange={event => change("notes", event.target.value || null)} /></label>
         </fieldset>
-        {command.error && <p role="alert">{command.error}</p>}
+        {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.uncertain && <p role="status">Confirmação pendente. Conferir usa o mesmo comando.</p>}
         {command.stale && <Button type="button" variant="outline" onClick={() => { if (!dirty || window.confirm("Descartar sua edição e recarregar o cadastro atual?")) { command.reset(); reload() } }}>Recarregar cadastro</Button>}
         <Button type="submit" disabled={command.busy || command.stale || (!dirty && !!initial)}>{command.busy ? "Salvando…" : command.uncertain ? "Conferir gravação" : "Salvar cadastro"}</Button>

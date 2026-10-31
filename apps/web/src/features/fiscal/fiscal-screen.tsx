@@ -289,7 +289,7 @@ function FiscalOverview() {
             <Icon className="size-5 text-primary" />
             <strong className="mt-4 block">{label}</strong>
             <span className="mt-1 block text-sm text-muted-foreground">
-              {["/fiscal/monitor", "/preferencias/fiscal", "/fiscal/danfe"].includes(href) ? "Abrir funcionalidade" : "Abrir prévia da interface — operação ainda indisponível"}
+              {["/fiscal/monitor", "/preferencias/fiscal", "/fiscal/danfe", "/fiscal/notas-saida"].includes(href) ? "Abrir funcionalidade" : "Abrir prévia da interface — operação ainda indisponível"}
             </span>
           </Link>
         ))}

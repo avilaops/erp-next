@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
 type Stock = { productId: string; sku: string; name: string; unit: string; status: string; quantity: string; reserved: string; available: string }
 type Movement = { id: string; direction: "receipt" | "issue"; quantity: string; balanceAfter: string; reason: string; reversesId: string | null; sourceOrderId: string | null; occurredAt: string }
@@ -76,15 +77,15 @@ export function StockWorkspace() {
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!selected || !stocks?.canEdit || !history?.canEdit || pending.current) return
-    if (!uncertain && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?$/.test(draft.quantity)) {
+    const normalizedQuantity = normalizeDecimal(draft.quantity, 6)
+    if (!uncertain && normalizedQuantity === null) {
       setWriteError("Informe quantidade decimal positiva com até seis casas e sem zeros à esquerda")
       return
     }
     pending.current = true; setSaving(true); setWriteError(""); setNotice("")
-    const [whole, fraction = ""] = draft.quantity.split(".")
     if (!uncertain) command.current = {
       key: crypto.randomUUID(),
-      body: JSON.stringify({ productId: selected.productId, ...draft, quantity: `${whole}.${fraction.padEnd(6, "0")}`, reversesId: reversal?.id || null }),
+      body: JSON.stringify({ productId: selected.productId, ...draft, quantity: normalizedQuantity, reversesId: reversal?.id || null }),
     }
     try {
       const response = await fetch("/api/erp/stock/movements", {
@@ -141,7 +142,7 @@ export function StockWorkspace() {
           <h3 className="font-medium">{reversal ? "Estornar movimento" : "Novo lançamento"}</h3>
           <fieldset disabled={saving || uncertain || selected.status !== "active"} className="grid min-w-0 gap-4 sm:grid-cols-2">
             <label className="min-w-0 space-y-2">Direção<select className={selectClass} value={draft.direction} disabled={Boolean(reversal)} onChange={event => { setDraft({ ...draft, direction: event.target.value as Draft["direction"] }); setNotice("") }}><option value="receipt">Entrada</option><option value="issue">Saída</option></select></label>
-            <label className="min-w-0 space-y-2">Quantidade (ponto decimal)<Input required inputMode="decimal" pattern="[0-9]+([.][0-9]{1,6})?" maxLength={25} value={draft.quantity} disabled={Boolean(reversal)} onChange={event => { setDraft({ ...draft, quantity: event.target.value }); setNotice("") }} /></label>
+            <label className="min-w-0 space-y-2">Quantidade (vírgula ou ponto)<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={draft.quantity} disabled={Boolean(reversal)} onChange={event => { setDraft({ ...draft, quantity: event.target.value }); setNotice("") }} /></label>
             <label className="min-w-0 space-y-2 sm:col-span-2">Motivo<Input required minLength={3} maxLength={500} value={draft.reason} onChange={event => { setDraft({ ...draft, reason: event.target.value }); setNotice("") }} /></label>
           </fieldset>
           {selected.status !== "active" && <p>Reative o produto no catálogo antes de movimentar.</p>}

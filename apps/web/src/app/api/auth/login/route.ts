@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, uuidPattern } from "@/lib/erp-session"
+import { safeReturnTo } from "@/lib/return-to"
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     const location = new URL(endpoints.authorization)
     location.search = new URLSearchParams({ response_type: "code", client_id: config.clientId, redirect_uri: `${config.origin}/api/auth/callback`, scope: "openid profile email", state, code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString()
     const jar = await cookies()
-    jar.set(cookieName("auth"), seal({ state, verifier, tenantId: tenantId || null, expiresAt: Date.now() + 600_000 }, "erp-auth"), cookieOptions(600))
+    jar.set(cookieName("auth"), seal({ state, verifier, tenantId: tenantId || null, returnTo: safeReturnTo(parameters.get("returnTo")), expiresAt: Date.now() + 600_000 }, "erp-auth"), cookieOptions(600))
     const destination = parameters.get("intent") === "signup" ? new URL("/criar", config.issuer) : location
     if (parameters.get("intent") === "signup") destination.searchParams.set("returnTo", `${location.pathname}${location.search}`)
     const response = NextResponse.redirect(destination)

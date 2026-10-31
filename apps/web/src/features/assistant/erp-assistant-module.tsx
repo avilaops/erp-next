@@ -1,5 +1,7 @@
 "use client"
 
+import { AccessLink } from "@/components/session-recovery"
+
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, LoaderCircle, Send, Sparkles, Square } from "lucide-react"
@@ -157,7 +159,7 @@ export function ErpAssistantModule() {
         <div ref={bottom} />
       </div>
       {(busy || loading) && <p className="flex items-center gap-2 px-4 pb-3 text-sm text-primary" role="status"><LoaderCircle className="size-4 animate-spin" />{loading ? "Validando acesso à empresa…" : status}</p>}
-      {error && <div className="mx-4 mb-4 rounded-xl border border-destructive/30 p-3 text-sm" role="alert"><p>{error}</p>{retry && <Button className="mt-2" variant="outline" disabled={busy} onClick={() => void ask(retry, true)}>Tentar novamente</Button>}{!tenant && !loading && <Link className="mt-2 block text-primary underline" href="/entrar">Entrar no ERP</Link>}</div>}
+      {error && <div className="mx-4 mb-4 rounded-xl border border-destructive/30 p-3 text-sm" role="alert"><p>{error}</p>{retry && <Button className="mt-2" variant="outline" disabled={busy} onClick={() => void ask(retry, true)}>Tentar novamente</Button>}{!tenant && !loading && <AccessLink className="mt-2 block text-primary underline" >Entrar no ERP</AccessLink>}</div>}
       <form className="flex flex-wrap gap-2 border-t border-border p-4" onSubmit={submit}>
         <Input className="min-w-0 flex-1 basis-40" aria-label="Mensagem para o assistente" placeholder="Pergunte sobre produtos, clientes ou pedidos" maxLength={1000} disabled={busy || !tenant} value={draft} onChange={event => setDraft(event.target.value)} />
         {busy ? <Button type="button" variant="outline" onClick={() => controller.current?.abort()}><Square className="size-4" />Interromper</Button> : <Button type="submit" disabled={!draft.trim() || !tenant}><Send className="size-4" />Enviar</Button>}

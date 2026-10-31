@@ -197,7 +197,7 @@ function LogisticsList({ kind }: { kind: Exclude<Kind, "overview"> }) {
             <option value="error">Erro</option>
             <option value="forbidden">Sem permissão</option>
           </select>
-          <Button render={<Link href={createRoutes[kind]} />}>
+          <Button nativeButton={false} render={<Link href={createRoutes[kind]} />}>
             <Plus />
             {config.action}
           </Button>

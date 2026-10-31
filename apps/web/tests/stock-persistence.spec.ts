@@ -29,7 +29,7 @@ test("estoque confirma entrada, recusa saldo negativo e estorna com histórico p
   await page.setViewportSize({ width: 375, height: 844 })
   await page.goto("/estoque/saldos")
   await page.getByRole("button", { name: new RegExp(`^${name} SKU `) }).click()
-  const quantity = page.getByRole("textbox", { name: "Quantidade (ponto decimal)", exact: true })
+  const quantity = page.getByRole("textbox", { name: "Quantidade (vírgula ou ponto)", exact: true })
   const reason = page.getByRole("textbox", { name: "Motivo", exact: true })
   await quantity.fill("10.000001")
   await reason.fill("Contagem inicial conferida")
@@ -77,7 +77,7 @@ test("resposta perdida repete a mesma chave sem duplicar o movimento", async ({ 
   const id = await product(context, name)
   await page.goto("/estoque/lancamentos/novo")
   await page.getByRole("button", { name: new RegExp(`^${name} SKU `) }).click()
-  await page.getByRole("textbox", { name: "Quantidade (ponto decimal)", exact: true }).fill("3.000001")
+  await page.getByRole("textbox", { name: "Quantidade (vírgula ou ponto)", exact: true }).fill("3.000001")
   await page.getByRole("textbox", { name: "Motivo", exact: true }).fill("Entrada com resposta interrompida")
   let lost = false
   const keys: string[] = []

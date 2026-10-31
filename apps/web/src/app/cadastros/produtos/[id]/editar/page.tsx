@@ -13,3 +13,5 @@ async function ResolvedProduct({
   const { id } = await params;
   return <CatalogAccess editor id={id} />;
 }
+
+export const metadata = { title: "Editar produto" }

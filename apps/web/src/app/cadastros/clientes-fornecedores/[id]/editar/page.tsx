@@ -7,3 +7,5 @@ async function Resolved({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return <PartyAccess editor id={id} />
 }
+
+export const metadata = { title: "Editar cliente ou fornecedor" }

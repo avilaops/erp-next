@@ -3,3 +3,5 @@ import { NewProductionOrder } from "@/features/inventory/details-operations-prod
 export default function NewProductionOrderPage() {
   return <NewProductionOrder />;
 }
+
+export const metadata = { title: "Nova ordem de produção" }

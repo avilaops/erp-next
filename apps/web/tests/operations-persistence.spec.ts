@@ -40,7 +40,7 @@ async function account(context: BrowserContext, orderId: string) {
   expect(result).toBeTruthy(); return result.id as string
 }
 async function fillPayment(page: Page, reference: string) {
-  await page.getByRole("textbox", { name: "Valor declarado (ponto e duas casas)", exact: true }).fill("0.99")
+  await page.getByRole("textbox", { name: "Valor declarado (vírgula ou ponto)", exact: true }).fill("0.99")
   await page.getByLabel("Data do recebimento", { exact: true }).fill("2026-10-27")
   await page.getByRole("textbox", { name: "Referência do recebimento", exact: true }).fill(reference)
 }
@@ -55,7 +55,7 @@ test("recebimentos parciais preservam saldo, repetem resposta perdida e estornam
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto(`/financeiro/contas-receber/${id}`)
   await fillPayment(page, "Primeira parte declarada")
-  await page.getByRole("textbox", { name: "Valor declarado (ponto e duas casas)", exact: true }).fill("0.33")
+  await page.getByRole("textbox", { name: "Valor declarado (vírgula ou ponto)", exact: true }).fill("0.33")
   let lost = false
   const requests: { key: string; body: string | null }[] = []
   await page.route(`**/api/erp/receivables/${id}/payments`, async route => {
@@ -74,7 +74,7 @@ test("recebimentos parciais preservam saldo, repetem resposta perdida e estornam
   expect(partial.payments).toHaveLength(1)
   const firstId = partial.payments[0].id as string
   await fillPayment(page, "Segunda parte declarada")
-  await page.getByRole("textbox", { name: "Valor declarado (ponto e duas casas)", exact: true }).fill("0.66")
+  await page.getByRole("textbox", { name: "Valor declarado (vírgula ou ponto)", exact: true }).fill("0.66")
   await page.getByRole("button", { name: "Confirmar recebimento declarado", exact: true }).click()
   await expect(page.getByText("Saldo restante: R$ 0,00", { exact: true })).toBeVisible()
   await expect(page.getByText("Recebido declarado: R$ 0,99", { exact: true })).toBeVisible()
@@ -212,10 +212,10 @@ test("pedido reserva estoque, conclui, gera conta e registra recebimento e estor
   const receivable = await account(context, orderId)
   await page.goto(`/financeiro/contas-receber/${receivable}`)
   await fillPayment(page, "Recebimento declarado no navegador")
-  await page.getByRole("textbox", { name: "Valor declarado (ponto e duas casas)", exact: true }).fill("1.00")
+  await page.getByRole("textbox", { name: "Valor declarado (vírgula ou ponto)", exact: true }).fill("1.00")
   await page.getByRole("button", { name: "Confirmar recebimento declarado", exact: true }).click()
   await expect(page.getByRole("alert").filter({ hasText: "saldo restante" })).toBeVisible()
-  await page.getByRole("textbox", { name: "Valor declarado (ponto e duas casas)", exact: true }).fill("0.99")
+  await page.getByRole("textbox", { name: "Valor declarado (vírgula ou ponto)", exact: true }).fill("0.99")
   let lost = false; const keys: string[] = []
   await page.route(`**/api/erp/receivables/${receivable}/payments`, async route => {
     keys.push(route.request().headers()["idempotency-key"])

@@ -57,6 +57,19 @@ body {
   margin: 0;
 }
 
+/* Share the compact navigation's occupied space with content and focus scrolling. */
+:root { --erp-bottom-navigation: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+html { scroll-padding-bottom: calc(var(--erp-bottom-navigation) + 1rem); }
+.erp-content { padding-bottom: calc(var(--erp-bottom-navigation) + 1rem); }
+.mobile-nav-bar {
+  height: var(--erp-bottom-navigation);
+  padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1600px) {
+  :root { --erp-bottom-navigation: 0px; }
+  .erp-content { padding-bottom: 0; }
+}
+
 :root {
   color-scheme: light;
   --background: #ffffff;

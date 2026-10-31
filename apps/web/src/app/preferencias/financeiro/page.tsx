@@ -3,3 +3,5 @@ import { FinancialSettings } from "@/features/financial-settings/financial-setti
 export default function FinancialSettingsPage() {
   return <FinancialSettings />
 }
+
+export const metadata = { title: "Configurações financeiras" }

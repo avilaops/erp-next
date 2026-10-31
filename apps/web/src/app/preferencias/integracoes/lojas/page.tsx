@@ -18,3 +18,5 @@ async function LojasAccess() {
     {session ? <ServiceKeys key={session.tenantId} tenantId={session.tenantId} /> : <p role="status">Entre para gerenciar integrações. <Link href="/entrar" className="text-primary underline">Entrar com Ávila Ops</Link></p>}
   </div>
 }
+
+export const metadata = { title: "Integração com lojas" }

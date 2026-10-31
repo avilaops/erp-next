@@ -16,3 +16,5 @@ async function ResolvedIntegration({ params }: Pick<PageProps<"/preferencias/int
   if (!integration) notFound()
   return <IntegrationDetail integration={integration} />
 }
+
+export const metadata = { title: "Detalhes da integração" }

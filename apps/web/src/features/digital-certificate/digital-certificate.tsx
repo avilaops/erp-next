@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Eye, EyeOff, FileKey2, RefreshCw, ShieldCheck, Trash2, Upload } from "lucide-react"
@@ -25,6 +27,7 @@ export function DigitalCertificate() {
   const [password, setPassword] = useState("")
   const [visiblePassword, setVisiblePassword] = useState(false)
   const [error, setError] = useState("")
+  const [errorStatus, setErrorStatus] = useState<number | undefined>()
   const [notice, setNotice] = useState("")
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState("")
@@ -38,6 +41,8 @@ export function DigitalCertificate() {
     const controller = new AbortController()
     fetch("/api/erp/fiscal/certificate", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
+      if (controller.signal.aborted) return
+      setErrorStatus(response.ok ? undefined : response.status)
       if (!response.ok) throw new Error(value.title || "Não foi possível consultar o certificado")
       const revision = response.headers.get("etag")
       if (!revision) throw new Error("Não foi possível confirmar a revisão do certificado")
@@ -58,7 +63,7 @@ export function DigitalCertificate() {
     if (!certificate?.canEdit || loading || active.current || blocked || !remove && (!file || !certificate.uploadAvailable)) return
     if (remove && !window.confirm("Remover o certificado armazenado nesta empresa? A remoção não revoga o certificado na autoridade certificadora.")) return
     const controller = new AbortController()
-    active.current = controller; setBusy(remove ? "remove" : "upload"); setError(""); setNotice("")
+    active.current = controller; setBusy(remove ? "remove" : "upload"); setError(""); setErrorStatus(undefined); setNotice("")
     try {
       let body: string | undefined
       if (!remove && file) {
@@ -76,6 +81,7 @@ export function DigitalCertificate() {
       })
       const value = await response.json()
       if (!response.ok) {
+        setErrorStatus(response.status)
         if ([401, 403, 409, 412].includes(response.status)) setBlocked(true)
         throw new Error(value.title || "Não foi possível confirmar a alteração do certificado")
       }
@@ -126,7 +132,7 @@ export function DigitalCertificate() {
         <p className="text-xs text-muted-foreground">O arquivo e a senha são armazenados com criptografia por empresa e não ficam disponíveis para download. Conectar o A1 não autoriza a emissão de NF-e, que depende das demais etapas do motor fiscal.</p>
       </section>}
     </>}
-    {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}
+    {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive"><RequestError message={error} status={errorStatus} /></p>}
     {notice && <p role="status" className="rounded-xl border border-primary/30 p-4 text-sm">{notice}</p>}
     {blocked && <Button variant="outline" disabled={!!busy || loading} onClick={() => { setLoading(true); setReload(value => value + 1) }}>Recarregar dados do servidor</Button>}
     {!certificate && !loading && <Button variant="outline" onClick={() => { setLoading(true); setReload(value => value + 1) }}>Tentar novamente</Button>}

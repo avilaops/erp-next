@@ -13,3 +13,5 @@ export default function CompanyDataPage() {
     </div>
   )
 }
+
+export const metadata = { title: "Dados da empresa" }

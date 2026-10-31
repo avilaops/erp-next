@@ -1,6 +1,8 @@
 import { NfeDraftEditor } from "@/features/fiscal/nfe-draft-editor"
 import { Suspense } from "react"
 
+export const metadata = { title: "Nova NF-e de saída" }
+
 export default function Page({ searchParams }: { searchParams: Promise<{ pedido?: string }> }) {
   return <Suspense fallback={<p role="status">Carregando preparação fiscal…</p>}><Preparation searchParams={searchParams} /></Suspense>
 }

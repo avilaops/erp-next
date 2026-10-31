@@ -27,6 +27,8 @@ async function api(t, options = {}) {
     writes++;
     assert.equal(request.headers['if-match'], '"0"');
     if (options.conflict) return reply(412, { error: 'revision conflict' });
+    // Decode across chunks so a split UTF-8 character remains intact.
+    request.setEncoding('utf8');
     let body = ''; for await (const chunk of request) body += chunk;
     assert.deepEqual(JSON.parse(body), { context, confirmPublication: false });
     receipt = { requestId: contextImportRequestId(context.contentSha256, false), contentSha256: context.contentSha256,

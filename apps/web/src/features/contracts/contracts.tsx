@@ -1,5 +1,7 @@
 "use client"
 
+import { RequestError } from "@/components/session-recovery"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -44,7 +46,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
       {!orderId && <Link className={linkClass} href="/vendas/pedidos">Abrir um pedido para gerar contrato</Link>}
     </div>
     <section className="form-section min-w-0 space-y-4">
-      {result.loading ? <p role="status">Carregando contratos…</p> : result.error ? <p role="alert">{result.error}</p> : !result.value?.data.length ? <p>Nenhum contrato encontrado.</p> : <ul className="space-y-3">
+      {result.loading ? <p role="status">Carregando contratos…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : !result.value?.data.length ? <p>Nenhum contrato encontrado.</p> : <ul className="space-y-3">
         {result.value.data.map(contract => <li key={contract.id} className="rounded-xl border p-4">
           <Link className={linkClass} href={`/servicos/contratos/${contract.id}`}>{contract.templateName}</Link>
           <p className="mt-2">{contract.customerName} · {labels[contract.status] || contract.status}</p>
@@ -58,8 +60,8 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
 
 export function ContractGenerator({ orderId }: { orderId: string }) {
   const result = useResource<Options>(`/api/erp/commercial-contracts/options/${orderId}`)
-  if (result.loading) return <p role="status">Consultando pedido e modelos da empresa…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert">{result.error || "Pedido indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><p role="status">Consultando pedido e modelos da empresa…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Pedido indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   return <>
     <PageHeader eyebrow="Ávila Ops · Contratos" title="Gerar contrato" description="Confira os dados do pedido e complete os campos do modelo. A geração produz uma prévia e ainda não envia e-mail." />
     <Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link>
@@ -112,7 +114,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
         })}
       </section>
     </fieldset>
-    {command.error && <p role="alert">{command.error}</p>}
+    {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
     {command.uncertain && <p role="status">O resultado será conferido pela mesma referência. A geração não será disparada outra vez.</p>}
     {command.stale && <Button type="button" onClick={() => { command.reset(); reload() }}>Recarregar dados do pedido</Button>}
     <Button type="submit" disabled={command.busy || command.stale || missing.length > 0}>{command.busy ? "Gerando prévia…" : command.uncertain ? "Conferir geração" : "Gerar prévia para revisão"}</Button>
@@ -132,8 +134,8 @@ export function ContractDetail({ id }: { id: string }) {
     const updated = await command.send<Detail>(`/api/erp/commercial-contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
     if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
   }
-  if (result.loading) return <p role="status">Carregando contrato…</p>
-  if (result.error || !result.value) return <section className="form-section space-y-4"><p role="alert">{result.error || "Contrato indisponível"}</p><Button onClick={result.reload}>Tentar novamente</Button></section>
+  if (result.loading) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><p role="status">Carregando contrato…</p></>
+  if (result.error || !result.value) return <><PageHeader eyebrow="Ávila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><Link className={linkClass} href="/servicos/contratos">Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   const { data: contract, files, canEdit, canSend, emailReady } = result.value
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
@@ -156,7 +158,7 @@ export function ContractDetail({ id }: { id: string }) {
           {contract.problem && <p role="alert">{contract.problem}</p>}
           {!emailReady && !contract.sendRequestedAt && <p role="status">O e-mail de assinatura ainda não foi validado. A prévia e a revisão estão disponíveis; o envio está bloqueado.</p>}
           {notice && <p role="status">{notice}</p>}
-          {command.error && <p role="alert">{command.error}</p>}
+          {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
           {command.uncertain ? <Button disabled={command.busy} onClick={() => action(pendingAction)}>Conferir resultado da operação</Button> : <Button variant="outline" disabled={blocked} onClick={() => action("sync")}><RefreshCw />Atualizar andamento</Button>}
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar contrato</Button>}
           {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi todos os documentos, dados e destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}

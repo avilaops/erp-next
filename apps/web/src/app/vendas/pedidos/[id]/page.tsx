@@ -6,3 +6,5 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 async function Resolved({ params }: { params: Promise<{ id: string }> }) {
   return <OperationsAccess area="orders" id={(await params).id} />
 }
+
+export const metadata = { title: "Detalhes de pedido de venda" }

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useNavigationGuard } from "@/components/navigation-guard";
 import { Info, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { brazilianStates, companyFields, type CompanyData } from "./company-types";
+import { companySections, type CompanySection } from "./company-sections";
 
 const segments = ["Comércio", "E-commerce", "Serviços", "Indústria"];
 export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: {
@@ -20,15 +23,16 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   const [saved, setSaved] = useState(false);
   const [stateRegistrations, setStateRegistrations] = useState(initialRegistrations);
   const [selectedSegments, setSelectedSegments] = useState<string[]>(initial.segments);
+  const formRef = useRef<HTMLFormElement>(null);
+  const section = useSearchParams().get("secao");
+  useNavigationGuard(dirty ? "Sair e descartar as alterações não salvas da empresa?" : null);
 
   useEffect(() => {
-    const preventLoss = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", preventLoss);
-    return () => window.removeEventListener("beforeunload", preventLoss);
-  }, [dirty]);
+    if (!section || !Object.hasOwn(companySections, section)) return;
+    const heading = formRef.current?.querySelector<HTMLElement>(`#${companySections[section as CompanySection].heading}`);
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "start" });
+  }, [section]);
 
   function markDirty() {
     setDirty(true);
@@ -67,7 +71,10 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   }
 
   return (
-    <form className="space-y-6" onChange={markDirty} onSubmit={save}>
+    <form ref={formRef} className="space-y-6" onChange={markDirty} onSubmit={save}>
+      <nav className="flex flex-wrap gap-2" aria-label="Seções dos dados da empresa">
+        {Object.entries(companySections).map(([key, value]) => <a key={key} className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary underline" href={`#${value.heading}`}>{value.label}</a>)}
+      </nav>
       <fieldset className="contents" disabled={!canEdit || saving}>
       <div className="form-actions flex-wrap" aria-label="Ações do formulário">
         <span
@@ -123,6 +130,12 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
             CPF ou CNPJ *
             <input name="taxId" defaultValue={initial.taxId} required />
           </label>
+        </div>
+      </section>
+
+      <section className="form-section" aria-labelledby="fiscal-title">
+        <SectionTitle eyebrow="Fiscal" id="fiscal-title" title="Dados fiscais e atividade" />
+        <div className="form-grid">
           <label className="field">
             Inscrição estadual
             <input name="stateRegistration" defaultValue={initial.stateRegistration} />
@@ -356,7 +369,7 @@ function SectionTitle({
   return (
     <div className="mb-5">
       <p className="text-sm font-medium text-primary">{eyebrow}</p>
-      <h2 className="mt-1 text-lg font-semibold" id={id}>
+      <h2 className="mt-1 scroll-mt-24 text-lg font-semibold focus:outline-2 focus:outline-primary" id={id} tabIndex={-1}>
         {title}
       </h2>
     </div>

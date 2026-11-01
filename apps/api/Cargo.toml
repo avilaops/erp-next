@@ -2,6 +2,7 @@
 name = "erp-next-api"
 version = "0.1.0"
 edition.workspace = true
+default-run = "erp-next-api"
 license.workspace = true
 rust-version.workspace = true
 

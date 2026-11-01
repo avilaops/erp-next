@@ -47,26 +47,30 @@ async function LoginForm({ searchParams }: LoginProps) {
         </header>
 
         <main>
-          {errorMessage && <p role="alert" className="mt-6 rounded-xl border border-border bg-card p-4 text-sm leading-6">{errorMessage}</p>}
           <div className="erp-entry-hero grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:py-8">
-            <section aria-labelledby="welcome-title" className="erp-entry-welcome min-w-0">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                <span aria-hidden="true" className="h-px w-6 bg-primary" />Sua empresa, conectada
-              </p>
-              <h1 id="welcome-title" className="erp-entry-title mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
-                Sua operação,<br /><span className="text-primary">sob controle.</span>
-              </h1>
-              <p className="erp-entry-description mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                Produtos, vendas e financeiro.<br />Tudo no mesmo lugar, com a sua equipe.
-              </p>
+            <section aria-labelledby="welcome-title" className={"erp-entry-welcome min-w-0" + (errorMessage ? " erp-entry-recovery" : "")}>
+              {errorMessage ? <>
+                <h1 id="welcome-title" className="erp-entry-title text-[1.75rem] font-semibold leading-tight tracking-tight">Retome o acesso</h1>
+                <p id="access-error" role="alert" className="erp-entry-description mt-4 rounded-r-xl border-l-2 border-primary/40 bg-primary/5 py-2 pl-3 pr-2 text-sm leading-6 text-muted-foreground">{errorMessage}</p>
+              </> : <>
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                  <span aria-hidden="true" className="h-px w-6 bg-primary" />Sua empresa, conectada
+                </p>
+                <h1 id="welcome-title" className="erp-entry-title mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
+                  Sua operação,<br /><span className="text-primary">sob controle.</span>
+                </h1>
+                <p className="erp-entry-description mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+                  Produtos, vendas e financeiro.<br />Tudo no mesmo lugar, com a sua equipe.
+                </p>
+              </>}
 
-              <section id="acesso" aria-labelledby="access-title" className="erp-entry-access mt-7 scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary sm:mt-9" tabIndex={-1}>
+              <section id="acesso" aria-labelledby="access-title" className={"erp-entry-access scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary " + (errorMessage ? "mt-5" : "mt-7 sm:mt-9")} tabIndex={-1}>
                 <h2 id="access-title" className="text-sm font-medium">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
                     <form action="/api/auth/login" method="get">
                       <input type="hidden" name="returnTo" value={returnTo} />
-                      <button type="submit" className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
+                      <button type="submit" aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
                         Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
                       </button>
                     </form>

@@ -18,6 +18,11 @@
     font-size: 2.125rem;
   }
 
+  .erp-entry-recovery .erp-entry-title {
+    margin-top: 0;
+    font-size: 1.75rem;
+  }
+
   .erp-entry-description {
     margin-top: 0.75rem;
     font-size: 0.875rem;

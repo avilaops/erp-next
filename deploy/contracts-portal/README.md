@@ -39,3 +39,31 @@ documentos substituídos pelas telas/APIs normais: edições geram outra versão
 
 O workflow executa `tests/publication.rb` na imagem construída, com banco
 PostgreSQL descartável do GitHub. Nunca executar esse teste no servidor real.
+
+## Cadastro público e MCP
+
+`/sign_up` cria uma conta independente e seu primeiro usuário em uma transação.
+O formulário inclui CSRF, confirmação de senha, mínimo de 12 caracteres e limites
+de tentativas por IP e globais por processo. Não confirma o e-mail automaticamente.
+Cada conta recebe seu certificado próprio e MCP habilitado; nenhum token é criado
+sem a ação do usuário em `/settings/mcp`. O marcador interno `avila_public_account`
+não pode ser alterado pelas APIs de configurações.
+
+O MCP nativo em `/mcp` usa Streamable HTTP com token Bearer pessoal (SHA-256 no banco),
+revogação imediata, checagem de conta/usuário ativos, Origin e limites de requisição.
+Não implementa OAuth; clientes que exigem OAuth não são suportados nesta versão.
+O guia público em `/integracoes/mcp` contém a configuração e as capacidades reais.
+
+Contas públicas acessam somente seus modelos e contratos. Não administram o host,
+armazenamento global, certificados, SMTP, webhooks, API keys ou usuários adicionais.
+O upload de arquivos ocorre no editor; download de URLs via MCP não é permitido
+para essas contas. O catálogo público inclui `search_templates`, `load_template`,
+`create_template` e `search_documents`. `send_documents` não é anunciado nem executado
+para contas públicas. Convites e cópias por e-mail permanecem bloqueados para elas;
+os links de assinatura podem ser compartilhados pelo usuário. A configuração das
+contas já existentes é preservada.
+
+O CI executa `tests/public_access.rb` em PostgreSQL descartável: cadastro real via
+HTTP, sessão, senha inválida, duplicidade, CSRF, token, protocolo, duas contas,
+configurações globais, revogação e arquivamento. Não criar contas de teste nem
+enviar contratos na produção para executar essa suíte.

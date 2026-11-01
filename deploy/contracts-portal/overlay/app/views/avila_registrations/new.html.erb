@@ -1,0 +1,34 @@
+<div class="max-w-lg mx-auto px-2">
+  <h1 class="text-4xl font-bold text-center mt-8">Criar conta</h1>
+  <p class="mt-4 mb-6 text-center">Organize seus contratos e conecte seu assistente de IA à sua conta Ávila Ops.</p>
+  <% if @user.errors.any? %>
+    <div class="alert alert-error mb-4" role="alert">
+      <ul><% @user.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+    </div>
+  <% end %>
+  <%= form_with scope: :user, url: avila_sign_up_path, class: 'space-y-4', data: { turbo: false } do |f| %>
+    <div class="form-control">
+      <%= label_tag :account_name, 'Empresa ou nome da conta', class: 'label' %>
+      <%= text_field_tag :account_name, params[:account_name], class: 'base-input', required: true, maxlength: 120, autocomplete: 'organization' %>
+    </div>
+    <div class="form-control">
+      <%= f.label :first_name, 'Seu nome', class: 'label' %>
+      <%= f.text_field :first_name, value: @user.first_name, class: 'base-input', required: true, maxlength: 100, autocomplete: 'given-name' %>
+    </div>
+    <div class="form-control">
+      <%= f.label :email, 'E-mail', class: 'label' %>
+      <%= f.email_field :email, value: @user.email, class: 'base-input', required: true, maxlength: 254, autocomplete: 'email' %>
+    </div>
+    <div class="form-control">
+      <%= f.label :password, 'Senha', class: 'label' %>
+      <%= f.password_field :password, class: 'base-input', required: true, minlength: 12, maxlength: 128, autocomplete: 'new-password', aria: { describedby: 'password-help' } %>
+      <p id="password-help" class="text-sm mt-2">Use pelo menos 12 caracteres.</p>
+    </div>
+    <div class="form-control">
+      <%= f.label :password_confirmation, 'Confirmar senha', class: 'label' %>
+      <%= f.password_field :password_confirmation, class: 'base-input', required: true, minlength: 12, maxlength: 128, autocomplete: 'new-password' %>
+    </div>
+    <%= f.submit 'Criar minha conta', class: 'base-button w-full' %>
+  <% end %>
+  <p class="text-center mt-6"><%= link_to 'Já tenho conta — Entrar', new_user_session_path, class: 'link' %></p>
+</div>

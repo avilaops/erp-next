@@ -1,0 +1,50 @@
+<div class="flex-wrap space-y-4 md:flex md:flex-nowrap md:space-y-0 md:space-x-10">
+  <%= render 'shared/settings_nav' %>
+  <div class="md:flex-grow space-y-6">
+    <h1 class="text-3xl font-bold">MCP · Assistentes de IA</h1>
+    <p>Conecte seu assistente à sua conta Ávila Ops. Ele terá acesso aos contratos e modelos desta conta.</p>
+    <div class="card bg-base-200 p-6 space-y-3">
+      <p><strong>URL:</strong> <code>https://contrato.avilaops.com/mcp</code></p>
+      <p><strong>Autenticação:</strong> <code>Authorization: Bearer SEU_TOKEN</code></p>
+      <p><%= link_to 'Instruções e configuração do cliente', avila_mcp_guide_path, class: 'link' %></p>
+    </div>
+    <% if AvilaPublicAccounts.public?(current_account) %>
+      <p>Você pode buscar contratos, consultar modelos e criar modelos para editar no portal. O envio de convites por e-mail não está disponível nesta conta.</p>
+    <% end %>
+    <% if @mcp_token.present? && @mcp_token.persisted? %>
+      <div class="card bg-base-200 p-6 space-y-3">
+        <label for="mcp_token" class="font-semibold">Copie este token agora. Ele não será mostrado novamente.</label>
+        <input id="mcp_token" type="password" value="<%= @mcp_token.token %>" class="input input-bordered w-full font-mono" autocomplete="off" readonly>
+        <%= render 'shared/clipboard_copy', icon: 'copy', text: @mcp_token.token, class: 'base-button', icon_class: 'w-6 h-6', copy_title: 'Copiar token', copied_title: 'Copiado' %>
+      </div>
+    <% end %>
+    <%= link_to 'Gerar token', new_settings_mcp_path, class: 'btn btn-primary', data: { turbo_frame: :modal } %>
+    <div class="overflow-x-auto">
+      <table class="table w-full">
+        <thead><tr><th>Conexão</th><th>Token</th><th>Criado em</th><th>Ações</th></tr></thead>
+        <tbody>
+          <% @mcp_tokens.each do |mcp_token| %>
+            <tr>
+              <td><%= mcp_token.name %></td>
+              <td><code><%= mcp_token.token_prefix %>••••••••</code></td>
+              <td><%= l(mcp_token.created_at.in_time_zone(current_account.timezone), format: :short, locale: current_account.locale) %></td>
+              <td><%= button_to 'Revogar', settings_mcp_path(mcp_token), method: :delete, class: 'btn btn-outline btn-sm', data: { turbo_confirm: 'Revogar esta conexão? O assistente perderá o acesso imediatamente.' } %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      <% if @mcp_tokens.empty? %><p class="mt-4">Nenhuma conexão criada. Gere um token para conectar seu primeiro assistente.</p><% end %>
+    </div>
+    <% account_config = AccountConfig.find_or_initialize_by(account: current_account, key: AccountConfig::ENABLE_MCP_KEY) %>
+    <% if can?(:manage, account_config) %>
+      <%= form_for account_config, url: account_configs_path, method: :post do |f| %>
+        <%= f.hidden_field :key %>
+        <div class="flex items-center gap-4">
+          <%= f.label :value, 'Permitir conexões MCP' %>
+          <submit-form data-on="change"><%= f.check_box :value, class: 'toggle', checked: account_config.value == true %></submit-form>
+        </div>
+        <p class="text-sm mt-2">Ao desativar, todos os tokens desta conta deixam de funcionar.</p>
+      <% end %>
+    <% end %>
+  </div>
+</div>

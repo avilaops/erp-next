@@ -19,6 +19,7 @@ const settingsGroups = [
   ] },
   { title: "Fiscal", description: "Dados tributários e credenciais necessárias para a operação fiscal.", items: [
     { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", icon: ReceiptText, href: "/preferencias/empresa/dados?secao=fiscal", section: "fiscal" },
+    { title: "Emissão de NF-e", description: "Preencher série, CRT e código IBGE do município", icon: ReceiptText, href: "/preferencias/fiscal" },
     { title: "Inscrições estaduais", description: "Inscrições estaduais substitutas por unidade federativa", icon: CircleDollarSign, href: "/preferencias/empresa/dados?secao=inscricoes", section: "inscricoes" },
     { title: "Certificado digital", description: "Conexão, validade e substituição do certificado A1", icon: Fingerprint, href: "/preferencias/certificado-digital" },
   ] },

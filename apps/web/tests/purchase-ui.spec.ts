@@ -124,7 +124,7 @@ test("browser creates and edits a purchase, receives a partial delivery and reco
   await page.getByLabel("Referência do recebimento", { exact: true }).filter({ visible: true }).fill("REC-001")
   await page.getByLabel("Data do recebimento", { exact: true }).filter({ visible: true }).fill("2026-10-28")
   await page.getByLabel("Receber Produto da compra", { exact: false }).filter({ visible: true }).fill("1")
-  const receipt: ReceiptDetail = { tenantId: tenant, data: { id: receiptId, orderId, reference: "REC-001", occurredOn: "2026-10-28", amount: "4.00", payableId }, items: [{ productId, quantity: "1.000000", unit: "UN", amount: "4.00" }] }
+  const receipt: ReceiptDetail = { tenantId: tenant, data: { id: receiptId, orderId, reference: "REC-001", occurredOn: "2026-10-28", amount: "4.00", payableId, orderRevision: 4, reversalId: null }, items: [{ productId, quantity: "1.000000", unit: "UN", amount: "4.00" }] }
   const received = { ...confirmed, data: { ...confirmed.data, status: "partially_received", revision: 4 }, items: [{ ...confirmed.items[0], receivedQuantity: "1.000000" }], receiptCount: 1 }
   plans.push({ method: "POST", path: `/api/v1/purchase-orders/${orderId}/receipts`, status: 201, response: { order: received, receipt, payableId }, revision: 4, apply: () => { order = received; receipts = [receipt]; payable = initialPayable() } })
   await page.getByRole("button", { name: "Registrar entrada e conta a pagar", exact: true }).click()

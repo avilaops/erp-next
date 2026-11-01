@@ -53,3 +53,7 @@ RED da exceção: contra o gate original, o novo teste afirmou que o gate precis
 Revisão independente da exceção fe9a821: sem achados concretos; revisão estática, sem executar testes.
 
 Ruling: main avançou para d9e82b3 com AVL-396, criando conflitos e impedindo a CI do PR. Sincronização preserva ambas implementações: autorização de contrato continua fixa, novos fluxos fiscais e testes permanecem, e a migration de layout muda para versão 202611010006 para não repetir a versão 202611010001 já usada por returns. Nenhuma autorização foi ampliada. A nova baseline tem hash e27dcd4a58ee5aeea7645f2513612f44b92d680775856d71bf837efa4fb28ec4 e não corresponde à exceção autorizada; o CI deverá produzir a nova comparação sem suprimi-la.
+
+Integração: CI 41279444071 confirmou as regressões da política. O lint detectou lockfile truncado no transporte do resultado de merge e linhas finais extras em dois arquivos Rust. O lockfile completo foi relido em blocos, validado por pnpm 11.11.0 com --lockfile-only --frozen-lockfile --ignore-scripts (3 projetos, 809 entradas), e os arquivos Rust passaram por rustfmt. A edição tributária mantém quatro booleanos pendentes como null somente no formulário; submission valida e produz o schema enviado, sem inferir a escolha do usuário.
+
+RED de integração: Assistant integration 41279559234 compilou a aplicação e identificou a fixture de recebimento sem orderRevision, agora obrigatório no contrato de AVL-396. A fixture passa a registrar revisão 4 e ausência de reversão; o schema da API permanece obrigatório.

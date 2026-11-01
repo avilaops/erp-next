@@ -245,7 +245,19 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 131);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 132);
+        assert!(doc["paths"]["/api/v1/sales-settings"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/sales-settings"]["put"].is_object());
+        let required = doc["components"]["schemas"]["SalesSettingsInput"]["required"]
+            .as_array()
+            .unwrap();
+        for field in [
+            "minimumOrderAmount",
+            "maximumPaymentTermDays",
+            "requireCustomerContact",
+        ] {
+            assert!(required.iter().any(|value| value == field));
+        }
         assert!(doc["paths"]["/api/v1/company-account"]["get"].is_object());
         for action in ["checkout", "refresh", "change-plan", "cancel"] {
             assert!(

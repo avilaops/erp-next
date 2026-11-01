@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret } from "../playwright.danfe.config"
-import { preferenceGroups } from "../src/components/navigation-catalog"
+import { preferenceCategories } from "../src/features/preferences-search/preferences-catalog"
+import { existsSync } from "node:fs"
+import path from "node:path"
 
 test.beforeEach(async ({ context }) => {
   const iv = randomBytes(12)
@@ -27,19 +29,39 @@ test("preferências abre o índice pelo cabeçalho e só entra na empresa após 
   await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
 })
 
-test("categorias de preferências mostram opções sem redirecionar", async ({ page }) => {
+test("todas as categorias das referências mostram opções e destinos existentes", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 915, height: 950 })
   await page.goto("/preferencias")
-  for (const category of preferenceGroups.flatMap(group => group.items)) {
+  await expect(page.getByRole("navigation", { name: "Categorias de preferências" }).getByRole("button")).toHaveText([
+    "Empresa", "Sistema", "Cadastros", "Suprimentos", "Vendas", "Notas Fiscais", "Certificado Digital", "Finanças", "Serviços", "Integrações", "Logística", "Contabilidade", "Importações de Dados", "Backup e Exportação de Dados",
+  ])
+  for (const category of preferenceCategories) {
     const button = page.getByRole("button", { name: category.label, exact: true })
     await button.focus()
     await page.keyboard.press("Enter")
     await expect(button).toHaveAttribute("aria-pressed", "true")
-    await expect(page).toHaveURL(origin + "/preferencias")
+    await expect(page).toHaveURL(origin + "/preferencias?categoria=" + category.id)
     await expect(page.locator("#preference-options").getByRole("heading", { name: category.label, exact: true })).toBeVisible()
-    await expect(page.locator(`#preference-options a[href="${category.href}"]`)).toBeVisible()
+    for (const item of category.sections.flatMap(section => section.items)) {
+      const row = page.locator("#preference-options li").filter({ hasText: item.label }).filter({ has: page.getByText(item.label, { exact: true }) })
+      if (item.href) {
+        await expect(row.getByRole("link")).toHaveAttribute("href", item.href)
+        expect(existsSync(path.resolve("src/app", item.href.slice(1), "page.tsx"))).toBe(true)
+      } else {
+        await expect(row.locator('[aria-disabled="true"]')).toBeVisible()
+        await expect(row.getByRole("link")).toHaveCount(0)
+      }
+    }
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeInViewport()
+    await page.screenshot({ path: testInfo.outputPath(`preferences-${category.id}.png`), fullPage: true })
   }
-  await page.getByRole("button", { name: "Usuários e acessos", exact: true }).click()
-  await page.locator("#preference-options").getByRole("link", { name: "Usuários e acessos", exact: true }).click()
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Backup e Exportação de Dados", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await page.goBack()
+  await expect(page.getByRole("button", { name: "Importações de Dados", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await page.getByRole("button", { name: "Sistema", exact: true }).click()
+  await page.locator("#preference-options").getByRole("link", { name: "Usuários", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias/usuarios")
 })
 
@@ -47,13 +69,13 @@ test("pesquisa do índice de preferências ignora acentos e permite limpar resul
   await page.goto("/preferencias")
   const search = page.getByRole("searchbox", { name: "Pesquisar nas preferências", exact: true })
   await search.fill("  usuarios  ")
-  await expect(page.getByRole("button", { name: "Usuários e acessos", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Sistema", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Empresa", exact: true })).toHaveCount(0)
-  await expect(page.locator("#preference-options").getByRole("link", { name: "Usuários e acessos", exact: true })).toBeVisible()
+  await expect(page.locator("#preference-options").getByRole("link", { name: "Usuários", exact: true })).toBeVisible()
   await search.fill("alterar dados")
   await expect(page.getByRole("link", { name: "Alterar dados da empresa", exact: true })).toBeVisible()
   await search.fill("configuração inexistente xyz")
-  await expect(page.getByRole("status")).toHaveText("Nenhuma configuração encontrada.")
+  await expect(page.locator("main").getByRole("status")).toHaveText("Nenhuma configuração encontrada.")
   await page.getByRole("button", { name: "Limpar pesquisa", exact: true }).click()
   await expect(search).toHaveValue("")
   await expect(page.getByRole("button", { name: "Empresa", exact: true })).toBeVisible()

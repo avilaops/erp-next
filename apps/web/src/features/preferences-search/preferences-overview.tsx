@@ -1,20 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Building2, ChevronRight, Search, Settings2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Building2, Calculator, ChevronRight, CircleDollarSign, ContactRound, Download, Fingerprint, Monitor, Package, PlugZap, ReceiptText, Search, Settings2, Truck, Upload, Users, Wrench } from "lucide-react"
 import { GuardedLink as Link } from "@/components/navigation-guard"
-import { preferenceGroups } from "@/components/navigation-catalog"
 import { Button } from "@/components/ui/button"
+import { isDemonstrationRoute } from "@/lib/demonstration-routes"
+import { preferenceCategories } from "./preferences-catalog"
 
-const categories = preferenceGroups.flatMap(group => group.items.map(item => ({
-  ...item,
-  options: item.href === "/preferencias/empresa"
-    ? [
-      { label: "Geral", href: item.href, section: "Configurações da empresa" },
-      { label: "Alterar dados da empresa", href: "/preferencias/empresa/dados", section: "Dados cadastrais" },
-    ]
-    : [{ label: item.label, href: item.href, section: "Configurações" }],
-})))
+const icons = { empresa: Building2, sistema: Monitor, cadastros: ContactRound, suprimentos: Package, vendas: Users, "notas-fiscais": ReceiptText, "certificado-digital": Fingerprint, financas: CircleDollarSign, servicos: Wrench, integracoes: PlugZap, logistica: Truck, contabilidade: Calculator, importacao: Download, exportacao: Upload }
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR").trim()
@@ -22,10 +16,22 @@ function normalize(value: string) {
 
 export function PreferencesOverview() {
   const [query, setQuery] = useState("")
-  const [selectedHref, setSelectedHref] = useState(categories[0].href)
+  const selectedId = useSearchParams().get("categoria") || "empresa"
   const search = normalize(query)
-  const visibleCategories = categories.filter(category => normalize(`${category.label} ${category.options.map(option => option.label).join(" ")}`).includes(search))
-  const selected = visibleCategories.find(category => category.href === selectedHref) ?? visibleCategories[0]
+  const visibleCategories = preferenceCategories.map(category => ({
+    ...category,
+    sections: category.sections.map(section => ({
+      ...section,
+      items: section.items.filter(item => normalize(`${category.label} ${section.title} ${item.label} ${item.description || ""}`).includes(search)),
+    })).filter(section => section.items.length),
+  })).filter(category => category.sections.length)
+  const selected = visibleCategories.find(category => category.id === selectedId) ?? visibleCategories[0]
+
+  function selectCategory(id: string) {
+    const url = new URL(window.location.href)
+    url.searchParams.set("categoria", id)
+    window.history.pushState(null, "", url)
+  }
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 pb-28 pt-8 lg:px-6">
@@ -46,35 +52,44 @@ export function PreferencesOverview() {
           {query && <Button variant="outline" onClick={() => setQuery("")} aria-label="Limpar pesquisa">Limpar</Button>}
         </div>
       </div>
-      {selected ? (
-        <div className="grid gap-6 md:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
-          <nav className="overflow-hidden rounded-xl border border-border self-start" aria-label="Categorias de preferências">
+      {selected ? <>
+        <p className="mb-4 text-sm text-muted-foreground">Preferências / {selected.label}</p>
+        <div className="grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
+          <nav className="self-start overflow-hidden rounded-xl border border-border" aria-label="Categorias de preferências">
             {visibleCategories.map(category => {
-              const active = category.href === selected.href
-              const Icon = category.href === "/preferencias/empresa" ? Building2 : Settings2
-              return (
-                <button key={category.href} type="button" aria-pressed={active} aria-controls="preference-options" onClick={() => setSelectedHref(category.href)}
-                  className={`flex min-h-12 w-full items-center gap-3 border-b border-border px-4 py-3 text-left text-sm font-medium transition last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${active ? "bg-primary/10 text-primary" : "text-foreground"}`}>
-                  <Icon className="size-5 shrink-0" aria-hidden="true" />{category.label}
-                </button>
-              )
+              const active = category.id === selected.id
+              const Icon = icons[category.id as keyof typeof icons] || Settings2
+              return <button key={category.id} type="button" aria-pressed={active} aria-controls="preference-options" onClick={() => selectCategory(category.id)}
+                className={`flex min-h-12 w-full items-center gap-3 border-b border-border px-4 py-3 text-left text-sm font-medium transition last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${active ? "bg-primary/10 text-primary" : "text-foreground"}`}>
+                <Icon className="size-5 shrink-0" aria-hidden="true" />{category.label}
+              </button>
             })}
           </nav>
           <section id="preference-options" aria-labelledby="preference-category-title" className="min-w-0">
             <h2 id="preference-category-title" className="mb-6 text-xl font-semibold">{selected.label}</h2>
             <div className="space-y-8">
-              {selected.options.map(option => (
-                <div key={option.href}>
-                  <h3 className="mb-2 text-sm font-medium text-muted-foreground">{option.section}</h3>
-                  <Link href={option.href} className="flex min-h-12 items-center gap-2 border-y border-border py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <ChevronRight className="size-4 shrink-0 text-primary" aria-hidden="true" />{option.label}
-                  </Link>
-                </div>
-              ))}
+              {selected.sections.map(section => <section key={section.title} aria-label={section.title}>
+                <h3 className="mb-2 text-sm font-medium text-muted-foreground">{section.title}</h3>
+                <ul className="divide-y divide-border border-y border-border">
+                  {section.items.map(item => <li key={item.label}>
+                    {item.href ? <Link href={item.href} className="flex min-h-12 items-start gap-2 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <ChevronRight className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="min-w-0 flex-1"><span>{item.label}</span>{item.description && <span className="mt-1 block text-xs font-normal text-muted-foreground">{item.description}</span>}</span>
+                      {isDemonstrationRoute(item.href) && <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Prévia</span>}
+                    </Link> : <div aria-disabled="true" title={item.unavailable} className="flex min-h-12 items-start gap-2 py-3 text-sm text-muted-foreground">
+                      <ChevronRight className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 flex-1"><span>{item.label}</span><span className="sr-only">. {item.unavailable}</span></span>
+                      <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs">Indisponível</span>
+                    </div>}
+                  </li>)}
+                </ul>
+              </section>)}
             </div>
+            {selected.sections.some(section => section.items.some(item => !item.href)) && <p className="mt-6 text-xs leading-5 text-muted-foreground">As opções marcadas como indisponíveis ainda não podem ser configuradas no ERP.</p>}
+            {selected.sections.some(section => section.items.some(item => item.href && isDemonstrationRoute(item.href))) && <p className="mt-4 text-xs leading-5 text-muted-foreground">Os links marcados como prévia abrem telas demonstrativas.</p>}
           </section>
         </div>
-      ) : <p role="status" className="py-8 text-sm text-muted-foreground">Nenhuma configuração encontrada.</p>}
+      </> : <p role="status" className="py-8 text-sm text-muted-foreground">Nenhuma configuração encontrada.</p>}
     </div>
   )
 }

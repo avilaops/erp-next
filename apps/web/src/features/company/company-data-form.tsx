@@ -24,15 +24,32 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   const [stateRegistrations, setStateRegistrations] = useState(initialRegistrations);
   const [selectedSegments, setSelectedSegments] = useState<string[]>(initial.segments);
   const formRef = useRef<HTMLFormElement>(null);
-  const section = useSearchParams().get("secao");
+  const invalidFieldRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
+  const requestedSection = useSearchParams().get("secao");
+  const section: CompanySection = requestedSection && Object.hasOwn(companySections, requestedSection) ? requestedSection as CompanySection : "identificacao";
   useNavigationGuard(dirty ? "Sair e descartar as alterações não salvas da empresa?" : null);
 
   useEffect(() => {
-    if (!section || !Object.hasOwn(companySections, section)) return;
-    const heading = formRef.current?.querySelector<HTMLElement>(`#${companySections[section as CompanySection].heading}`);
+    const invalidField = invalidFieldRef.current;
+    if (invalidField) {
+      invalidFieldRef.current = null;
+      invalidField.reportValidity();
+      invalidField.focus();
+      return;
+    }
+    if (!requestedSection) return;
+    const heading = formRef.current?.querySelector<HTMLElement>(`#${companySections[section].heading}`);
     heading?.focus({ preventScroll: true });
     heading?.scrollIntoView({ block: "start" });
-  }, [section]);
+  }, [section, requestedSection]);
+
+  function openSection(nextSection: CompanySection) {
+    if (nextSection === section) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("secao", nextSection);
+    url.hash = "";
+    window.history.pushState(null, "", url);
+  }
 
   function markDirty() {
     setDirty(true);
@@ -42,6 +59,22 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canEdit || saving || conflict) return;
+    const invalidField = event.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input:invalid, select:invalid, textarea:invalid");
+    if (invalidField) {
+      const invalidSection = invalidField.closest<HTMLElement>("[data-company-section]")?.dataset.companySection as CompanySection;
+      if (invalidSection !== section) {
+        invalidFieldRef.current = invalidField;
+        openSection(invalidSection);
+      } else {
+        invalidField.reportValidity();
+        invalidField.focus();
+      }
+      return;
+    }
+    if (selectedSegments.length === 0) {
+      openSection("fiscal");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const fields = Object.fromEntries(companyFields.map((field) => [field, String(form.get(field) || "")]));
     const success = await onSave({ ...fields, segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
@@ -71,36 +104,17 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   }
 
   return (
-    <form ref={formRef} className="space-y-6" onChange={markDirty} onSubmit={save}>
-      <nav className="flex flex-wrap gap-2" aria-label="Seções dos dados da empresa">
-        {Object.entries(companySections).map(([key, value]) => <a key={key} className="inline-flex min-h-11 items-center rounded-lg border px-3 text-sm text-primary underline" href={`#${value.heading}`}>{value.label}</a>)}
+    <form ref={formRef} className="grid items-start gap-6 md:grid-cols-[220px_minmax(0,1fr)] lg:gap-8" noValidate onChange={markDirty} onSubmit={save}>
+      <nav className="overflow-hidden rounded-xl border border-border" aria-label="Seções dos dados da empresa">
+        <p className="border-b border-border bg-muted/40 px-4 py-3 text-sm font-semibold">Dados da empresa</p>
+        {Object.entries(companySections).map(([key, value]) => <button key={key} type="button" aria-pressed={section === key} aria-controls={value.heading}
+          className={`flex min-h-11 w-full items-center border-b border-border px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${section === key ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground"}`}
+          onClick={() => openSection(key as CompanySection)}>{value.label}</button>)}
       </nav>
-      <fieldset className="contents" disabled={!canEdit || saving}>
-      <div className="form-actions flex-wrap" aria-label="Ações do formulário">
-        <span
-          className="mr-auto basis-full text-sm text-muted-foreground sm:basis-auto"
-          role="status"
-          aria-live="polite"
-        >
-          {saved
-            ? "Alterações salvas no servidor"
-            : dirty
-              ? "Alterações não salvas"
-              : "Nenhuma alteração pendente"}
-        </span>
-        <Button
-          variant="outline"
-          type="reset"
-          onClick={resetLocalState}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={!dirty || selectedSegments.length === 0 || conflict}>
-          {saving ? "Salvando…" : "Salvar alterações"}
-        </Button>
-      </div>
+      <div className="min-w-0 space-y-6">
+      <fieldset className="min-w-0 space-y-6" disabled={!canEdit || saving}>
 
-      <section className="form-section" aria-labelledby="identificacao-title">
+      <section className="form-section" data-company-section="identificacao" hidden={section !== "identificacao"} aria-labelledby="identificacao-title">
         <SectionTitle
           eyebrow="Identificação"
           id="identificacao-title"
@@ -133,7 +147,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </div>
       </section>
 
-      <section className="form-section" aria-labelledby="fiscal-title">
+      <section className="form-section" data-company-section="fiscal" hidden={section !== "fiscal"} aria-labelledby="fiscal-title">
         <SectionTitle eyebrow="Fiscal" id="fiscal-title" title="Dados fiscais e atividade" />
         <div className="form-grid">
           <label className="field">
@@ -215,7 +229,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </fieldset>
       </section>
 
-      <section className="form-section" aria-labelledby="endereco-title">
+      <section className="form-section" data-company-section="endereco" hidden={section !== "endereco"} aria-labelledby="endereco-title">
         <SectionTitle
           eyebrow="Localização"
           id="endereco-title"
@@ -257,7 +271,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </div>
       </section>
 
-      <section className="form-section" aria-labelledby="contato-title">
+      <section className="form-section" data-company-section="contato" hidden={section !== "contato"} aria-labelledby="contato-title">
         <SectionTitle
           eyebrow="Comunicação"
           id="contato-title"
@@ -296,7 +310,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </div>
       </section>
 
-      <section className="form-section" aria-labelledby="substitutos-title">
+      <section className="form-section" data-company-section="inscricoes" hidden={section !== "inscricoes"} aria-labelledby="substitutos-title">
         <SectionTitle
           eyebrow="Fiscal"
           id="substitutos-title"
@@ -344,6 +358,14 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </Button>
       </section>
 
+      <div className="form-actions flex-wrap" aria-label="Ações do formulário">
+        <span className="mr-auto basis-full text-sm text-muted-foreground sm:basis-auto" role="status" aria-live="polite">
+          {saved ? "Alterações salvas no servidor" : dirty ? "Alterações não salvas" : "Nenhuma alteração pendente"}
+        </span>
+        <Button variant="outline" type="reset" onClick={resetLocalState}>Cancelar</Button>
+        <Button type="submit" disabled={!dirty || conflict}>{saving ? "Salvando…" : "Salvar alterações"}</Button>
+      </div>
+
       <aside className="flex gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-primary" />
         <p>
@@ -353,6 +375,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
         </p>
       </aside>
       </fieldset>
+      </div>
     </form>
   );
 }

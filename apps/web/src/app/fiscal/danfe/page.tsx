@@ -2,7 +2,7 @@ import { connection } from "next/server"
 import Link from "next/link"
 import { Suspense } from "react"
 import { PageHeader } from "@/components/page-header"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { DanfeDownload } from "@/features/fiscal/danfe-download"
 
 async function DanfeWorkspace() {

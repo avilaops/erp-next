@@ -85,8 +85,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::domains::production::routes())
         .route(
             "/api/v1/financial-settings",
-            get(crate::platform::financial_settings::get)
-                .put(crate::platform::financial_settings::put),
+            get(crate::domains::finance::settings::get)
+                .put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
         .merge(crate::domains::returns::routes())

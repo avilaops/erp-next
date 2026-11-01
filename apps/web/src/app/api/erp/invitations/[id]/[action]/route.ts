@@ -1,4 +1,4 @@
-import { forwardErp } from "@/lib/erp-proxy"
+import { forwardErp } from "@/server/bff/erp-proxy"
 
 export async function POST(request: Request, context: { params: Promise<{ id: string; action: string }> }) {
   const { id, action } = await context.params

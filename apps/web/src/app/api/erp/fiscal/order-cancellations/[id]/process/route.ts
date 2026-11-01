@@ -1,4 +1,4 @@
-import { forwardFiscal } from "@/lib/erp-fiscal-proxy"
+import { forwardFiscal } from "@/server/bff/erp-fiscal-proxy"
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return forwardFiscal(request, `/order-cancellations/${(await params).id}/process`)

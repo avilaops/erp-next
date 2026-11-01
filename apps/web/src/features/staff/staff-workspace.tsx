@@ -4,7 +4,7 @@ import { erpFetch } from "@/lib/api/client"
 
 import type { Schema } from "@/lib/api/types"
 
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"

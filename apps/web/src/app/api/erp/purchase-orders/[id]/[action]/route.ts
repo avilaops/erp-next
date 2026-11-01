@@ -1,4 +1,4 @@
-import { forwardErp } from "@/lib/erp-proxy"
+import { forwardErp } from "@/server/bff/erp-proxy"
 const actions = ["confirm", "cancel", "close", "receipts"]
 export async function GET(request: Request, { params }: { params: Promise<{ id: string; action: string }> }) {
   const { id, action } = await params

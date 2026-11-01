@@ -1,4 +1,4 @@
-import { contractsProxy } from "@/lib/contracts-proxy"
+import { contractsProxy } from "@/server/bff/contracts-proxy"
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return contractsProxy(request, `/options/${(await params).id}`)
 }

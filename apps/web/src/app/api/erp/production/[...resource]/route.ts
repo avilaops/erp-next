@@ -1,4 +1,4 @@
-import { forwardErp } from "@/lib/erp-proxy"
+import { forwardErp } from "@/server/bff/erp-proxy"
 
 type Context = { params: Promise<{ resource: string[] }> }
 export async function GET(request: Request, { params }: Context) {

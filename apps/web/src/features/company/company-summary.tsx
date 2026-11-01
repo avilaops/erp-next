@@ -1,6 +1,6 @@
 "use client"
 
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Building2 } from "lucide-react"
 import { useCompanyProfile } from "./company-profile-context"

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { useCommand, useResource } from "@/hooks/use-operation"
 import { PurchaseLookup, type PurchaseChoice } from "@/features/purchasing/purchase-lookup"
 import type { ReceivedNote } from "./received-documents"
 

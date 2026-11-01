@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import { AlertTriangle, CreditCard, Database, Download, ExternalLink, HardDrive, Info, Users } from "lucide-react"
-import { GuardedLink as Link } from "@/components/navigation-guard"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { Button } from "@/components/ui/button"
 import { accountHref } from "./account-navigation"
 import { date, money, safeCheckout, statusLabel, type Account, type Subscription } from "./account-types"

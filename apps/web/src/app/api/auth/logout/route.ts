@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { cookieName, cookieOptions, erpConfiguration } from "@/lib/erp-session"
+import { cookieName, cookieOptions, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function POST(request: Request) {
   try {

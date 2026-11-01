@@ -1,4 +1,4 @@
-import { DigitalCertificate } from "@/features/digital-certificate/digital-certificate"
+import { DigitalCertificate } from "@/features/fiscal/certificates/digital-certificate"
 
 export default function DigitalCertificatePage() { return <DigitalCertificate /> }
 

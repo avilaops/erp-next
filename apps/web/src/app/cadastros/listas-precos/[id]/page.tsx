@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { CatalogRecordDetail } from "@/features/record-details/catalogo-record-pages";
+import { CatalogRecordDetail } from "@/features/records/details/catalogo-record-pages";
 
 async function ResolvedPriceListDetailPage({
   params,

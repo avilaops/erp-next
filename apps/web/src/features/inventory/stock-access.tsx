@@ -1,6 +1,6 @@
 import { connection } from "next/server"
 import { PageHeader } from "@/components/page-header"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { StockWorkspace } from "./stock-workspace"
 
 export async function StockAccess() {

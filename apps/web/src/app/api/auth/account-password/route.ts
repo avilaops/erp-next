@@ -1,4 +1,4 @@
-import { erpConfiguration } from "@/lib/erp-session"
+import { erpConfiguration } from "@/server/auth/erp-session"
 
 export function GET() {
   try { return Response.redirect(new URL("/trocar-senha", erpConfiguration().issuer), 303) }

@@ -3,7 +3,7 @@
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"

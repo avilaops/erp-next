@@ -1,7 +1,7 @@
 import { connection } from "next/server"
 import { createHmac } from "node:crypto"
 import { PageHeader } from "@/components/page-header"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { CatalogEditor, CatalogList } from "./catalog-workspace"
 
 export async function CatalogAccess({ editor = false, id, view = false }: { editor?: boolean; id?: string; view?: boolean }) {

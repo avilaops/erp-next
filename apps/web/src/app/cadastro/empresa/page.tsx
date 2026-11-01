@@ -1,9 +1,9 @@
 import { Suspense } from "react"
 import { connection } from "next/server"
 import { redirect } from "next/navigation"
-import { CompanySignup } from "@/components/company-onboarding"
+import { CompanySignup } from "@/features/company/company-onboarding"
 import { PageHeader } from "@/components/page-header"
-import { currentIdentitySession } from "@/lib/erp-session"
+import { currentIdentitySession } from "@/server/auth/erp-session"
 
 export default function Page() {
   return <Suspense fallback={<p role="status">Preparando cadastro…</p>}><AuthenticatedSignup /></Suspense>

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useNavigationGuard } from "@/components/navigation-guard"
+import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import type { CompanyData } from "./company-types"
 
 export function CompanyPartnerForm({ initial, canEdit, saving, conflict, onSave }: { initial: CompanyData; canEdit: boolean; saving: boolean; conflict: boolean; onSave: (data: CompanyData) => Promise<boolean> }) {

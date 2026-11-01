@@ -1,0 +1,56 @@
+[
+  {
+    "product": "erp",
+    "category": "execution",
+    "state": "documented",
+    "owner": "Equipe ERP; responsável individual a definir",
+    "verificationDate": "",
+    "id": "ERP-STRUCTURE-001",
+    "title": "Aplicações, rotas e serviços têm responsabilidades distintas",
+    "rule": "apps/web contém a interface e o BFF da sessão; apps/api é a autoridade Rust para permissões, transações e persistência; apps/fiscal-engine é adaptador técnico interno de XML, A1, XSD e SOAP. app/ define URLs e entradas HTTP; features/ implementa funcionalidades; server/auth e server/bff contêm sessão e transporte privado. Repetição de fiscal entre essas camadas representa responsabilidades diferentes. O navegador não acessa o motor fiscal. platform/ trata a operação da própria conta ERP; finanças comerciais e suas configurações pertencem a domains/finance. Preservar URLs, contratos e limites dos proxies na reorganização.",
+    "enforcement": "architecture/structure.json; scripts/architecture/check.mjs; job obrigatório context-source; build Next.js e testes de contratos.",
+    "sources": [
+      {
+        "kind": "document",
+        "location": "https://github.com/avilaops/erp-next/blob/codex/erp-organization-20261101/architecture/README.md",
+        "note": "Mapa das aplicações, percurso fiscal e distinção entre assinatura ERP e financeiro comercial."
+      }
+    ]
+  },
+  {
+    "product": "erp",
+    "category": "execution",
+    "state": "documented",
+    "owner": "Equipe ERP; responsável individual a definir",
+    "verificationDate": "",
+    "id": "ERP-STRUCTURE-002",
+    "title": "Funcionalidades são organizadas pelo assunto de negócio",
+    "rule": "Cada pasta de features/ tem uma responsabilidade registrada em architecture/structure.json. Configurações fiscais e certificados pertencem a fiscal/settings e fiscal/certificates; configurações financeiras a finance/settings; usuários, papéis e auditoria a access; importação, exportação e histórico a data; busca e preferências pessoais a preferences. Pedidos de venda pertencem a sales, recebíveis a finance, cancelamentos comerciais a returns. Componentes exclusivos e hooks exclusivos ficam no domínio. components/ui contém elementos básicos, components/shell navegação e estrutura visual, components/feedback avisos compartilhados. hooks/ abriga comportamento React compartilhado e lib/ utilitários e cliente HTTP. Diretório não comprova funcionalidade pronta.",
+    "enforcement": "Registro de responsabilidades e caminhos retirados em architecture/structure.json; validação de dependências no CI.",
+    "sources": [
+      {
+        "kind": "document",
+        "location": "https://github.com/avilaops/erp-next/blob/codex/erp-organization-20261101/architecture/README.md",
+        "note": "Tabela de responsabilidades e regra para localizar novos arquivos."
+      }
+    ]
+  },
+  {
+    "product": "erp",
+    "category": "execution",
+    "state": "documented",
+    "owner": "Equipe ERP; responsável individual a definir",
+    "verificationDate": "",
+    "id": "ERP-STRUCTURE-003",
+    "title": "Limites entre cliente e servidor são verificados e rastreáveis",
+    "rule": "Todo módulo executável de server/ importa server-only. Código cliente não alcança server/, next/headers ou módulos node: por imports, reexports ou imports dinâmicos literais, inclusive transitivamente. lib/ não depende de camadas superiores; components/ui não depende de domínio, rota ou servidor; features/ não depende de app/; server/ não depende da interface. Novos domínios exigem responsabilidade registrada. Alterações de URLs exigem revisão da superfície de rotas. O Experiments armazena a decisão e evidências; CI aplica a verificação. Estado verificado exige commit e execução de CI exatos. Captura de código, publicação e teste funcional são evidências separadas.",
+    "enforcement": "scripts/architecture/check.mjs; scripts/architecture/check.test.mjs; .github/workflows/ci.yml; server-only e build web. O verificador estático não resolve imports construídos dinamicamente.",
+    "sources": [
+      {
+        "kind": "document",
+        "location": "https://github.com/avilaops/erp-next/blob/codex/erp-organization-20261101/architecture/README.md",
+        "note": "Limites do verificador, revisão de rotas e procedimento de atualização do Experiments."
+      }
+    ]
+  }
+]

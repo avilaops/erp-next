@@ -2,7 +2,7 @@
 
 import { erpFetch } from "@/lib/api/client"
 
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"

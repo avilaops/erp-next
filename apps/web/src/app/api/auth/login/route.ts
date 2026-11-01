@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, uuidPattern } from "@/lib/erp-session"
+import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, uuidPattern } from "@/server/auth/erp-session"
 import { safeReturnTo } from "@/lib/return-to"
 
 export async function GET(request: Request) {

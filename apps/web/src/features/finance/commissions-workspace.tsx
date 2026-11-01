@@ -3,11 +3,11 @@
 import Link from "next/link"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { useCommand, useResource } from "@/hooks/use-operation"
 
 type Balance = { sellerStaffId: string; sellerName: string; revision: number; openAmount: string; paidAmount: string }
 type Listing = { tenantId: string; canEdit: boolean; data: Balance[]; total: number; totals: { openAmount: string; paidAmount: string } }

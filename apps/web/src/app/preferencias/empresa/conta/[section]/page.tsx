@@ -6,7 +6,7 @@ import { AccountClient } from "@/features/company/account/account-client"
 import { accountSections, type AccountSection } from "@/features/company/account/account-navigation"
 import { CompanyWorkspace } from "@/features/company/company-workspace"
 import { Empty, Notice } from "@/features/company/account/account-panels"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import Link from "next/link"
 
 export function generateStaticParams() { return Object.keys(accountSections).map(section => ({ section })) }

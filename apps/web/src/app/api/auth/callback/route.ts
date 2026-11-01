@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, unseal, uuidPattern } from "@/lib/erp-session"
+import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, unseal, uuidPattern } from "@/server/auth/erp-session"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
 
 function callbackFailure(request: Request, origin: string | undefined, reason: "restart" | "denied" | "unavailable", status: number, destination: string) {

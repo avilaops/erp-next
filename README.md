@@ -2,6 +2,10 @@
 
 ERP modular da Ávila Ops, mantido em `avilaops/erp-next`. O sistema nasce separado do ERP legado e usa um monólito modular para preservar transações, contratos entre domínios e rastreabilidade.
 
+O [mapa de organização](architecture/README.md) explica cada pasta, os limites
+entre web/BFF/API/motor fiscal e onde colocar novas funcionalidades. As regras
+estão vinculadas ao Ávila Experiments e são verificadas no CI.
+
 ## Fundação
 
 - API: Rust, Axum e SQLx.

@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import Link from "next/link"
 import { connection } from "next/server"
 import { PageHeader } from "@/components/page-header"
-import { currentSession } from "@/lib/erp-session"
+import { currentSession } from "@/server/auth/erp-session"
 import { ServiceKeys } from "@/features/integrations/service-keys"
 
 export default function LojasIntegrationPage() {

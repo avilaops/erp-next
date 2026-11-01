@@ -2,7 +2,7 @@
 
 import { decimalPattern } from "@/lib/decimal-input"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -10,7 +10,7 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { quantity, useCommand, useResource } from "@/features/operations/use-operation"
+import { quantity, useCommand, useResource } from "@/hooks/use-operation"
 import { PurchaseLookup, type PurchaseChoice } from "./purchase-lookup"
 import { fixedText, fixedValue, money, purchaseLink, type PurchaseDetail, type PurchaseList } from "./purchase-types"
 

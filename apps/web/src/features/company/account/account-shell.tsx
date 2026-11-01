@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 import { ChevronDown, ChevronLeft, ExternalLink, Building2 } from "lucide-react"
 import { useState } from "react"
-import { GuardedLink as Link } from "@/components/navigation-guard"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { accountHref, accountSections, type AccountSection } from "./account-navigation"
 
 export function AccountShell({ children }: { children: React.ReactNode }) {

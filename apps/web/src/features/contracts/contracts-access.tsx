@@ -1,5 +1,5 @@
 import { connection } from "next/server"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { ContractDetail, ContractGenerator, ContractsList } from "./contracts"
 
 export async function ContractsAccess({ id, orderId, customerId, generate = false }: { id?: string; orderId?: string; customerId?: string; generate?: boolean }) {

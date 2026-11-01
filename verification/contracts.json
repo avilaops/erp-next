@@ -1628,7 +1628,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1715,7 +1715,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1816,7 +1816,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming_reconciliation.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/incoming.rs"
       ],
       "verification": {
@@ -1919,7 +1919,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2007,7 +2007,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming_reconciliation.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2093,7 +2093,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2196,7 +2196,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2285,7 +2285,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2371,7 +2371,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2458,7 +2458,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/incoming.rs",
         "migrations/202611010003_fiscal_incoming.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2561,7 +2561,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission_events.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2666,7 +2666,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission_events.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2774,7 +2774,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission_events.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2882,7 +2882,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission_events.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2970,7 +2970,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission_events.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3059,7 +3059,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3147,7 +3147,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3232,7 +3232,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3337,7 +3337,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3440,7 +3440,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3538,7 +3538,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3625,7 +3625,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3731,7 +3731,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3836,7 +3836,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3939,7 +3939,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4042,7 +4042,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4131,7 +4131,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4218,7 +4218,7 @@
       "sources": [
         "apps/api/src/domains/production.rs",
         "migrations/202611010005_production.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4319,7 +4319,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4420,7 +4420,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4507,7 +4507,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4591,7 +4591,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4692,7 +4692,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4778,7 +4778,7 @@
       "sources": [
         "apps/api/src/domains/commissions.rs",
         "migrations/202611010004_commissions.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4864,7 +4864,7 @@
       "sources": [
         "apps/api/src/domains/returns.rs",
         "migrations/202611010001_returns.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4968,7 +4968,7 @@
       "sources": [
         "apps/api/src/domains/returns.rs",
         "migrations/202611010001_returns.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5054,7 +5054,7 @@
       "sources": [
         "apps/api/src/domains/returns.rs",
         "migrations/202611010001_returns.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5160,7 +5160,7 @@
       "sources": [
         "apps/api/src/domains/returns.rs",
         "migrations/202611010001_returns.sql",
-        "apps/web/src/lib/erp-proxy.ts"
+        "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5186,20 +5186,20 @@
       "concurrency": { "revision": false, "idempotency": false, "rule": "Retorna revisão para gravação; ausência usa revisão virtual 1 e transferência." },
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "Consultar sugestão das baixas manuais" }, "recovery": "Repetir leitura; formulários avisam falha e usam transferência inicialmente.",
       "ui": { "pages": ["/preferencias/financeiro", "/financeiro/contas-receber/[id]", "/financeiro/contas-pagar/[id]"], "bff": { "method": "GET", "path": "/api/erp/financial-settings" }, "gap": null },
-      "sources": ["apps/api/src/platform/financial_settings.rs", "apps/web/src/features/financial-settings/financial-settings.tsx", "apps/web/src/features/financial-settings/use-suggested-payment-method.ts"],
+      "sources": ["apps/api/src/domains/finance/settings.rs", "apps/web/src/features/finance/settings/financial-settings.tsx", "apps/web/src/features/finance/settings/use-suggested-payment-method.ts"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
       "id": "put-financial-settings", "flow": "financial-settings", "status": "implemented", "operation": { "method": "PUT", "path": "/api/v1/financial-settings" },
       "actor": "company_manager", "permissions": ["platform.company.manage"],
-      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": [], "body": { "source": "apps/api/src/platform/financial_settings.rs", "type": "FinancialSettingsInput" }, "query": null },
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": [], "body": { "source": "apps/api/src/domains/finance/settings.rs", "type": "FinancialSettingsInput" }, "query": null },
       "preconditions": ["Vínculo e permissão revalidados sob bloqueio da empresa; revisão obrigatória; somente meios aceitos nas baixas."],
       "transition": { "from": "revisão atual", "to": "configuração da empresa com revisão incrementada" },
       "effects": { "writes": ["financial_settings", "audit_log na mesma transação"], "external": [], "excludes": ["Sem baixa, cobrança, saldo, transferência ou mudança em registros anteriores."] },
       "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match e bloqueio de empresa; conflito preserva edição e requer recarga." },
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,412,422,428,500,503], "action": "Salvar meio sugerido nas baixas" }, "recovery": "Recarregar explicitamente; não repetir gravação com resultado incerto.",
       "ui": { "pages": ["/preferencias/financeiro"], "bff": { "method": "PUT", "path": "/api/erp/financial-settings" }, "gap": null },
-      "sources": ["apps/api/src/platform/financial_settings.rs", "migrations/202610310005_financial_settings.sql", "apps/web/src/features/financial-settings/financial-settings.tsx"],
+      "sources": ["apps/api/src/domains/finance/settings.rs", "migrations/202610310005_financial_settings.sql", "apps/web/src/features/finance/settings/financial-settings.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -5379,7 +5379,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5474,7 +5474,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5581,7 +5581,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5676,7 +5676,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5772,7 +5772,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5880,7 +5880,7 @@
         "apps/api/src/domains/contracts/templates.rs",
         "apps/api/src/domains/contracts/templates/import.rs",
         "apps/web/src/features/contracts/templates.tsx",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "migrations/202610310002_contract_template_drafts.sql",
         "migrations/202610310003_contract_template_import.sql"
       ],
@@ -5910,7 +5910,7 @@
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,422,500,503], "action": "Consultar auditoria autorizada" },
       "recovery": "Repetir consulta; não altera dados ou permissões.",
       "ui": { "pages": ["/preferencias/seguranca"], "bff": { "method": "GET", "path": "/api/erp/audit" }, "gap": null },
-      "sources": ["apps/api/src/platform/audit.rs", "apps/web/src/features/security/security-audit.tsx"],
+      "sources": ["apps/api/src/platform/audit.rs", "apps/web/src/features/access/audit/security-audit.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -5925,7 +5925,7 @@
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "Consultar a própria preferência de paginação da empresa ativa" },
       "recovery": "Repetir leitura; catálogo informa indisponibilidade e usa 25 sem modificar o registro.",
       "ui": { "pages": ["/preferencias/sistema", "/cadastros/produtos"], "bff": { "method": "GET", "path": "/api/erp/preferences" }, "gap": null },
-      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/system-preferences/system-preferences.tsx", "apps/web/src/features/catalog/catalog-workspace.tsx"],
+      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/preferences/system/system-preferences.tsx", "apps/web/src/features/catalog/catalog-workspace.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -5940,7 +5940,7 @@
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,412,422,428,500,503], "action": "Salvar a própria quantidade de produtos por página" },
       "recovery": "Preservar seleção; reler e conferir revisão após conflito ou confirmação ambígua antes de nova gravação.",
       "ui": { "pages": ["/preferencias/sistema"], "bff": { "method": "PUT", "path": "/api/erp/preferences" }, "gap": null },
-      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/system-preferences/system-preferences.tsx"],
+      "sources": ["apps/api/src/platform/preferences.rs", "migrations/202610310001_personal_preferences.sql", "apps/web/src/features/preferences/system/system-preferences.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -6078,7 +6078,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6186,7 +6186,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6289,7 +6289,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6390,7 +6390,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6498,7 +6498,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6608,7 +6608,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6714,7 +6714,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6816,7 +6816,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -6913,7 +6913,7 @@
         "apps/api/src/domains/contracts/provider.rs",
         "apps/api/src/domains/contracts/sync.rs",
         "migrations/202610290001_commercial_contracts.sql",
-        "apps/web/src/lib/contracts-proxy.ts",
+        "apps/web/src/server/bff/contracts-proxy.ts",
         "apps/web/src/features/contracts/contracts.tsx"
       ],
       "verification": {
@@ -7328,7 +7328,7 @@
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,422,500,503], "action": "Consultar histórico por categoria" },
       "recovery": "Repetir consulta; erro não significa ausência de histórico",
       "ui": { "pages": ["/historico"], "bff": { "method": "GET", "path": "/api/erp/legacy-history" }, "gap": null },
-      "sources": ["apps/api/src/domains/legacy.rs", "apps/web/src/lib/legacy-proxy.ts"],
+      "sources": ["apps/api/src/domains/legacy.rs", "apps/web/src/server/bff/legacy-proxy.ts"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -7346,7 +7346,7 @@
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,500,503], "action": "Baixar arquivo original com attachment e nosniff" },
       "recovery": "Repetir download; 404 não revela arquivos de outras empresas",
       "ui": { "pages": ["/historico"], "bff": { "method": "GET", "path": "/api/erp/legacy-history/files/[id]" }, "gap": null },
-      "sources": ["apps/api/src/domains/legacy.rs", "apps/web/src/lib/legacy-proxy.ts"],
+      "sources": ["apps/api/src/domains/legacy.rs", "apps/web/src/server/bff/legacy-proxy.ts"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
@@ -8309,8 +8309,8 @@
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
         "apps/api/src/domains/fiscal/certificate_crypto.rs",
-        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/certificates/digital-certificate.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610290002_fiscal_a1_certificates.sql"
       ],
       "verification": {
@@ -8408,8 +8408,8 @@
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
         "apps/api/src/domains/fiscal/certificate_crypto.rs",
-        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/certificates/digital-certificate.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610290002_fiscal_a1_certificates.sql"
       ],
       "verification": {
@@ -8501,8 +8501,8 @@
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
         "apps/api/src/domains/fiscal/certificate_crypto.rs",
-        "apps/web/src/features/digital-certificate/digital-certificate.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/certificates/digital-certificate.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610290002_fiscal_a1_certificates.sql"
       ],
       "verification": {
@@ -8585,8 +8585,8 @@
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
         "apps/api/src/domains/fiscal/model.rs",
-        "apps/web/src/features/fiscal-settings/fiscal-settings.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/features/fiscal/settings/fiscal-settings.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -8683,8 +8683,8 @@
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
         "apps/api/src/domains/fiscal/model.rs",
-        "apps/web/src/features/fiscal-settings/fiscal-settings.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/features/fiscal/settings/fiscal-settings.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -9240,7 +9240,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/emission.rs",
         "migrations/202611010002_fiscal_operations.sql",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -13288,7 +13288,7 @@
       "sources": [
         "apps/api/src/platform/onboarding.rs",
         "migrations/202610280001_company_onboarding.sql",
-        "apps/web/src/components/company-onboarding.tsx"
+        "apps/web/src/features/company/company-onboarding.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -13381,7 +13381,7 @@
       "sources": [
         "apps/api/src/platform/onboarding.rs",
         "migrations/202610280001_company_onboarding.sql",
-        "apps/web/src/components/company-onboarding.tsx"
+        "apps/web/src/features/company/company-onboarding.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -15613,7 +15613,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-monitor.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -15934,7 +15934,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-document-detail.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -16018,7 +16018,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-monitor.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -16106,7 +16106,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-monitor.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -16197,7 +16197,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/received.rs",
         "apps/web/src/features/fiscal/received-monitor.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts"
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -16283,7 +16283,7 @@
         "apps/api/src/domains/fiscal/distribution.rs",
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
@@ -16380,7 +16380,7 @@
         "apps/api/src/domains/fiscal/distribution.rs",
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
@@ -16468,7 +16468,7 @@
         "apps/api/src/domains/fiscal/distribution.rs",
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {
@@ -16570,7 +16570,7 @@
         "apps/api/src/domains/fiscal/distribution.rs",
         "apps/api/src/domains/fiscal/sefaz_client.rs",
         "apps/web/src/features/fiscal/fiscal-distribution.tsx",
-        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "migrations/202610310006_fiscal_monitor.sql"
       ],
       "verification": {

@@ -2,7 +2,7 @@
 
 import type { Schema } from "@/lib/api/types"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -11,7 +11,7 @@ import { FileCheck2, FileText, RefreshCw } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { useCommand, useResource } from "@/hooks/use-operation"
 
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">

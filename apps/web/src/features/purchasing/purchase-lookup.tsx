@@ -1,11 +1,11 @@
 "use client"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useResource } from "@/features/operations/use-operation"
+import { useResource } from "@/hooks/use-operation"
 
 export type PurchaseChoice = { id: string; legalName?: string; name?: string; sku?: string; unit?: string }
 

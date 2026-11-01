@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { CatalogRecordForm } from "@/features/record-details/catalogo-record-pages";
+import { CatalogRecordForm } from "@/features/records/details/catalogo-record-pages";
 
 async function ResolvedEditPriceListPage({
   params,

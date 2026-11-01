@@ -1,3 +1,3 @@
-import { forwardErp } from "@/lib/erp-proxy"
+import { forwardErp } from "@/server/bff/erp-proxy"
 export async function GET(request: Request) { return forwardErp(request, "/payment-methods") }
 export async function POST(request: Request) { return forwardErp(request, "/payment-methods") }

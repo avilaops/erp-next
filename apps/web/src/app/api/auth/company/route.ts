@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { cookieName, cookieOptions, currentIdentitySession, erpConfiguration, seal, uuidPattern } from "@/lib/erp-session"
+import { cookieName, cookieOptions, currentIdentitySession, erpConfiguration, seal, uuidPattern } from "@/server/auth/erp-session"
 
 export async function POST(request: Request) {
   const output = { "Cache-Control": "no-store" }

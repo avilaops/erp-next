@@ -6,9 +6,9 @@ import type { Schema } from "@/lib/api/types"
 
 import { normalizeDecimal } from "@/lib/decimal-input"
 
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 
-import { GuardedLink as Link, useNavigationGuard } from "@/components/navigation-guard"
+import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navigation-guard"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -19,8 +19,8 @@ import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQu
 
 import { ProductPhoto } from "./product-photo"
 import { ProductThumbnail } from "./product-thumbnail"
-import { useResource } from "@/features/operations/use-operation"
-import type { PersonalPreferences } from "@/features/system-preferences/system-preferences"
+import { useResource } from "@/hooks/use-operation"
+import type { PersonalPreferences } from "@/features/preferences/system/system-preferences"
 
 type Product = Schema<"Product">
 type ProductList = Schema<"ProductList">

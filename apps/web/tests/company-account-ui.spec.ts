@@ -149,6 +149,8 @@ test("BFF rejeita outra origem, empresa trocada e filtros não permitidos", asyn
   expect(foreignTenant.status()).toBe(409)
   const invalidFilter = await context.request.get("/api/erp/company-account/invoices?providerId=foreign")
   expect(invalidFilter.status()).toBe(400)
+  expect((await context.request.post("/api/erp/company-account/invoices")).status()).toBe(405)
+  expect((await context.request.get("/api/erp/company-account/checkout")).status()).toBe(405)
   const noSession = await playwright.request.newContext({ baseURL: origin })
   expect((await noSession.get("/api/erp/company-account")).status()).toBe(401)
   await noSession.dispose()

@@ -783,13 +783,6 @@
   "dispatches": [
     {
       "path": "/api/erp/company-account/[action]",
-      "method": "GET",
-      "actions": [
-        "invoices"
-      ]
-    },
-    {
-      "path": "/api/erp/company-account/[action]",
       "method": "POST",
       "actions": [
         "checkout",
@@ -1524,8 +1517,7 @@
         ],
         "bff": {
           "method": "GET",
-          "path": "/api/erp/company-account/[action]",
-          "action": "invoices"
+          "path": "/api/erp/company-account/invoices"
         },
         "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
       },

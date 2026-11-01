@@ -57,6 +57,7 @@ pub struct SubscriptionCommand {
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct InvoiceQuery {
     subscription_id: Uuid,

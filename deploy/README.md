@@ -5,6 +5,7 @@ Imagens são construídas somente pelo GitHub CI, pelo workflow
 depois das verificações de cada componente. PRs não reempacotam imagens.
 A implantação exige o resultado completo da execução aprovado.
 Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
+O artefato `erp-fiscal-<sha>` contém o motor fiscal, após os testes próprios.
 
 O workflow de release tem timeout de 20 minutos para API e 15 para web.
 Falhas não autorizam build no servidor ou a retirada de testes.
@@ -52,3 +53,25 @@ Carregar imagens com `docker load`; iniciar por `docker compose up -d --no-build
 domínio; a API em `127.0.0.1:3141`. Conferir saúde da API, web e redirect OIDC.
 O legado permanece parado e preservado em seu diretório. Rollback interrompe
 somente o projeto Compose `erp-next`; nunca restaura dados por troca de imagem.
+
+## Motor fiscal em homologação
+
+O overlay opcional `fiscal-compose.yaml` adiciona a imagem fiscal validada pela
+mesma execução de release. Carregar `fiscal-image.tar.gz` e configurar, no `.env`
+privado do release, `ERP_FISCAL_ENGINE_IMAGE=erp-next-fiscal:sha-<sha-completo>` e
+`ERP_FISCAL_ENGINE_TOKEN` com segredo aleatório de pelo menos 24 caracteres. Não
+usar token de exemplo nem imprimir `docker compose config` sem ocultar segredos.
+
+O motor compartilha o namespace da API e escuta somente `127.0.0.1:8091`, sem
+publicação de porta. O overlay configura a mesma origem/token na API. O health
+check autenticado confirma o processo e o ambiente de homologação; não consulta
+a SEFAZ e não comprova certificado ou autorização de uma nota.
+
+Após migrations e configuração autorizadas, usar os dois arquivos Compose com
+`up -d --no-build --wait`. A imagem do motor roda sem root, com filesystem somente
+leitura e diretório temporário limitado. A API conserva os certificados cifrados
+e envia material em memória somente durante uma operação autenticada.
+
+A habilitação de consulta automática DF-e requer também o tenant e responsável
+explicitamente configurados no `api.env`. Não configurar automação como efeito
+colateral do provisionamento do motor. Produção fiscal continua bloqueada.

@@ -586,6 +586,9 @@ async fn transition(
         Action::Complete => ("order.complete", "order.completed", "completed"),
     };
     let request = serde_json::json!({"id":id,"revision":expected});
+    if matches!(action, Action::Cancel) {
+        super::production::require_cancellation_permissions(&mut tx, tenant, &identity, id).await?;
+    }
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
     {
         let rev = previous["data"]["revision"].as_i64();
@@ -654,6 +657,9 @@ async fn transition(
             .await?;
     }
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
+    if matches!(action, Action::Cancel) {
+        super::returns::reconcile_unshipped(&mut tx, tenant, &identity, &headers, id, next).await?;
+    }
     sqlx::query("UPDATE sales_orders SET status=$3,revision=$4,updated_at=now() WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).bind(target).bind(next).execute(&mut *tx).await.map_err(db)?;
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"sales_order",id,event,details:serde_json::json!({"previousRevision":expected,"revision":next,"previousStatus":current.data.status,"status":target})}).await?;
     let value = serde_json::to_value(load(&mut tx, tenant, id, true).await?)

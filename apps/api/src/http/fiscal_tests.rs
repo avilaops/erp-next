@@ -322,7 +322,13 @@ async fn fiscal_emission_guard_never_numbers_queues_or_transmits_a_draft(admin: 
     assert_eq!(ready.2["canTransmit"], false);
     assert_eq!(ready.2["productionEnabled"], false);
     assert_eq!(ready.2["certificateVerified"], false);
-    assert_eq!(ready.2["blockers"].as_array().unwrap().len(), 5);
+    assert_eq!(
+        ready.2["blockers"],
+        json!([
+            "fiscal_engine_not_configured",
+            "a1_certificate_missing_expired_or_unavailable"
+        ])
+    );
     let created = create(&router, Uuid::now_v7(), draft()).await;
     let id = created.2["data"]["id"].as_str().unwrap();
     let uri = format!("/api/v1/fiscal/nfe/{id}/issue");

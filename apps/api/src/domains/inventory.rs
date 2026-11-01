@@ -370,11 +370,11 @@ pub async fn post_movement(
         ));
     }
     if let Some(original) = input.reverses_id {
-        let row=sqlx::query_as::<_,(Uuid,String,i64,Option<Uuid>,Option<Uuid>)>("SELECT product_id,direction,quantity_micros,reverses_id,COALESCE(source_order_id,source_purchase_receipt_id) FROM stock_movements WHERE tenant_id=$1 AND id=$2")
+        let row=sqlx::query_as::<_,(Uuid,String,i64,Option<Uuid>,Option<Uuid>)>("SELECT product_id,direction,quantity_micros,reverses_id,COALESCE(source_order_id,source_purchase_receipt_id,production_order_id) FROM stock_movements WHERE tenant_id=$1 AND id=$2")
             .bind(tenant).bind(original).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
         if row.4.is_some() {
             return Err(DomainError::Conflict(
-                "Movimento de pedido exige um fluxo próprio de devolução, ainda não disponível",
+                "Use o fluxo de devolução do pedido ou de estorno do consumo de produção",
             ));
         }
         if row.0 != input.product_id

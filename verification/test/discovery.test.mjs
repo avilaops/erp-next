@@ -115,3 +115,23 @@ test('dynamic action dispatch is inconclusive rather than a false missing-backen
   assert.equal(findings[0].severity, 'info');
   assert.equal(inventory.pages[0].staticLinks[0].bff, '/api/erp/orders/[id]/[action]');
 });
+
+test('catch-all resources do not alias a scalar parameter and declared methods remain checked', () => {
+  const inventory = {
+    pages: [],
+    bff: [{ path: '/api/erp/commissions/[...resource]', methods: ['GET', 'POST'], forwards: [{ path: '/api/v1/commissions/{param}' }], file: 'handler' }],
+    api: [{ path: '/api/v1/commissions/{id}', methods: ['GET'], file: 'router' }, { path: '/api/v1/commissions/{id}/payments', methods: ['POST'], file: 'router' }],
+  };
+  assert.deepEqual(analyze(inventory).map(finding => finding.code), ['dynamic_forward_requires_runtime']);
+  const catalogue = { actions: [
+    { ui: { bff: { path: inventory.bff[0].path, method: 'GET', resource: '{id}' } } },
+    { ui: { bff: { path: inventory.bff[0].path, method: 'POST', resource: '{id}/payments' } } },
+  ] };
+  assert.deepEqual(analyze(inventory, catalogue), []);
+  catalogue.actions[1].ui.bff.resource = '{id}';
+  assert.deepEqual(analyze(inventory, catalogue).map(finding => finding.code), ['bff_method_missing']);
+  catalogue.actions[1].ui.bff.resource = '{id}/missing';
+  assert.deepEqual(analyze(inventory, catalogue).map(finding => finding.code), ['bff_target_missing']);
+  catalogue.actions.pop();
+  assert.deepEqual(analyze(inventory, catalogue).map(finding => finding.code), ['bff_dispatch_method_unmapped']);
+});

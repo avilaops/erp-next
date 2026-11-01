@@ -49,12 +49,17 @@ test("coleta usa BFF autenticado, preserva empresa e nunca recebe cursor do nave
   await installFrontendFixture(context)
   await context.unroute("**/api/erp/**")
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa sintética" }, permissions: [] } }))
-  await page.route("**/api/erp/fiscal/received-nfes?*", route => route.fulfill({ json: { tenantId: tenant, canImport: true, data: [], total: 0 } }))
+  let receivedLoads = 0
+  await page.route("**/api/erp/fiscal/received-nfes?*", route => {
+    receivedLoads++
+    return route.fulfill({ json: { tenantId: tenant, canImport: true, data: [], total: 0 } })
+  })
   await page.goto("/fiscal/monitor")
   await expect(page.getByText("000000000000007", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Consultar SEFAZ", exact: true }).click()
   await expect(page.getByRole("status").filter({ hasText: "Lote consultado" })).toBeVisible()
   expect(collected).toBe(1)
+  await expect.poll(() => receivedLoads).toBeGreaterThanOrEqual(2)
   expect((await context.request.post("/api/erp/fiscal/monitor/sync", { headers: { Origin: "https://outside.example", "X-Tenant-Id": tenant }, data: {} })).status()).toBe(403)
   expect((await context.request.post("/api/erp/fiscal/monitor/sync", { headers: { Origin: origin, "X-Tenant-Id": "22222222-2222-4222-8222-222222222222" }, data: {} })).status()).toBe(409)
   expect(collected).toBe(1)

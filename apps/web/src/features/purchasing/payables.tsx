@@ -18,7 +18,7 @@ type Account = { id: string; receiptId: string; supplierName: string; dueDate: s
 type Payment = { id: string; kind: string; amount: string; method: string; reference: string; occurredOn: string; reversesId: string | null }
 type Detail = { tenantId: string; canEdit: boolean; data: Account; payments: Payment[] }
 type Listing = { tenantId: string; canEdit: boolean; data: Account[]; total: number }
-const situation = (account: Account) => account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
+const situation = (account: Account) => account.status === "cancelled" ? "Cancelado" : account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
 
 export function Payables({ id }: { id?: string }) {
   return id ? <PayableDetail key={id} id={id} /> : <PayableList />
@@ -58,8 +58,9 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
     const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
     window.addEventListener("beforeunload", prevent); return () => window.removeEventListener("beforeunload", prevent)
   }, [dirty, command.uncertain])
-  const activePayments = value.payments.filter(payment => payment.kind === "payment" && !value.payments.some(other => other.reversesId === payment.id))
+  const activePayments = value.data.status === "cancelled" ? [] : value.payments.filter(payment => payment.kind === "payment" && !value.payments.some(other => other.reversesId === payment.id))
   const paid = value.data.status === "paid"
+  const cancelled = value.data.status === "cancelled"
   const reversing = Boolean(paymentId)
   return <><PageHeader eyebrow="Financeiro" title="Conta a pagar" description="Pagamentos declarados e estornos mantêm o histórico. Nenhuma transferência bancária é executada por esta tela." />
     <Link className={purchaseLink} href="/financeiro/contas-pagar" onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar o registro financeiro em edição?")) event.preventDefault() }}>Voltar às contas a pagar</Link>
@@ -67,8 +68,7 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
       <h2 className="break-words font-semibold">{value.data.supplierName}</h2><p>Valor: {money(value.data.amount)}</p><p>Pago declarado: {money(value.data.paidAmount)}</p><p>Saldo restante: {money(value.data.outstandingAmount)}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate} · Revisão {value.data.revision}</p>
       {!dirty && <Link className={purchaseLink} href={`/compras/recebimentos/${value.data.receiptId}`}>Consultar recebimento de origem</Link>}
       {methodError && <p role="status">Sugestão indisponível. Confira o meio declarado antes de confirmar.</p>}
-      {!value.canEdit ? <p>Somente consulta.</p> : (!paid || reversing) &&
-      <form className="min-w-0 space-y-4" onSubmit={async event => {
+      {!value.canEdit ? <p>Somente consulta.</p> : cancelled ? <p>Título cancelado. O histórico foi preservado.</p> : (!paid || reversing) && <form className="min-w-0 space-y-4" onSubmit={async event => {
         event.preventDefault()
         if (!command.uncertain && !window.confirm(reversing ? "Registrar o estorno deste pagamento declarado? O estoque e o recebimento da compra serão preservados." : "Registrar este pagamento manual no ERP? Nenhum dinheiro será transferido.")) return
         const normalizedAmount = normalizeDecimal(amount)

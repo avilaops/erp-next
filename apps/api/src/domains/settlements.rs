@@ -148,6 +148,9 @@ pub(super) async fn pay(
     let (accounts, entries, foreign, positive) = kind.names();
     sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on) VALUES($1,$2,$3,$4,$5,$6,$7,$8)"))
         .bind(payment).bind(tenant).bind(id).bind(positive).bind(amount).bind(&input.method).bind(&input.reference).bind(occurred).execute(&mut *tx).await.map_err(db)?;
+    if matches!(kind, Kind::Receivable) {
+        super::commissions::on_receipt(&mut tx, tenant, payment, &identity, &headers).await?;
+    }
     sqlx::query(&format!(
         "UPDATE {accounts} SET status=$3,payment_id=$4,revision=$5 WHERE tenant_id=$1 AND id=$2"
     ))
@@ -203,6 +206,11 @@ pub(super) async fn reverse(
     if current.revision != expected {
         return Err(DomainError::StaleRevision);
     }
+    if current.status == "cancelled" {
+        return Err(DomainError::Conflict(
+            "Título cancelado não admite novos estornos",
+        ));
+    }
     if current
         .payments
         .iter()
@@ -234,6 +242,17 @@ pub(super) async fn reverse(
     let (accounts, entries, foreign, _) = kind.names();
     sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8)"))
         .bind(payment).bind(tenant).bind(id).bind(amount).bind(&original.method).bind(&input.reason).bind(occurred).bind(input.payment_id).execute(&mut *tx).await.map_err(db)?;
+    if matches!(kind, Kind::Receivable) {
+        super::commissions::on_reversal(
+            &mut tx,
+            tenant,
+            input.payment_id,
+            payment,
+            &identity,
+            &headers,
+        )
+        .await?;
+    }
     sqlx::query(&format!("UPDATE {accounts} SET status='open',payment_id=NULL,revision=$3 WHERE tenant_id=$1 AND id=$2")).bind(tenant).bind(id).bind(next).execute(&mut *tx).await.map_err(db)?;
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:kind.entity(),id,event:kind.event(false,true),details:json!({"paymentId":payment,"reversesId":input.payment_id,"previousRevision":expected,"revision":next})}).await?;
     let result = kind.load(&mut tx, tenant, id).await?.value;

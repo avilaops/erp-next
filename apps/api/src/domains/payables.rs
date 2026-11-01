@@ -51,7 +51,7 @@ pub struct PayableList {
     limit: u32,
 }
 
-const ACCOUNT_SELECT: &str = "SELECT r.id,r.receipt_id,r.supplier_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.paid::numeric/100)::numeric(16,2)::text AS paid_amount,((r.amount_cents-totals.paid)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM payables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='payment' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS paid FROM payable_payments p WHERE p.tenant_id=r.tenant_id AND p.payable_id=r.id) totals";
+const ACCOUNT_SELECT: &str = "SELECT r.id,r.receipt_id,r.supplier_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.paid::numeric/100)::numeric(16,2)::text AS paid_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.paid END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM payables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='payment' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS paid FROM payable_payments p WHERE p.tenant_id=r.tenant_id AND p.payable_id=r.id) totals";
 
 async fn load(
     tx: &mut Transaction<'_, Postgres>,

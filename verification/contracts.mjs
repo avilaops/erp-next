@@ -74,7 +74,32 @@ export function assessContracts(catalogue, inventory) {
         if (!text(proxy.action) || !Array.isArray(dispatch?.actions) || !dispatch.actions.includes(proxy.action)) fail('undefined_dispatch_action', target, 'Ação dinâmica não especificada no catálogo.');
         expected = expected.replace('[action]', proxy.action || '');
       }
+      if (proxy.path.includes('[...resource]')) {
+        const dispatch = catalogue.dispatches.find(item => item?.path === proxy.path && item.method === proxy.method);
+        if (!text(proxy.resource) || !Array.isArray(dispatch?.resources) || !dispatch.resources.includes(proxy.resource)) fail('undefined_dispatch_resource', target, 'Recurso de rota abrangente não especificado no catálogo.');
+        expected = expected.replace('[...resource]', proxy.resource || '');
+      }
       if (operation.method !== proxy.method || normalizedRoute(expected) !== normalizedRoute(operation.path)) fail('wrong_bff_target', target, 'O BFF declarado não corresponde à operação desta ficha.');
+    }
+  }
+  const dispatchKeys = new Set();
+  for (const dispatch of catalogue.dispatches) {
+    const target = `${dispatch?.method} ${dispatch?.path}`;
+    const catchAll = dispatch?.path?.includes('[...resource]');
+    const values = catchAll ? dispatch.resources : dispatch?.actions;
+    if (dispatchKeys.has(target) || !methods.has(dispatch?.method) || !text(dispatch?.path)
+        || !bff.has(key(dispatch)) || !texts(values) || !values.length || new Set(values).size !== values.length
+        || (!catchAll && !dispatch.path.includes('[action]'))) {
+      fail('invalid_dispatch_contract', target, 'Despacho exige handler existente, método e destinos explícitos únicos.');
+      continue;
+    }
+    dispatchKeys.add(target);
+    for (const value of values) {
+      const property = catchAll ? 'resource' : 'action';
+      if (!catalogue.actions.some(action => action.ui?.bff?.path === dispatch.path
+          && action.ui.bff.method === dispatch.method && action.ui.bff[property] === value)) {
+        fail('dispatch_without_action_contract', target, `Destino dinâmico sem ficha canônica: ${value}`);
+      }
     }
   }
   for (const auth of catalogue.authActions) {

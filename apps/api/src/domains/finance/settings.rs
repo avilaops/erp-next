@@ -48,20 +48,17 @@ async fn transaction<'a>(
             .map_err(db)?;
     }
     let member = access::load_access(&mut tx, tenant, &identity.subject).await?;
-    let can_edit = member
-        .permissions
-        .iter()
-        .any(|p| p == "platform.company.manage");
+    let can_edit = access::require_permission(&member, "platform.company.manage").is_ok();
     if write {
         access::require_permission(&member, "platform.company.manage")?;
-    } else if !member.permissions.iter().any(|p| {
-        [
-            "platform.company.read",
-            "finance.receivables.read",
-            "finance.payables.read",
-        ]
-        .contains(&p.as_str())
-    }) {
+    } else if ![
+        "platform.company.read",
+        "finance.receivables.read",
+        "finance.payables.read",
+    ]
+    .iter()
+    .any(|permission| access::require_permission(&member, permission).is_ok())
+    {
         return Err(access::AccessError::Forbidden.into());
     }
     Ok((tenant, tx, can_edit))

@@ -5,6 +5,7 @@ import { Suspense } from "react"
 import { ErpEntryPreview } from "@/components/erp-entry-preview"
 import { isErpLoginConfigured, WorkspaceAccessNotice } from "@/components/workspace-access"
 import { safeReturnTo } from "@/lib/return-to"
+import "./entrar.css"
 
 type LoginProps = { searchParams: Promise<{ returnTo?: string | string[]; erro?: string | string[] }> }
 
@@ -35,7 +36,7 @@ async function LoginForm({ searchParams }: LoginProps) {
     <div className="min-h-dvh bg-primary/[0.035] text-foreground dark:bg-background lg:flex lg:flex-col lg:justify-center">
       <a href="#acesso" className="skip-link">Pular para o acesso</a>
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-10 lg:px-12">
-        <header className="flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
+        <header className="erp-entry-header flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
           <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-3 rounded-lg">
             <span aria-hidden="true" className="grid size-10 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground">A</span>
             <span className="leading-tight"><strong className="block text-base tracking-tight">Ávila ERP</strong><span className="mt-1 block text-xs text-muted-foreground">Avila Ops</span></span>
@@ -47,19 +48,19 @@ async function LoginForm({ searchParams }: LoginProps) {
 
         <main>
           {errorMessage && <p role="alert" className="mt-6 rounded-xl border border-border bg-card p-4 text-sm leading-6">{errorMessage}</p>}
-          <div className="grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:py-8">
-            <section aria-labelledby="welcome-title" className="min-w-0">
+          <div className="erp-entry-hero grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:py-8">
+            <section aria-labelledby="welcome-title" className="erp-entry-welcome min-w-0">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                 <span aria-hidden="true" className="h-px w-6 bg-primary" />Sua empresa, conectada
               </p>
-              <h1 id="welcome-title" className="mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
+              <h1 id="welcome-title" className="erp-entry-title mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
                 Sua operação,<br /><span className="text-primary">sob controle.</span>
               </h1>
-              <p className="mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+              <p className="erp-entry-description mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
                 Produtos, vendas e financeiro.<br />Tudo no mesmo lugar, com a sua equipe.
               </p>
 
-              <section id="acesso" aria-labelledby="access-title" className="mt-7 scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary sm:mt-9" tabIndex={-1}>
+              <section id="acesso" aria-labelledby="access-title" className="erp-entry-access mt-7 scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary sm:mt-9" tabIndex={-1}>
                 <h2 id="access-title" className="text-sm font-medium">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">

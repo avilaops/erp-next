@@ -125,6 +125,8 @@ test("entry preview shows complete product data with margins in landscape and ad
   for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport)
     await page.goto("/entrar")
+    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
     await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
     const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
     const image = dialog.getByRole("img")

@@ -26,6 +26,7 @@ end
 def signup(client, email, extra = {})
   visit(client, '/sign_up')
   check(client.last_response.status == 200, 'signup page missing')
+  check(Nokogiri::HTML(client.last_response.body).css('a').any? { |link| link.text.strip == 'Entrar' }, 'signup navigation must be Portuguese')
   check(csrf(client).present?, 'signup CSRF token missing')
   password = SecureRandom.hex(16)
   payload = { account_name: 'CI public account', authenticity_token: csrf(client),

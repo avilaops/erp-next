@@ -57,7 +57,7 @@ export const moduleLinks = [
   ["Início", "/"], ["Dashboards", "/dashboards"], ["Cadastros", "/cadastros"],
   ["Vendas", "/vendas"], ["Estoque", "/estoque"], ["Compras", "/compras"],
   ["Financeiro", "/financeiro"], ["Fiscal", "/fiscal"], ["Logística", "/logistica"],
-  ["Serviços", "/servicos"], ["Relatórios", "/relatorios"], ["Preferências", "/preferencias/empresa"],
+  ["Serviços", "/servicos"], ["Relatórios", "/relatorios"], ["Preferências", "/preferencias"],
 ] as const
 
 export const preferenceGroups = [

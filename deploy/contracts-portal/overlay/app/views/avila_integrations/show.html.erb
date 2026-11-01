@@ -1,0 +1,24 @@
+<article class="max-w-3xl mx-auto px-2 space-y-6">
+  <h1 class="text-3xl font-bold mt-8">Conecte seu assistente aos seus contratos</h1>
+  <p>O MCP da Ávila Ops conecta clientes compatíveis com HTTP e token Bearer à sua conta. Cada conexão usa suas permissões e acessa somente os documentos da sua conta.</p>
+  <ol class="list-decimal pl-6 space-y-3">
+    <li><%= link_to 'Crie sua conta', avila_sign_up_path, class: 'link' %> ou <%= link_to 'entre', new_user_session_path, class: 'link' %>.</li>
+    <li>Abra <%= link_to 'Configurações → MCP', settings_mcp_index_path, class: 'link' %> e gere um token com o nome do seu assistente.</li>
+    <li>Copie o token exibido uma única vez e configure a conexão abaixo no seu cliente.</li>
+  </ol>
+  <div class="card bg-base-200 p-6 space-y-3">
+    <p><strong>Endereço:</strong> <code>https://contrato.avilaops.com/mcp</code></p>
+    <p><strong>Transporte:</strong> Streamable HTTP</p>
+    <p><strong>Autenticação:</strong> <code>Authorization: Bearer SEU_TOKEN</code></p>
+    <pre class="overflow-x-auto"><code><%= JSON.pretty_generate({ mcpServers: { 'avila-contratos' => { type: 'http', url: 'https://contrato.avilaops.com/mcp', headers: { Authorization: 'Bearer SEU_TOKEN' } } } }) %></code></pre>
+  </div>
+  <h2 class="text-2xl font-bold">O que seu assistente pode fazer</h2>
+  <ul class="list-disc pl-6 space-y-2">
+    <li>Buscar modelos e consultar seus campos e participantes.</li>
+    <li>Criar um modelo e abrir o editor para carregar o documento.</li>
+    <li>Consultar contratos pendentes e assinados da sua conta.</li>
+  </ul>
+  <p>O envio de convites por e-mail não está disponível para novas contas públicas. Você pode preparar documentos no portal e compartilhar os links de assinatura.</p>
+  <p>O token permite acesso aos seus contratos. Guarde-o no gerenciador de segredos do cliente e revogue conexões em Configurações → MCP. Você também pode desativar o MCP inteiro da sua conta.</p>
+  <p>Esta conexão usa token pessoal. Clientes que exigem login OAuth, sem aceitar um cabeçalho Bearer configurável, ainda não são compatíveis.</p>
+</article>

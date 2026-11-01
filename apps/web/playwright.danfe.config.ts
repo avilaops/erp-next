@@ -11,7 +11,7 @@ const webkit = process.env.ERP_BROWSER_ENGINE === "webkit"
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["help-ui.spec.ts", "dashboard-preferences.spec.ts", "danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts", "catalog-navigation-ui.spec.ts", "frontend-controls-ui.spec.ts", "frontend-states-ui.spec.ts", "frontend-models.spec.ts", "frontend-integration-ui.spec.ts"],
+  testMatch: ["help-ui.spec.ts", "dashboard-preferences.spec.ts", "danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts", "catalog-navigation-ui.spec.ts", "frontend-controls-ui.spec.ts", "frontend-states-ui.spec.ts", "frontend-models.spec.ts", "frontend-integration-ui.spec.ts", "returns-ui.spec.ts", "fiscal-operations-ui.spec.ts", "fiscal-incoming-ui.spec.ts", "commissions-ui.spec.ts", "production-ui.spec.ts", "fiscal-tax-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
@@ -28,3 +28,4 @@ export default defineConfig({
     env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_DEFAULT_TENANT_ID: "99999999-9999-4999-8999-999999999999", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
   },
 })
+

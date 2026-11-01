@@ -26,3 +26,4 @@ export function money(value: string): string {
   const [whole, fraction = "00"] = value.split(".")
   return `R$ ${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${fraction}`
 }
+

@@ -419,6 +419,29 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
     assert_eq!(forbidden_hook.status(), StatusCode::FORBIDDEN);
     assert_eq!(fixture.creates.load(Ordering::SeqCst), 1);
     assert_eq!(fixture.sends.load(Ordering::SeqCst), 1);
+    sqlx::query("UPDATE sales_orders SET status='cancelled',revision=revision+1 WHERE id=$1")
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let refused = call(
+        &router,
+        "POST",
+        &format!("{path}/send"),
+        "editor",
+        send_revision,
+        send_key,
+        json!({}),
+    )
+    .await;
+    assert_eq!(refused.0, StatusCode::CONFLICT);
+    assert!(
+        refused.1["title"]
+            .as_str()
+            .unwrap()
+            .contains("pedido foi cancelado")
+    );
+    assert_eq!(fixture.sends.load(Ordering::SeqCst), 1);
     provider_server.abort();
     super::company_tests::cleanup(&admin, pool, fixture_server, &role).await;
 }

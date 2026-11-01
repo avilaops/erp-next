@@ -107,3 +107,24 @@ fn received_requires_iso_datetime_separator() {
         .replace("2026-10-27T12:00:00-03:00", "2026-10-27X12:00:00-03:00");
     assert!(inspect_received(&xml, RECIPIENT).is_err());
 }
+
+#[test]
+fn purchase_items_preserve_landed_taxes_and_reject_quantity_or_money_loss() {
+    let xml = super::super::danfe::FIXTURE;
+    let items = inspect_purchase_items(xml, RECIPIENT).unwrap();
+    assert_eq!(items[0].quantity_micros, 1_000_000);
+    assert_eq!(items[0].unit_cost_cents, 1000);
+    let taxed = xml
+        .replace("</prod>", "<vFrete>2.00</vFrete></prod>")
+        .replace("<vNF>10.00</vNF>", "<vNF>12.00</vNF>");
+    let items = inspect_purchase_items(&taxed, RECIPIENT).unwrap();
+    assert_eq!(items[0].landed_cents, 1200);
+    assert_eq!(items[0].components["vFrete"], 200);
+    for (from, to) in [
+        ("<qCom>1.0000</qCom>", "<qCom>2.0000</qCom>"),
+        ("<vUnCom>10.0000000000</vUnCom>", "<vUnCom>10.001</vUnCom>"),
+        ("<vNF>10.00</vNF>", "<vNF>11.00</vNF>"),
+    ] {
+        assert!(inspect_purchase_items(&xml.replace(from, to), RECIPIENT).is_err());
+    }
+}

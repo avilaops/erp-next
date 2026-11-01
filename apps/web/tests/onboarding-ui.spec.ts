@@ -121,6 +121,24 @@ test("entry keeps access visible and its single preview supports keyboard readin
   }
 })
 
+test("entry recovery keeps the error and access controls together in the first phone viewport", async ({ page }) => {
+  const destination = "/cadastros/produtos?status=active"
+  for (const viewport of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) {
+    await page.setViewportSize(viewport)
+    for (const error of ["restart", "denied", "unavailable"]) {
+      await page.goto("/entrar?" + new URLSearchParams({ erro: error, returnTo: destination }))
+      await expect(page.getByRole("heading", { name: "Retome o acesso", exact: true })).toBeVisible()
+      const alert = page.locator("main").getByRole("alert")
+      await expect(alert).toBeInViewport({ ratio: 1 })
+      const login = page.getByRole("button", { name: "Entrar", exact: true })
+      await expect(login).toBeInViewport({ ratio: 1 })
+      await expect(login).toHaveAttribute("aria-describedby", "access-error")
+      await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
+      await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+    }
+  }
+})
+
 test("entry preview shows complete product data with margins in landscape and adapts when rotated", async ({ page }) => {
   for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport)

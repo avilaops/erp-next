@@ -12,8 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 130);
-  assert.equal(assessment.bffOperations, 118);
+  assert.equal(assessment.apiOperations, 168);
+  assert.equal(assessment.bffOperations, 144);
   assert.equal(assessment.pendingFlows, 25);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
@@ -43,10 +43,23 @@ test('new undocumented routes, stale contracts, missing preconditions and false 
   assert.ok(assessContracts(invalidAsset, added).findings.some(finding => finding.code === 'bff_without_action_contract'));
 });
 
-test('blocked NF-e remains blocked and dynamic BFF actions cannot invent commands', async () => {
+test('homologation issuance is implemented with durable state while production remains excluded', () => {
+  const issue = catalogue.actions.find(action => action.operation.path.endsWith('/issue'));
+  assert.equal(issue.status, 'implemented');
+  assert.deepEqual(issue.response.successStatuses, [200, 202]);
+  assert.ok(issue.response.errorStatuses.includes(503));
+  assert.ok(issue.preconditions.some(value => value.includes('SP') && value.includes('homologação')));
+  assert.ok(issue.effects.writes.some(value => value.includes('numeração')));
+  assert.ok(issue.effects.external.some(value => value.includes('homologação')));
+  assert.ok(issue.effects.excludes.some(value => value.includes('produção')));
+  assert.equal(issue.ui.bff.action, 'issue');
+});
+
+test('blocked declarations and dynamic BFF actions cannot invent success or commands', async () => {
   const inventory = await discover(fileURLToPath(root));
   const changed = structuredClone(catalogue);
   const issue = changed.actions.find(action => action.operation.path.endsWith('/issue'));
+  issue.status = 'blocked';
   issue.response.successStatuses = [200];
   const confirm = changed.actions.find(action => action.operation.path.endsWith('/confirm'));
   confirm.ui.bff.action = 'invented-command';
@@ -54,6 +67,21 @@ test('blocked NF-e remains blocked and dynamic BFF actions cannot invent command
   assert.ok(findings.some(finding => finding.code === 'blocked_action_claims_success'));
   assert.ok(findings.some(finding => finding.code === 'undefined_dispatch_action'));
   assert.ok(findings.some(finding => finding.code === 'wrong_bff_target'));
+});
+
+test('catch-all handlers require explicit resources matching canonical API targets', async () => {
+  const inventory = await discover(fileURLToPath(root));
+  for (const resource of ['production', 'commissions']) {
+    const changed = structuredClone(catalogue);
+    const action = changed.actions.find(item => item.ui?.bff?.path === `/api/erp/${resource}/[...resource]`);
+    action.ui.bff.resource = 'invented-command';
+    const findings = assessContracts(changed, inventory).findings;
+    assert.ok(findings.some(finding => finding.code === 'undefined_dispatch_resource'));
+    assert.ok(findings.some(finding => finding.code === 'wrong_bff_target'));
+  }
+  const changed = structuredClone(catalogue);
+  changed.dispatches.find(item => item.path === '/api/erp/production/[...resource]').resources.push('orders/{id}/delete');
+  assert.ok(assessContracts(changed, inventory).findings.some(finding => finding.code === 'dispatch_without_action_contract'));
 });
 
 test('catalogue changes are part of source provenance and read preconditions are not invented', async () => {

@@ -55,10 +55,19 @@ Nunca publique os segredos como variáveis `NEXT_PUBLIC_`.
 O [estado atual e as pendências](docs/STATUS-ERP.md) distinguem frontend
 demonstrativo, persistência testada e integração com serviços reais.
 
-A [preparação fiscal de NF-e 55](docs/FISCAL-NFE-HOMOLOGACAO.md) oferece perfil
-por empresa e rascunhos persistentes em homologação. A emissão permanece
-bloqueada: XML, assinatura, SEFAZ, armazenamento documental e DANFE ainda não
-estão implementados. Mantenha `NFE_PRODUCTION_ENABLED=false`.
+A [continuidade fiscal e devoluções](docs/RETORNOS-E-CONTINUIDADE-FISCAL.md)
+acrescenta cancelamento comercial, estorno de recebimentos de compra, emissão e
+eventos NF-e 55/SP em homologação com adaptador interno, distribuição DF-e,
+manifestação e conversão de XML em compra. O recorte de regras fiscais e a
+configuração do motor estão documentados; não há inferência de tributação.
+Mantenha `NFE_PRODUCTION_ENABLED=false`. Testes locais não substituem homologação
+com certificado real nem publicam a funcionalidade em produção.
+
+A [segunda etapa de reconciliação](docs/COMISSOES-PRODUCAO-E-FISCAL.md) adiciona
+comissões sobre recebimentos, produção com consumo declarado e reconciliação
+atômica de cancelamentos. Também amplia a declaração fiscal para CRT 3 interno
+SP e prepara a imagem/overlay privado do motor. Percentuais e decisões fiscais
+continuam explícitos, sem preenchimento presumido.
 
 O [monitor fiscal canônico](docs/MONITOR-FISCAL-CANONICO.md) acrescenta coleta
 incremental com cursor por empresa, XML original e manifestação explícita do
@@ -77,3 +86,4 @@ Plataforma, Cadastros, Comercial, Estoque, Financeiro, Fiscal, Logística e Serv
 ## Conteúdo e contratos
 
 A integração de tipos OpenAPI na web, a ajuda MDX e o layout pessoal estão descritos em [Conteúdo e contratos](docs/CONTEUDO-E-CONTRATOS.md).
+

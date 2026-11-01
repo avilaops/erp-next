@@ -1,0 +1,91 @@
+{
+  "format": 1,
+  "sourceUrl": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w%3D",
+  "sourceRecord": "tests/fixtures/nfe-xsd/ORIGEM.md",
+  "sourceCheckedAt": "2026-10-10",
+  "packages": {
+    "nfe": {
+      "release": "PL_010f v1.04",
+      "entry": "nfe_v4.00.xsd",
+      "files": [
+        {
+          "name": "nfe_v4.00.xsd",
+          "sha256": "4c482477ad9b26e0e7ad00528a2a8e23e393a8b1ab16da8f02658785cb373f53",
+          "fixture": "nfe_v4.00.xsd"
+        },
+        {
+          "name": "leiauteNFe_v4.00.xsd",
+          "sha256": "2bace939973916d54184ff3e2740041a932de5d79772f3363504504160f22542",
+          "fixture": "leiauteNFe_v4.00.xsd"
+        },
+        {
+          "name": "tiposBasico_v4.00.xsd",
+          "sha256": "23a57c2a159ea17b21d79b7d23d517e160fa506bc079e122a40576f64d821486",
+          "fixture": "tiposBasico_v4.00.xsd"
+        },
+        {
+          "name": "DFeTiposBasicos_v1.00.xsd",
+          "sha256": "8d2f4d64a7a83a507acb65ac533221f83315238bb5e3cee96707926113c033c5",
+          "fixture": "DFeTiposBasicos_v1.00.xsd"
+        },
+        {
+          "name": "xmldsig-core-schema_v1.01.xsd",
+          "sha256": "9ee96a739280d64e68f1b5c9e1e32519a249ad25f87edaff800c15150897c98b",
+          "fixture": "xmldsig-core-schema_v1.01.xsd"
+        }
+      ]
+    },
+    "evento": {
+      "release": "PL_010d v1.03",
+      "entry": "envEvento_v1.00.xsd",
+      "files": [
+        {
+          "name": "envEvento_v1.00.xsd",
+          "sha256": "62bb598bb8d2bffd003ef80fd2f1de282083851adb89c4841f90c7961b4a3bce",
+          "fixture": "PL_010d_v1.03/Evento/envEvento_v1.00.xsd"
+        },
+        {
+          "name": "leiauteEvento_v1.00.xsd",
+          "sha256": "7f81b2346c5878fdabc55563153fe24ef727fc007fcc245a93d67a50e825d13b",
+          "fixture": "PL_010d_v1.03/Evento/leiauteEvento_v1.00.xsd"
+        },
+        {
+          "name": "tiposBasico_v1.03.xsd",
+          "sha256": "dcd0f5ce2bff3af7528c4db5b5a401f6a31d239bcd2631e2fbe893a4c643f0db",
+          "fixture": "PL_010d_v1.03/Evento/tiposBasico_v1.03.xsd"
+        },
+        {
+          "name": "xmldsig-core-schema_v1.01.xsd",
+          "sha256": "9ee96a739280d64e68f1b5c9e1e32519a249ad25f87edaff800c15150897c98b",
+          "fixture": "PL_010d_v1.03/Evento/xmldsig-core-schema_v1.01.xsd"
+        }
+      ]
+    },
+    "inutilizacao": {
+      "release": "PL_010d v1.03",
+      "entry": "inutNFe_v4.00.xsd",
+      "files": [
+        {
+          "name": "inutNFe_v4.00.xsd",
+          "sha256": "bdb5b01bc77885756f4660bb14f120ae5f8853f962deb50fbf42c96df65b8f29",
+          "fixture": "inutNFe_v4.00.xsd"
+        },
+        {
+          "name": "leiauteInutNFe_v4.00.xsd",
+          "sha256": "bb9a47cea038c84d322189ea8694ae1f3c4f3cf2a5e6390e5e9674b5a0c115e5",
+          "fixture": "PL_010d_v1.03/NFe/leiauteInutNFe_v4.00.xsd"
+        },
+        {
+          "name": "tiposBasico_v4.00.xsd",
+          "sha256": "23a57c2a159ea17b21d79b7d23d517e160fa506bc079e122a40576f64d821486",
+          "fixture": "PL_010d_v1.03/NFe/tiposBasico_v4.00.xsd"
+        },
+        {
+          "name": "xmldsig-core-schema_v1.01.xsd",
+          "sha256": "9ee96a739280d64e68f1b5c9e1e32519a249ad25f87edaff800c15150897c98b",
+          "fixture": "PL_010d_v1.03/NFe/xmldsig-core-schema_v1.01.xsd"
+        }
+      ]
+    }
+  }
+}

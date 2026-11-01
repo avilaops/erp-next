@@ -252,7 +252,7 @@ export async function discover(root, options = {}) {
   return { schemaVersion: '1', sourceHash: hash(JSON.stringify(files)), parser: { typescript: ts.version, rust: 'production-module-literal-router-v2' }, pages, bff, api, browserTests, sourceFiles: files };
 }
 
-export function analyze(inventory) {
+export function analyze(inventory, catalogue = null) {
   const findings = [];
   const lookup = collection => new Map(collection.map(route => [normalizedRoute(route.path), route]));
   const bff = lookup(inventory.bff), api = lookup(inventory.api);
@@ -264,14 +264,32 @@ export function analyze(inventory) {
       seen.add(key);
     }
   }
-  for (const route of inventory.bff) for (const target of route.forwards) {
-    const backend = api.get(normalizedRoute(target.path));
-    if (!backend && target.path.includes('{param}')) {
-      const candidates = inventory.api.filter(item => compatibleRoutes(target.path, item.path));
-      findings.push({ severity: 'info', code: 'dynamic_forward_requires_runtime', path: route.path, evidence: [route.file, ...candidates.map(item => item.file)], detail: `Destino dinâmico ${target.path}; ${candidates.length} rota(s) compatível(is) encontrada(s). A seleção e o método exigem execução ou análise adicional.` });
+  for (const route of inventory.bff) {
+    if (route.path.includes('[...resource]')) {
+      const mappings = (catalogue?.actions || []).filter(action => action.ui?.bff?.path === route.path);
+      if (!mappings.length) {
+        findings.push({ severity: 'info', code: 'dynamic_forward_requires_runtime', path: route.path, evidence: [route.file], detail: 'O recurso abrangente pode conter vários segmentos; uma rota de parâmetro único não determina seus destinos ou métodos.' });
+      } else for (const method of route.methods) {
+        const targets = mappings.filter(action => action.ui.bff.method === method && typeof action.ui.bff.resource === 'string');
+        if (!targets.length) findings.push({ severity: 'error', code: 'bff_dispatch_method_unmapped', path: route.path, evidence: [route.file], detail: `${method} sem destinos explícitos no catálogo.` });
+        for (const action of targets) {
+          const target = route.path.replace('/api/erp/', '/api/v1/').replace('[...resource]', action.ui.bff.resource);
+          const backend = api.get(normalizedRoute(target));
+          if (!backend) findings.push({ severity: 'error', code: 'bff_target_missing', path: route.path, evidence: [route.file], detail: `Recurso declarado aponta para ${target}, ausente da API.` });
+          else if (!backend.methods.includes(method)) findings.push({ severity: 'error', code: 'bff_method_missing', path: route.path, evidence: [route.file, backend.file], detail: `${method} não encontrado no destino ${backend.path}.` });
+        }
+      }
+      continue;
     }
-    else if (!backend) findings.push({ severity: 'error', code: 'bff_target_missing', path: route.path, evidence: [route.file], detail: `forwardErp aponta para ${target.path}, não localizado nos roteadores literais.` });
-    else for (const method of route.methods) if (!backend.methods.includes(method)) findings.push({ severity: 'error', code: 'bff_method_missing', path: route.path, evidence: [route.file, backend.file], detail: `${method} não encontrado no destino ${backend.path}.` });
+    for (const target of route.forwards) {
+      const backend = api.get(normalizedRoute(target.path));
+      if (!backend && target.path.includes('{param}')) {
+        const candidates = inventory.api.filter(item => compatibleRoutes(target.path, item.path));
+        findings.push({ severity: 'info', code: 'dynamic_forward_requires_runtime', path: route.path, evidence: [route.file, ...candidates.map(item => item.file)], detail: `Destino dinâmico ${target.path}; ${candidates.length} rota(s) compatível(is) encontrada(s). A seleção e o método exigem execução ou análise adicional.` });
+      }
+      else if (!backend) findings.push({ severity: 'error', code: 'bff_target_missing', path: route.path, evidence: [route.file], detail: `forwardErp aponta para ${target.path}, não localizado nos roteadores literais.` });
+      else for (const method of route.methods) if (!backend.methods.includes(method)) findings.push({ severity: 'error', code: 'bff_method_missing', path: route.path, evidence: [route.file, backend.file], detail: `${method} não encontrado no destino ${backend.path}.` });
+    }
   }
   for (const page of inventory.pages) {
     page.staticLinks = [];

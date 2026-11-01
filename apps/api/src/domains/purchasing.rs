@@ -87,6 +87,8 @@ pub struct ReceiptSummary {
     occurred_on: String,
     amount: String,
     payable_id: Option<Uuid>,
+    reversal_id: Option<Uuid>,
+    order_revision: i64,
 }
 #[derive(FromRow, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -131,7 +133,7 @@ pub struct ReceiptResult {
 }
 
 const SUMMARY: &str = "SELECT id,supplier_id,supplier_name,supplier_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM purchase_orders";
-const RECEIPT_SUMMARY: &str = "SELECT r.id,r.order_id,r.reference,r.occurred_on::text AS occurred_on,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,p.id AS payable_id FROM purchase_receipts r LEFT JOIN payables p ON p.tenant_id=r.tenant_id AND p.receipt_id=r.id";
+const RECEIPT_SUMMARY: &str = "SELECT r.id,r.order_id,r.reference,r.occurred_on::text AS occurred_on,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,p.id AS payable_id,reversed.id AS reversal_id,o.revision AS order_revision FROM purchase_receipts r JOIN purchase_orders o ON o.tenant_id=r.tenant_id AND o.id=r.order_id LEFT JOIN payables p ON p.tenant_id=r.tenant_id AND p.receipt_id=r.id LEFT JOIN purchase_receipt_reversals reversed ON reversed.tenant_id=r.tenant_id AND reversed.receipt_id=r.id";
 
 pub(super) async fn received_line(
     tx: &mut Transaction<'_, Postgres>,
@@ -452,6 +454,36 @@ pub async fn create(
     tx.commit().await.map_err(db)?;
     Ok(response(StatusCode::CREATED, Some(1), result))
 }
+/// Create only the purchasing draft inside the caller's transaction. The caller
+/// owns command deduplication, authorization, origin linkage and audit/outbox.
+pub(crate) async fn create_fiscal_draft(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    supplier_id: Uuid,
+    due_date: String,
+    items: Vec<(Uuid, String, String)>,
+) -> Result<PurchaseSnapshot, DomainError> {
+    let mut input = PurchaseInput {
+        supplier_id,
+        due_date,
+        items: items
+            .into_iter()
+            .map(|(product_id, quantity, unit_cost)| PurchaseItemInput {
+                product_id,
+                quantity,
+                unit_cost,
+            })
+            .collect(),
+    };
+    normalize(&mut input)?;
+    let prepared = prepare(tx, tenant, &mut input, None).await?;
+    let id = Uuid::now_v7();
+    sqlx::query("INSERT INTO purchase_orders(id,tenant_id,supplier_id,supplier_name,supplier_tax_id,due_date,amount_cents,status) VALUES($1,$2,$3,$4,$5,$6,$7,'draft')")
+        .bind(id).bind(tenant).bind(input.supplier_id).bind(prepared.supplier_name).bind(prepared.supplier_tax_id).bind(prepared.due).bind(prepared.total).execute(&mut **tx).await.map_err(db)?;
+    save_lines(tx, tenant, id, prepared.lines).await?;
+    load(tx, tenant, id, true).await
+}
+
 fn normalize(input: &mut PurchaseInput) -> Result<(), DomainError> {
     sales::date(&input.due_date)?;
     for item in &mut input.items {
@@ -488,6 +520,33 @@ pub async fn update(
     let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     let prepared = prepare(&mut tx, tenant, &mut input, Some(&previous)).await?;
+    // A fiscal origin is immutable evidence. A due-date edit may rebuild the
+    // unchanged rows, but supplier, quantities and landed costs must still match.
+    let fiscal_origin:Option<(Uuid,String)>=sqlx::query_as("SELECT l.supplier_id,n.issuer_document FROM fiscal_received_purchase_links l JOIN fiscal_received_nfes n ON n.tenant_id=l.tenant_id AND n.id=l.received_nfe_id WHERE l.tenant_id=$1 AND l.purchase_order_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+    if let Some((supplier, issuer)) = fiscal_origin {
+        let source:Vec<(Uuid,String,i64,i64,i64)>=sqlx::query_as("SELECT product_id,unit,quantity_micros,unit_cost_cents,landed_cents FROM fiscal_received_item_costs WHERE tenant_id=$1 AND purchase_order_id=$2")
+            .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+        if supplier != input.supplier_id
+            || issuer != prepared.supplier_tax_id
+            || source.len() != prepared.lines.len()
+            || prepared.lines.iter().any(|line| {
+                !source
+                    .iter()
+                    .any(|(product, unit, quantity, cost, amount)| {
+                        *product == line.product_id
+                            && *unit == line.unit
+                            && *quantity == line.quantity
+                            && *cost == line.cost
+                            && *amount == line.amount
+                    })
+            })
+        {
+            return Err(DomainError::Conflict(
+                "Compra vinculada ao XML: preserve fornecedor, produtos, unidades, quantidades e custos fiscais; somente o vencimento pode ser alterado",
+            ));
+        }
+    }
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     sqlx::query("DELETE FROM purchase_order_lines WHERE tenant_id=$1 AND order_id=$2")
         .bind(tenant)

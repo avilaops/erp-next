@@ -1,7 +1,7 @@
-import { NewProductionOrder } from "@/features/inventory/details-operations-production";
+import { ProductionWorkspace } from "@/features/production/production-workspace";
 
 export default function NewProductionOrderPage() {
-  return <NewProductionOrder />;
+  return <ProductionWorkspace />;
 }
 
 export const metadata = { title: "Nova ordem de produção" }

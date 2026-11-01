@@ -138,3 +138,137 @@ pub fn inspect_received(xml: &str, recipient_cnpj: &str) -> Result<ReceivedMetad
 #[cfg(test)]
 #[path = "received_model_tests.rs"]
 mod tests;
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReceivedItem {
+    pub number: i32,
+    pub source_code: String,
+    pub name: String,
+    pub unit: String,
+    pub quantity_micros: i64,
+    pub unit_cost_cents: i64,
+    pub merchandise_cents: i64,
+    pub landed_cents: i64,
+    pub components: serde_json::Value,
+}
+
+/// XML decimals may omit trailing zeroes; accept those without losing precision.
+fn exact_decimal(raw: &str, scale: usize) -> Result<i64, &'static str> {
+    if raw.is_empty()
+        || raw.len() > 64
+        || !raw
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'.')
+    {
+        return Err("Decimal fiscal inválido");
+    }
+    let (whole, fraction) = raw.split_once('.').unwrap_or((raw, ""));
+    if fraction.len() > scale && fraction[scale..].bytes().any(|b| b != b'0') {
+        return Err("Precisão fiscal incompatível com compra");
+    }
+    let fraction = &fraction[..fraction.len().min(scale)];
+    let normalized = format!("{whole}.{fraction:0<scale$}");
+    crate::domains::fixed(&normalized, scale).map_err(|_| "Decimal fiscal inválido")
+}
+
+pub fn inspect_purchase_items(
+    xml: &str,
+    recipient: &str,
+) -> Result<Vec<ReceivedItem>, &'static str> {
+    let metadata = inspect_received(xml, recipient)?;
+    let document = Document::parse_with_options(
+        xml,
+        roxmltree::ParsingOptions {
+            allow_dtd: false,
+            nodes_limit: 100_000,
+            ..Default::default()
+        },
+    )
+    .map_err(|_| "XML fiscal inválido")?;
+    let info = child(child(document.root_element(), "NFe")?, "infNFe")?;
+    let mut result = Vec::new();
+    let mut total = 0_i64;
+    for item in info.children().filter(|n| n.has_tag_name((NFE, "det"))) {
+        let product = child(item, "prod")?;
+        let quantity = exact_decimal(text(product, "qCom")?, 6)?;
+        let unit_cost = exact_decimal(text(product, "vUnCom")?, 2)?;
+        let merchandise = exact_decimal(text(product, "vProd")?, 2)?;
+        if quantity <= 0
+            || (i128::from(quantity) * i128::from(unit_cost) + 500_000) / 1_000_000
+                != i128::from(merchandise)
+        {
+            return Err("Quantidade, custo unitário e total do item não conferem");
+        }
+        if product
+            .children()
+            .any(|n| n.has_tag_name((NFE, "indTot")) && n.text() != Some("1"))
+        {
+            return Err("Item fora do total da nota não pode originar compra");
+        }
+        let mut components = serde_json::Map::new();
+        let mut landed = merchandise;
+        for field in [
+            "vFrete",
+            "vSeg",
+            "vOutro",
+            "vDesc",
+            "vIPI",
+            "vIPIDevol",
+            "vICMSST",
+            "vFCPST",
+            "vII",
+            "vICMS",
+            "vPIS",
+            "vCOFINS",
+        ] {
+            let mut nodes = item.descendants().filter(|n| n.has_tag_name((NFE, field)));
+            let amount = match nodes.next() {
+                Some(node) => exact_decimal(node.text().ok_or("Tributo vazio")?, 2)?,
+                None => 0,
+            };
+            if nodes.next().is_some() {
+                return Err("Componente de custo duplicado");
+            }
+            components.insert(field.to_owned(), amount.into());
+            let adjustment = match field {
+                "vDesc" => -amount,
+                "vICMS" | "vPIS" | "vCOFINS" => 0,
+                _ => amount,
+            };
+            landed = landed
+                .checked_add(adjustment)
+                .ok_or("Custo fora do limite")?;
+        }
+        if landed < 0 {
+            return Err("Custo do item negativo");
+        }
+        // Purchasing stores unit cost in cents. Do not silently drop landed costs
+        // when freight/taxes cannot be represented at that precision.
+        let landed_unit = i64::try_from(
+            (i128::from(landed) * 1_000_000 + i128::from(quantity) / 2) / i128::from(quantity),
+        )
+        .map_err(|_| "Custo fora do limite")?;
+        if (i128::from(quantity) * i128::from(landed_unit) + 500_000) / 1_000_000
+            != i128::from(landed)
+        {
+            return Err("Custo posto não representável em centavos por unidade");
+        }
+        total = total.checked_add(landed).ok_or("Total fora do limite")?;
+        result.push(ReceivedItem {
+            number: unsigned(item.attribute("nItem").ok_or("Item sem número")?)? as i32,
+            source_code: text(product, "cProd")?.to_owned(),
+            name: text(product, "xProd")?.to_owned(),
+            unit: text(product, "uCom")?.to_owned(),
+            quantity_micros: quantity,
+            unit_cost_cents: landed_unit,
+            merchandise_cents: merchandise,
+            landed_cents: landed,
+            components: components.into(),
+        });
+    }
+    if total != metadata.total_cents {
+        return Err("Soma dos custos dos itens não corresponde ao total da nota");
+    }
+    Ok(result)
+}

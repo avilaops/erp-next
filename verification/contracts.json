@@ -5,6 +5,236 @@
     "product": "erp",
     "flows": [
       {
+        "id": "fiscal-incoming",
+        "title": "Distribuição, manifestação e compra a partir de XML",
+        "goal": "Consultar documentos e manifestações em homologação e mapear NF-e de produção ou homologação para compra.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-incoming"
+        ],
+        "dependencies": [
+          "fiscal-integrations",
+          "purchase_payment_chain",
+          "products",
+          "parties"
+        ],
+        "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
+        "additionalSources": [
+          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+        ],
+        "journey": [
+          {
+            "id": "read",
+            "title": "Consultar registros e permissões da empresa",
+            "actionIds": [
+              "get-api-v1-fiscal-distribution-status",
+              "get-api-v1-fiscal-distribution-documents",
+              "get-api-v1-fiscal-distribution-documents-nsu",
+              "get-api-v1-fiscal-manifestations",
+              "get-api-v1-fiscal-manifestations-id",
+              "get-api-v1-fiscal-received-nfes-id-purchase"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "command",
+            "title": "Aplicar comandos explícitos com revisão e recuperação",
+            "actionIds": [
+              "post-api-v1-fiscal-distribution-query",
+              "post-api-v1-fiscal-manifestations",
+              "post-api-v1-fiscal-manifestations-id-reconcile",
+              "post-api-v1-fiscal-received-nfes-id-purchase"
+            ],
+            "authRefs": [],
+            "externalSystems": [
+              "Motor fiscal privado; SEFAZ em homologação"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "fiscal-emission",
+        "title": "Emissão e eventos NF-e em homologação",
+        "goal": "Preparar, validar, assinar, transmitir e reconciliar NF-e em SP/homologação com numeração durável.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-emission"
+        ],
+        "dependencies": [
+          "fiscal-drafts",
+          "fiscal-config"
+        ],
+        "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
+        "additionalSources": [
+          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+        ],
+        "journey": [
+          {
+            "id": "read",
+            "title": "Consultar registros e permissões da empresa",
+            "actionIds": [
+              "get-api-v1-fiscal-issued-nfes",
+              "get-api-v1-fiscal-nfe-id-emission",
+              "get-api-v1-fiscal-nfe-id-xml",
+              "get-api-v1-fiscal-nfe-id-events"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "command",
+            "title": "Aplicar comandos explícitos com revisão e recuperação",
+            "actionIds": [
+              "post-api-v1-fiscal-nfe-id-issue",
+              "post-api-v1-fiscal-nfe-id-consult",
+              "post-api-v1-fiscal-nfe-id-cancel",
+              "post-api-v1-fiscal-nfe-id-correction",
+              "post-api-v1-fiscal-number-voids",
+              "post-api-v1-fiscal-order-cancellations-id-process"
+            ],
+            "authRefs": [],
+            "externalSystems": [
+              "Motor fiscal privado; SEFAZ em homologação"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "production",
+        "title": "Ordens e consumos de produção",
+        "goal": "Acompanhar etapas dos itens vendidos, consumos explícitos e compensações preservando o histórico.",
+        "kind": "product",
+        "actionGroups": [
+          "production"
+        ],
+        "dependencies": [
+          "orders",
+          "products",
+          "stock"
+        ],
+        "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
+        "additionalSources": [
+          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+        ],
+        "journey": [
+          {
+            "id": "read",
+            "title": "Consultar registros e permissões da empresa",
+            "actionIds": [
+              "get-api-v1-production-orders",
+              "get-api-v1-production-orders-id",
+              "get-api-v1-production-stages"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "command",
+            "title": "Aplicar comandos explícitos com revisão e recuperação",
+            "actionIds": [
+              "post-api-v1-production-orders",
+              "post-api-v1-production-orders-id-stage",
+              "post-api-v1-production-orders-id-consumptions",
+              "post-api-v1-production-orders-id-consumptions-movement-reverse",
+              "post-api-v1-production-stages",
+              "put-api-v1-production-stages-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
+        "id": "commissions",
+        "title": "Comissões por recebimento",
+        "goal": "Configurar termos, apurar recebimentos sem IPI e declarar ajustes e pagamentos por competência.",
+        "kind": "product",
+        "actionGroups": [
+          "commissions"
+        ],
+        "dependencies": [
+          "orders",
+          "staff",
+          "receivables"
+        ],
+        "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
+        "additionalSources": [
+          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+        ],
+        "journey": [
+          {
+            "id": "read",
+            "title": "Consultar registros e permissões da empresa",
+            "actionIds": [
+              "get-api-v1-orders-id-commission",
+              "get-api-v1-commissions",
+              "get-api-v1-commissions-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "command",
+            "title": "Aplicar comandos explícitos com revisão e recuperação",
+            "actionIds": [
+              "put-api-v1-orders-id-commission",
+              "post-api-v1-commissions-id-adjustments",
+              "post-api-v1-commissions-id-payments"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
+        "id": "commercial-returns",
+        "title": "Cancelamentos e estornos integrais",
+        "goal": "Compensar integralmente venda ou recebimento e reconciliar financeiro, comissão e produção.",
+        "kind": "product",
+        "actionGroups": [
+          "commercial-returns"
+        ],
+        "dependencies": [
+          "orders",
+          "purchase_payment_chain",
+          "commissions",
+          "production",
+          "fiscal-emission"
+        ],
+        "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
+        "additionalSources": [
+          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+        ],
+        "journey": [
+          {
+            "id": "read",
+            "title": "Consultar registros e permissões da empresa",
+            "actionIds": [
+              "get-api-v1-orders-id-cancellations",
+              "get-api-v1-purchase-receipts-id-reversals"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          },
+          {
+            "id": "command",
+            "title": "Aplicar comandos explícitos com revisão e recuperação",
+            "actionIds": [
+              "post-api-v1-orders-id-cancel-completed",
+              "post-api-v1-purchase-receipts-id-reverse"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
         "id": "financial-settings", "title": "Configurações financeiras", "goal": "Salvar o meio sugerido nas baixas manuais e acessar cadastros financeiros reais.", "kind": "product",
         "actionGroups": ["financial-settings"], "dependencies": ["company_onboarding"], "nextStep": "Conferir gravação, revisão e preenchimento dos dois formulários financeiros.",
         "additionalSources": ["docs/CONFIGURACOES-FINANCEIRAS.md"],
@@ -197,7 +427,7 @@
       {
         "id": "fiscal-drafts",
         "title": "Rascunhos fiscais",
-        "goal": "Preparar e consultar rascunhos fiscais, preservando os bloqueios de emissão.",
+        "goal": "Preparar e consultar rascunhos fiscais; transmitir exige comando separado com permissões e precondições próprias.",
         "kind": "product",
         "actionGroups": [
           "fiscal-drafts"
@@ -207,7 +437,7 @@
           "products",
           "parties"
         ],
-        "nextStep": "Resolver as decisões de emissão fiscal registradas no catálogo antes de habilitar emissão."
+        "nextStep": "Conferir snapshots, declaração tributária e vínculo comercial antes de emitir separadamente em homologação."
       },
       {
         "id": "me",
@@ -509,8 +739,8 @@
       },
       {
         "id": "fiscal-integrations",
-        "title": "Integrações fiscais com Lojas",
-        "goal": "Administrar chaves de serviço e os contratos de notas recebidas.",
+        "title": "Monitor fiscal de produção e integração com Lojas",
+        "goal": "Consultar e manifestar documentos de produção com cursor próprio, preservar NF-e e administrar chaves de serviço para Lojas.",
         "kind": "product",
         "actionGroups": [
           "fiscal-integrations"
@@ -518,7 +748,7 @@
         "dependencies": [
           "me"
         ],
-        "nextStep": "Relacionar os contratos de serviço ao fluxo consumidor de Lojas e às recusas de autorização."
+        "nextStep": "Conferir ativação e aceite externo do monitor e do consumidor Lojas com certificado autorizado."
       }
     ]
   },
@@ -538,23 +768,44 @@
     {
       "path": "/api/erp/commercial-contracts/[id]/[action]",
       "method": "POST",
-      "actions": ["review", "send", "sync"]
+      "actions": [
+        "review",
+        "send",
+        "sync"
+      ]
     },
-    { "path": "/api/erp/invitations/[id]/[action]", "method": "POST", "actions": ["resend", "revoke"] },
+    {
+      "path": "/api/erp/invitations/[id]/[action]",
+      "method": "POST",
+      "actions": [
+        "resend",
+        "revoke"
+      ]
+    },
     {
       "path": "/api/erp/purchase-orders/[id]/[action]",
       "method": "GET",
-      "actions": ["receipts"]
+      "actions": [
+        "receipts"
+      ]
     },
     {
       "path": "/api/erp/purchase-orders/[id]/[action]",
       "method": "POST",
-      "actions": ["confirm", "cancel", "close", "receipts"]
+      "actions": [
+        "confirm",
+        "cancel",
+        "close",
+        "receipts"
+      ]
     },
     {
       "path": "/api/erp/payables/[id]/[action]",
       "method": "POST",
-      "actions": ["payments", "reverse-payment"]
+      "actions": [
+        "payments",
+        "reverse-payment"
+      ]
     },
     {
       "path": "/api/erp/orders/[id]/[action]",
@@ -562,7 +813,8 @@
       "actions": [
         "confirm",
         "cancel",
-        "complete"
+        "complete",
+        "cancel-completed"
       ]
     },
     {
@@ -571,6 +823,81 @@
       "actions": [
         "payments",
         "reverse-payment"
+      ]
+    },
+    {
+      "path": "/api/erp/commissions/[...resource]",
+      "method": "GET",
+      "resources": [
+        "{id}"
+      ]
+    },
+    {
+      "path": "/api/erp/commissions/[...resource]",
+      "method": "POST",
+      "resources": [
+        "{id}/adjustments",
+        "{id}/payments"
+      ]
+    },
+    {
+      "path": "/api/erp/production/[...resource]",
+      "method": "GET",
+      "resources": [
+        "orders",
+        "orders/{id}",
+        "stages"
+      ]
+    },
+    {
+      "path": "/api/erp/production/[...resource]",
+      "method": "POST",
+      "resources": [
+        "orders",
+        "orders/{id}/stage",
+        "orders/{id}/consumptions",
+        "orders/{id}/consumptions/{movement}/reverse",
+        "stages"
+      ]
+    },
+    {
+      "path": "/api/erp/production/[...resource]",
+      "method": "PUT",
+      "resources": [
+        "stages/{id}"
+      ]
+    },
+    {
+      "path": "/api/erp/fiscal/nfe/[id]/[action]",
+      "method": "POST",
+      "actions": [
+        "issue",
+        "consult",
+        "cancel",
+        "correction"
+      ]
+    },
+    {
+      "path": "/api/erp/fiscal/nfe/[id]/[action]",
+      "method": "GET",
+      "actions": [
+        "emission",
+        "xml",
+        "events"
+      ]
+    },
+    {
+      "path": "/api/erp/fiscal/distribution/[action]",
+      "method": "GET",
+      "actions": [
+        "status"
+      ]
+    },
+    {
+      "path": "/api/erp/fiscal/distribution/[action]",
+      "method": "POST",
+      "actions": [
+        "query"
       ]
     }
   ],
@@ -607,6 +934,3640 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "post-api-v1-fiscal-received-nfes-id-purchase",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/received-nfes/{id}/purchase"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage",
+        "purchasing.orders.read",
+        "purchasing.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/incoming.rs",
+          "type": "ConversionInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "If-Match inicial 1; NF-e autorizada de produção ou homologação destinada ao CNPJ da empresa, sem compra vinculada.",
+        "Fornecedor ativo corresponde ao emitente; todos os itens mapeados a até 100 produtos ativos distintos, unidade compatível, custos exatos e vencimento válido."
+      ],
+      "transition": {
+        "from": "NF-e recebida sem compra vinculada",
+        "to": "rascunho de compra vinculado; revisão de conversão 2"
+      },
+      "effects": {
+        "writes": [
+          "Um rascunho de compra, vínculo único NF-e/compra, custos fiscais por item, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não recebe mercadoria, movimenta estoque ou cria conta a pagar antes do recebimento físico; não manifesta nem transmite à SEFAZ."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Criar rascunho de compra pelo mapeamento explícito da NF-e"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/received-nfes/[id]/purchase"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-received-nfes-id-purchase",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfes/{id}/purchase"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "XML completo autorizado destinado à empresa, de produção ou homologação, com itens fiscalmente coerentes."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Pré-visualizar itens, custos e vínculo da NF-e recebida"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfes/[id]/purchase"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-manifestations-id-reconcile",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/manifestations/{id}/reconcile"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/incoming.rs",
+          "type": "QueryInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios.",
+        "Revisão atual; prova distribuída com chave, autor CNPJ, tipo, sequência, ambiente e protocolo correspondentes."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Manifestação pending/unknown passa a accepted somente com prova; revisão, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não reenvia manifestação nem inventa sucesso sem prova distribuída."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Reconciliar manifestação com evento oficial já distribuído"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/manifestations/[id]/reconcile"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming_reconciliation.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts",
+        "apps/api/src/domains/fiscal/incoming.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-manifestations",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/manifestations"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/incoming.rs",
+          "type": "ManifestInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios.",
+        "If-Match inicial 1; nota/documento da empresa; tipo e justificativa válidos; evento igual ainda não solicitado.",
+        "Motor privado, A1 vigente e confirmação explícita na interface."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Solicitação durável antes do envio; resultado accepted/rejected/unknown, revisão e auditoria."
+        ],
+        "external": [
+          "Motor privado assina e envia manifestação à SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Resultado desconhecido não permite reenvio cego e não cria compra, estoque ou título."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Solicitar manifestação explícita do destinatário em homologação"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/manifestations"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-manifestations-id",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/manifestations/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar manifestação durável em homologação"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/manifestations/[id]"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming_reconciliation.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-manifestations",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/manifestations"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "accessKey opcional de 44 dígitos; até 100 registros."
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar manifestações do destinatário em homologação"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/manifestations"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-distribution-query",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/distribution/query"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/incoming.rs",
+          "type": "QueryInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios.",
+        "Cursor com revisão atual, lease e intervalo liberados; motor fiscal e certificado vigente da empresa."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Execução durável, lease, documentos válidos, NF-e recebidas completas, cursor e próxima consulta somente após lote aceito.",
+          "Auditoria e reconciliação de eventos de ambiente 2; falha preserva cursor."
+        ],
+        "external": [
+          "Motor privado consulta distribuição SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Não cria compra, recebimento físico, estoque ou título; lote inválido não avança cursor."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Consultar lote de distribuição em homologação"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/distribution/[action]",
+          "action": "query"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-distribution-documents-nsu",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/distribution/documents/{nsu}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "nsu"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios.",
+        "NSU decimal com 15 dígitos pertencente à empresa."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar XML e metadados do NSU de homologação"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/distribution/documents/[nsu]"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-distribution-documents",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/distribution/documents"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset opcional; limit de 1 a 100."
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar documentos distribuídos em homologação"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/distribution/documents"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-distribution-status",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/distribution/status"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.received_nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Este caminho de distribuição e manifestação usa exclusivamente ambiente 2; o monitor de produção tem endpoints e cursor próprios."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar cursor de distribuição em homologação"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/monitor",
+          "/fiscal/monitor/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/distribution/[action]",
+          "action": "status"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/incoming.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-order-cancellations-id-process",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/order-cancellations/{id}/process"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read",
+        "fiscal.nfe.issue"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "Cancelamento comercial da empresa com motivo fiscal válido e exatamente um documento vinculado não rejeitado; If-Match da revisão desse documento."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Evento fiscal vinculado ao cancelamento comercial, estado durável, auditoria e resultado."
+        ],
+        "external": [
+          "Motor privado solicita cancelamento da NF-e à SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Não repete estornos comerciais, de estoque, comissões ou pagamentos já efetuados."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          202
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Processar solicitação fiscal do cancelamento comercial"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/order-cancellations/[id]/process"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission_events.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-number-voids",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/number-voids"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read",
+        "fiscal.nfe.issue"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/emission_events.rs",
+          "type": "VoidInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "If-Match inicial 0; ano atual, série válida, faixa de até dez mil números sem número utilizado e justificativa válida."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Evento durável de inutilização, estado/resultado e auditoria."
+        ],
+        "external": [
+          "Motor privado assina e envia inutilização à SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Não inutiliza números em produção nem substitui cancelamento de NF-e autorizada."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          202
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Inutilizar faixa de numeração em homologação"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/number-voids"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission_events.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-nfe-id-correction",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/nfe/{id}/correction"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read",
+        "fiscal.nfe.issue"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/emission_events.rs",
+          "type": "EventInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
+        ],
+        "external": [
+          "Motor privado assina e envia evento à SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          202
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Solicitar carta de correção fiscal"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "correction"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission_events.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-nfe-id-cancel",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/nfe/{id}/cancel"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read",
+        "fiscal.nfe.issue"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/emission_events.rs",
+          "type": "EventInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
+        ],
+        "external": [
+          "Motor privado assina e envia evento à SEFAZ em homologação."
+        ],
+        "excludes": [
+          "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          202
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Solicitar cancelamento fiscal da NF-e autorizada"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "cancel"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission_events.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-nfe-id-events",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/nfe/{id}/events"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar eventos persistidos da NF-e"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "events"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission_events.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-nfe-id-xml",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/nfe/{id}/xml"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Documento da empresa com XML autorizado ou assinado já preparado."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          500
+        ],
+        "action": "Baixar XML autorizado ou assinado preservado"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "xml"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-nfe-id-emission",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/nfe/{id}/emission"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar estado durável da emissão"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "emission"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-issued-nfes",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/issued-nfes"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "cursor UUID opcional; limit de 1 a 100."
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar documentos emitidos e tentativas duráveis"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/issued-nfes"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-nfe-id-consult",
+      "flow": "fiscal-emission",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/nfe/{id}/consult"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read",
+        "fiscal.nfe.issue"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "Documento com chave e XML preparado, revisão atual e nenhuma operação concorrente."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Lease, estado reconciliado, protocolo/XML autorizado quando confirmado, revisão, auditoria e resultado idempotente."
+        ],
+        "external": [
+          "Motor privado consulta SEFAZ em homologação e valida o resultado fiscal."
+        ],
+        "excludes": [
+          "Não inicia nova emissão nem consome outra numeração."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          202
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Consultar e reconciliar tentativa pela chave"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "consult"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/emission.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-production-stages-id",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/production/stages/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "StageInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Revisão atual da etapa; nome único; tipo preservado."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Nome, posição, revisão, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não reescreve nomes registrados no histórico de produção."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Renomear ou reordenar etapa preservando classificação"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "stages/{id}"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-production-stages",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/production/stages"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "StageInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Nome único de 2 a 40 caracteres; position entre 1 e 10000; tipo andamento."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Etapa, padrões iniciais quando ausentes, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não cria segunda etapa Pronto nem movimenta ordens, estoque ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Comando idempotente sem If-Match; manter chave e intenção originais."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500
+        ],
+        "action": "Criar etapa de andamento"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "stages"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-production-stages",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/production/stages"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar etapas sem inicializar dados"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "stages"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-production-orders-id-consumptions-movement-reverse",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/production/orders/{id}/consumptions/{movement}/reverse"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage",
+        "inventory.stock.read",
+        "inventory.stock.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id",
+          "movement"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "ReverseInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Consumo ativo desta ordem e motivo válido; ordem e venda não canceladas."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Entrada compensatória exata, revisão, histórico, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não apaga consumo, movimento ou custo original e não transfere dinheiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Compensar consumo específico preservando o original"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders/{id}/consumptions/{movement}/reverse"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-production-orders-id-consumptions",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/production/orders/{id}/consumptions"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage",
+        "inventory.stock.read",
+        "inventory.stock.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "ConsumeInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Ordem em andamento; componente ativo diferente do produto produzido; quantidade/custo exatos e saldo disponível respeita reservas."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Saída de estoque, snapshot de consumo e custo declarado, revisão, histórico, auditoria e outbox atômicos."
+        ],
+        "external": [],
+        "excludes": [
+          "Não calcula BOM nem rateio industrial; não cria estoque acabado ou conta a pagar."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Declarar consumo de componente com quantidade, custo e motivo"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders/{id}/consumptions"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-production-orders-id-stage",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/production/orders/{id}/stage"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "StageMoveInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Ordem e venda não canceladas; etapa da empresa; reabertura com consumos exige leitura e gestão de estoque."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Etapa, status open/ready, revisão e histórico; reabertura devolve exatamente consumos ativos com movimentos compensatórios."
+        ],
+        "external": [],
+        "excludes": [
+          "Marcar Pronto não recebe estoque acabado nem lança custos industriais ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Mover etapa, concluir ou reabrir ordem"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders/{id}/stage"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-production-orders",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/production/orders"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read",
+        "production.manage",
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/production.rs",
+          "type": "CreateInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "If-Match corresponde à revisão do pedido de venda confirmado ou concluído; uma ordem por produto da venda."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Ordens com snapshots dos itens da venda, etapas padrão quando ausentes, histórico, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não reserva nem consome componentes, não cria estoque acabado ou lançamento financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Criar ordens de produção dos itens da venda"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao/novo",
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-production-orders-id",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/production/orders/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar ordem, consumos e histórico consistentes"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders/{id}"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-production-orders",
+      "flow": "production",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/production/orders"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "production.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "orderId opcional; offset até 100000; limit de 1 a 100."
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar ordens de produção da empresa"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/estoque/ordens-producao",
+          "/estoque/ordens-producao/[id]",
+          "/estoque/ordens-producao/[id]/executar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/production/[...resource]",
+          "resource": "orders"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/production.rs",
+        "migrations/202611010005_production.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-commissions-id-payments",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commissions/{id}/payments"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read",
+        "finance.commissions.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/commissions.rs",
+          "type": "CommissionPaymentInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Saldo líquido positivo até a competência; data não antecede competência ou recebimentos/estornos alocados; referência obrigatória."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Pagamento declarado e alocações imutáveis, revisão da conta, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não executa transferência bancária nem apaga débitos de competências posteriores."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Declarar pagamento líquido das comissões abertas até a competência"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/financeiro/comissoes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commissions/[...resource]",
+          "resource": "{id}/payments"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-commissions-id-adjustments",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/commissions/{id}/adjustments"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read",
+        "finance.commissions.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/commissions.rs",
+          "type": "CommissionAdjustmentInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Vendedor ativo da empresa, competência válida, valor assinado não nulo, motivo e dia de pagamento válidos."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Ajuste imutável, revisão da conta de comissão, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não reescreve lançamentos anteriores nem transfere dinheiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Registrar crédito ou débito explícito com motivo"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/financeiro/comissoes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/commissions/[...resource]",
+          "resource": "{id}/adjustments"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-commissions-id",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commissions/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar livro, revisão e pagamentos do vendedor"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/financeiro/comissoes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commissions/[...resource]",
+          "resource": "{id}"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-commissions",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commissions"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset até 100000; limit de 1 a 100."
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar saldos e totais por vendedor"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/financeiro/comissoes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commissions"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-orders-id-commission",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/orders/{id}/commission"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read",
+        "finance.commissions.manage",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/commissions.rs",
+          "type": "CommissionTermsInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Pedido em rascunho sem recebimentos; vendedor ativo; percentuais com quatro casas e dia de 1 a 28."
+      ],
+      "transition": {
+        "from": "estado atual elegível e revisão coerente",
+        "to": "resultado durável e histórico preservado"
+      },
+      "effects": {
+        "writes": [
+          "Snapshot dos termos da comissão e revisão do pedido, auditoria e resultado idempotente."
+        ],
+        "external": [],
+        "excludes": [
+          "Não gera comissão antes do recebimento declarado nem altera pedidos confirmados."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Configurar vendedor, comissão, IPI e dia de pagamento"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/orders/[id]/commission"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-orders-id-commission",
+      "flow": "commissions",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/orders/{id}/commission"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.commissions.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar condições de comissão do pedido"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/orders/[id]/commission"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/commissions.rs",
+        "migrations/202611010004_commissions.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-purchase-receipts-id-reversals",
+      "flow": "commercial-returns",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-receipts/{id}/reversals"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar histórico de estornos do recebimento"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/compras/recebimentos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/purchase-receipts/[id]/reversals"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/returns.rs",
+        "migrations/202611010001_returns.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-purchase-receipts-id-reverse",
+      "flow": "commercial-returns",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/purchase-receipts/{id}/reverse"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "purchasing.orders.read",
+        "purchasing.orders.manage",
+        "inventory.stock.manage",
+        "finance.payables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/returns.rs",
+          "type": "ReturnInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Motivo e data válidos; revisão da venda ou do pedido de compra de origem, conforme o comando.",
+        "Movimentos compensatórios preservam registros originais; saldo e arredondamento devem permitir reversão integral atômica."
+      ],
+      "transition": {
+        "from": "recebimento físico ativo com saldo reversível",
+        "to": "recebimento integralmente revertido e título cancelado"
+      },
+      "effects": {
+        "writes": [
+          "Reversão durável do recebimento, movimentos inversos exatos, estornos dos pagamentos declarados e título cancelado.",
+          "Quantidades elegíveis da compra recompostas, histórico, auditoria e outbox atômicos."
+        ],
+        "external": [],
+        "excludes": [
+          "Não cancela NF-e de entrada nem transfere dinheiro ao fornecedor."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Estornar integralmente recebimento físico e sua conta a pagar"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/compras/recebimentos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/purchase-receipts/[id]/reverse"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/returns.rs",
+        "migrations/202611010001_returns.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-orders-id-cancellations",
+      "flow": "commercial-returns",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/orders/{id}/cancellations"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos."
+      ],
+      "transition": {
+        "from": "registro ou coleção da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa escrita nem chamada externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar histórico de cancelamentos da venda"
+      },
+      "recovery": "Repetir leitura; distinguir indisponibilidade, recusa e registro ausente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/orders/[id]/cancellations"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/returns.rs",
+        "migrations/202611010001_returns.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-orders-id-cancel-completed",
+      "flow": "commercial-returns",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/orders/{id}/cancel-completed"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage",
+        "inventory.stock.manage",
+        "finance.receivables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/returns.rs",
+          "type": "ReturnInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Motivo e data válidos; revisão da venda ou do pedido de compra de origem, conforme o comando.",
+        "Movimentos compensatórios preservam registros originais; saldo e arredondamento devem permitir reversão integral atômica.",
+        "Revalidar comissão e produção vinculadas e direitos atuais de estoque antes de aplicar ou repetir; emissão fiscal em andamento deve ser reconciliada."
+      ],
+      "transition": {
+        "from": "venda concluída elegível",
+        "to": "venda e título cancelados; histórico e reconciliação preservados"
+      },
+      "effects": {
+        "writes": [
+          "Cancelamento comercial, reversões exatas de estoque, estornos dos recebimentos declarados e título cancelado.",
+          "Compensação de comissões e consumos ativos de produção, solicitações fiscal/contratual quando aplicáveis, auditoria e outbox atômicos."
+        ],
+        "external": [],
+        "excludes": [
+          "Não cancela NF-e automaticamente na SEFAZ nem devolve dinheiro pelo banco."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Cancelar integralmente venda concluída e reconciliar seus efeitos"
+      },
+      "recovery": "Resposta perdida: repetir intenção e chave originais; revisão antiga exige reler. Resultado externo incerto exige consulta/reconciliação sem presumir sucesso.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/orders/[id]/[action]",
+          "action": "cancel-completed"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/returns.rs",
+        "migrations/202611010001_returns.sql",
+        "apps/web/src/lib/erp-proxy.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-financial-settings", "flow": "financial-settings", "status": "implemented", "operation": { "method": "GET", "path": "/api/v1/financial-settings" },
       "actor": "active_tenant_member", "permissions": [],
@@ -3735,7 +7696,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/certificate"
         },
-        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+        "gap": "Revogação não consultada; emitir exige motor configurado, perfil e validações próprias de SP/homologação."
       },
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
@@ -3834,7 +7795,7 @@
           "method": "PUT",
           "path": "/api/erp/fiscal/certificate"
         },
-        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+        "gap": "Revogação não consultada; emitir exige motor configurado, perfil e validações próprias de SP/homologação."
       },
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
@@ -3927,7 +7888,7 @@
           "method": "DELETE",
           "path": "/api/erp/fiscal/certificate"
         },
-        "gap": "Revogação não consultada; emissão continua bloqueada pelas demais etapas fiscais."
+        "gap": "Revogação não consultada; emitir exige motor configurado, perfil e validações próprias de SP/homologação."
       },
       "sources": [
         "apps/api/src/domains/fiscal/certificates.rs",
@@ -4245,7 +8206,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Perfil/empresa e origem comercial coerentes; salvar rascunho não reserva numeração nem transmite XML."
       ],
       "transition": {
         "from": "estado atual",
@@ -4333,7 +8294,7 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Perfil/empresa e origem comercial coerentes; salvar rascunho não reserva numeração nem transmite XML."
       ],
       "transition": {
         "from": "ausente",
@@ -4423,7 +8384,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Perfil/empresa e origem comercial coerentes; salvar rascunho não reserva numeração nem transmite XML."
       ],
       "transition": {
         "from": "registro existente",
@@ -4513,7 +8474,7 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Perfil/empresa e origem comercial coerentes; salvar rascunho não reserva numeração nem transmite XML."
       ],
       "transition": {
         "from": "registro existente",
@@ -4583,8 +8544,8 @@
     },
     {
       "id": "post-api-v1-fiscal-nfe-id-issue",
-      "flow": "fiscal-drafts",
-      "status": "blocked",
+      "flow": "fiscal-emission",
+      "status": "implemented",
       "operation": {
         "method": "POST",
         "path": "/api/v1/fiscal/nfe/{id}/issue"
@@ -4608,51 +8569,70 @@
         "query": null
       },
       "preconditions": [
-        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
+        "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
+        "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
+        "Rascunho, snapshots da empresa/perfil, origem comercial, declaração tributária e pagamentos coerentes."
       ],
       "transition": {
-        "from": "rascunho da empresa com revisão compatível",
-        "to": "rascunho preservado; resposta 503"
+        "from": "rascunho elegível ou tentativa durável",
+        "to": "documento autorizado, rejeitado ou aguardando confirmação em homologação"
       },
       "effects": {
-        "writes": [],
-        "external": [],
+        "writes": [
+          "Reserva durável de numeração por empresa, ambiente e série; XML assinado, hashes e resultado fiscal vinculados ao rascunho.",
+          "Estado durável da emissão, revisão, lease, auditoria e resultado idempotente."
+        ],
+        "external": [
+          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite à SEFAZ em homologação."
+        ],
         "excludes": [
-          "Não transmite NF-e, não consome numeração e não muda o rascunho."
+          "Não permite emissão em produção; não movimenta estoque, títulos ou dinheiro."
         ]
       },
       "concurrency": {
         "revision": true,
         "idempotency": true,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+        "rule": "A revisão pertence ao recurso indicado; repetir comando incerto com chave e entrada originais, revalidando permissões."
       },
       "response": {
-        "successStatuses": [],
+        "successStatuses": [
+          200,
+          202
+        ],
         "errorStatuses": [
           400,
           401,
           403,
           404,
+          409,
           412,
+          422,
           428,
+          500,
           503
         ],
-        "action": "Validar acesso/precondições e responder 503; preservar rascunho, sem transmissão"
+        "action": "Preparar, validar, assinar e transmitir NF-e em homologação"
       },
-      "recovery": "Manter rascunho; apresentar indisponibilidade e bloqueios; não repetir transmissão nem aparentar sucesso.",
+      "recovery": "Repetir chave, revisão e intenção originais; consultar/reconciliar resultado incerto sem alocar outra numeração nem presumir autorização.",
       "ui": {
         "pages": [
+          "/fiscal/notas-saida",
           "/fiscal/notas-saida/[id]"
         ],
-        "bff": null,
-        "gap": "Emissão permanece bloqueada; rascunhos não produzem XML ou transmissão."
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/nfe/[id]/[action]",
+          "action": "issue"
+        },
+        "gap": "Catálogo não comprova implantação, certificado autorizado ou aceite externo da SEFAZ."
       },
       "sources": [
-        "apps/api/src/domains/fiscal/mod.rs",
-        "apps/api/src/domains/fiscal/model.rs"
+        "apps/api/src/domains/fiscal/emission.rs",
+        "migrations/202611010002_fiscal_operations.sql",
+        "apps/web/src/lib/erp-fiscal-proxy.ts"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4691,7 +8671,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Perfil/empresa coerentes; rascunho não tem numeração/XML/protocolo; transmissão bloqueada."
+        "Perfil/empresa e origem comercial coerentes; salvar rascunho não reserva numeração nem transmite XML."
       ],
       "transition": {
         "from": "estado atual",
@@ -5230,7 +9210,8 @@
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
         "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
-        "Cliente/produtos da empresa; preços e totais exatos; transições guardadas e reservas concorrentes consistentes."
+        "Cliente/produtos da empresa; preços e totais exatos; transições guardadas e reservas concorrentes consistentes.",
+        "Revalidar comissão/produção vinculadas e direitos de estoque antes de replay; reconciliar emissão concorrente."
       ],
       "transition": {
         "from": "draft ou confirmed",
@@ -5239,7 +9220,8 @@
       "effects": {
         "writes": [
           "Rascunho/confirmado → cancelado; liberar reserva sem emitir NF-e",
-          "Auditoria e outbox do comando na transação."
+          "Auditoria e outbox do comando na transação.",
+          "Cancelar produção vinculada e compensar consumos ativos; registrar reconciliação de comissão e solicitações fiscal/contratual sem transmissão automática."
         ],
         "external": [],
         "excludes": [
@@ -5283,7 +9265,10 @@
       },
       "sources": [
         "apps/api/src/http/mod.rs",
-        "apps/api/src/domains/sales.rs"
+        "apps/api/src/domains/sales.rs",
+        "apps/api/src/domains/returns.rs",
+        "apps/api/src/domains/production.rs",
+        "apps/api/src/domains/commissions.rs"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7256,7 +11241,8 @@
       "effects": {
         "writes": [
           "Declarar recebimento manual positivo até o saldo; permitir parcial e liquidar ao zerar",
-          "Auditoria e outbox do comando na transação."
+          "Auditoria e outbox do comando na transação.",
+          "Quando configurada, gerar comissão por recebimento sem IPI com snapshots originais, atomicamente."
         ],
         "external": [],
         "excludes": [
@@ -7301,7 +11287,8 @@
       "sources": [
         "apps/api/src/http/mod.rs",
         "apps/api/src/domains/finance.rs",
-        "apps/api/src/domains/settlements.rs"
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/commissions.rs"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7359,7 +11346,8 @@
       "effects": {
         "writes": [
           "Estornar recebimento específico elegível e recompor saldo; sem operação bancária",
-          "Auditoria e outbox do comando na transação."
+          "Auditoria e outbox do comando na transação.",
+          "Compensar exatamente a comissão original inclusive após paga, preservando livro e alocações."
         ],
         "external": [],
         "excludes": [
@@ -7404,7 +11392,8 @@
       "sources": [
         "apps/api/src/http/mod.rs",
         "apps/api/src/domains/finance.rs",
-        "apps/api/src/domains/settlements.rs"
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/commissions.rs"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -12096,15 +16085,12 @@
     },
     {
       "id": "pending-6",
-      "title": "Produção",
+      "title": "Produção — extensões industriais",
       "status": "needs_definition",
-      "intent": "Criar ordem, reservar insumos, iniciar, consumir, apontar acabados, encerrar/cancelar",
-      "proposedEndpoints": [
-        "/api/v1/production-orders",
-        "/{id}/{action}"
-      ],
+      "intent": "Ordens por venda, etapas, consumos explícitos e compensações implementados; ficha técnica, reservas industriais e estoque acabado fora do fluxo.",
+      "proposedEndpoints": [],
       "openDecisions": [
-        "Definir ficha técnica, unidades, perdas, custo e recuperação; consumir insumos e receber acabado com rastreabilidade"
+        "Definir BOM, perdas, horas de máquina, rateio industrial e recebimento de estoque acabado antes de acrescentar efeitos."
       ],
       "requiredFields": [
         "actor",
@@ -12121,15 +16107,13 @@
     },
     {
       "id": "pending-8",
-      "title": "Recebimento de compra/XML de entrada",
+      "title": "Entrada fiscal — divergências e aceite externo",
       "status": "needs_definition",
-      "intent": "Recebimento físico e originação de estoque/conta definidos na cadeia; vínculo/importação de documento fiscal e divergências XML permanecem pendentes",
-      "proposedEndpoints": [
-        "/api/v1/purchase-receipts",
-        "/api/v1/inbound-documents"
-      ],
+      "intent": "Importação canônica, deduplicação, vínculo e custos por item para rascunho de compra implementados; divergências parciais e aceite real ainda pendentes.",
+      "proposedEndpoints": [],
       "openDecisions": [
-        "Definir validação/vínculo fiscal e deduplicação do documento importado; não confundir XML com recebimento físico confirmado"
+        "Definir divergências de quantidade/unidade e recebimentos parciais vinculados ao XML sem confundir importação com recebimento físico.",
+        "Conferir fluxo com XML autorizado e fornecedor real em ambiente autorizado."
       ],
       "requiredFields": [
         "actor",
@@ -12220,14 +16204,14 @@
     },
     {
       "id": "pending-12",
-      "title": "Pedidos — extensão",
+      "title": "Pedidos — devoluções parciais e extensões",
       "status": "needs_definition",
-      "intent": "Desconto/frete, devolução parcial/total e vínculos fiscal/expedição",
+      "intent": "Cancelamento integral e solicitações fiscal/contratual implementados; descontos, frete, devoluções parciais e expedição ainda pendentes.",
       "proposedEndpoints": [
         "/api/v1/sales-returns"
       ],
       "openDecisions": [
-        "Definir cálculo/tetos, quantidades elegíveis, crédito/estorno e efeitos reversos em cada domínio"
+        "Definir quantidades elegíveis, crédito e documento fiscal da devolução parcial; não reutilizar cancelamento integral."
       ],
       "requiredFields": [
         "actor",
@@ -12346,14 +16330,13 @@
     },
     {
       "id": "pending-18",
-      "title": "Comissões",
+      "title": "Comissões — extensões e aceite operacional",
       "status": "needs_definition",
-      "intent": "Apurar, revisar, aprovar, originar obrigação e liquidar",
-      "proposedEndpoints": [
-        "/api/v1/commissions"
-      ],
+      "intent": "Base por recebimento sem IPI, snapshots, estornos, ajustes e pagamentos declarados implementados; extensões e aceite operacional não comprovados.",
+      "proposedEndpoints": [],
       "openDecisions": [
-        "Base por venda/recebimento a decidir; versão da regra; devoluções e estornos não podem manter comissão indevida"
+        "Conferir política por recebimento e dia de pagamento com o responsável antes do uso real.",
+        "Definir aprovação separada, obrigação financeira ou integração bancária caso necessárias; pagamento atual é declaração manual."
       ],
       "requiredFields": [
         "actor",
@@ -12370,14 +16353,13 @@
     },
     {
       "id": "pending-19",
-      "title": "Fiscal NF-e 55",
+      "title": "NF-e 55 — produção e aceite externo",
       "status": "needs_definition",
-      "intent": "Gerar XML, validar, assinar A1, enviar homologação, consultar/reconciliar e persistir autorização",
-      "proposedEndpoints": [
-        "/api/v1/fiscal/nfe/{id}/issue"
-      ],
+      "intent": "Emissão, consulta e eventos SP/homologação implementados com A1, numeração e resultados duráveis; emissão em produção permanece bloqueada.",
+      "proposedEndpoints": [],
       "openDecisions": [
-        "AVL-328; reservar numeração pelo contrato, tratar rejeição/timeout/duplicidade; manter produção bloqueada até aceite externo"
+        "Concluir aceite externo com A1, CNPJ e dados autorizados em homologação, incluindo timeout e duplicidade.",
+        "Definir e autorizar cobertura tributária/UF adicional e emissão em produção antes de habilitar; catálogo não autoriza transmissão."
       ],
       "requiredFields": [
         "actor",

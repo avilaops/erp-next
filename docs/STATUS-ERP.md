@@ -1,5 +1,14 @@
 # Estado de implementação do ERP
 
+## Continuidade local de 31/10/2026 — AVL-396
+
+As novas implementações de devolução, emissão/eventos, distribuição e conversão
+de recebidas estão descritas em [continuidade fiscal](RETORNOS-E-CONTINUIDADE-FISCAL.md).
+A etapa seguinte acrescenta [comissões, produção e declaração CRT 3](COMISSOES-PRODUCAO-E-FISCAL.md).
+São entregas locais para revisão; não representam publicação nem homologação
+real. As contagens e limitações da consolidação abaixo são históricas e
+antecedem essas entregas.
+
 ## Consolidação local de 28/10/2026
 
 A [interface de compras e contas a pagar](COMPRAS-CONTAS-PAGAR-INTERFACE.md)
@@ -180,3 +189,4 @@ alias A1 não verifica nem armazena um certificado. Nenhuma emissão está liber
 ## Extensão de conteúdo e contratos — AVL-402
 
 A implementação da branch acrescenta aliases da web derivados do OpenAPI, ajuda MDX local com reutilização do formulário de pedidos e layout pessoal persistente. O layout exige a migration correspondente e preserva RLS/revisão/auditoria. A validação final desta extensão será registrada na evidência e no PR; as contagens anteriores deste documento continuam históricas.
+

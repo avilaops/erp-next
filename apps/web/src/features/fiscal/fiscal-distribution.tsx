@@ -16,7 +16,7 @@ const events: Record<string, string> = { "210210": "Ciência da operação", "21
 const outcomes = { unknown: "Resultado não confirmado — conferir antes de qualquer nova ação", accepted: "Registrada e vinculada à NF-e", rejected: "Recusada pela SEFAZ" }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
-export function FiscalDistribution() {
+export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
@@ -59,7 +59,10 @@ export function FiscalDistribution() {
       const response = await erpFetch("/api/erp/fiscal/monitor/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "Idempotency-Key": command.current.key }, body: "{}" })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Não foi possível confirmar a consulta. Atualize o monitor")
-      if (value.outcome === "applied") setNotice(`Lote consultado: ${value.documentCount} documento(s). Nenhum lançamento de estoque ou financeiro foi criado.`)
+      if (value.outcome === "applied") {
+        setNotice(`Lote consultado: ${value.documentCount} documento(s). Nenhum lançamento de estoque ou financeiro foi criado.`)
+        onChanged?.()
+      }
       else setNotice(value.outcome === "pending" ? "A consulta está em andamento ou foi interrompida. Confira o monitor; a mesma solicitação não será reenviada." : "A consulta não foi aplicada. O cursor foi preservado; aguarde a próxima consulta liberada.")
       command.current = null
       reload()
@@ -139,3 +142,4 @@ function DistributionDocument({ document, snapshot, reload }: { document: Docume
     {error && <p role="alert" className="text-destructive">{error}</p>}
   </article>
 }
+

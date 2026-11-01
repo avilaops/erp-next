@@ -404,6 +404,27 @@ pub async fn review(
     Ok(result)
 }
 
+async fn ensure_active_order(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant: Uuid,
+    order: Uuid,
+) -> Result<(), DomainError> {
+    let status: String =
+        sqlx::query_scalar("SELECT status FROM sales_orders WHERE tenant_id=$1 AND id=$2")
+            .bind(tenant)
+            .bind(order)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?
+            .ok_or(DomainError::NotFound)?;
+    if status == "cancelled" {
+        return Err(DomainError::Conflict(
+            "O pedido foi cancelado; o contrato não pode ser enviado",
+        ));
+    }
+    Ok(())
+}
+
 #[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/send",operation_id="contracts_send",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=api::ContractDetail),(status=409,description="Revisão necessária"),(status=403,description="Sem permissão de envio")))]
 pub async fn send(
     State(state): State<AppState>,
@@ -430,6 +451,7 @@ pub async fn send(
     .await?;
     let contract = model::load(&mut tx, tenant, id).await?;
     if previous.is_some() || contract.send_requested_at.is_some() {
+        ensure_active_order(&mut tx, tenant, contract.order_id).await?;
         tx.commit().await.map_err(db)?;
         return reconcile_response(&state, &identity, &headers, tenant, id).await;
     }
@@ -441,6 +463,7 @@ pub async fn send(
             "Revise o documento e os destinatários antes do envio",
         ));
     }
+    ensure_active_order(&mut tx, tenant, contract.order_id).await?;
     // The portal silently uses a test mailer when SMTP is absent.
     // Only explicitly validated email configuration may initiate invitations.
     if !provider.email_ready() {
@@ -580,3 +603,4 @@ pub async fn webhook(
     tx.commit().await.map_err(db)?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
+

@@ -10,6 +10,7 @@ import { Download, FileText, RefreshCw, Upload } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { documentHash as hash, fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
+import { DistributionActions } from "./incoming-actions"
 import { FiscalDistribution } from "./fiscal-distribution"
 
 type Note = ReceivedNote
@@ -135,7 +136,14 @@ export function ReceivedMonitor() {
       <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><h1 className="mt-2 text-3xl font-semibold">Monitor de notas fiscais</h1><p className="mt-2 text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link>
     </header>
-    <FiscalDistribution />
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold">Distribuição em produção</h2>
+      <FiscalDistribution onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />
+    </div>
+    {result?.canImport && <details className="min-w-0 space-y-4">
+      <summary className="cursor-pointer font-medium">Distribuição em homologação — sem valor fiscal</summary>
+      <DistributionActions key={result.tenantId} tenantId={result.tenantId} onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />
+    </details>}
     <section className="form-section space-y-4" aria-labelledby="import-title">
       <h2 id="import-title" className="flex items-center gap-2 text-lg font-semibold"><Upload className="size-5 text-primary" />Importar NF-e recebida</h2>
       <p className="text-sm text-muted-foreground">Escolha o XML completo, com protocolo de autorização, destinado ao CNPJ desta empresa. O arquivo original fica armazenado para consulta e download.</p>
@@ -169,6 +177,7 @@ export function ReceivedMonitor() {
     </section>
     {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}
     {notice && <p role="status" className="rounded-xl border border-primary/30 p-4 text-sm">{notice}</p>}
-    <p className="text-sm text-muted-foreground">A consulta automática à SEFAZ e a conexão do certificado A1 ainda não estão disponíveis neste módulo. <Link className="text-primary underline" href="/fiscal/danfe">Gerar DANFE de outro XML autorizado</Link>.</p>
+    <p className="text-sm text-muted-foreground"><Link className="text-primary underline" href="/fiscal/danfe">Gerar DANFE de outro XML autorizado</Link>.</p>
   </div>
 }
+

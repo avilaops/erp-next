@@ -24,7 +24,7 @@ Preferências incluem favoritePaths, charts e period. São listas limitadas de o
 
 Uma gravação de productPageSize que omite dashboardLayout preserva o layout. Uma revisão concorrente é recusada. A interface conserva a edição e exige releitura após erro ou resultado desconhecido.
 
-A migration 202611010001_dashboard_preferences.sql precisa seguir o fluxo de migração do repositório antes de disponibilizar a nova API. Esta implementação não executa migrações de produção.
+A migration 202611010006_dashboard_preferences.sql precisa seguir o fluxo de migração do repositório antes de disponibilizar a nova API. Esta implementação não executa migrações de produção.
 
 ## Escopo restante
 

@@ -1,3 +1,5 @@
+pub mod settings;
+
 use super::{DomainChange, DomainError, authorized, db, decimal, fixed, record, response, sales};
 use crate::platform::{access::AccessError, auth::AuthenticatedIdentity, state::AppState};
 use axum::{

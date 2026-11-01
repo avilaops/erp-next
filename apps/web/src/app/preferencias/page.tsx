@@ -1,4 +1,4 @@
-import { PreferencesOverview } from "@/features/preferences-search/preferences-overview"
+import { PreferencesOverview } from "@/features/preferences/search/preferences-overview"
 import { Suspense } from "react"
 
 export const metadata = { title: "Preferências" }

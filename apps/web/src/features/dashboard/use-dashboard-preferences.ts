@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
-import { useNavigationGuard } from "@/components/navigation-guard"
+import { useNavigationGuard } from "@/components/shell/navigation-guard"
 
 type Layout = Schema<"DashboardLayout">
 type Preferences = Schema<"PreferencesSnapshot">

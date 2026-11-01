@@ -4,7 +4,6 @@ pub mod audit;
 pub mod auth;
 pub mod company;
 mod company_data;
-pub mod financial_settings;
 pub mod invitations;
 pub mod onboarding;
 pub mod preferences;

@@ -1,4 +1,4 @@
-import { SecurityAudit } from "@/features/security/security-audit"
+import { SecurityAudit } from "@/features/access/audit/security-audit"
 
 export default function SecurityPage() {
   return <SecurityAudit />

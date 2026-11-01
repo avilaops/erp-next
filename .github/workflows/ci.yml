@@ -31,6 +31,16 @@ jobs:
         with:
           version: 11.11.0
       - run: pnpm install --frozen-lockfile
+      - run: pnpm test:architecture
+      - name: Enforce documented architecture
+        run: |
+          mkdir -p artifacts
+          pnpm --silent check:architecture > artifacts/architecture.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: erp-architecture-${{ github.sha }}
+          path: artifacts/architecture.json
       - run: pnpm context:erp
 
   fiscal-engine:

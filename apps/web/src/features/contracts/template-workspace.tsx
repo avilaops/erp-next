@@ -1,5 +1,5 @@
 import { connection } from "next/server"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { Templates } from "./templates"
 export async function TemplateWorkspace({ id }: { id?: string }) {
   await connection()

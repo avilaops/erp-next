@@ -1,12 +1,12 @@
 "use client"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { useResource } from "@/features/operations/use-operation"
+import { useResource } from "@/hooks/use-operation"
 import { money, purchaseLabels, purchaseLink, type PurchaseList as Listing } from "./purchase-types"
 
 export function PurchaseList({ receiving = false }: { receiving?: boolean }) {

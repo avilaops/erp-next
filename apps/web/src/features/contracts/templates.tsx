@@ -9,8 +9,8 @@ import { TemplateCanvas } from "./template-canvas"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
-import { RequestError } from "@/components/session-recovery"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { RequestError } from "@/components/feedback/session-recovery"
+import { useCommand, useResource } from "@/hooks/use-operation"
 
 type Area = Schema<"Area">
 type Field = Schema<"Field">

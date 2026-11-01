@@ -1,4 +1,4 @@
-import { currentSession, erpConfiguration } from "@/lib/erp-session"
+import { currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 const failure = (title: string, status: number) => Response.json({ title }, { status, headers: { "Cache-Control": "no-store" } })
 

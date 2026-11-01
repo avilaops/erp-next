@@ -1,4 +1,4 @@
-import { SystemPreferences } from "@/features/system-preferences/system-preferences"
+import { SystemPreferences } from "@/features/preferences/system/system-preferences"
 
 export default function SystemPreferencesPage() {
   return <SystemPreferences />

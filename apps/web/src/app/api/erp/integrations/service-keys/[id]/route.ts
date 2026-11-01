@@ -1,5 +1,5 @@
-import { forwardErp } from "@/lib/erp-proxy"
-import { uuidPattern } from "@/lib/erp-session"
+import { forwardErp } from "@/server/bff/erp-proxy"
+import { uuidPattern } from "@/server/auth/erp-session"
 
 export async function DELETE(request: Request, context: RouteContext<"/api/erp/integrations/service-keys/[id]">) {
   const { id } = await context.params

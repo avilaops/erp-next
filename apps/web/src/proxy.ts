@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { cookieName, identityFromCookie } from "@/lib/erp-session"
+import { cookieName, identityFromCookie } from "@/server/auth/erp-session"
 import { accessHref, recoveryDestination } from "@/lib/return-to"
 
 export function proxy(request: NextRequest) {

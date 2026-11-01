@@ -1,5 +1,5 @@
 import { connection } from "next/server"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { PageHeader } from "@/components/page-header"
 import { PartyEditor, PartyList } from "./party-workspace"
 

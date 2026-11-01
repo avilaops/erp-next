@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useNavigationGuard } from "@/components/navigation-guard";
+import { useNavigationGuard } from "@/components/shell/navigation-guard";
 import { Info, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { brazilianStates, companyFields, type CompanyData } from "./company-types";

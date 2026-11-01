@@ -2,18 +2,18 @@
 
 import type { Schema } from "@/lib/api/types"
 
-import { useSuggestedPaymentMethod } from "@/features/financial-settings/use-suggested-payment-method"
+import { useSuggestedPaymentMethod } from "@/features/finance/settings/use-suggested-payment-method"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { useCommand, useResource } from "@/hooks/use-operation"
 import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 
 type Account = Schema<"Payable">

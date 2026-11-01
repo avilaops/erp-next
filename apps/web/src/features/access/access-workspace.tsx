@@ -1,5 +1,5 @@
 import { connection } from "next/server"
-import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/workspace-access"
+import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { UsersManager } from "./users-manager"
 import { RolesManager } from "./roles-manager"
 import { MemberEditor } from "./member-editor"

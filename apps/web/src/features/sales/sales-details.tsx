@@ -1,6 +1,6 @@
 "use client";
 
-import { UnavailableImport } from "@/components/unavailable-import";
+import { UnavailableImport } from "@/components/feedback/unavailable-import";
 
 import { useState } from "react";
 import Link from "next/link";

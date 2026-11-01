@@ -7,6 +7,8 @@
     "apps/web"
   ],
   "scripts": {
+    "check:architecture": "node scripts/architecture/check.mjs",
+    "test:architecture": "node --test scripts/architecture/check.test.mjs",
     "context:erp": "node verification/product-context-cli.mjs",
     "context:erp:mcp": "node verification/product-context-mcp.mjs",
     "context:erp:publish": "node verification/product-context-publish.mjs",

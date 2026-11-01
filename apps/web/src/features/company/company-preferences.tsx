@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react"
 import { BadgeCheck, Building2, ChevronRight, CircleDollarSign, Fingerprint, Landmark, LockKeyhole, PlugZap, ReceiptText, Search, Settings2, ShieldCheck, Users } from "lucide-react"
-import { GuardedLink as Link } from "@/components/navigation-guard"
-import { preferenceGroups } from "@/components/navigation-catalog"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { preferenceGroups } from "@/components/shell/navigation-catalog"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"

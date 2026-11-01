@@ -1,6 +1,6 @@
 "use client"
 
-import { GuardedLink as Link } from "@/components/navigation-guard"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useDashboardPreferences } from "./use-dashboard-preferences"
 import type { SetStateAction } from "react"
 import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Boxes, CircleDollarSign, ClipboardList, FileInput, PackageCheck, Plus, ReceiptText, Route, ShoppingCart, Star, Trash2, Users, Wrench } from "lucide-react"

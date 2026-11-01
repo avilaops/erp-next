@@ -1,4 +1,4 @@
-import { contractTemplatesProxy } from "@/lib/contracts-proxy"
+import { contractTemplatesProxy } from "@/server/bff/contracts-proxy"
 async function forward(request: Request, context: RouteContext<"/api/erp/contract-template-drafts/[id]">) {
   const { id } = await context.params
   return contractTemplatesProxy(request, `/${id}`)

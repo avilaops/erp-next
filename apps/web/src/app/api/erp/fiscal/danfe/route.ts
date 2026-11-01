@@ -1,2 +1,2 @@
-import { forwardDanfe } from "@/lib/erp-danfe-proxy"
+import { forwardDanfe } from "@/server/bff/erp-danfe-proxy"
 export const POST = forwardDanfe

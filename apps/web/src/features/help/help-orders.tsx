@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Orders } from "@/features/operations/orders"
+import { Orders } from "@/features/sales/orders"
 import { Button } from "@/components/ui/button"
 
 export function HelpOrders() {

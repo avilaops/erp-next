@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useCommand, useResource } from "@/features/operations/use-operation"
+import { useCommand, useResource } from "@/hooks/use-operation"
 import { blockerLabels } from "./nfe-draft-model"
 
 type Emission = { tenantId: string; id: string; revision: number; status: string; number: number; series: number; accessKey?: string; protocol?: string; result: { code?: string; reason?: string; blockers?: string[] } }

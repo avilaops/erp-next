@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { RefreshCw, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AccessLink } from "@/components/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 import { accountSections, type AccountSection } from "./account-navigation"
 import { CancellationPanel, ImportsPanel, Notice, PaymentPanel, StatementPanel, StoragePanel } from "./account-panels"
 import { PlansPanel } from "./plans-panel"

@@ -2,7 +2,7 @@
 
 import { decimalPattern } from "@/lib/decimal-input"
 
-import { RequestError } from "@/components/session-recovery"
+import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useState, type FormEvent } from "react"
@@ -10,8 +10,8 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Access } from "@/features/access/access-client"
-import { quantity, useCommand, useResource } from "@/features/operations/use-operation"
-import { CommercialReturn } from "@/features/operations/commercial-return"
+import { quantity, useCommand, useResource } from "@/hooks/use-operation"
+import { CommercialReturn } from "@/features/returns/commercial-return"
 import { fixedText, fixedValue, money, purchaseLabels, purchaseLink, type PurchaseDetail as Detail, type ReceiptDetail, type ReceiptList } from "./purchase-types"
 
 type PendingAction = { resource: string; body: object; notice: string }

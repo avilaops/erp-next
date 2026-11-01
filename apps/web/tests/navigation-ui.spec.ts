@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret } from "../playwright.danfe.config"
-import { preferenceCategories } from "../src/features/preferences-search/preferences-catalog"
+import { preferenceCategories } from "../src/features/preferences/search/preferences-catalog"
 import { existsSync } from "node:fs"
 import path from "node:path"
 

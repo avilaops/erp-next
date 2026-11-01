@@ -17,6 +17,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
+        sales::settings::get, sales::settings::put,
         crate::platform::subscriptions::account, crate::platform::subscriptions::checkout,
         crate::platform::subscriptions::refresh, crate::platform::subscriptions::change_plan,
         crate::platform::subscriptions::cancel, crate::platform::subscriptions::invoices,

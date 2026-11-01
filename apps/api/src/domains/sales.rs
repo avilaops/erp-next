@@ -17,6 +17,8 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+pub mod settings;
+
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct OrderItemInput {
@@ -615,6 +617,9 @@ async fn transition(
             return Err(DomainError::Conflict(
                 "O cliente precisa estar ativo para esta operação",
             ));
+        }
+        if matches!(action, Action::Confirm) {
+            settings::validate_confirmation(&mut tx, tenant, &current).await?;
         }
         for item in &current.items {
             if matches!(action, Action::Complete) {

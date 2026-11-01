@@ -55,6 +55,8 @@ mod reference_tests;
 #[cfg(test)]
 mod returns_tests;
 #[cfg(test)]
+mod sales_settings_tests;
+#[cfg(test)]
 mod staff_tests;
 #[cfg(test)]
 mod subscription_tests;
@@ -80,6 +82,10 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/sales-settings",
+            get(sales::settings::get).put(sales::settings::put),
+        )
         .merge(crate::platform::subscriptions::routes())
         .merge(crate::domains::commissions::routes())
         .merge(crate::domains::production::routes())

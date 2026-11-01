@@ -37,7 +37,7 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "vendas", label: "Vendas", sections: [
-    { title: "Configurações de vendas", items: [unavailable("Frente de caixa"), unavailable("Propostas comerciais"), unavailable("Vendas")] },
+    { title: "Configurações de vendas", items: [unavailable("Frente de caixa"), unavailable("Propostas comerciais"), { label: "Vendas", href: "/preferencias/vendas" }] },
   ] },
   { id: "notas-fiscais", label: "Notas Fiscais", sections: [
     { title: "Configurações de notas fiscais", items: [

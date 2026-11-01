@@ -603,4 +603,3 @@ pub async fn webhook(
     tx.commit().await.map_err(db)?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

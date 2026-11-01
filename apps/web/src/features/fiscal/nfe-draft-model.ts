@@ -1,10 +1,11 @@
 
 import type { Schema } from "@/lib/api/types"
 export type DraftItem = Schema<"DraftItem">
-export type DraftInput = Schema<"DraftInput">
+export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration"> & { taxDeclaration?: TaxDeclaration | null }
 export type NfeDraft = Schema<"Draft">
 export type FiscalReadiness = Schema<"Readiness">
-export type TaxDeclaration = Schema<"TaxDeclaration">
+type TaxBooleanField = "recipientTaxpayer" | "finalConsumer" | "ipiInIcmsBase" | "icmsOutOfContributions"
+export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & Record<TaxBooleanField, boolean | null>
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
@@ -43,12 +44,16 @@ export function invoiceTotal(draft: DraftInput): string {
   }, BigInt(0)))
 }
 
-function declaredTaxes(declaration: TaxDeclaration): TaxDeclaration {
+function declaredTaxes(declaration: TaxDeclaration): Schema<"TaxDeclaration"> {
   for (const field of ["recipientTaxpayer", "finalConsumer", "ipiInIcmsBase", "icmsOutOfContributions"] as const) {
     if (typeof declaration[field] !== "boolean") throw new Error("Declare contribuinte, consumidor final e composição das bases conforme a instrução fiscal")
   }
   return {
     ...declaration,
+    recipientTaxpayer: declaration.recipientTaxpayer === true,
+    finalConsumer: declaration.finalConsumer === true,
+    ipiInIcmsBase: declaration.ipiInIcmsBase === true,
+    icmsOutOfContributions: declaration.icmsOutOfContributions === true,
     icmsRate: declaration.icmsRate ? percent(declaration.icmsRate) : null,
     pisRate: declaration.pisRate ? percent(declaration.pisRate) : null,
     cofinsRate: declaration.cofinsRate ? percent(declaration.cofinsRate) : null,
@@ -57,13 +62,14 @@ function declaredTaxes(declaration: TaxDeclaration): TaxDeclaration {
   }
 }
 
-export function submission(draft: DraftInput): DraftInput {
+export function submission(draft: DraftInput): Schema<"DraftInput"> {
+  const { taxDeclaration, ...input } = draft
   const items = draft.items.map((item, index) => {
     if (item.origin < 0) throw new Error(`Informe a origem da mercadoria no item ${index + 1}`)
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
     return { ...item, quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
-  return { ...draft, items, productsTotal: productsTotal(items), ...(draft.taxDeclaration ? { taxDeclaration: declaredTaxes(draft.taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
+  return { ...input, items, productsTotal: productsTotal(items), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }
 
 export const blockerLabels: Record<string, string> = {

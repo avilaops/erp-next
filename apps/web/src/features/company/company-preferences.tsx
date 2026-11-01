@@ -19,6 +19,7 @@ const settingsGroups = [
   ] },
   { title: "Fiscal", description: "Dados tributários e credenciais necessárias para a operação fiscal.", items: [
     { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", icon: ReceiptText, href: "/preferencias/empresa/dados?secao=fiscal", section: "fiscal" },
+    { title: "Emissão de NF-e", description: "Preencher série, CRT e código IBGE do município", icon: ReceiptText, href: "/preferencias/fiscal" },
     { title: "Inscrições estaduais", description: "Inscrições estaduais substitutas por unidade federativa", icon: CircleDollarSign, href: "/preferencias/empresa/dados?secao=inscricoes", section: "inscricoes" },
     { title: "Certificado digital", description: "Conexão, validade e substituição do certificado A1", icon: Fingerprint, href: "/preferencias/certificado-digital" },
   ] },
@@ -52,6 +53,7 @@ export function CompanyPreferences({ summary }: { summary: ReactNode }) {
         <DialogTrigger render={<Button variant="outline" />}><Settings2 />Preferências<ChevronRight /></DialogTrigger>
         <DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Preferências</DialogTitle><DialogDescription>Acesse as configurações do ERP.</DialogDescription></DialogHeader><PreferenceLinks onNavigate={() => setOpen(false)} /></DialogContent>
       </Dialog></div>
+      <Link href="/preferencias" className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-primary hover:underline"><ChevronRight className="size-4 rotate-180" aria-hidden="true" />Todas as preferências</Link>
       <PageHeader eyebrow="Preferências / Empresa" title="Empresa" description="Identidade, configuração fiscal, acesso e conexões da empresa ativa." />
       <div className="mb-6 flex items-center gap-2">
         <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3">

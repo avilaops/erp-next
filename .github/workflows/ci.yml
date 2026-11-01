@@ -146,6 +146,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -153,6 +155,7 @@ jobs:
         working-directory: scripts/contracts/consumer
       - run: bash scripts/contracts/install-oasdiff.sh
       - run: node --test scripts/contracts/test/*.test.mjs
+      - run: python3 -B -m unittest discover -s scripts/contracts -p 'test_capture.py'
 
   baseline:
     needs: rust

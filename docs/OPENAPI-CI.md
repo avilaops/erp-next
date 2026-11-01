@@ -115,6 +115,26 @@ sem essa decisão viola a política.
 
 ## Limites
 
+### Captura do commit histórico 1196d52
+
+O merge automático do PR #54 ocorreu antes do CI e deixou a main sem compilar:
+o módulo financeiro movido acessava um campo privado de `platform`. A versão
+corrigida usa `require_permission`, preservando as permissões existentes.
+
+Para exportar o contrato da baseline exata `1196d525ea4ac2f39a909cf3791d6fd02617109a`,
+`baseline-1196d52.json` fixa o arquivo, os hashes anterior/posterior e uma única
+substituição de visibilidade interna Rust. A instrumentação só acontece durante
+a exportação, não altera handlers, valores de permissões, serialização ou
+declarações OpenAPI, e restaura os bytes inclusive quando a exportação falha.
+Outra revisão não recebe a alteração; divergência de hash é erro.
+
+O artefato registra `baselineCompilationRepair` e o comparador usa
+`comparisonScope: instrumented_event_base`. `eventBaseCompatibilityVerified` e
+`runtimeVerified` permanecem falsos. O oasdiff e o consumidor continuam exigidos;
+incompatibilidades não são admitidas por essa instrumentação. Os testes cobrem
+restauração, versão diferente, arquivo alterado e metadados forjados. O registro
+é histórico e não cria uma permissão geral para corrigir baselines futuras.
+
 O relatório `comparison.json` declara `runtimeVerified: false`. Compatibilidade
 OpenAPI não prova cobertura de todas as rotas, autorização, semântica de negócio,
 completude de erros ou comportamento em produção. Respostas que têm somente

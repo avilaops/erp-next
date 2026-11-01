@@ -17,6 +17,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
+        sales::settings::get, sales::settings::put,
         crate::platform::subscriptions::account, crate::platform::subscriptions::checkout,
         crate::platform::subscriptions::refresh, crate::platform::subscriptions::change_plan,
         crate::platform::subscriptions::cancel, crate::platform::subscriptions::invoices,
@@ -244,7 +245,19 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 131);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 132);
+        assert!(doc["paths"]["/api/v1/sales-settings"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/sales-settings"]["put"].is_object());
+        let required = doc["components"]["schemas"]["SalesSettingsInput"]["required"]
+            .as_array()
+            .unwrap();
+        for field in [
+            "minimumOrderAmount",
+            "maximumPaymentTermDays",
+            "requireCustomerContact",
+        ] {
+            assert!(required.iter().any(|value| value == field));
+        }
         assert!(doc["paths"]["/api/v1/company-account"]["get"].is_object());
         for action in ["checkout", "refresh", "change-plan", "cancel"] {
             assert!(

@@ -257,6 +257,12 @@
         "journey": [{ "id": "configure", "title": "Consultar e salvar sugestão da empresa", "actionIds": ["get-financial-settings", "put-financial-settings"], "authRefs": [], "externalSystems": [] }]
       },
       {
+        "id": "sales-settings", "title": "Configurações de vendas", "goal": "Definir valor mínimo, prazo máximo e exigência de contato na confirmação dos pedidos.", "kind": "product",
+        "actionGroups": ["sales-settings"], "dependencies": ["company_onboarding"], "nextStep": "Conferir gravação e bloqueios sem reserva ou recebíveis em ambiente isolado; observar a versão publicada separadamente.",
+        "additionalSources": ["docs/superpowers/plans/2026-11-01-sales-settings.md", "docs/PREFERENCIAS-PENDENTES.md"],
+        "journey": [{ "id": "configure", "title": "Preencher e salvar regras da empresa", "actionIds": ["get-sales-settings", "put-sales-settings"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
         "id": "audit", "title": "Segurança e auditoria", "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.", "kind": "product",
         "actionGroups": ["audit"], "dependencies": ["company_onboarding"],
         "nextStep": "Conferir consulta, filtros, paginação e autorização na versão publicada.",
@@ -5175,6 +5181,32 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-sales-settings", "flow": "sales-settings", "status": "implemented", "operation": { "method": "GET", "path": "/api/v1/sales-settings" },
+      "actor": "active_tenant_member", "permissions": [],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; leitura/gestão da empresa OU leitura de pedidos."],
+      "transition": { "from": "configuração da empresa ou ausência", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não reserva estoque nem altera pedido ou recebível."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Ausência retorna data null e revisão virtual 1; campos novos ficam vazios." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "Consultar regras de confirmação dos pedidos" }, "recovery": "Repetir leitura; falha não é apresentada como ausência de regras.",
+      "ui": { "pages": ["/preferencias/vendas", "/vendas/pedidos/novo", "/vendas/pedidos/[id]"], "bff": { "method": "GET", "path": "/api/erp/sales-settings" }, "gap": null },
+      "sources": ["apps/api/src/domains/sales/settings.rs", "apps/web/src/features/sales/settings/sales-settings.tsx", "apps/web/src/features/sales/orders.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "put-sales-settings", "flow": "sales-settings", "status": "implemented", "operation": { "method": "PUT", "path": "/api/v1/sales-settings" },
+      "actor": "company_manager", "permissions": ["platform.company.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": [], "body": { "source": "apps/api/src/domains/sales/settings.rs", "type": "SalesSettingsInput" }, "query": null },
+      "preconditions": ["Gestão revalidada sob bloqueio da empresa; três campos explícitos; valor decimal e prazo inteiro válidos."],
+      "transition": { "from": "revisão atual", "to": "regras da empresa com revisão incrementada" },
+      "effects": { "writes": ["sales_settings", "audit_log", "outbox_events na mesma transação"], "external": [], "excludes": ["Não altera pedidos existentes; regras são verificadas na próxima confirmação, antes da reserva."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match e bloqueio de empresa; resposta incerta ou conflito exige recarga explícita." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,412,422,428,500,503], "action": "Salvar regras de confirmação de vendas" }, "recovery": "Preservar edição e recarregar antes de repetir uma gravação incerta.",
+      "ui": { "pages": ["/preferencias/vendas"], "bff": { "method": "PUT", "path": "/api/erp/sales-settings" }, "gap": null },
+      "sources": ["apps/api/src/domains/sales/settings.rs", "apps/api/src/domains/sales.rs", "migrations/202611010008_sales_settings.sql", "apps/web/src/features/sales/settings/sales-settings.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
       "id": "get-financial-settings", "flow": "financial-settings", "status": "implemented", "operation": { "method": "GET", "path": "/api/v1/financial-settings" },
@@ -16589,6 +16621,56 @@
     }
   ],
   "pendingFlows": [
+    {
+      "id": "preferences-system", "title": "Preferências: sistema e personalização", "status": "needs_definition",
+      "intent": "Exclusões, arquivos, relatórios, etiquetas, transições e campos customizados observados nas capturas do usuário.", "proposedEndpoints": [],
+      "openDecisions": ["Definir retenção, permissões, modelos e uso operacional de cada recurso. Fonte da fila: docs/PREFERENCIAS-PENDENTES.md; acompanhamento AVL-372."], "requiredFields": ["actor","permissions","input","preconditions","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-records", "title": "Preferências: regras de cadastros", "status": "needs_definition",
+      "intent": "Configurações de clientes, fornecedores, produtos e tipos de contatos.", "proposedEndpoints": [],
+      "openDecisions": ["Definir regras e consumidores em cadastros reais; campos novos para preenchimento explícito do usuário."], "requiredFields": ["actor","permissions","input","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-supplies", "title": "Preferências: estoque e suprimentos", "status": "needs_definition",
+      "intent": "Configurações de estoque/compras, grupos de tags, tags, grupos de produtos e depósitos operacionais.", "proposedEndpoints": [],
+      "openDecisions": ["Relacionar com depósitos/transferências, conservação de quantidades e compras; definir regras e evidências antes de habilitar."], "requiredFields": ["actor","permissions","input","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-sales-next", "title": "Preferências: propostas e frente de caixa", "status": "needs_definition",
+      "intent": "Concluir propostas e PDV após a etapa inicial dos parâmetros de pedidos.", "proposedEndpoints": [],
+      "openDecisions": ["Definir orçamento, validade, conversão em pedido e ciclo de caixa, pagamentos e fechamento com reconciliação real."], "requiredFields": ["actor","permissions","input","transition","effects","recovery","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-fiscal-next", "title": "Preferências: NFC-e e consultas fiscais consolidadas", "status": "needs_definition",
+      "intent": "Configurações de NFC-e, inutilizações/correções consolidadas e naturezas de operação.", "proposedEndpoints": [],
+      "openDecisions": ["Reutilizar eventos NF-e já armazenados; definir emissão NFC-e e configuração fiscal separadamente, com evidências próprias."], "requiredFields": ["actor","permissions","input","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-finance-next", "title": "Preferências: conta digital e pagamentos", "status": "needs_definition",
+      "intent": "Conta digital, Pix, taxas/prazos, importação financeira, caixa e integrações de pagamento.", "proposedEndpoints": [],
+      "openDecisions": ["Definir provedor, credenciais e contratos; conciliar eventos sem duplicar lançamentos; validar caixa operacional."], "requiredFields": ["actor","permissions","input","effects","recovery","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-services", "title": "Preferências: serviços e cobranças", "status": "needs_definition",
+      "intent": "NFS-e, ordens de serviço, cobranças e CT-e; preservar os modelos de contrato existentes.", "proposedEndpoints": [],
+      "openDecisions": ["Definir provedores fiscais, ciclo da ordem e recorrência/recebimento; credenciais e transmissão não são inferidas do menu."], "requiredFields": ["actor","permissions","input","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-logistics", "title": "Preferências: logística e integrações", "status": "needs_definition",
+      "intent": "Configuração logística e integrações de transporte.", "proposedEndpoints": [],
+      "openDecisions": ["Definir provedores, estados de postagem/rastreio e efeitos de expedição com dados autorizados."], "requiredFields": ["actor","permissions","input","transition","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-accounting", "title": "Preferências: espaço do contador", "status": "needs_definition",
+      "intent": "Substituir a prévia por acesso e exportações contábeis autorizados.", "proposedEndpoints": [],
+      "openDecisions": ["Definir papéis, formatos, períodos, origem e conciliação dos dados exportados."], "requiredFields": ["actor","permissions","input","effects","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
+    {
+      "id": "preferences-data", "title": "Preferências: importações, backup e exportações", "status": "needs_definition",
+      "intent": "Produtos, multilojas, composições, campos, balança, preços, contatos, compras, movimentos, fornecedores, vendas e backup.", "proposedEndpoints": [],
+      "openDecisions": ["Começar por importação de produtos com prévia e exportação por empresa (AVL-379/AVL-380); definir formatos, erros por linha e deduplicação."], "requiredFields": ["actor","permissions","input","effects","recovery","acceptanceCriteria"], "planningReference": "AVL-372"
+    },
     {
       "id": "pending-2",
       "title": "Preços e catálogo completo",

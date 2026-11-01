@@ -22,6 +22,7 @@ export const auditActions: Record<string, string> = {
   "staff.updated": "Colaborador alterado",
   "stock.moved": "Movimentação de estoque registrada",
   "order.created": "Pedido de venda criado",
+  "sales.settings.updated": "Configurações de vendas alteradas",
   "order.updated": "Pedido de venda alterado",
   "order.confirmed": "Pedido de venda confirmado",
   "order.completed": "Pedido de venda concluído",
@@ -70,7 +71,7 @@ export const auditActions: Record<string, string> = {
 
 export const auditAreas: Record<string, string> = {
   company: "Empresa", role: "Perfis de acesso", membership: "Acessos de usuários",
-  personal_preferences: "Preferências pessoais", financial_settings: "Configurações financeiras",
+  personal_preferences: "Preferências pessoais", financial_settings: "Configurações financeiras", sales_settings: "Configurações de vendas",
   user_invitation: "Convites de usuários", service_api_key: "Conexões com outros sistemas",
   product: "Produtos", party: "Clientes e fornecedores", staff: "Colaboradores",
   stock_movement: "Estoque", sales_order: "Pedidos de venda", purchase_order: "Pedidos de compra",

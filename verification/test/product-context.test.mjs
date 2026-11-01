@@ -20,12 +20,25 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 27);
-  assert.equal(context.actions.length, 130);
+  assert.equal(context.flows.length, 32);
+  assert.equal(context.actions.length, 168);
   assert.equal(context.pendingFlows.length, 25);
-  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'financial-settings', 'personal-preferences', 'products', 'purchase_payment_chain', 'users']);
-  assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'blocked');
+  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'personal-preferences', 'production', 'products', 'purchase_payment_chain', 'users']);
+  assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'implemented');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
+});
+
+test('operational journeys include their explicit dependencies while residual scope stays pending', async () => {
+  const inventory = await inventoryPromise;
+  const returns = buildProductContext(catalogue, inventory, source, 'commercial-returns');
+  for (const id of ['commissions', 'production', 'fiscal-emission', 'purchase_payment_chain']) assert.ok(returns.selection.includedFlows.includes(id));
+  for (const id of ['post-api-v1-orders-id-cancel-completed', 'post-api-v1-purchase-receipts-id-reverse', 'post-api-v1-fiscal-nfe-id-issue']) assert.ok(returns.actions.some(action => action.id === id));
+  const incoming = buildProductContext(catalogue, inventory, source, 'fiscal-incoming');
+  assert.ok(incoming.actions.some(action => action.operation.path === '/api/v1/fiscal/monitor'));
+  assert.ok(incoming.actions.some(action => action.operation.path === '/api/v1/fiscal/received-nfes/{id}/purchase'));
+  assert.match(catalogue.pendingFlows.find(flow => flow.id === 'pending-6').intent, /implementados/);
+  assert.match(catalogue.pendingFlows.find(flow => flow.id === 'pending-19').intent, /produção permanece bloqueada/);
+  assert.ok(incoming.actions.every(action => action.verification.status === 'not_verified_by_catalog'));
 });
 
 test('a task includes its transitive dependencies and real Auth handler sources without unrelated purchase actions', async () => {

@@ -24,8 +24,19 @@ As oito dimensões de aceite não são resultados de testes. Veja o
 
 O campo `productFlows` do mesmo catálogo associa os grupos de ações a nomes e
 objetivos de produto, dependências e próximos passos. As definições de sequência
-inicial cobrem Usuários, Produtos e Compras. Os demais grupos mantêm o estado
-`actions_mapped`, sem sequência de uso presumida.
+incluem Usuários, Produtos, Compras, cancelamentos integrais, comissões,
+produção, emissão NF-e em homologação e entrada fiscal. Uma sequência declarada
+documenta os comandos e suas dependências; continua sem comprovar execução ou
+publicação. Os demais grupos mantêm `actions_mapped`.
+
+O catálogo cobre 168 operações API, incluindo `GET /openapi.json`, e 144 métodos
+de handlers BFF. Despachos `[action]` e `[...resource]` enumeram destinos
+explícitos, ligados a uma ficha API; um destino sem ficha ou que aponte para
+outra operação impede a verificação. A emissão é implementada somente para
+SP/homologação, com motor, certificado e validações; emissão em produção e
+aceite externo continuam pendentes. O monitor de produção mantém cursor e
+permissões próprios. Importar uma NF-e ou criar sua compra não recebe
+mercadoria nem cria conta a pagar.
 
 ```powershell
 pnpm context:erp

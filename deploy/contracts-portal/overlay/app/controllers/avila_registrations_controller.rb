@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class AvilaRegistrationsController < ApplicationController
+  around_action ->(_controller, action) { I18n.with_locale(:pt, &action) }
   skip_before_action :authenticate_user!
   skip_authorization_check
   before_action :redirect_signed_in_user

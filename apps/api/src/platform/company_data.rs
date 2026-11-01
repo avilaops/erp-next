@@ -35,6 +35,10 @@ pub struct CompanyData {
     pub email: String,
     pub billing_email: String,
     pub website: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partner_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partner_mobile: Option<String>,
     pub substitute_registrations: Vec<StateRegistration>,
 }
 
@@ -271,5 +275,15 @@ mod tests {
             serde_json::from_value::<CompanyData>(serde_json::json!({"tenantId":"foreign"}))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn partner_fields_are_separate_from_company_contacts_and_backward_compatible() {
+        let old: CompanyData =
+            serde_json::from_value(serde_json::json!({"contactName":"Contato"})).unwrap();
+        assert!(old.partner_name.is_none());
+        let new: CompanyData = serde_json::from_value(serde_json::json!({"partnerName":"Sócia", "partnerMobile":"11999999999", "contactName":"Contato"})).unwrap();
+        assert_eq!(new.partner_name.as_deref(), Some("Sócia"));
+        assert_eq!(new.contact_name, "Contato");
     }
 }

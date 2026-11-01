@@ -1,6 +1,8 @@
 export const companyFields = ["legalName", "tradeName", "personType", "taxId", "stateRegistration", "municipalRegistration", "suframa", "cnae", "mainActivity", "taxRegime", "companySize", "activityDescription", "postalCode", "state", "city", "street", "number", "district", "complement", "contactName", "phone", "mobile", "email", "billingEmail", "website"] as const
 
 export type CompanyData = Record<typeof companyFields[number], string> & {
+  partnerName?: string
+  partnerMobile?: string
   segments: string[]
   substituteRegistrations: { state: string; value: string }[]
 }

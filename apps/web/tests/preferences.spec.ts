@@ -329,7 +329,7 @@ test("central de trabalho controla eventos e notificações locais", async ({ pa
   await expect(page.getByRole("button", { name: "Lida", exact: true }).first()).toBeDisabled()
 })
 
-test("experiência opcional mantém assistente, novidades e plano locais", async ({ page }) => {
+test("experiência opcional mantém assistente e novidades e encaminha plano para a conta", async ({ page }) => {
   await page.goto("/assistente")
   await page.getByLabel("Mensagem para o assistente").fill("Mostre os pedidos pendentes")
   await page.getByRole("button", { name: "Enviar" }).click()
@@ -338,7 +338,8 @@ test("experiência opcional mantém assistente, novidades e plano locais", async
   await page.getByRole("button", { name: "Fiscal" }).click()
   await expect(page.getByRole("heading", { name: "Eventos fiscais na página inicial" })).toBeVisible()
   await page.goto("/preferencias/plano")
-  await expect(page.getByRole("heading", { name: "ERP Next Completo" })).toBeVisible()
+  await expect(page).toHaveURL(/\/preferencias\/empresa\/conta\/plano$/)
+  await expect(page.getByRole("heading", { name: "Alterar dados da empresa" })).toBeVisible()
 })
 
 test("temas claro e escuro são aplicados", async ({ page }) => {

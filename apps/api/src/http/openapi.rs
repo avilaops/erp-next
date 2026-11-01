@@ -17,6 +17,9 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::platform::financial_settings::get, crate::platform::financial_settings::put,
+        crate::platform::subscriptions::account, crate::platform::subscriptions::checkout,
+        crate::platform::subscriptions::refresh, crate::platform::subscriptions::change_plan,
+        crate::platform::subscriptions::cancel, crate::platform::subscriptions::invoices,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
         contracts::templates::list, contracts::templates::detail, contracts::templates::save, contracts::templates::pdf,
@@ -222,7 +225,15 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 125);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 131);
+        assert!(doc["paths"]["/api/v1/company-account"]["get"].is_object());
+        for action in ["checkout", "refresh", "change-plan", "cancel"] {
+            assert!(
+                doc["paths"][format!("/api/v1/company-account/{action}")]["post"]["requestBody"]
+                    .is_object()
+            );
+        }
+        assert!(doc["paths"]["/api/v1/company-account/invoices"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/commissions"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/production/orders"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/fiscal/monitor"]["get"].is_object());

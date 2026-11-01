@@ -77,7 +77,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
     }
     const form = new FormData(event.currentTarget);
     const fields = Object.fromEntries(companyFields.map((field) => [field, String(form.get(field) || "")]));
-    const success = await onSave({ ...fields, segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
+    const success = await onSave({ ...initial, ...fields, segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
     if (success) { setDirty(false); setSaved(true); }
   }
 
@@ -104,11 +104,10 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   }
 
   return (
-    <form ref={formRef} className="grid items-start gap-6 md:grid-cols-[220px_minmax(0,1fr)] lg:gap-8" noValidate onChange={markDirty} onSubmit={save}>
-      <nav className="overflow-hidden rounded-xl border border-border" aria-label="Seções dos dados da empresa">
-        <p className="border-b border-border bg-muted/40 px-4 py-3 text-sm font-semibold">Dados da empresa</p>
+    <form ref={formRef} className="min-w-0 space-y-5" noValidate onChange={markDirty} onSubmit={save}>
+      <nav className="flex flex-wrap gap-1 rounded-xl border border-border bg-muted/30 p-1" aria-label="Seções dos dados da empresa">
         {Object.entries(companySections).map(([key, value]) => <button key={key} type="button" aria-pressed={section === key} aria-controls={value.heading}
-          className={`flex min-h-11 w-full items-center border-b border-border px-4 py-3 text-left text-sm transition last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${section === key ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground"}`}
+          className={`flex min-h-11 items-center rounded-lg px-3 py-2 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${section === key ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground"}`}
           onClick={() => openSection(key as CompanySection)}>{value.label}</button>)}
       </nav>
       <div className="min-w-0 space-y-6">

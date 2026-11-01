@@ -10,7 +10,7 @@ const require = createRequire(new URL("./consumer/package.json", import.meta.url
 export async function generateWeb(input, output = resolve(root, "apps/web/src/lib/api/generated.d.ts")) {
   if (!input) throw new Error("OPENAPI_ARTIFACT_REQUIRED");
   const { document } = await readOpenApi(resolve(input));
-  const { default: openapiTS, astToString } = await import(pathToFileURL(require.resolve("openapi-typescript")).href);
+  const { default: openapiTS, astToString } = require("openapi-typescript");
   const source = astToString(await openapiTS(document));
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, source);

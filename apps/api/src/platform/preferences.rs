@@ -8,6 +8,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
@@ -58,6 +59,8 @@ impl DashboardLayout {
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Preferences {
+    #[serde(default)]
+    owner_key: Option<String>,
     product_page_size: i32,
     #[serde(default)]
     dashboard_layout: Option<DashboardLayout>,
@@ -73,9 +76,17 @@ pub struct PreferenceData {
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PreferencesSnapshot {
+    owner_key: String,
     tenant_id: Uuid,
     revision: i64,
     data: PreferenceData,
+}
+
+fn owner_key(tenant: Uuid, subject: &str) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(format!("{tenant}:{subject}").as_bytes())
+    )
 }
 
 async fn transaction<'a>(
@@ -132,6 +143,7 @@ pub async fn get(
         Some(revision),
         PreferencesSnapshot {
             tenant_id: tenant,
+            owner_key: owner_key(tenant, &identity.subject),
             revision,
             data: PreferenceData {
                 product_page_size: size,
@@ -160,6 +172,13 @@ pub async fn put(
         layout.validate()?;
     }
     let (tenant, mut tx) = transaction(&state, &headers, &identity, true).await?;
+    if (input.dashboard_layout.is_some() || input.owner_key.is_some())
+        && input.owner_key.as_deref() != Some(owner_key(tenant, &identity.subject).as_str())
+    {
+        return Err(DomainError::Conflict(
+            "A conta ou empresa mudou. Recarregue suas preferências",
+        ));
+    }
     let (current, _, previous_layout) = load(&mut tx, tenant, &identity.subject).await?;
     if current != expected {
         return Err(DomainError::StaleRevision);
@@ -179,6 +198,7 @@ pub async fn put(
         Some(next),
         PreferencesSnapshot {
             tenant_id: tenant,
+            owner_key: owner_key(tenant, &identity.subject),
             revision: next,
             data: PreferenceData {
                 product_page_size: input.product_page_size,

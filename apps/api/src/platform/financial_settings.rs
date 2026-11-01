@@ -95,7 +95,7 @@ pub async fn get(
         Some(revision),
         FinancialSettingsSnapshot {
             tenant_id: tenant,
-            revision: revision,
+            revision,
             can_edit,
             data: FinancialSettingsData {
                 default_payment_method: method,

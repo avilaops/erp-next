@@ -11,7 +11,6 @@ import { ArrowLeft, LoaderCircle, Send, Sparkles, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type RecordSource = Schema<"AssistantRecord">
 type Source = Schema<"AssistantSource">
 type Message = { role: "user" | "assistant"; text: string; kind?: "model" | "erp"; sources?: Source[] }
 type Event = Schema<"AssistantEvent">

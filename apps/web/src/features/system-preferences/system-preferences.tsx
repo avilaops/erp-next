@@ -31,7 +31,7 @@ export function SystemPreferences() {
     if (!resource.value || !resource.etag || !dirty || blocked || pending.current) return
     pending.current = true; setBusy(true); setError(""); setMessage("")
     try {
-      const response = await erpFetch("/api/erp/preferences", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ productPageSize: size }) })
+      const response = await erpFetch("/api/erp/preferences", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ productPageSize: size, ownerKey: resource.value.ownerKey }) })
       const result = await response.json()
       if (!response.ok) {
         if ([401,403,409,412].includes(response.status) || response.status >= 500) setBlocked(true)

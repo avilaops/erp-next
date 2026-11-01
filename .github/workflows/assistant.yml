@@ -50,6 +50,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: cargo test --locked -p erp-next-api assistant -- --test-threads=1
       - run: cargo build --locked -p erp-next-api
+      - name: Export same-revision API contract
+        run: |
+          mkdir -p artifacts/contracts
+          ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" cargo test --locked -p erp-next-api export_openapi_contract_artifact -- --nocapture
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: node scripts/contracts/generate-web.mjs
       - run: pnpm --filter web build
       - name: Start the same CPU inference distribution
         run: |

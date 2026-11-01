@@ -19,7 +19,7 @@ test("layout salvo é relido e preserva a preferência de paginação", async ({
       data = route.request().postDataJSON()
       revision++
     }
-    await route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, revision, data } })
+    await route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, ownerKey: "fixture-owner", revision, data } })
   })
   await page.goto("/")
   await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
@@ -40,7 +40,7 @@ test("conflito preserva edição e exige releitura antes de nova gravação", as
       attempts++
       return route.fulfill({ status: 412, json: { title: "Preferências alteradas em outra tela" } })
     }
-    return route.fulfill({ headers: { ETag: '"2"' }, json: { tenantId: tenant, revision: 2, data: { productPageSize: 25, dashboardLayout: layout() } } })
+    return route.fulfill({ headers: { ETag: '"2"' }, json: { tenantId: tenant, ownerKey: "fixture-owner", revision: 2, data: { productPageSize: 25, dashboardLayout: layout() } } })
   })
   await page.goto("/")
   await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
@@ -53,4 +53,25 @@ test("conflito preserva edição e exige releitura antes de nova gravação", as
   page.once("dialog", dialog => dialog.accept())
   await page.getByRole("button", { name: "Recarregar página inicial", exact: true }).click()
   await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
+})
+
+test("leitura lenta não aplica edição sobre defaults e gráficos removidos podem voltar", async ({ page }) => {
+  let release!: () => void
+  const pending = new Promise<void>(resolve => { release = resolve })
+  await page.route("**/api/erp/preferences", async route => {
+    await pending
+    return route.fulfill({ headers: { ETag: '"1"' }, json: {
+      tenantId: tenant, ownerKey: "fixture-owner", revision: 1,
+      data: { productPageSize: 25, dashboardLayout: { favoritePaths: ["/compras/pedidos"], charts: ["Valor faturado"], period: "6M" } },
+    } })
+  })
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeDisabled()
+  release()
+  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeEnabled()
+  await page.getByRole("button", { name: "30D", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Remover gráfico Ticket médio", exact: true })).toHaveCount(0)
+  await page.getByRole("button", { name: "Adicionar gráfico", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Remover gráfico Ticket médio", exact: true })).toBeVisible()
 })

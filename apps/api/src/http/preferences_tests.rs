@@ -186,6 +186,13 @@ async fn personal_preferences_persist_and_isolate_owner_tenant_and_revisions(adm
 #[sqlx::test(migrations = "../../migrations")]
 async fn dashboard_layout_persists_without_legacy_writes_erasing_it(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    let owner = call(&router, "GET", "editor", TENANT, None, Value::Null)
+        .await
+        .1["ownerKey"]
+        .clone();
+    let foreign = call(&router, "PUT", "reader", TENANT, Some("\"1\""),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":{"favoritePaths":[],"charts":[],"period":"30D"}})).await;
+    assert_eq!(foreign.0, StatusCode::CONFLICT);
     let layout = json!({
         "favoritePaths": ["/compras/pedidos", "/vendas/pedidos"],
         "charts": ["Pedidos de venda"],
@@ -197,7 +204,7 @@ async fn dashboard_layout_persists_without_legacy_writes_erasing_it(admin: PgPoo
         "editor",
         TENANT,
         Some("\"1\""),
-        json!({"productPageSize":25,"dashboardLayout":layout}),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":layout}),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{saved}");
@@ -227,7 +234,7 @@ async fn dashboard_layout_persists_without_legacy_writes_erasing_it(admin: PgPoo
         "editor",
         TENANT,
         Some("\"2\""),
-        json!({"productPageSize":25,"dashboardLayout":layout}),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":layout}),
     )
     .await;
     assert_eq!(stale.0, StatusCode::PRECONDITION_FAILED);
@@ -243,7 +250,7 @@ async fn dashboard_layout_persists_without_legacy_writes_erasing_it(admin: PgPoo
             "editor",
             TENANT,
             Some("\"3\""),
-            json!({"productPageSize":25,"dashboardLayout":invalid}),
+            json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":invalid}),
         )
         .await;
         assert_eq!(

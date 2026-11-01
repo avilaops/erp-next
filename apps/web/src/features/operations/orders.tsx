@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { quantity, useCommand, useResource } from "./use-operation"
 
-type Order = Schema<"OrderSummary">
 type Item = Schema<"OrderLine">
 type Detail = Schema<"OrderSnapshot">
 type Listing = Schema<"OrderList">

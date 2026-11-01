@@ -31,7 +31,7 @@ export function useDashboardPreferences() {
   useNavigationGuard(dirty ? "Sair e descartar as alterações da página inicial?" : null)
 
   function update(change: (value: Layout) => Layout) {
-    if (busy || blocked) return
+    if (busy || blocked || resource.loading || !current) return
     setDraft(value => change(value || current?.data.dashboardLayout || defaultLayout))
     setMessage("")
   }
@@ -43,12 +43,12 @@ export function useDashboardPreferences() {
       const response = await erpFetch("/api/erp/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": current.tenantId, "If-Match": etag },
-        body: JSON.stringify({ productPageSize: current.data.productPageSize, dashboardLayout: layout } satisfies Schema<"Preferences">),
+        body: JSON.stringify({ productPageSize: current.data.productPageSize, ownerKey: current.ownerKey, dashboardLayout: layout } satisfies Schema<"Preferences">),
       })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Não foi possível salvar a página inicial")
       const nextEtag = response.headers.get("etag")
-      if (!nextEtag || value.tenantId !== current.tenantId || JSON.stringify(value.data?.dashboardLayout) !== JSON.stringify(layout)) {
+      if (!nextEtag || value.tenantId !== current.tenantId || value.ownerKey !== current.ownerKey || JSON.stringify(value.data?.dashboardLayout) !== JSON.stringify(layout)) {
         throw new Error("Confirmação incompleta. Recarregue para conferir a gravação.")
       }
       setSaved({ value, etag: nextEtag }); setDraft(null)
@@ -66,6 +66,7 @@ export function useDashboardPreferences() {
   }
 
   return { layout, update, save, reload, dirty, busy, blocked,
+    editable: !!current && !resource.loading && !busy && !blocked,
     canSave: !!current && !!etag && dirty && !busy && !blocked && !resource.loading,
     loading: resource.loading, error: error || resource.error, message }
 }

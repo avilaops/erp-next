@@ -11,7 +11,6 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 
-type Row = Schema<"LegacyRecord">
 type Snapshot = Schema<"LegacyPage">
 const labels: Record<string, string> = {
   company_settings: "Empresa", customers: "Clientes", suppliers: "Fornecedores", products: "Produtos",

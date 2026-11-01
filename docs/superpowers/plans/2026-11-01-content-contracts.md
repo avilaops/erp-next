@@ -37,3 +37,5 @@ Ruling: o inventário é uma previsão de impacto, não uma meta de quantidade. 
 Ruling: o recurso de contexto compartilhado Linear retornou Tool not found. Ticket AVL-402 permanece disponível; fontes atuais do GitHub são a referência.
 
 RED: CI 41274802541 confirmou dashboard_layout_persists_without_legacy_writes_erasing_it com HTTP 422 versus 200 esperado; 154 testes passaram, um falhou e um foi ignorado. O lint também identificou formatação, corrigida com rustfmt antes do próximo commit.
+
+Review fix: scope ownerKey verifica identidade além de empresa/revisão em gravações de layout; controles aguardam snapshot; links usam GuardedLink; qualquer gráfico removido pode ser readicionado. Testes cobrem revisões coincidentes de identidades distintas e leitura atrasada.

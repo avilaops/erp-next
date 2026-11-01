@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { documentHash, saveDocument } from "./received-documents"
 
-type Manifestation = Schema<"MonitorManifestation">
 type Document = Schema<"MonitorDocument">
 type Snapshot = Schema<"MonitorSnapshot">
 const events: Record<string, string> = { "210210": "Ciência da operação", "210200": "Confirmação da operação", "210220": "Desconhecimento da operação", "210240": "Operação não realizada" }

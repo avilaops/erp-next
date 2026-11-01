@@ -15,11 +15,9 @@ import { useCommand, useResource } from "@/features/operations/use-operation"
 
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">
-type Snapshot = Schema<"ContractContext">
 type Contract = Schema<"Contract">
 type StoredFile = Schema<"ContractFile">
 type Detail = Schema<"ContractDetail">
-type Template = Schema<"ContractTemplateChoice">
 type Options = Schema<"ContractOptions">
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"

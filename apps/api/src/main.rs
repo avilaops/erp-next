@@ -48,6 +48,7 @@ async fn run() -> anyhow::Result<()> {
     let auth = AuthClient::new(config.auth_userinfo_url);
     let state = AppState::new(pool, auth)
         .with_fiscal_engine(domains::fiscal::engine_client::FiscalEngine::from_env()?)
+        .with_monitor(domains::fiscal::sefaz_client::Sefaz::from_env()?)
         .with_certificates(domains::fiscal::certificate_crypto::CertificateVault::from_env()?)
         .with_assistant(domains::assistant::InferenceClient::from_env()?)
         .with_danfe(config.danfe)

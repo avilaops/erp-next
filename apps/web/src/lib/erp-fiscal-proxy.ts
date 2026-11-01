@@ -18,15 +18,16 @@ async function bounded(stream: ReadableStream<Uint8Array> | null, maximum: numbe
 }
 
 export async function forwardFiscal(request: Request, resource: string) {
-  const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$|^\/nfe\/[a-f0-9-]{36}\/(xml)$/i.exec(resource)
+  const download = /^\/received-nfes\/[1-9][0-9]{0,18}\/(xml|danfe)$/.exec(resource) || /^\/nfe\/[a-f0-9-]{36}\/(xml)$/i.exec(resource) || /^\/monitor\/documents\/[1-9][0-9]{0,18}\/(xml)$/.exec(resource)
+  const manifestation = /^\/monitor\/documents\/[1-9][0-9]{0,18}\/manifest$/.test(resource)
   const document = /^\/received-nfes\/[1-9][0-9]{0,18}$/.test(resource)
   const draft = /^\/nfe\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const preparation = /^\/order-preparations\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const operationRead = /^\/nfe\/[a-f0-9-]{36}\/(?:emission|events)$|^\/distribution\/(?:status|documents(?:\/[0-9]{15})?)$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/manifestations\/[a-f0-9-]{36}$/i.test(resource)
   const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource)
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations"].includes(resource) || operationRead || document || draft || preparation || !!download
-    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids"].includes(resource) || operationWrite)
+    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations", "/monitor"].includes(resource) || operationRead || document || draft || preparation || !!download
+    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync"].includes(resource) || operationWrite || manifestation)
   if (!valid) return failure("Recurso fiscal inválido", 400)
   let body: Uint8Array<ArrayBuffer> | undefined
   try {
@@ -39,7 +40,7 @@ export async function forwardFiscal(request: Request, resource: string) {
     const upstream = new URL(`${config.api}/api/v1/fiscal${resource}`)
     const query = new URL(request.url).searchParams
     for (const [key, value] of query) {
-      const allowed = resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : resource === "/distribution/documents" ? ["offset", "limit"] : []
+      const allowed = resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : ["/distribution/documents", "/monitor"].includes(resource) ? ["offset", "limit"] : []
       if (!allowed.includes(key) || query.getAll(key).length !== 1) return failure("Filtro fiscal inválido", 400)
       upstream.searchParams.set(key, value)
     }
@@ -54,7 +55,7 @@ export async function forwardFiscal(request: Request, resource: string) {
     if (write && etag) headers.set("If-Match", etag)
     const command = request.headers.get("idempotency-key")
     if (write && command) headers.set("Idempotency-Key", command)
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(operationWrite || resource === "/manifestations" || resource === "/number-voids" ? 110_000 : download ? 60_000 : resource === "/certificate" ? 45_000 : 15_000) })
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(operationWrite || resource === "/manifestations" || resource === "/number-voids" ? 110_000 : download || resource.startsWith("/monitor/") ? 60_000 : resource === "/certificate" ? 45_000 : 15_000) })
     let bytes: Buffer
     try { bytes = await bounded(response.body, 8 * 1024 * 1024) }
     catch { return failure("Resposta fiscal excede o limite de download", 502) }
@@ -64,7 +65,7 @@ export async function forwardFiscal(request: Request, resource: string) {
       if (pdf ? !type.startsWith("application/pdf") || bytes.subarray(0, 5).toString("ascii") !== "%PDF-" : !type.startsWith("application/xml")) return failure("O serviço devolveu um documento inválido", 502)
     } else if (!type.includes("json")) return failure("Resposta fiscal indisponível", 502)
     const output = new Headers({ ...noStore, "Content-Type": type })
-    for (const name of ["etag", "content-disposition", "idempotency-replayed", "x-xml-sha256", "x-pdf-sha256", "x-nfe-environment", "x-nfe-authorization-check"]) {
+    for (const name of ["etag", "content-disposition", "idempotency-replayed", "retry-after", "x-request-id", "x-xml-sha256", "x-pdf-sha256", "x-nfe-environment", "x-nfe-authorization-check"]) {
       const value = response.headers.get(name)
       if (value) output.set(name, value)
     }

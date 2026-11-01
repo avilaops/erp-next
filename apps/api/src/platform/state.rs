@@ -13,6 +13,7 @@ pub struct AppState {
         Option<std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>>,
     pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
     pub assistant: Option<crate::domains::assistant::InferenceClient>,
+    pub monitor: Option<crate::domains::fiscal::sefaz_client::Sefaz>,
 }
 
 impl AppState {
@@ -26,6 +27,7 @@ impl AppState {
             certificates: None,
             contracts: None,
             assistant: None,
+            monitor: None,
         }
     }
 
@@ -42,6 +44,14 @@ impl AppState {
         client: Option<crate::domains::fiscal::engine_client::FiscalEngine>,
     ) -> Self {
         self.fiscal_engine = client;
+        self
+    }
+
+    pub fn with_monitor(
+        mut self,
+        monitor: Option<crate::domains::fiscal::sefaz_client::Sefaz>,
+    ) -> Self {
+        self.monitor = monitor;
         self
     }
 

@@ -34,8 +34,8 @@ export function DistributionActions({ tenantId, onChanged }: { tenantId: string;
       status.reload(); onChanged()
     }
   }
-  return <section className="form-section min-w-0 space-y-4" aria-labelledby="distribution-title">
-    <h2 id="distribution-title" className="text-lg font-semibold">Consultar notas na SEFAZ</h2>
+  return <section className="form-section min-w-0 space-y-4" aria-labelledby="homologation-distribution-title">
+    <h2 id="homologation-distribution-title" className="text-lg font-semibold">Consultar notas na SEFAZ em homologação</h2>
     <p className="text-sm text-muted-foreground">Busca documentos destinados à empresa em homologação. Configure o certificado A1 nas preferências fiscais.</p>
     {status.loading ? <p role="status">Consultando estado da distribuição…</p> : status.error ? <p role="alert">{status.error}</p> : current && <>
       <dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Último documento consultado</dt><dd className="break-all">{current.lastNsu}</dd></div><div><dt className="text-muted-foreground">Último documento disponível</dt><dd className="break-all">{current.maxNsu}</dd></div></dl>
@@ -52,10 +52,11 @@ export function DistributionActions({ tenantId, onChanged }: { tenantId: string;
 
 export function ReceivedActions({ note, tenantId }: { note: ReceivedNote; tenantId: string }) {
   const access = useResource<Access>("/api/erp/me")
-  const canManifest = access.value?.tenant.id === tenantId && access.value.permissions?.includes("fiscal.received_nfe.manage")
-  if (note.environment !== 2) return <p className="text-sm text-muted-foreground">Distribuição, manifestação e conversão operacional estão disponíveis em homologação.</p>
+  const canManifest = note.environment === 2 && access.value?.tenant.id === tenantId && access.value.permissions?.includes("fiscal.received_nfe.manage")
+  if (note.environment !== 1 && note.environment !== 2) return <p className="text-sm text-muted-foreground">O ambiente desta nota não permite ações operacionais.</p>
   return <>
     <PurchaseConversion note={note} tenantId={tenantId} />
+    {note.environment === 1 && <p className="text-sm text-muted-foreground">A manifestação em produção fica na distribuição da SEFAZ, no monitor fiscal, conforme as permissões da empresa. <Link className="text-primary underline" href="/fiscal/monitor">Abrir monitor fiscal</Link>.</p>}
     {canManifest && <RecipientManifestation note={note} tenantId={tenantId} />}
   </>
 }
@@ -82,6 +83,7 @@ function PurchaseConversion({ note, tenantId }: { note: ReceivedNote; tenantId: 
   }
   return <section className="form-section min-w-0 space-y-4" aria-labelledby="conversion-title">
     <h2 id="conversion-title" className="text-lg font-semibold">Criar compra a partir da nota</h2>
+    <p className="text-sm font-medium">{note.environment === 1 ? "NF-e de produção: o rascunho será uma compra operacional da empresa." : "NF-e de homologação — sem valor fiscal: o rascunho será registrado no módulo de compras da empresa. Use apenas para testes controlados."}</p>
     <p className="text-sm text-muted-foreground">Selecione o fornecedor correspondente a {note.issuerName} e vincule cada item ao seu catálogo. O rascunho conserva os custos fiscais; o recebimento físico e a conta a pagar são registrados depois, no fluxo de compras.</p>
     {snapshot.loading && !created ? <p role="status">Conferindo itens e vínculo da compra…</p> : snapshot.error ? <><p role="alert">{snapshot.error}</p><Button variant="outline" onClick={snapshot.reload}>Recarregar vínculo da compra</Button></> : purchaseId ? <div className="space-y-3"><p role="status">Esta nota está vinculada a uma compra.</p><Link className="text-primary underline" href={`/compras/pedidos/${purchaseId}`}>Abrir compra vinculada</Link></div> : !snapshot.value?.canConvert ? <p>Solicite permissão para criar pedidos de compra nesta empresa.</p> : <>
       <PurchaseLookup supplier disabled={frozen} choose={value => { setSupplier(value); setError("") }} />

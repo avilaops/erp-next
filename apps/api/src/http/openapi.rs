@@ -16,8 +16,12 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
+        crate::platform::financial_settings::get, crate::platform::financial_settings::put,
         assistant::chat, invitations::list, invitations::create, invitations::resend, invitations::revoke,
         contracts::list, contracts::options, contracts::detail, contracts::generate,
+        contracts::templates::list, contracts::templates::detail, contracts::templates::save, contracts::templates::pdf,
+        contracts::templates::import::catalog, contracts::templates::import::import_template,
+        contracts::templates::publish::publish,
         contracts::review, contracts::send, contracts::refresh, contracts::file, contracts::webhook,
         legacy::list, legacy::file, access::list_roles, access::list_permissions, company::get_company, company::put_company,
         access_management::get_role, access_management::create_role, access_management::update_role,
@@ -52,6 +56,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
         fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
+        fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
+        fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
     components(schemas(fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
@@ -216,9 +222,18 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 114);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 125);
         assert!(doc["paths"]["/api/v1/commissions"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/production/orders"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/fiscal/monitor"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/fiscal/monitor/sync"]["post"].is_object());
+        assert!(
+            doc["paths"]["/api/v1/fiscal/monitor/documents/{id}/manifest"]["post"]["requestBody"]
+                .is_object()
+        );
+        assert!(doc["paths"]["/api/v1/contract-template-drafts"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/contract-template-drafts/{id}/pdf"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/audit"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/preferences"]["put"]["requestBody"].is_object());

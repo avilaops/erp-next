@@ -141,6 +141,18 @@ fn incomplete_exports_resolve_from_issuer_candidates_without_trusting_them() {
     vault.intermediates =
         issuer_candidates(fixture["intermediatePem"].as_str().unwrap().as_bytes()).unwrap();
     assert!(inspect(&vault, "leafOnly").unwrap().chain_verified);
+    let material = CertificateMaterial {
+        pkcs12: STANDARD
+            .decode(fixture["leafOnly"].as_str().unwrap())
+            .unwrap(),
+        password: fixture["password"].as_str().unwrap().into(),
+    };
+    let transport_chain = vault.transport_certificates(&material).unwrap();
+    assert_eq!(transport_chain.len(), 2);
+    let (_, leaf) = X509Certificate::from_der(&transport_chain[0]).unwrap();
+    let (_, intermediate) = X509Certificate::from_der(&transport_chain[1]).unwrap();
+    assert_eq!(leaf.issuer(), intermediate.subject());
+    assert_ne!(intermediate.subject(), intermediate.issuer());
     assert!(
         inspect(&vault, "incompatibleUsage")
             .unwrap_err()

@@ -48,6 +48,10 @@ async fn call(
 }
 
 async fn seed(admin: &PgPool, router: &Router) -> i64 {
+    seed_xml(admin, router, FIXTURE).await
+}
+
+async fn seed_xml(admin: &PgPool, router: &Router, xml: &str) -> i64 {
     sqlx::raw_sql("UPDATE tenants SET tax_id='19131243000197' WHERE id='11111111-1111-4111-8111-111111111111'; INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','11111111-1111-4111-8111-111111111111','juridica','Fornecedor','04252011000110',false,true,'active'); INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status) VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','11111111-1111-4111-8111-111111111111','IN-1','Produto recebido','UN',1000,'active'); INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code='fiscal.received_nfe.manage' OR code LIKE 'purchasing.orders.%' ON CONFLICT DO NOTHING;").execute(admin).await.unwrap();
     let imported = call(
         router,
@@ -55,7 +59,7 @@ async fn seed(admin: &PgPool, router: &Router) -> i64 {
         "/api/v1/fiscal/received-nfes/import",
         None,
         None,
-        json!({"xml":FIXTURE}),
+        json!({"xml":xml}),
     )
     .await;
     assert_eq!(imported.0, StatusCode::CREATED, "{}", imported.1);
@@ -261,6 +265,61 @@ async fn incoming_conversion_rejects_mapping_and_current_unit_mismatch(admin: Pg
             .unwrap(),
         0
     );
+    drop(router);
+    cleanup(&admin, app, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn production_received_xml_converts_once_without_posting_stock_or_payables(admin: PgPool) {
+    let (router, app, auth, role) = setup(&admin).await;
+    let xml = FIXTURE.replace("<tpAmb>2</tpAmb>", "<tpAmb>1</tpAmb>");
+    let id = seed_xml(&admin, &router, &xml).await;
+    assert_eq!(
+        sqlx::query_scalar::<_, i16>("SELECT environment FROM fiscal_received_nfes WHERE id=$1")
+            .bind(id)
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        1
+    );
+    let path = format!("/api/v1/fiscal/received-nfes/{id}/purchase");
+    let preview = call(&router, "GET", &path, None, None, Value::Null).await;
+    assert_eq!(preview.0, StatusCode::OK);
+    assert_eq!(preview.1["canConvert"], true);
+    let key = Uuid::now_v7();
+    let converted = call(&router, "POST", &path, Some(key), Some(1), mapping()).await;
+    assert_eq!(converted.0, StatusCode::CREATED, "{}", converted.1);
+    assert_eq!(converted.1["purchase"]["data"]["status"], "draft");
+    let replay = call(&router, "POST", &path, Some(key), Some(1), mapping()).await;
+    assert_eq!(replay, converted);
+    for table in [
+        "purchase_orders",
+        "fiscal_received_purchase_links",
+        "fiscal_received_item_costs",
+    ] {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            1,
+            "{table}"
+        );
+    }
+    for table in [
+        "stock_movements",
+        "payables",
+        "fiscal_recipient_manifestations",
+    ] {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            0,
+            "{table}"
+        );
+    }
     drop(router);
     cleanup(&admin, app, auth, &role).await;
 }

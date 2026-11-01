@@ -120,7 +120,7 @@ do responsável a cada ciclo. Não enumera empresas nem usa BYPASSRLS.
 
 ## Preparação de implantação
 
-As migrations `202610310002`, `202610310003` e `202610310004` devem ser aplicadas
+As migrations `202611010001`, `202611010002` e `202611010003` devem ser aplicadas
 pela conta de migração. Para o runtime existente, o workflow de atualização de
 schema executa `deploy/grant-retornos-fiscal.sql`; não concede acesso aos schemas
 legados nem ao material do certificado fora da API.
@@ -144,5 +144,8 @@ etapas distintas; esta implementação não iniciou o serviço no servidor.
 
 Os resultados da rodada estão em
 [VERIFICACAO-RETORNOS-FISCAL-20261031.md](VERIFICACAO-RETORNOS-FISCAL-20261031.md).
+A integração posterior com o monitor canônico de produção, incluindo compra
+a partir dessas notas e renumeração de migrations não publicadas, está em
+[VERIFICACAO-INTEGRACAO-20261101.md](VERIFICACAO-INTEGRACAO-20261101.md).
 Nenhum teste com adaptador sintético comprova emissão, manifestação ou
 homologação efetiva com a SEFAZ ou a disponibilidade de um certificado real.

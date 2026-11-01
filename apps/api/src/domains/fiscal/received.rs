@@ -432,6 +432,43 @@ async fn load_by_key(
     .map_err(db)
 }
 
+/// Same canonical store and import event as manual import; caller owns the batch transaction.
+pub(super) async fn store_distributed(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    identity: &AuthenticatedIdentity,
+    headers: &HeaderMap,
+    xml: &str,
+) -> Result<i64, DomainError> {
+    let note = danfe::inspect(xml).map_err(DomainError::Invalid)?;
+    let tax_id: String = sqlx::query_scalar("SELECT tax_id FROM tenants WHERE id=$1")
+        .bind(tenant)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+    if note.recipient.as_deref() != Some(&tax_id) {
+        return Err(DomainError::Conflict(
+            "Destinatário incompatível com a empresa",
+        ));
+    }
+    let hash = format!("{:x}", Sha256::digest(xml.as_bytes()));
+    if let Some(saved) = load_by_key(tx, &note.key).await? {
+        if saved.xml_sha256 != hash {
+            return Err(DomainError::Conflict(
+                "NF-e já armazenada com outro XML; lote não aplicado",
+            ));
+        }
+        return Ok(saved.id);
+    }
+    let saved = sqlx::query_as::<_, ReceivedNfeSnapshot>(
+        "INSERT INTO fiscal_received_nfes(tenant_id,access_key,issuer_document,issuer_name,recipient_document,number,series,issued_at,total_cents,item_count,environment,xml,xml_sha256,imported_by_identity_id) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,id FROM identities WHERE auth_subject=$13 RETURNING id,access_key,issuer_document,issuer_name,recipient_document,number,series,issued_at,total_cents,item_count,environment,xml_sha256,created_at"
+    ).bind(tenant).bind(&note.key).bind(note.issuer).bind(note.issuer_name).bind(tax_id)
+        .bind(note.number).bind(note.series).bind(note.issued_at).bind(note.total_cents).bind(note.item_count)
+        .bind(xml).bind(hash).bind(&identity.subject).fetch_one(&mut **tx).await.map_err(db)?;
+    record_import(tx, tenant, identity, headers, &saved).await?;
+    Ok(saved.id)
+}
+
 async fn record_import(
     tx: &mut Transaction<'_, Postgres>,
     tenant: uuid::Uuid,

@@ -69,6 +69,11 @@ atômica de cancelamentos. Também amplia a declaração fiscal para CRT 3 inter
 SP e prepara a imagem/overlay privado do motor. Percentuais e decisões fiscais
 continuam explícitos, sem preenchimento presumido.
 
+O [monitor fiscal canônico](docs/MONITOR-FISCAL-CANONICO.md) acrescenta coleta
+incremental com cursor por empresa, XML original e manifestação explícita do
+destinatário. Usa o cofre A1 existente e permanece desativado por padrão, sem
+alterar emissão, estoque ou financeiro.
+
 ## Domínios planejados
 
 O [verificador de rotas e fluxos](verification/README.md) gera um inventário

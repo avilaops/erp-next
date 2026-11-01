@@ -1,0 +1,38 @@
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 959px) {
+  .erp-entry-header {
+    padding-block: 0.625rem;
+  }
+
+  .erp-entry-hero {
+    padding-top: 1rem;
+  }
+
+  .erp-entry-welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.5rem;
+  }
+
+  .erp-entry-title {
+    margin-top: 0.75rem;
+    font-size: 2.125rem;
+  }
+
+  .erp-entry-recovery .erp-entry-title {
+    margin-top: 0;
+    font-size: 1.75rem;
+  }
+
+  .erp-entry-description {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .erp-entry-access {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    align-self: center;
+    margin-top: 0;
+  }
+}

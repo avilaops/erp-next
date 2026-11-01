@@ -131,8 +131,19 @@ pub fn inspect(xml: &str) -> Result<AuthorizedXml, &'static str> {
         return Err("Ambiente da NF-e inválido");
     }
     let issuer_node = child(info, NFE, "emit")?;
-    let issuer = value(issuer_node, NFE, "CNPJ")?;
-    if !digits(issuer, 14) || &key[6..20] != issuer {
+    let (issuer, issuer_length) = match (
+        issuer_node
+            .children()
+            .any(|node| node.has_tag_name((NFE, "CNPJ"))),
+        issuer_node
+            .children()
+            .any(|node| node.has_tag_name((NFE, "CPF"))),
+    ) {
+        (true, false) => (value(issuer_node, NFE, "CNPJ")?, 14),
+        (false, true) => (value(issuer_node, NFE, "CPF")?, 11),
+        _ => return Err("Documento do emitente ausente ou ambíguo"),
+    };
+    if !digits(issuer, issuer_length) || key[6..20] != format!("{issuer:0>14}") {
         return Err("Emitente incompatível com a chave da NF-e");
     }
     let issuer_name = value(issuer_node, NFE, "xNome")?.trim();

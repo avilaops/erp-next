@@ -10,6 +10,15 @@ jobs:
   portal:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: avila_contracts_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: portal_ci_only
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - name: Prepare corresponding source with original license and attribution
@@ -20,6 +29,7 @@ jobs:
           cp -R deploy/contracts-portal/overlay/. corresponding-source/
           cp deploy/contracts-portal/README.md corresponding-source/AVILA-OPS-SOURCE.md
           cp deploy/contracts-portal/Dockerfile corresponding-source/AVILA-OPS-Dockerfile
+          cp -R deploy/contracts-portal/tests corresponding-source/avila-tests
           test -s corresponding-source/LICENSE
           grep -q 'retain the original DocuSeal attribution' corresponding-source/LICENSE_ADDITIONAL_TERMS
           tar -czf deploy/contracts-portal/avila-source.tar.gz -C corresponding-source .
@@ -30,6 +40,15 @@ jobs:
           docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c 'find /app/app/views -name "*.erb" -path "*/shared/_title.html.erb" -exec erb -P -x -T - {} \; | ruby -c'
           docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c 'test -s /app/public/avila-source.tar.gz && grep -q DocuSeal /app/app/views/shared/_powered_by.html.erb'
       - name: Package immutable image
+        # The image is packaged only after the real Rails/API/PDF test passes.
+        run: |
+          docker run --rm --network host --entrypoint sh -w /app \
+            -e RAILS_ENV=production -e AVILA_PUBLICATION_TEST=true \
+            -e DATABASE_URL=postgres://postgres:portal_ci_only@127.0.0.1:5432/avila_contracts_ci \
+            -e SECRET_KEY_BASE=avila-ci-disposable-publication-secret-key-not-production \
+            -v "$PWD/deploy/contracts-portal/tests:/avila-tests:ro" \
+            "avila-contracts:sha-$GITHUB_SHA" -c 'bundle exec rails db:prepare && bundle exec rails runner /avila-tests/publication.rb'
+      - name: Export tested image
         run: docker save "avila-contracts:sha-$GITHUB_SHA" | gzip > contracts-portal-image.tar.gz
       - uses: actions/upload-artifact@v4
         with:

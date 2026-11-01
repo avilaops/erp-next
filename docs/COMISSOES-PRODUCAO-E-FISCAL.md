@@ -76,7 +76,7 @@ continua legível, mas não pode ser emitido. Tributos seguem uniformes por nota
 Pagamentos declarados devem somar produtos e IPI arredondado por item, exceto a
 forma única sem pagamento `90` com valor zero.
 
-As migrations `202610310005` e `202610310006` acrescentam os novos domínios com
+As migrations `202611010004` e `202611010005` acrescentam os novos domínios com
 RLS forçada e livros append-only. O grant do runtime foi ampliado e os papéis de
 administrador existentes recebem as novas permissões. Nenhuma migration foi
 executada no banco de produção nesta etapa.
@@ -95,3 +95,22 @@ real. Não houve transmissão SEFAZ nem alteração desses dados.
 
 Resultados desta etapa em
 [VERIFICACAO-CONTINUIDADE-20261031.md](VERIFICACAO-CONTINUIDADE-20261031.md).
+
+## Integração com a main de 1º de novembro
+
+As migrations desta branch ainda não publicadas foram renumeradas para
+`202611010001` a `202611010005`. As versões de outubro da main, já utilizadas
+por contratos, configurações financeiras e monitor fiscal, foram preservadas.
+
+O monitor canônico `/fiscal/monitor` consulta documentos de produção por ação
+manual e mantém seu cursor e permissões próprios. A seção de homologação usa o
+motor privado e seu cursor de ambiente 2, com automação explicitamente opcional.
+A emissão continua restrita à homologação. Manifestação de produção fica no
+monitor canônico; reconciliação de manifestações em homologação usa somente a
+prova do ambiente 2.
+
+XML autorizado de produção ou homologação pode originar um rascunho de compra
+por mapeamento explícito. A operação não transmite à SEFAZ e não movimenta
+estoque nem contas a pagar antes do recebimento físico. A tela identifica o
+ambiente: inclusive um documento de homologação cria um rascunho no módulo de
+compras da empresa selecionada.

@@ -31,7 +31,7 @@ documentos e compensações; chamadas externas nunca implicam sucesso presumido.
 
 ### Task 1: Reversões comerciais
 
-**Files:** `domains/returns.rs`, migration `202610310002_returns.sql`, testes HTTP próprios.
+**Files:** `domains/returns.rs`, migration `202611010001_returns.sql`, testes HTTP próprios.
 
 **Interfaces:** `returns::routes() -> Router<AppState>`; ações de cancelamento de
 venda concluída e reversão de recebimento de compra. Evento de cancelamento
@@ -43,7 +43,7 @@ consumível pelo fiscal, sem chamadas externas na transação.
 
 ### Task 2: Emissão e eventos
 
-**Files:** `fiscal/emission*.rs`, migration `202610310003_fiscal_operations.sql`, testes HTTP próprios.
+**Files:** `fiscal/emission*.rs`, migration `202611010002_fiscal_operations.sql`, testes HTTP próprios.
 
 **Interfaces:** cliente interno `FiscalEngine::call(operation, payload)`; rotas
 de emissão, consulta, cancelamento, CC-e e inutilização com documentos duráveis.
@@ -56,7 +56,7 @@ Cliente em `state.fiscal_engine`; campos de certificado nunca entram em logs.
 
 ### Task 3: Distribuição e aproveitamento de recebidas
 
-**Files:** `fiscal/incoming.rs`, migration `202610310004_fiscal_incoming.sql`, testes HTTP próprios.
+**Files:** `fiscal/incoming.rs`, migration `202611010003_fiscal_incoming.sql`, testes HTTP próprios.
 
 **Interfaces:** `incoming::routes() -> Router<AppState>`; mesmo cliente fiscal
 interno da Task 2 para `distribute` e `manifest`. Conversão usa domínio de compras.

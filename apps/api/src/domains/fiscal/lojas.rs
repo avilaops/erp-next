@@ -108,6 +108,12 @@ pub async fn list(
         Ok(value) => value,
         Err(error) => return db(error).into_response(),
     };
+    let pending = match sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT jsonb_build_object('nsu',d.nsu,'chave',d.access_key,'emitida_em',d.issued_at,'valor',d.total_cents::numeric/100,'situacao',CASE d.situation WHEN '1' THEN 'Autorizada' WHEN '2' THEN 'Denegada' ELSE 'Cancelada' END,'fornecedor',jsonb_build_object('documento',d.issuer_document,'nome',d.issuer_name)) FROM fiscal_monitor_documents d WHERE d.kind='summary' AND NOT EXISTS(SELECT 1 FROM fiscal_received_nfes n WHERE n.tenant_id=d.tenant_id AND n.access_key=d.access_key) AND NOT EXISTS(SELECT 1 FROM fiscal_monitor_documents newer WHERE newer.tenant_id=d.tenant_id AND newer.access_key=d.access_key AND newer.nsu>d.nsu AND newer.kind='summary') ORDER BY d.nsu DESC"
+    ).fetch_all(&mut *tx).await {
+        Ok(value) => value,
+        Err(error) => return db(error).into_response(),
+    };
     if let Err(error) = tx.commit().await {
         return db(error).into_response();
     }
@@ -116,7 +122,7 @@ pub async fn list(
         None,
         LojasPage {
             notas: rows.into_iter().map(Into::into).collect(),
-            pendencias: Vec::new(),
+            pendencias: pending,
         },
     )
 }

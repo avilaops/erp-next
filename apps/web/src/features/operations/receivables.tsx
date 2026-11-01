@@ -1,5 +1,7 @@
 "use client"
 
+import { useSuggestedPaymentMethod } from "@/features/financial-settings/use-suggested-payment-method"
+
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/session-recovery"
@@ -42,7 +44,7 @@ function ReceivableList() {
 function ReceivableDetail({ id }: { id: string }) {
   const result = useResource<Detail>(`/api/erp/receivables/${id}`)
   const command = useCommand()
-  const [method, setMethod] = useState("bank_transfer")
+  const { method, setMethod, loading: methodLoading, error: methodError } = useSuggestedPaymentMethod()
   const [reference, setReference] = useState("")
   const [occurredOn, setOccurredOn] = useState("")
   const [amount, setAmount] = useState("")
@@ -53,12 +55,13 @@ function ReceivableDetail({ id }: { id: string }) {
   const cancelled = value?.data.status === "cancelled"
   const reversalId = selectedPaymentId || (paid ? value?.data.paymentId : null)
   const reversing = Boolean(reversalId)
-  const frozen = command.busy || command.uncertain || command.stale
+  const frozen = methodLoading || command.busy || command.uncertain || command.stale
   const activeReceipts = cancelled ? [] : value?.payments.filter(payment => payment.kind === "receipt" && !value.payments.some(other => other.reversesId === payment.id)) || []
   function clearForm() { setReference(""); setAmount(""); setOccurredOn(""); setSelectedPaymentId("") }
   return <><PageHeader eyebrow="Financeiro" title="Conta a receber" description="Recebimentos manuais, parciais ou integrais. Estornar um recebimento recompõe o saldo e preserva o histórico. Não movimenta uma conta bancária." /><Link className={linkClass} href="/financeiro/contas-receber">Voltar às contas</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {notice && <p role="status">{notice}</p>}
+      {methodError && <p role="status">Sugestão indisponível. Confira o meio declarado antes de confirmar.</p>}
       {result.loading ? <p role="status">Carregando conta…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
         {!value.canEdit ? <p>Somente consulta.</p> : cancelled ? <p>Título cancelado. O histórico foi preservado.</p> : <form className="space-y-4" onSubmit={async event => {

@@ -19,6 +19,8 @@ mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
 #[cfg(test)]
+mod financial_settings_tests;
+#[cfg(test)]
 mod fiscal_tests;
 mod health;
 #[cfg(test)]
@@ -29,6 +31,8 @@ mod incoming_tests;
 mod invitation_tests;
 #[cfg(test)]
 mod legacy_tests;
+#[cfg(test)]
+mod monitor_tests;
 #[cfg(test)]
 mod onboarding_tests;
 mod openapi;
@@ -52,6 +56,8 @@ mod reference_tests;
 mod returns_tests;
 #[cfg(test)]
 mod staff_tests;
+#[cfg(test)]
+mod template_draft_tests;
 
 use axum::{Router, middleware, routing::get};
 use tower_http::{
@@ -74,6 +80,11 @@ pub fn router(state: AppState) -> Router {
     let protected = Router::new()
         .merge(crate::domains::commissions::routes())
         .merge(crate::domains::production::routes())
+        .route(
+            "/api/v1/financial-settings",
+            get(crate::platform::financial_settings::get)
+                .put(crate::platform::financial_settings::put),
+        )
         .route("/api/v1/audit", get(crate::platform::audit::list))
         .merge(crate::domains::returns::routes())
         .route(

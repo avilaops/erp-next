@@ -162,7 +162,7 @@ pub async fn verified(
 }
 
 /// Decrypt only within an authorized tenant transaction; callers never persist or log material.
-pub(crate) async fn material(
+pub(crate) async fn active_material(
     state: &AppState,
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
@@ -209,6 +209,8 @@ pub(crate) async fn material(
         )
         .map_err(|_| DomainError::Conflict("Não foi possível abrir o certificado A1"))
 }
+
+pub(crate) use active_material as material;
 
 #[utoipa::path(get,path="/api/v1/fiscal/certificate",tag="Fiscal",operation_id="get_fiscal_certificate",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=CertificateSnapshot),(status=403,description="Sem permissão fiscal")))]
 pub async fn get(

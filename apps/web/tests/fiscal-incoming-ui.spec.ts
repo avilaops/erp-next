@@ -34,6 +34,7 @@ test("consulta NSU repete o comando após resposta perdida e respeita o interval
     return route.fulfill({ headers: { ETag: '"3"' }, json: { ...status(), status: "completed", runId: purchase } })
   })
   await page.goto("/fiscal/monitor")
+  await page.getByText("Distribuição em homologação — sem valor fiscal", { exact: true }).click()
   await page.getByRole("button", { name: "Consultar notas agora", exact: true }).click()
   await page.getByRole("button", { name: "Conferir consulta anterior", exact: true }).click()
   await expect(page.getByText("Consulta concluída. Os documentos recebidos estão armazenados nesta empresa.", { exact: true })).toBeVisible()
@@ -68,6 +69,25 @@ test("conversão vincula fornecedor e produto por nome e conserva o comando dura
   expect(calls[0]).toEqual(calls[1])
   expect(calls[0]).toMatchObject({ revision: '"1"', body: { supplierId: supplier, dueDate: "2026-11-30", items: [{ itemNumber: 1, productId: product }] } })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test("nota de produção oferece compra operacional sem manifestação de homologação", async ({ page }) => {
+  await details(page)
+  await page.route("**/api/erp/fiscal/received-nfes/11", route => route.fulfill({ json: { tenantId: tenant, data: { ...note, environment: 1 } } }))
+  const manifestations: string[] = []
+  await page.route("**/api/erp/fiscal/manifestations**", route => {
+    manifestations.push(route.request().url())
+    return route.fulfill({ json: { data: [] } })
+  })
+  await page.goto("/fiscal/monitor/11")
+  await expect(page.getByText("NF-e de produção: o rascunho será uma compra operacional da empresa.", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Selecionar Fornecedor da nota", exact: true }).click()
+  await page.getByRole("button", { name: "Selecionar Produto do catálogo · CAT-001", exact: true }).click()
+  await page.getByLabel("Vencimento da compra importada", { exact: true }).fill("2026-11-30")
+  await expect(page.getByRole("button", { name: "Criar rascunho com custos da nota", exact: true })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Registrar manifestação", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Abrir monitor fiscal", exact: true })).toHaveAttribute("href", "/fiscal/monitor")
+  expect(manifestations).toEqual([])
 })
 
 test("manifestação incerta consulta o histórico e bloqueia um segundo envio do mesmo evento", async ({ page }) => {

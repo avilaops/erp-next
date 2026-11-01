@@ -835,7 +835,7 @@ pub async fn convert(
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;
-    if tax_id != recipient || environment != 2 {
+    if tax_id != recipient || !matches!(environment, 1 | 2) {
         return Err(
             DomainError::Conflict("Destinatário ou ambiente não corresponde à empresa").into(),
         );

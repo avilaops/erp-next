@@ -89,6 +89,9 @@ jobs:
       - run: pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
+      - run: pnpm --filter web test:monitor
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - name: Build the technical contract validation template
         run: node scripts/contracts/build-validation-template.mjs
         env:

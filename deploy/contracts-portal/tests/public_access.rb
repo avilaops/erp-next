@@ -19,8 +19,8 @@ def visit(client, path)
 end
 
 def csrf(client)
-  Nokogiri::HTML(client.last_response.body).at_css('input[name="authenticity_token"]')&.[]('value') ||
-    Nokogiri::HTML(client.last_response.body).at_css('meta[name="csrf-token"]')&.[]('content')
+  Nokogiri::HTML(client.last_response.body).at_css('meta[name="csrf-token"]')&.[]('content') ||
+    Nokogiri::HTML(client.last_response.body).at_css('input[name="authenticity_token"]')&.[]('value')
 end
 
 def signup(client, email, extra = {})

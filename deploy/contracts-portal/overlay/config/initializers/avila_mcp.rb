@@ -5,6 +5,7 @@ Rails.application.config.to_prepare do
   Mcp::ProtocolController.prepend(AvilaMcp::Protocol)
   Mcp::CreateTemplateController.prepend(AvilaMcp::TemplateCreation)
   Mcp::SendDocumentsController.prepend(AvilaMcp::DocumentSending)
+  McpSettingsController.after_action { response.set_header('Cache-Control', 'no-store') }
 
   McpToken.validates :name, presence: true, length: { maximum: 100 }
 end

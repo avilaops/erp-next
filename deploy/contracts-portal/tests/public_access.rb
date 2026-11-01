@@ -94,6 +94,7 @@ token_csrf = csrf(alice_browser)
 check(token_csrf.present?, 'new MCP token form failed')
 alice_browser.post('https://contrato.avilaops.com/settings/mcp', authenticity_token: token_csrf, mcp_token: { name: 'CI client' })
 check(alice_browser.last_response.status == 201, 'MCP token creation failed')
+check(alice_browser.last_response.headers['cache-control'] == 'no-store', 'token response may be cached')
 alice_token = Nokogiri::HTML(alice_browser.last_response.body).at_css('#mcp_token')&.[]('value')
 check(alice_token.present?, 'MCP token not shown on creation')
 token_record = alice.mcp_tokens.last

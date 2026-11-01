@@ -1,6 +1,6 @@
 # Ávila Ops Contratos
 
-Overlay de apresentação e publicação de modelos da instalação própria `contrato.avilaops.com`.
+Overlay de apresentação, publicação de modelos, cadastro público e MCP da instalação própria `contrato.avilaops.com`.
 Base: DocuSeal 3.3.3, fonte `8f8f69f0bc6ac2e59746cd6efac54a852289bec3`.
 O motor de assinatura, a autenticação, o e-mail e os dados continuam os da instalação.
 Não altera os planos nem libera recursos Pro.

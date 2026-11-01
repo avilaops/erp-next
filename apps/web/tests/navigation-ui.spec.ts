@@ -37,6 +37,7 @@ test("todas as categorias das referências mostram opções e destinos existente
   ])
   for (const category of preferenceCategories) {
     const button = page.getByRole("button", { name: category.label, exact: true })
+    await expect(button).toBeEnabled()
     await button.focus()
     await page.keyboard.press("Enter")
     await expect(button).toHaveAttribute("aria-pressed", "true")
@@ -61,6 +62,7 @@ test("todas as categorias das referências mostram opções e destinos existente
   await page.goBack()
   await expect(page.getByRole("button", { name: "Importações de Dados", exact: true })).toHaveAttribute("aria-pressed", "true")
   await page.getByRole("button", { name: "Sistema", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Sistema", exact: true })).toHaveAttribute("aria-pressed", "true")
   await page.locator("#preference-options").getByRole("link", { name: "Usuários", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias/usuarios")
 })

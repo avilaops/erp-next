@@ -4,7 +4,6 @@ import { useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
-  Check,
   Megaphone,
   Paperclip,
   Send,
@@ -103,40 +102,6 @@ export function NewsPage() {
   )
 }
 
-export function PlanPage() {
-  const features = [
-    "Módulos de operação e relatórios",
-    "Usuários, papéis e permissões demonstrativas",
-    "Central de trabalho e eventos locais",
-    "Importações e integrações sem conexão real",
-  ]
-  return (
-    <ExperienceShell eyebrow="Preferências" title="Plano e limites" description="Visão demonstrativa dos recursos habilitados para a empresa ativa.">
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-primary">Plano demonstração</p>
-            <h2 className="mt-2 text-2xl font-semibold">ERP Next Completo</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Nenhuma cobrança, assinatura ou alteração comercial pode ser realizada nesta tela.</p>
-          </div>
-          <span className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-600 dark:text-emerald-400">Ativo localmente</span>
-        </div>
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {features.map((feature) => <li className="flex items-center gap-2 text-sm" key={feature}><Check className="size-4 text-primary" />{feature}</li>)}
-        </ul>
-      </section>
-      <section className="mt-5 grid gap-4 sm:grid-cols-3">
-        <Limit label="Usuários" value="4 de 10" />
-        <Limit label="Empresas" value="1 de 3" />
-        <Limit label="Importações" value="0 de 200" />
-      </section>
-    </ExperienceShell>
-  )
-}
-
-function Limit({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-2xl border border-border bg-card p-5"><span className="text-sm text-muted-foreground">{label}</span><strong className="mt-2 block text-xl">{value}</strong></div>
-}
 
 function ExperienceShell({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) {
   return (

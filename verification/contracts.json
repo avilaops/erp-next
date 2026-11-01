@@ -5,6 +5,22 @@
     "product": "erp",
     "flows": [
       {
+        "id": "company-account",
+        "title": "Conta da empresa e assinaturas",
+        "goal": "Consultar e gerenciar assinaturas pelo Mercado Pago, com preços do catálogo e confirmação explícita.",
+        "kind": "product",
+        "actionGroups": [
+          "company-account"
+        ],
+        "dependencies": [
+          "company"
+        ],
+        "nextStep": "Configurar credenciais e validar com contas de teste do Mercado Pago; catálogo não comprova operação ou publicação.",
+        "additionalSources": [
+          "docs/COMPANY-ACCOUNT.md"
+        ]
+      },
+      {
         "id": "fiscal-incoming",
         "title": "Distribuição, manifestação e compra a partir de XML",
         "goal": "Consultar documentos e manifestações em homologação e mapear NF-e de produção ou homologação para compra.",
@@ -766,6 +782,16 @@
   ],
   "dispatches": [
     {
+      "path": "/api/erp/company-account/[action]",
+      "method": "POST",
+      "actions": [
+        "checkout",
+        "refresh",
+        "change-plan",
+        "cancel"
+      ]
+    },
+    {
       "path": "/api/erp/commercial-contracts/[id]/[action]",
       "method": "POST",
       "actions": [
@@ -903,6 +929,12 @@
   ],
   "authActions": [
     {
+      "path": "/api/auth/account-password",
+      "method": "GET",
+      "action": "Redirecionar para /trocar-senha no issuer fixo do Ávila Auth; autenticação acontece no Auth.",
+      "recovery": "Configuração ausente retorna 503; ERP não recebe nem altera a senha."
+    },
+    {
       "path": "/api/auth/login",
       "method": "GET",
       "action": "Iniciar OIDC com state/PKCE sem exigir código manual da empresa",
@@ -934,6 +966,582 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "get-api-v1-company-account",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/company-account"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "Não aceita filtros adicionais."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "Sem escrita de domínio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar catálogo, assinaturas, usuários ativos e bytes das fotos"
+      },
+      "recovery": "Repetir leitura ou atualizar assinatura para conferir estado; erro nunca equivale a ausência ou sucesso.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/company-account"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-company-account-checkout",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/company-account/checkout"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/subscriptions/mod.rs",
+          "type": "Checkout"
+        },
+        "query": "Não aceita filtros adicionais."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS.",
+        "Provedor configurado no backend; preço, moeda BRL, referência e periodicidade mensal conferidos pelo servidor.",
+        "Plano de preço fixo do catálogo e e-mail válido; uma única reserva ativa por empresa."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "creating para pending; rejeição explícita para rejected"
+      },
+      "effects": {
+        "writes": [
+          "Reserva local, projeção confirmada e auditoria"
+        ],
+        "external": [
+          "POST /preapproval no Mercado Pago"
+        ],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Iniciar contratação pendente"
+      },
+      "recovery": "Em timeout/429/5xx, manter reserva e consultar por referência; nunca repetir criação. Recusa explícita libera nova tentativa.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/company-account/[action]",
+          "action": "checkout"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-company-account-refresh",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/company-account/refresh"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/subscriptions/mod.rs",
+          "type": "SubscriptionCommand"
+        },
+        "query": "Não aceita filtros adicionais."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS.",
+        "Provedor configurado no backend; preço, moeda BRL, referência e periodicidade mensal conferidos pelo servidor."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "Estado local para estado confirmado pelo provedor"
+      },
+      "effects": {
+        "writes": [
+          "Projeção local verificada da assinatura"
+        ],
+        "external": [
+          "GET /preapproval/{id} ou busca por referência própria"
+        ],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Conferir assinatura no Mercado Pago"
+      },
+      "recovery": "Repetir leitura ou atualizar assinatura para conferir estado; erro nunca equivale a ausência ou sucesso.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/company-account/[action]",
+          "action": "refresh"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-company-account-change-plan",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/company-account/change-plan"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/subscriptions/mod.rs",
+          "type": "SubscriptionCommand"
+        },
+        "query": "Não aceita filtros adicionais."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS.",
+        "Provedor configurado no backend; preço, moeda BRL, referência e periodicidade mensal conferidos pelo servidor.",
+        "Assinatura autorizada; plano de destino do catálogo, sem proposta comercial."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "authorized para authorized com novo valor"
+      },
+      "effects": {
+        "writes": [
+          "Plano, projeção verificada e auditoria"
+        ],
+        "external": [
+          "GET e PUT /preapproval/{id}"
+        ],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Alterar o valor recorrente da assinatura"
+      },
+      "recovery": "Repetir leitura ou atualizar assinatura para conferir estado; erro nunca equivale a ausência ou sucesso.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/company-account/[action]",
+          "action": "change-plan"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-company-account-cancel",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/company-account/cancel"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/platform/subscriptions/mod.rs",
+          "type": "SubscriptionCommand"
+        },
+        "query": "Não aceita filtros adicionais."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS.",
+        "Provedor configurado no backend; preço, moeda BRL, referência e periodicidade mensal conferidos pelo servidor.",
+        "Confirmação literal CANCELAR; não exclui os dados da empresa."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "Estado confirmado para cancelled"
+      },
+      "effects": {
+        "writes": [
+          "Estado cancelled confirmado e auditoria"
+        ],
+        "external": [
+          "GET e PUT /preapproval/{id}"
+        ],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Cancelar próximas cobranças da assinatura"
+      },
+      "recovery": "Repetir leitura ou atualizar assinatura para conferir estado; erro nunca equivale a ausência ou sucesso.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/company-account/[action]",
+          "action": "cancel"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-company-account-invoices",
+      "flow": "company-account",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/company-account/invoices"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "platform.company.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "subscriptionId UUID local obrigatório; offset inteiro entre 0 e 100000; página de 10 itens."
+      },
+      "preconditions": [
+        "Identidade e empresa ativa autorizadas; acesso isolado por RLS.",
+        "Provedor configurado no backend; assinatura local pertence à empresa e possui identificador confirmado. Cada cobrança deve referenciar essa assinatura."
+      ],
+      "transition": {
+        "from": "Estado persistido da empresa e assinatura",
+        "to": "Sem escrita de domínio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "GET /authorized_payments/search para assinatura da empresa"
+        ],
+        "excludes": [
+          "Não comprova pagamento real pelo retorno do navegador.",
+          "Não aplica franquias, estorno, NFS-e, exclusão de dados ou sincronização automática."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Não exige If-Match nem Idempotency-Key. Comandos serializam a empresa/assinatura. Checkout confirma reserva antes do HTTP; falhas ambíguas exigem consulta e não permitem nova criação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar página de cobranças da assinatura"
+      },
+      "recovery": "Repetir leitura ou atualizar assinatura para conferir estado; erro nunca equivale a ausência ou sucesso.",
+      "ui": {
+        "pages": [
+          "/preferencias/empresa/conta/[section]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/company-account/invoices"
+        },
+        "gap": "Configuração e validação com Mercado Pago real ainda necessárias."
+      },
+      "sources": [
+        "apps/api/src/platform/subscriptions/mod.rs",
+        "apps/api/src/platform/subscriptions/provider.rs",
+        "apps/api/src/platform/subscriptions/catalog.rs",
+        "migrations/202611010006_company_subscriptions.sql",
+        "docs/COMPANY-ACCOUNT.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "post-api-v1-fiscal-received-nfes-id-purchase",
       "flow": "fiscal-incoming",

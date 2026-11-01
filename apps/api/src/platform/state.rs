@@ -4,6 +4,7 @@ use super::auth::AuthClient;
 
 #[derive(Clone)]
 pub struct AppState {
+    pub subscriptions: Option<super::subscriptions::provider::MercadoPago>,
     pub auth: AuthClient,
     pub database: PgPool,
     pub invitations: Option<super::invitations::ProvisioningClient>,
@@ -19,6 +20,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(database: PgPool, auth: AuthClient) -> Self {
         Self {
+            subscriptions: None,
             auth,
             database,
             invitations: None,
@@ -29,6 +31,14 @@ impl AppState {
             assistant: None,
             monitor: None,
         }
+    }
+
+    pub fn with_subscriptions(
+        mut self,
+        client: Option<super::subscriptions::provider::MercadoPago>,
+    ) -> Self {
+        self.subscriptions = client;
+        self
     }
 
     pub fn with_assistant(

@@ -7,9 +7,10 @@ import { AccessLink } from "@/components/session-recovery"
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { CompanyDataForm } from "./company-data-form"
+import { CompanyPartnerForm } from "./company-partner-form"
 import type { CompanyData, CompanyProblem, CompanySnapshot } from "./company-types"
 
-export function CompanyEditor() {
+export function CompanyEditor({ partner = false }: { partner?: boolean }) {
   const [snapshot, setSnapshot] = useState<CompanySnapshot | null>(null)
   const [etag, setEtag] = useState("")
   const [status, setStatus] = useState("loading")
@@ -96,6 +97,6 @@ export function CompanyEditor() {
       {problem.errors?.length ? <ul>{problem.errors.map((error, index) => <li key={`${error.field}-${index}`}>{error.field}: {error.message}</li>)}</ul> : null}
       {conflict && <Button variant="outline" onClick={() => { if (window.confirm("Recarregar os dados do servidor e descartar sua edição atual?")) reload() }}>Recarregar e descartar edição</Button>}
     </div>}
-    <CompanyDataForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} />
+    {partner ? <CompanyPartnerForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} /> : <CompanyDataForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} />}
   </div>
 }

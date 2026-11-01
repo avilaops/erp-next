@@ -1,7 +1,7 @@
-import { PlanPage } from "@/features/workspace/experience-pages"
+import { redirect } from "next/navigation"
 
 export default function Page() {
-  return <PlanPage />
+  redirect("/preferencias/empresa/conta/plano")
 }
 
 export const metadata = { title: "Plano e limites" }

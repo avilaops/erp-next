@@ -1,12 +1,16 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Download, Eye, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
 
-type Detail = { tenantId: string; data: ReceivedNote }
+type Detail = Schema<"ReceivedDetail">
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 export function ReceivedDocumentDetail({ id }: { id: string }) {
@@ -19,7 +23,7 @@ export function ReceivedDocumentDetail({ id }: { id: string }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`/api/erp/fiscal/received-nfes/${encodeURIComponent(id)}`, { cache: "no-store", signal: controller.signal })
+    erpFetch(`/api/erp/fiscal/received-nfes/${encodeURIComponent(id)}`, { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const value = await response.json()
         if (!response.ok) throw new Error(value.title || "Nota não encontrada nesta empresa")

@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -9,10 +13,10 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type StaffInput = { name: string; jobTitle: string | null; code: string; email: string | null; phone: string | null; isEmployee: boolean; isSeller: boolean; status: string }
-type Staff = StaffInput & { id: string; revision: number }
-type Snapshot = { tenantId: string; canEdit: boolean; data?: Staff }
-type Page = { tenantId: string; canEdit: boolean; data: Staff[]; total: number }
+type StaffInput = Schema<"StaffInput">
+type Staff = Schema<"Staff">
+type Snapshot = Omit<Schema<"StaffSnapshot">, "data"> & { data?: Schema<"Staff"> }
+type Page = Schema<"StaffList">
 const blank = (kind: StaffKind): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: kind === "funcionarios", isSeller: kind === "vendedores", status: "active" })
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
@@ -35,7 +39,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
     const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
-    fetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
       if (!controller.signal.aborted) { setResult(data); setError("") }
@@ -89,7 +93,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(id ? `/api/erp/staff/${id}` : "/api/erp/staff?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(id ? `/api/erp/staff/${id}` : "/api/erp/staff?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
@@ -115,7 +119,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
     pending.current = true; setSaving(true); setSaved(false); setError("")
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body: JSON.stringify(draft) }
     try {
-      const response = await fetch(id ? `/api/erp/staff/${id}` : "/api/erp/staff", {
+      const response = await erpFetch(id ? `/api/erp/staff/${id}` : "/api/erp/staff", {
         method: id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) },
         body: id ? JSON.stringify(draft) : command.current!.body,

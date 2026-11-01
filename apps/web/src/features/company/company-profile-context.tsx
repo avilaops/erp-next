@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { CompanySnapshot } from "./company-types"
 
@@ -14,7 +16,7 @@ export function CompanyProfileProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch("/api/erp/company", { cache: "no-store", signal: controller.signal })
+    erpFetch("/api/erp/company", { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const value = await response.json()
         if (controller.signal.aborted) return

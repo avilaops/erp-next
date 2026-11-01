@@ -1,5 +1,8 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
 import { AccessLink } from "@/components/session-recovery"
@@ -9,12 +12,12 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 export function CompanyPicker() {
   const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
-  const [companies, setCompanies] = useState<{ id: string; legalName: string }[]>([])
+  const [companies, setCompanies] = useState<Schema<"CompanySummary">[]>([])
   const [status, setStatus] = useState("Carregando suas empresas…")
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     let active = true
-    fetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
+    erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error(response.status === 401 ? "Entre novamente para continuar" : "Não foi possível consultar suas empresas")
       const body = await response.json()
       if (active) { setCompanies(body.data); setStatus(body.data.length ? "Selecione a empresa que deseja acessar" : "Você ainda não possui empresas cadastradas") }

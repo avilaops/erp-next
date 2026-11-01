@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Download, FileText, RefreshCw, Upload } from "lucide-react"
@@ -9,7 +13,7 @@ import { documentHash as hash, fetchReceivedDocument, saveDocument, type Receive
 import { FiscalDistribution } from "./fiscal-distribution"
 
 type Note = ReceivedNote
-type Result = { tenantId: string; canImport: boolean; data: Note[]; total: number }
+type Result = Schema<"ReceivedPage">
 const initialFilters = { q: "", from: "", to: "" }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const date = (value: string) => new Date(value).toLocaleString("pt-BR")
@@ -38,8 +42,8 @@ export function ReceivedMonitor() {
     const parameters = new URLSearchParams({ offset: String(query.offset), limit: "25" })
     for (const key of ["q", "from", "to"] as const) if (query[key]) parameters.set(key, query[key])
     Promise.all([
-      fetch(`/api/erp/fiscal/received-nfes?${parameters}`, { cache: "no-store", signal: controller.signal }),
-      fetch("/api/erp/me", { cache: "no-store", signal: controller.signal }),
+      erpFetch(`/api/erp/fiscal/received-nfes?${parameters}`, { cache: "no-store", signal: controller.signal }),
+      erpFetch("/api/erp/me", { cache: "no-store", signal: controller.signal }),
     ]).then(async ([response, accessResponse]) => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Não foi possível carregar as notas recebidas")
@@ -69,7 +73,7 @@ export function ReceivedMonitor() {
       catch { throw new Error("Selecione um XML codificado em UTF-8") }
       const body = JSON.stringify({ xml })
       if (new TextEncoder().encode(body).byteLength > 1024 * 1024) throw new Error("O conteúdo do XML excede o limite de envio")
-      const response = await fetch("/api/erp/fiscal/received-nfes/import", {
+      const response = await erpFetch("/api/erp/fiscal/received-nfes/import", {
         method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": result.tenantId }, body,
       })
       const saved: Note & { title?: string } = await response.json()

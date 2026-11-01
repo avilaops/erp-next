@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
@@ -8,8 +12,8 @@ import { Input } from "@/components/ui/input"
 import { blankDraft, blankItem, itemTotal, productsTotal, submission, type DraftInput, type DraftItem, type FiscalReadiness, type NfeDraft } from "./nfe-draft-model"
 
 type Product = { id: string; sku: string; name: string; unit: string; ncm: string | null; basePrice: string }
-type Snapshot = { tenantId: string; canEdit: boolean; data: NfeDraft }
-type Preparation = { tenantId: string; orderId: string; orderRevision: number; customerId: string; recipient: DraftInput["recipient"]; items: (Pick<DraftItem, "code" | "description" | "unit" | "quantity" | "unitPrice" | "grossTotal"> & { ncm: string | null })[]; productsTotal: string }
+type Snapshot = Schema<"DraftSnapshot">
+type Preparation = Schema<"OrderPreparation">
 const states = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ")
 
 export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrderId?: string }) {
@@ -45,7 +49,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
     const read = async () => {
       try {
         const paths = ["/api/erp/me", "/api/erp/fiscal/readiness", ...(id ? [`/api/erp/fiscal/nfe/${id}`] : sourceOrderId ? [`/api/erp/fiscal/order-preparations/${sourceOrderId}`] : [])]
-        const responses = await Promise.all(paths.map(path => fetch(path, { cache: "no-store", signal: controller.signal })))
+        const responses = await Promise.all(paths.map(path => erpFetch(path, { cache: "no-store", signal: controller.signal })))
         const values = await Promise.all(responses.map(response => response.json()))
         for (const [index, response] of responses.entries()) if (!response.ok) throw new Error(values[index].title || "Não foi possível abrir o rascunho")
         if (controller.signal.aborted) return
@@ -85,7 +89,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
     const controller = new AbortController(); productRequest.current = controller
     setSearching(true); setProductError("")
     try {
-      const response = await fetch(`/api/erp/products?status=active&limit=20&q=${encodeURIComponent(query.trim())}`, { cache: "no-store", signal: controller.signal })
+      const response = await erpFetch(`/api/erp/products?status=active&limit=20&q=${encodeURIComponent(query.trim())}`, { cache: "no-store", signal: controller.signal })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Não foi possível buscar os produtos")
       if (!controller.signal.aborted) setProducts(value.data)
@@ -108,7 +112,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
     const controller = new AbortController(); request.current = controller
     let resolved = false
     try {
-      const response = await fetch(id ? `/api/erp/fiscal/nfe/${id}` : "/api/erp/fiscal/nfe", {
+      const response = await erpFetch(id ? `/api/erp/fiscal/nfe/${id}` : "/api/erp/fiscal/nfe", {
         method: id ? "PUT" : "POST", cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         headers: { "Content-Type": "application/json", "X-Tenant-Id": tenant, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) }, body,
       })

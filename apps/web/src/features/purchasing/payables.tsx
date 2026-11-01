@@ -1,5 +1,7 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { useSuggestedPaymentMethod } from "@/features/financial-settings/use-suggested-payment-method"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
@@ -14,10 +16,10 @@ import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/features/operations/use-operation"
 import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 
-type Account = { id: string; receiptId: string; supplierName: string; dueDate: string; amount: string; paidAmount: string; outstandingAmount: string; status: string; revision: number }
-type Payment = { id: string; kind: string; amount: string; method: string; reference: string; occurredOn: string; reversesId: string | null }
-type Detail = { tenantId: string; canEdit: boolean; data: Account; payments: Payment[] }
-type Listing = { tenantId: string; canEdit: boolean; data: Account[]; total: number }
+type Account = Schema<"Payable">
+type Payment = Schema<"Payment">
+type Detail = Schema<"PayableSnapshot">
+type Listing = Schema<"PayableList">
 const situation = (account: Account) => account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
 
 export function Payables({ id }: { id?: string }) {

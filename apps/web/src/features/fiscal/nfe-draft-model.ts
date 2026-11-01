@@ -1,19 +1,9 @@
-export type DraftItem = {
-  code: string; description: string; unit: string; ncm: string; cfop: string
-  quantity: string; unitPrice: string; grossTotal: string; origin: number
-  icmsCst: string | null; csosn: string | null; pisCst: string; cofinsCst: string
-}
-export type DraftInput = {
-  sourceOrderId?: string
-  environment: "homologation"; model: 55; operationNature: string; taxRuleReference: string
-  recipient: { taxId: string; legalName: string; state: string; municipalityCode: string; postalCode: string; street: string; number: string; district: string }
-  items: DraftItem[]; productsTotal: string
-}
-export type NfeDraft = {
-  id: string; revision: number; status: "draft"; input: DraftInput; productsTotal: string; fiscalValidationComplete: false
-  issuer: { taxId: string; legalName: string; companyRevision: number; profileRevision: number; profile: { state: string; crt: number; series: number } }
-}
-export type FiscalReadiness = { tenantId: string; profileConfigured: boolean; certificateVerified: boolean; canTransmit: false; productionEnabled: false; blockers: string[] }
+
+import type { Schema } from "@/lib/api/types"
+export type DraftItem = Schema<"DraftItem">
+export type DraftInput = Schema<"DraftInput">
+export type NfeDraft = Schema<"Draft">
+export type FiscalReadiness = Schema<"Readiness">
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })

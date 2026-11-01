@@ -1,10 +1,14 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type KeySummary = { id: string; name: string; keyPrefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }
+type KeySummary = Schema<"ServiceKeySummary">
 type LoadState = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; keys: KeySummary[] }
 const endpoint = "/api/erp/integrations/service-keys"
 
@@ -38,7 +42,7 @@ export function ServiceKeys({ tenantId }: { tenantId: string }) {
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal })
+        const response = await erpFetch(endpoint, { cache: "no-store", signal: controller.signal })
         if (!response.ok) throw new Error(await failure(response))
         const result = await response.json() as { data: KeySummary[] }
         if (!Array.isArray(result.data)) throw new Error("Resposta de integração inválida.")
@@ -58,7 +62,7 @@ export function ServiceKeys({ tenantId }: { tenantId: string }) {
     if (busy || key) return
     setBusy(true); setError(""); setMessage("")
     try {
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId }, body: JSON.stringify({ name: name.trim() }), cache: "no-store" })
+      const response = await erpFetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId }, body: JSON.stringify({ name: name.trim() }), cache: "no-store" })
       if (!response.ok) throw new Error(await failure(response))
       const created = await response.json() as { key: string }
       if (typeof created.key !== "string") throw new Error("Chave não recebida. Consulte a lista antes de criar outra.")
@@ -73,7 +77,7 @@ export function ServiceKeys({ tenantId }: { tenantId: string }) {
     if (busy || !window.confirm(`Revogar a chave ${item.name}? O Lojas deixará de acessar o ERP com esta chave.`)) return
     setBusy(true); setError(""); setMessage("")
     try {
-      const response = await fetch(`${endpoint}/${item.id}`, { method: "DELETE", headers: { "X-Tenant-Id": tenantId }, cache: "no-store" })
+      const response = await erpFetch(`${endpoint}/${item.id}`, { method: "DELETE", headers: { "X-Tenant-Id": tenantId }, cache: "no-store" })
       if (!response.ok) throw new Error(await failure(response))
       if (active.current) refresh()
     } catch (cause) {

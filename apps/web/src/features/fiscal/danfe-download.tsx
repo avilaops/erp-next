@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -29,7 +31,7 @@ export function DanfeDownload({ tenantId }: { tenantId: string }) {
       catch { throw new Error("O XML precisa estar codificado em UTF-8") }
       const body = JSON.stringify({ xml })
       if (new TextEncoder().encode(body).byteLength > 1024 * 1024) throw new Error("O XML excede o limite do corpo de envio")
-      const response = await fetch("/api/erp/fiscal/danfe", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId }, body, signal: controller.signal })
+      const response = await erpFetch("/api/erp/fiscal/danfe", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId }, body, signal: controller.signal })
       if (!response.ok) { const problem = await response.json(); throw new Error(problem.title || "Geração recusada") }
       if (!response.headers.get("content-type")?.startsWith("application/pdf")) throw new Error("Resposta sem documento PDF")
       const pdf = await response.arrayBuffer()

@@ -1,10 +1,12 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export type PartyAddress = { label: string; postalCode: string; state: string; city: string; street: string; number: string; district: string; complement: string | null; primary: boolean }
-export type PartyContact = { name: string; role: string | null; email: string | null; phone: string | null; primary: boolean }
+export type PartyAddress = Schema<"PartyAddress">
+export type PartyContact = Schema<"PartyContact">
 const blankAddress: PartyAddress = { label: "", postalCode: "", state: "", city: "", street: "", number: "", district: "", complement: null, primary: false }
 const blankContact: PartyContact = { name: "", role: null, email: null, phone: null, primary: false }
 

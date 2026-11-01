@@ -90,3 +90,7 @@ Seu hash antigo também contava um toolchain 1.99.0 instalado, portanto a primei
 restauração é explícita e única por job; Cargo continua validando as dependências
 antes de usar os artefatos. Não se sobrepõe um segundo cache parcial ao cache
 restaurado. Cache ausente não transforma um timeout em sucesso.
+
+## Consumidor da aplicação web
+
+O build web também recebe o contrato exportado pelo job Rust do mesmo commit e executa scripts/contracts/generate-web.mjs. Os schemas gerados são usados pelos aliases de domínio da aplicação. O consumidor de company continua exercitando seus exemplos separados. A geração da web valida o documento e recusa referências externas; falha de captura ou geração impede compilar o painel.

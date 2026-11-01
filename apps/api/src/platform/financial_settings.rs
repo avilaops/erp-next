@@ -6,7 +6,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
@@ -15,6 +15,21 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinancialSettingsInput {
     default_payment_method: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FinancialSettingsData {
+    default_payment_method: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FinancialSettingsSnapshot {
+    tenant_id: Uuid,
+    revision: i64,
+    can_edit: bool,
+    data: FinancialSettingsData,
 }
 
 async fn transaction<'a>(
@@ -66,7 +81,7 @@ async fn load(
     .unwrap_or((1, "bank_transfer".into())))
 }
 
-#[utoipa::path(get,path="/api/v1/financial-settings",operation_id="get_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=serde_json::Value),(status=403,description="Sem acesso à configuração")))]
+#[utoipa::path(get,path="/api/v1/financial-settings",operation_id="get_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=FinancialSettingsSnapshot),(status=403,description="Sem acesso à configuração")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -78,11 +93,18 @@ pub async fn get(
     Ok(response(
         StatusCode::OK,
         Some(revision),
-        json!({"tenantId":tenant,"revision":revision,"canEdit":can_edit,"data":{"defaultPaymentMethod":method}}),
+        FinancialSettingsSnapshot {
+            tenant_id: tenant,
+            revision: revision,
+            can_edit,
+            data: FinancialSettingsData {
+                default_payment_method: method,
+            },
+        },
     ))
 }
 
-#[utoipa::path(put,path="/api/v1/financial-settings",operation_id="put_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=FinancialSettingsInput,responses((status=200,body=serde_json::Value),(status=403,description="Exige gestão da empresa"),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
+#[utoipa::path(put,path="/api/v1/financial-settings",operation_id="put_financial_settings",tag="Finance",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=FinancialSettingsInput,responses((status=200,body=FinancialSettingsSnapshot),(status=403,description="Exige gestão da empresa"),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -112,6 +134,13 @@ pub async fn put(
     Ok(response(
         StatusCode::OK,
         Some(next),
-        json!({"tenantId":tenant,"revision":next,"canEdit":can_edit,"data":{"defaultPaymentMethod":input.default_payment_method}}),
+        FinancialSettingsSnapshot {
+            tenant_id: tenant,
+            revision: next,
+            can_edit,
+            data: FinancialSettingsData {
+                default_payment_method: input.default_payment_method,
+            },
+        },
     ))
 }

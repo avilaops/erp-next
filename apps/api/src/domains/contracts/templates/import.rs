@@ -7,7 +7,7 @@ pub struct Import {
     template_id: i64,
 }
 
-#[utoipa::path(get,path="/api/v1/contract-template-drafts/catalog",operation_id="template_catalog",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403),(status=409)))]
+#[utoipa::path(get,path="/api/v1/contract-template-drafts/catalog",operation_id="template_catalog",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=super::super::api::TemplateCatalog),(status=403),(status=409)))]
 pub async fn catalog(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -38,7 +38,7 @@ pub async fn catalog(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}/import",operation_id="template_import",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=Import,responses((status=200,body=Value),(status=403),(status=409),(status=422)))]
+#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}/import",operation_id="template_import",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=Import,responses((status=200,body=super::super::api::TemplateImportResult),(status=403),(status=409),(status=422)))]
 pub async fn import_template(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

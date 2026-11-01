@@ -16,10 +16,10 @@
     "build:web": "pnpm --filter web build",
     "lint:web": "pnpm --filter web lint",
     "test:company": "node scripts/verify-company.mjs",
-    "test:access": "node scripts/verify-company.mjs"
+    "test:access": "node scripts/verify-company.mjs",
+    "generate:api": "node scripts/contracts/generate-web.mjs"
   },
   "devDependencies": {
     "ajv": "8.20.0"
   }
 }
-

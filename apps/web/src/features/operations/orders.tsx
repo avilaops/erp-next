@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { decimalPattern } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/session-recovery"
@@ -13,10 +17,10 @@ import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { quantity, useCommand, useResource } from "./use-operation"
 
-type Order = { id: string; customerId: string; customerName: string; customerTaxId: string; dueDate: string; amount: string; status: string; revision: number }
-type Item = { productId: string; name: string; sku: string; unit: string; quantity: string; unitPrice: string; amount: string; structureColor?: string; upholsteryColor?: string }
-type Detail = { tenantId: string; canEdit: boolean; data: Order; items: Item[] }
-type Listing = { tenantId: string; canEdit: boolean; data: Order[]; total: number }
+type Order = Schema<"OrderSummary">
+type Item = Schema<"OrderLine">
+type Detail = Schema<"OrderSnapshot">
+type Listing = Schema<"OrderList">
 type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
 type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
@@ -97,7 +101,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
     if (!initial) return
     const controller = new AbortController()
     void Promise.all(initial.items.map(async item => {
-      const response = await fetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
+      const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const value = await response.json()
       if (!response.ok || value.tenantId !== tenantId) throw new Error("Não foi possível consultar as opções de cores. As escolhas registradas foram mantidas; recarregue para alterar o acabamento.")
       return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], hasPhoto: value.data.hasPhoto }

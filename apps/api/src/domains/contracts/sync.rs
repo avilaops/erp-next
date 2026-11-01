@@ -235,6 +235,8 @@ pub async fn detail(
     Ok(super::super::response(
         StatusCode::OK,
         Some(contract.revision),
-        json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"data":contract,"files":files}),
+        super::api::checked::<super::api::ContractDetail>(
+            json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"data":contract,"files":files}),
+        )?,
     ))
 }

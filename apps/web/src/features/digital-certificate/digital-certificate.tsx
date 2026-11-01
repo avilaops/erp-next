@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -8,11 +12,8 @@ import { Eye, EyeOff, FileKey2, RefreshCw, ShieldCheck, Trash2, Upload } from "l
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type CertificateStatus = "not_configured" | "active" | "expiring" | "expired" | "not_yet_valid" | "company_mismatch" | "unavailable"
-type CertificateSnapshot = {
-  tenantId: string; revision: number; canEdit: boolean; uploadAvailable: boolean; companyTaxId: string; status: CertificateStatus
-  data: { subject: string; issuer: string; taxId: string; fingerprint: string; serialNumber: string; validFrom: number; validUntil: number; validatedAt: number; chainVerified: boolean; revocationChecked: boolean } | null
-}
+type CertificateStatus = Schema<"CertificateStatus">
+type CertificateSnapshot = Schema<"CertificateSnapshot">
 const maximumFile = 64 * 1024
 const statusLabel: Record<CertificateStatus, string> = {
   not_configured: "Nenhum certificado conectado", active: "Certificado conectado", expiring: "Certificado próximo do vencimento", expired: "Certificado vencido",
@@ -39,7 +40,7 @@ export function DigitalCertificate() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch("/api/erp/fiscal/certificate", { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch("/api/erp/fiscal/certificate", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (controller.signal.aborted) return
       setErrorStatus(response.ok ? undefined : response.status)
@@ -74,7 +75,7 @@ export function DigitalCertificate() {
         body = JSON.stringify({ pkcs12Base64: btoa(binary), password })
         bytes.fill(0)
       }
-      const response = await fetch("/api/erp/fiscal/certificate", {
+      const response = await erpFetch("/api/erp/fiscal/certificate", {
         method: remove ? "DELETE" : "PUT", cache: "no-store", body,
         headers: { "Content-Type": "application/json", "X-Tenant-Id": certificate.tenantId, "If-Match": etag },
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(45_000)]),

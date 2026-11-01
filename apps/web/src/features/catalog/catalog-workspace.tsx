@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { normalizeDecimal } from "@/lib/decimal-input"
 
 import { AccessLink } from "@/components/session-recovery"
@@ -18,9 +22,9 @@ import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/features/operations/use-operation"
 import type { PersonalPreferences } from "@/features/system-preferences/system-preferences"
 
-type Product = ProductInput & { id: string; revision: number; hasPhoto?: boolean }
-type ProductList = { tenantId: string; canEdit: boolean; data: Product[]; total: number }
-type Snapshot = { tenantId: string; canEdit: boolean; data: Product }
+type Product = Schema<"Product">
+type ProductList = Schema<"ProductList">
+type Snapshot = Schema<"ProductSnapshot">
 const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
@@ -45,7 +49,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
     const controller = new AbortController()
     const params = new URLSearchParams({ q, offset: String(offset), limit: String(pageSize) })
     if (status) params.set("status", status)
-    fetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Catálogo indisponível")
       if (!controller.signal.aborted) { setResult(data); setError("") }
@@ -106,7 +110,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
   useEffect(() => { active.current = true; return () => { active.current = false } }, [])
   useEffect(() => {
     const controller = new AbortController()
-    fetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
@@ -147,7 +151,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     }
     pending.current = true; setSaving(true); setSaved(false); setError(""); setStorageError("")
     try {
-      const response = await fetch(id ? `/api/erp/products/${id}` : "/api/erp/products", { method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) }, body: id ? body : command.current!.body })
+      const response = await erpFetch(id ? `/api/erp/products/${id}` : "/api/erp/products", { method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) }, body: id ? body : command.current!.body })
       const value = await response.json()
       if (!response.ok) {
         setError(value.title || "Não foi possível salvar")

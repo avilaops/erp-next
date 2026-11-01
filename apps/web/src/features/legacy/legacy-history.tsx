@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -7,8 +11,8 @@ import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 
-type Row = { id: string; collection: string; title: string; details: Record<string, unknown>; files: { id: string; filename: string }[] }
-type Snapshot = { collections: { name: string; count: number }[]; data: Row[]; total: number; offset: number; limit: number }
+type Row = Schema<"LegacyRecord">
+type Snapshot = Schema<"LegacyPage">
 const labels: Record<string, string> = {
   company_settings: "Empresa", customers: "Clientes", suppliers: "Fornecedores", products: "Produtos",
   product_lines: "Linhas de produtos", product_photos: "Fotos de produtos", supplier_items: "Catálogo de fornecedores",
@@ -37,7 +41,7 @@ export function LegacyHistory() {
     const controller = new AbortController()
     const params = new URLSearchParams({ offset: String(offset) })
     if (collection) params.set("collection", collection)
-    fetch(`/api/erp/legacy-history?${params}`, { cache: "no-store", signal: controller.signal })
+    erpFetch(`/api/erp/legacy-history?${params}`, { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const body = await response.json()
         if (!response.ok) throw new Error(body.title || "Não foi possível consultar o histórico")

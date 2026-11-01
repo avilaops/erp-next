@@ -176,3 +176,7 @@ na [evidência de rascunhos e ajuda](../evidencias/erp-rascunhos-ajuda-2026-10-2
 A [entrega fiscal e seus limites](FISCAL-NFE-HOMOLOGACAO.md) descreve a preparação
 da AVL-328. Rascunhos não possuem numeração, XML ou protocolo. O cadastro de um
 alias A1 não verifica nem armazena um certificado. Nenhuma emissão está liberada.
+
+## Extensão de conteúdo e contratos — AVL-402
+
+A implementação da branch acrescenta aliases da web derivados do OpenAPI, ajuda MDX local com reutilização do formulário de pedidos e layout pessoal persistente. O layout exige a migration correspondente e preserva RLS/revisão/auditoria. A validação final desta extensão será registrada na evidência e no PR; as contagens anteriores deste documento continuam históricas.

@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -11,10 +15,10 @@ import { Input } from "@/components/ui/input"
 
 import { PartyComplements, type PartyAddress, type PartyContact } from "./party-complements"
 
-type PartyInput = { personType: string; legalName: string; tradeName: string | null; taxId: string; email: string | null; phone: string | null; isCustomer: boolean; isSupplier: boolean; status: string; addresses: PartyAddress[]; contacts: PartyContact[] }
-type Party = PartyInput & { id: string; revision: number }
-type Snapshot = { tenantId: string; canEdit: boolean; data?: Party }
-type Page = { tenantId: string; canEdit: boolean; data: Party[]; total: number }
+type PartyInput = Schema<"PartyInput">
+type Party = Schema<"Party">
+type Snapshot = Omit<Schema<"PartySnapshot">, "data"> & { data?: Schema<"Party"> }
+type Page = Schema<"PartyList">
 const blank: PartyInput = { personType: "juridica", legalName: "", tradeName: null, taxId: "", email: null, phone: null, isCustomer: true, isSupplier: false, status: "active", addresses: [], contacts: [] }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
@@ -35,7 +39,7 @@ export function PartyList() {
     const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
-    fetch(`/api/erp/parties?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/parties?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
       if (!controller.signal.aborted) { setResult(data); setError("") }
@@ -89,7 +93,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(id ? `/api/erp/parties/${id}` : "/api/erp/parties?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(id ? `/api/erp/parties/${id}` : "/api/erp/parties?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
@@ -115,7 +119,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
     pending.current = true; setSaving(true); setSaved(false); setError("")
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body: JSON.stringify(draft) }
     try {
-      const response = await fetch(id ? `/api/erp/parties/${id}` : "/api/erp/parties", {
+      const response = await erpFetch(id ? `/api/erp/parties/${id}` : "/api/erp/parties", {
         method: id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) },
         body: id ? JSON.stringify(draft) : command.current!.body,

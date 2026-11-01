@@ -1,5 +1,7 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { useSuggestedPaymentMethod } from "@/features/financial-settings/use-suggested-payment-method"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
@@ -13,10 +15,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "./use-operation"
 
-type Receivable = { id: string; orderId: string; customerName: string; dueDate: string; amount: string; receivedAmount: string; outstandingAmount: string; status: string; revision: number; paymentId: string | null }
-type Payment = { id: string; kind: string; amount: string; method: string; reference: string; occurredOn: string; reversesId: string | null }
-type Detail = { tenantId: string; canEdit: boolean; data: Receivable; payments: Payment[] }
-type Listing = { tenantId: string; canEdit: boolean; data: Receivable[]; total: number }
+type Receivable = Schema<"Receivable">
+type Payment = Schema<"Payment">
+type Detail = Schema<"ReceivableSnapshot">
+type Listing = Schema<"ReceivableList">
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 

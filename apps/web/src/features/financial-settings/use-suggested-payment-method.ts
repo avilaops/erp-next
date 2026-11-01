@@ -1,9 +1,11 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { useState } from "react"
 import { useResource } from "@/features/operations/use-operation"
 
-export type FinancialSettingsSnapshot = { tenantId: string; revision: number; canEdit: boolean; data: { defaultPaymentMethod: string } }
+export type FinancialSettingsSnapshot = Schema<"FinancialSettingsSnapshot">
 export const paymentMeans = { bank_transfer: "Transferência", cash: "Dinheiro", card: "Cartão", other: "Outro" }
 
 export function useSuggestedPaymentMethod() {

@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import Link from "next/link"
 import { useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -37,7 +39,7 @@ export function FinancialSettings() {
     if (!resource.value?.canEdit || !resource.etag || !dirty || blocked || pending.current) return
     pending.current = true; setBusy(true); setMessage(""); setError("")
     try {
-      const response = await fetch("/api/erp/financial-settings", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ defaultPaymentMethod: method }) })
+      const response = await erpFetch("/api/erp/financial-settings", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ defaultPaymentMethod: method }) })
       const result = await response.json()
       if (!response.ok) throw Error(result.title || "Não foi possível salvar a configuração")
       if (result.tenantId !== resource.value.tenantId || result.data?.defaultPaymentMethod !== method || !response.headers.get("etag")) throw Error("Confirmação incompleta; recarregue para conferir.")

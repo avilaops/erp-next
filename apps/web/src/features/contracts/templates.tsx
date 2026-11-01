@@ -1,5 +1,7 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
@@ -10,11 +12,11 @@ import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/session-recovery"
 import { useCommand, useResource } from "@/features/operations/use-operation"
 
-type Area = { page: number; x: number; y: number; width: number; height: number }
-type Field = Area & { id: string; name: string; kind: string; role: string; required: boolean; fontSize?: number; additionalAreas?: Area[] }
-type Definition = { name: string; pages: number; roles: string[]; fields: Field[] }
-type Detail = { tenantId: string; canEdit: boolean; id: string; definition: Definition; revision: number; versions?: { revision: number; status: string; externalId: number | null }[] }
-type Listing = { tenantId: string; canEdit: boolean; data: { id: string; name: string; revision: number; publishedRevision?: number | null }[] }
+type Area = Schema<"Area">
+type Field = Schema<"Field">
+type Definition = Schema<"Definition">
+type Detail = Schema<"TemplateDraftDetail">
+type Listing = Schema<"TemplateDraftList">
 const linkClass = "text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background p-2"
 const sources = { empresa_nome: "Nome da empresa", empresa_documento: "Documento da empresa", empresa_endereco: "Endereço da empresa", cliente_nome: "Nome do cliente", cliente_documento: "Documento do cliente", cliente_endereco: "Endereço do cliente", cliente_email: "E-mail do cliente", pedido_numero: "Número do pedido", pedido_total: "Total do pedido", itens: "Itens e valores", vencimento: "Vencimento", condicoes: "Condições comerciais", entrega: "Entrega" }
@@ -34,7 +36,7 @@ export function Templates({ id }: { id?: string }) {
   </>
 }
 
-type Catalog = { configured: boolean; canEdit: boolean; data: { id: number; name: string; canImport: boolean; draftId: string | null }[] }
+type Catalog = Schema<"TemplateCatalog">
 function ConnectedModels({ tenant }: { tenant: string }) {
   const resource = useResource<Catalog>("/api/erp/contract-template-drafts/catalog")
   const command = useCommand()

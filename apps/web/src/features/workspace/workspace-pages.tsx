@@ -6,13 +6,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   Bell,
-  BookOpen,
   Check,
   Clock3,
   CreditCard,
   ExternalLink,
   Grid2X2,
-  LifeBuoy,
   Search,
   ShieldCheck,
   Sparkles,
@@ -85,37 +83,6 @@ export function NotificationsCenter() {
   return <WorkspaceShell eyebrow="Central de trabalho" title="Notificações" description="Pendências e alertas locais organizados por prioridade e módulo." actions={<Button variant="outline" onClick={() => setRead(notifications.map((item) => item[0]))}><Check />Marcar todas como lidas</Button>}><DemoNotice text="As notificações são demonstrativas e não são persistidas." /><div className="grid gap-3">{notifications.map(([id,title,module,time,priority]) => <article className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center" key={id}><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${read.includes(id) ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}><Bell className="size-5" /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{title}</strong><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{priority}</span></div><p className="mt-1 text-sm text-muted-foreground">{module} · {time}</p></div><Button disabled={read.includes(id)} variant="outline" onClick={() => setRead((current) => [...current, id])}>{read.includes(id) ? "Lida" : "Marcar como lida"}</Button></article>)}</div></WorkspaceShell>
 }
 
-const helpTopics = [
-  { title: "Primeiros passos", summary: "Configure empresa, usuários e permissões antes de iniciar a operação.",
-    guidance: "Entre com sua conta e confira a empresa ativa. Os dados da empresa, usuários e papéis são gerenciados em Preferências. O envio de convites ainda depende do provisionamento no Auth.",
-    links: [["Dados da empresa", "/preferencias/empresa/dados"], ["Usuários e permissões", "/preferencias/usuarios"]] },
-  { title: "Pedidos e propostas", summary: "Crie e edite rascunhos antes de reservar estoque e concluir a venda.",
-    guidance: "Selecione um cliente ativo e os produtos do pedido. Enquanto estiver em rascunho, é possível alterar cliente, vencimento e itens; os itens mantidos preservam os preços registrados. Confirmar reserva estoque. Concluir registra a saída e gera a conta a receber. As propostas continuam demonstrativas.",
-    links: [["Pedidos de venda", "/vendas/pedidos"], ["Novo pedido", "/vendas/pedidos/novo"]] },
-  { title: "Estoque e compras", summary: "Confira saldos físicos, reservas e movimentos antes de registrar uma operação.",
-    guidance: "O saldo disponível considera as reservas de pedidos. Compras permitem criar e confirmar pedidos, registrar recebimentos parciais e gerar entrada de estoque e conta a pagar. Cancelar antes de receber ou encerrar o saldo preserva os registros existentes. Depósitos, inventários, produção, notas de entrada e sugestões de compra continuam demonstrativos.",
-    links: [["Saldos e movimentos", "/estoque/saldos"], ["Compras", "/compras"]] },
-  { title: "Fiscal", summary: "Revise documentos e eventos sem transmissão aos serviços oficiais.",
-    guidance: "As telas fiscais e os rascunhos não representam documentos autorizados. Emissão, assinatura, transmissão e geração de DANFE ainda dependem da implementação da integração fiscal.",
-    links: [["Central fiscal", "/fiscal"]] },
-  { title: "Financeiro", summary: "Consulte os títulos de pedidos e o histórico de recebimentos declarados.",
-    guidance: "A conclusão do pedido gera uma conta a receber. O registro manual aceita recebimentos parciais ou integrais até o saldo restante, com data, meio e referência. O estorno de um recebimento específico preserva o lançamento original e exige motivo. Esses registros não comprovam liquidação bancária; conciliação externa ainda não está implementada.",
-    links: [["Contas a receber", "/financeiro/contas-receber"]] },
-] as const
-
-export function HelpCenter() {
-  const [query, setQuery] = useState("")
-  const topics = helpTopics.filter(topic => `${topic.title} ${topic.summary} ${topic.guidance}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")))
-  return <WorkspaceShell eyebrow="Suporte" title="Central de ajuda" description="Orientações sobre os fluxos disponíveis e os limites atuais de cada área.">
-    <div className="rounded-2xl border border-border bg-card p-5"><label className="relative block max-w-2xl"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><span className="sr-only">Buscar na ajuda</span><Input className="h-10 pl-9" value={query} onChange={event => setQuery(event.target.value)} placeholder="Como podemos ajudar?" /></label></div>
-    <div className="mt-5 grid gap-3 md:grid-cols-2">{topics.map(topic => <article className="min-w-0 rounded-2xl border border-border bg-card p-5" key={topic.title}>
-      <BookOpen className="size-5 text-primary" /><h2 className="mt-4 font-semibold">{topic.title}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{topic.summary}</p>
-      <details className="mt-4 rounded-lg border border-border p-3"><summary className="cursor-pointer font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">Ver orientação<span className="sr-only"> sobre {topic.title}</span></summary><p className="mt-3 text-sm leading-6">{topic.guidance}</p><ul className="mt-3 space-y-2">{topic.links.map(([label, href]) => <li key={href}><Link className="text-sm font-medium text-primary underline underline-offset-4" href={href}>{label}</Link></li>)}</ul></details>
-    </article>)}</div>
-    {!topics.length && <p className="mt-5" role="status">Nenhuma orientação encontrada. Tente outro termo.</p>}
-    <section className="mt-5 rounded-2xl border border-primary/20 bg-primary/5 p-5"><LifeBuoy className="size-5 text-primary" /><h2 className="mt-3 font-semibold">Ainda precisa de ajuda?</h2><p className="mt-2 text-sm text-muted-foreground">O atendimento externo será conectado em uma fase futura. Nenhuma solicitação é enviada agora.</p><Button className="mt-4" disabled>Solicitar atendimento</Button></section>
-  </WorkspaceShell>
-}
 
 const apps = [
   ["Ávila Lojas", "Catálogo, pedidos e canais de venda", "Conectado", "/vendas/loja-virtual"],

@@ -152,7 +152,7 @@ pub fn routes() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
 }
 
-#[utoipa::path(get,path="/api/v1/contract-template-drafts",operation_id="template_drafts_list",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403)))]
+#[utoipa::path(get,path="/api/v1/contract-template-drafts",operation_id="template_drafts_list",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=super::api::TemplateDraftList),(status=403)))]
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -170,7 +170,7 @@ pub async fn list(
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/contract-template-drafts/{id}",operation_id="template_drafts_detail",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403),(status=404)))]
+#[utoipa::path(get,path="/api/v1/contract-template-drafts/{id}",operation_id="template_drafts_detail",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=super::api::TemplateDraftDetail),(status=403),(status=404)))]
 pub async fn detail(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -197,7 +197,7 @@ pub async fn detail(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}",operation_id="template_drafts_save",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=Option<String>,Header)),request_body=Save,responses((status=200,body=Value),(status=403),(status=409),(status=412),(status=422),(status=428)))]
+#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}",operation_id="template_drafts_save",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=Option<String>,Header)),request_body=Save,responses((status=200,body=super::api::TemplateDraftDetail),(status=403),(status=409),(status=412),(status=422),(status=428)))]
 pub async fn save(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

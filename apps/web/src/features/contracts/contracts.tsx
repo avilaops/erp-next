@@ -1,5 +1,7 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { RequestError } from "@/components/session-recovery"
 
 import Link from "next/link"
@@ -11,23 +13,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/features/operations/use-operation"
 
-type Recipient = { role: string; name: string; email: string }
-type ContractSummary = { id: string; orderId: string; customerId: string; customerName: string; templateName: string; status: string; problem: string | null; revision: number }
-type Snapshot = {
-  order: { id: string; revision: number; amount: string; dueDate: string }
-  company: { legalName: string; taxId: string }
-  customer: { id: string; name: string; taxId: string; email: string | null }
-  items: { name: string; quantity: string; unit: string; unitPrice: string; amount: string }[]
-}
-type Contract = ContractSummary & {
-  snapshot: Snapshot; recipients: Recipient[]; fields: Record<string, string>
-  externalId: number | null; reviewedAt: string | null; sendRequestedAt: string | null; completedAt: string | null
-  progress: { id: number; role: string; email: string; sendConfirmed: boolean; openedAt: string | null; completedAt: string | null; declinedAt: string | null }[]
-}
-type StoredFile = { id: string; kind: "preview" | "signed" | "audit"; position: number; sha256: string }
-type Detail = { tenantId: string; canEdit: boolean; canSend: boolean; emailReady: boolean; data: Contract; files: StoredFile[] }
-type Template = { id: number; name: string; updatedAt: string; roles: { name: string; uuid: string }[]; fields: { name: string; type: string; required: boolean }[] }
-type Options = { tenantId: string; canEdit: boolean; configured: boolean; emailReady: boolean; snapshot: Snapshot; templates: Template[]; defaults: Record<string, string> }
+type Recipient = Schema<"ContractRecipient">
+type ContractSummary = Schema<"ContractSummary">
+type Snapshot = Schema<"ContractContext">
+type Contract = Schema<"Contract">
+type StoredFile = Schema<"ContractFile">
+type Detail = Schema<"ContractDetail">
+type Template = Schema<"ContractTemplateChoice">
+type Options = Schema<"ContractOptions">
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"
 const labels: Record<string, string> = { creation_requested: "Geração em conferência", created: "Pronto para revisão", reviewed: "Revisado", send_requested: "Envio solicitado", sent: "Transmissão confirmada pelo serviço", opened: "Aberto pelo destinatário", completed: "Assinatura concluída", declined: "Assinatura recusada", expired: "Prazo expirado" }

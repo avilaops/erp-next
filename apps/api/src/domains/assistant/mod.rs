@@ -1,3 +1,43 @@
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantRecord {
+    pub title: String,
+    pub href: String,
+    pub sku: Option<String>,
+    pub unit: Option<String>,
+    pub base_price: Option<String>,
+    pub quantity: Option<String>,
+    pub reserved: Option<String>,
+    pub available: Option<String>,
+    pub trade_name: Option<String>,
+    pub customer_name: Option<String>,
+    pub amount: Option<String>,
+    pub due_date: Option<String>,
+    pub status: Option<String>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantSource {
+    pub tool: String,
+    pub origin: String,
+    pub scope: Option<String>,
+    pub data: Vec<AssistantRecord>,
+    pub total: i64,
+    pub limit: Option<i64>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub text: Option<String>,
+    pub kind: Option<String>,
+    pub title: Option<String>,
+    pub name: Option<String>,
+    pub source: Option<AssistantSource>,
+    pub model: Option<String>,
+    pub status: Option<u16>,
+}
 mod client;
 mod tools;
 

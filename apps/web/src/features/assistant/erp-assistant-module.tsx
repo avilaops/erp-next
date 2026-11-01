@@ -1,5 +1,8 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+import type { Schema } from "@/lib/api/types"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import { useEffect, useRef, useState } from "react"
@@ -8,10 +11,10 @@ import { ArrowLeft, LoaderCircle, Send, Sparkles, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type RecordSource = { title: string; href: string; sku?: string; unit?: string; basePrice?: string; quantity?: string; reserved?: string; available?: string; tradeName?: string; customerName?: string; amount?: string; dueDate?: string; status?: string }
-type Source = { tool: string; origin: string; scope?: string; data: RecordSource[]; total: number; limit?: number }
+type RecordSource = Schema<"AssistantRecord">
+type Source = Schema<"AssistantSource">
 type Message = { role: "user" | "assistant"; text: string; kind?: "model" | "erp"; sources?: Source[] }
-type Event = { type: string; text?: string; kind?: "model" | "erp"; title?: string; name?: string; source?: Source }
+type Event = Schema<"AssistantEvent">
 
 const tools: Record<string, string> = {
   localizar_funcionalidade: "Localizando funcionalidades permitidas…",
@@ -43,7 +46,7 @@ export function ErpAssistantModule() {
 
   useEffect(() => {
     const abort = new AbortController()
-    fetch("/api/erp/me", { cache: "no-store", signal: abort.signal }).then(async response => {
+    erpFetch("/api/erp/me", { cache: "no-store", signal: abort.signal }).then(async response => {
       if (!response.ok) throw new Error(response.status === 401 ? "Entre e selecione uma empresa para usar o assistente." : "Não foi possível validar seu acesso à empresa.")
       const value = await response.json()
       setTenant(value.tenant)
@@ -67,7 +70,7 @@ export function ErpAssistantModule() {
     const update = () => setMessages(previous => [...previous.slice(0, -1), { ...answer, sources: [...answer.sources!] }])
     let finished = false
     try {
-      const response = await fetch("/api/erp/assistant", {
+      const response = await erpFetch("/api/erp/assistant", {
         method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenant.id },
         body: JSON.stringify({ questions }), signal: abort.signal,
       })

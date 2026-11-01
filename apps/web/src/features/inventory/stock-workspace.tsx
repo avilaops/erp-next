@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -7,10 +11,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
-type Stock = { productId: string; sku: string; name: string; unit: string; status: string; quantity: string; reserved: string; available: string }
-type Movement = { id: string; direction: "receipt" | "issue"; quantity: string; balanceAfter: string; reason: string; reversesId: string | null; sourceOrderId: string | null; occurredAt: string }
-type StockList = { tenantId: string; canEdit: boolean; data: Stock[]; total: number }
-type History = { tenantId: string; canEdit: boolean; data: Movement[]; total: number }
+type Stock = Schema<"Stock">
+type Movement = Schema<"Movement">
+type StockList = Schema<"StockList">
+type History = Schema<"MovementList">
 type Draft = { direction: "receipt" | "issue"; quantity: string; reason: string }
 const blank: Draft = { direction: "receipt", quantity: "", reason: "" }
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
@@ -39,7 +43,7 @@ export function StockWorkspace() {
   useEffect(() => {
     const controller = new AbortController()
     const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
-    fetch(`/api/erp/stock?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/stock?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Estoque indisponível")
       if (!controller.signal.aborted) { setStocks(value); setListError("") }
@@ -52,7 +56,7 @@ export function StockWorkspace() {
     if (!selected) return
     const controller = new AbortController()
     const params = new URLSearchParams({ productId: selected.productId, offset: String(historyOffset), limit: "25" })
-    fetch(`/api/erp/stock/movements?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/stock/movements?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Histórico indisponível")
       if (!controller.signal.aborted) { setHistory(value); setHistoryError("") }
@@ -88,7 +92,7 @@ export function StockWorkspace() {
       body: JSON.stringify({ productId: selected.productId, ...draft, quantity: normalizedQuantity, reversesId: reversal?.id || null }),
     }
     try {
-      const response = await fetch("/api/erp/stock/movements", {
+      const response = await erpFetch("/api/erp/stock/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": stocks.tenantId, "Idempotency-Key": command.current!.key },
         body: command.current!.body,

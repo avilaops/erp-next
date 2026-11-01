@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import Image from "next/image"
 import { ImageIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -14,7 +16,7 @@ export function ProductThumbnail({ id, name, tenantId, hasPhoto, decorative = fa
     const observer = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting)) return
       observer.disconnect()
-      void fetch(`/api/erp/products/${id}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+      void erpFetch(`/api/erp/products/${id}`, { cache: "no-store", signal: controller.signal }).then(async response => {
         if (!response.ok) throw new Error("Foto indisponível")
         const result = await response.json()
         if (result.tenantId !== tenantId || result.data?.id !== id) throw new Error("Empresa ou produto alterado")

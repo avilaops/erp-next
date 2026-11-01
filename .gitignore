@@ -21,3 +21,6 @@ Thumbs.db
 /Untitled-*.md
 /output/
 
+
+# Derived from the same-revision OpenAPI artifact before the web build.
+/apps/web/src/lib/api/generated.d.ts

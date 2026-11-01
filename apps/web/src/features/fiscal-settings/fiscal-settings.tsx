@@ -6,10 +6,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 type Profile = { environment: "homologation"; state: string; municipalityCode: string; stateRegistration: string; crt: number; series: number; certificateReference: string }
-type ProfileDraft = Omit<Profile, "crt" | "series"> & { crt: number | ""; series: number | "" }
+type ProfileDraft = Omit<Profile, "environment" | "crt" | "series"> & { environment: Profile["environment"] | ""; crt: number | ""; series: number | "" }
 type Snapshot = { tenantId: string; revision: number; canEdit: boolean; certificateVerified: boolean; data: Profile | null }
 type Company = { legalName: string; taxId: string; state: string; stateRegistration: string; taxRegime: string; city: string }
-const empty: ProfileDraft = { environment: "homologation", state: "", municipalityCode: "", stateRegistration: "", crt: "", series: "", certificateReference: "" }
+const empty: ProfileDraft = { environment: "", state: "", municipalityCode: "", stateRegistration: "", crt: "", series: "", certificateReference: "" }
 const regimeLabels: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" }
 
 export function FiscalSettings() {
@@ -33,6 +33,7 @@ export function FiscalSettings() {
     !draft.municipalityCode && "Código IBGE do município",
     draft.crt === "" && "Código de regime tributário",
     draft.series === "" && "Série da NF-e",
+    draft.environment === "" && "Ambiente",
   ].filter(Boolean) : []
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function FiscalSettings() {
       if (controller.signal.aborted) return
       if (profile.value.tenantId !== registered.value.tenantId || !profile.etag) throw new Error("A empresa da sessão mudou. Recarregue a configuração")
       const data = registered.value.data as Company
-      const value: ProfileDraft = profile.value.data || { ...empty, state: data.state, stateRegistration: data.stateRegistration, crt: data.taxRegime === "simples" ? 1 : ["real", "presumido"].includes(data.taxRegime) ? 3 : "" }
+      const value: ProfileDraft = profile.value.data || { ...empty }
       setSnapshot(profile.value); setCompany(data); setDraft(value); setBaseline(JSON.stringify(value)); setEtag(profile.etag); setBlocked(false); setError("")
     }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -83,7 +84,7 @@ export function FiscalSettings() {
     <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><h1 className="mt-2 text-3xl font-semibold">Configurações fiscais</h1><p className="mt-2 text-muted-foreground">{company ? `${company.legalName} · ${company.taxId}` : "Preparação fiscal da empresa ativa"}</p></div><Link className={buttonVariants({ variant: "outline" })} href="/fiscal/monitor">Notas recebidas</Link></header>
     {loading && <p role="status">Carregando configuração fiscal…</p>}
     {snapshot && company && <form onSubmit={save} className="space-y-6">
-      {missing.length > 0 && <section aria-labelledby="fiscal-missing-title" className="form-section space-y-3"><h2 id="fiscal-missing-title" className="text-lg font-semibold">Dados para preencher</h2><p className="text-sm text-muted-foreground">Complete estas informações em Preferências antes de salvar o perfil fiscal. A série deve ser escolhida por você.</p><ul className="list-disc space-y-1 pl-5 text-sm">{missing.map(field => <li key={String(field)}>{field}</li>)}</ul></section>}
+      {missing.length > 0 && <section aria-labelledby="fiscal-missing-title" className="form-section space-y-3"><h2 id="fiscal-missing-title" className="text-lg font-semibold">Dados para preencher</h2><p className="text-sm text-muted-foreground">Preencha todos os campos abaixo antes de salvar o perfil fiscal. As informações do cadastro da empresa estão disponíveis para conferência.</p><ul className="list-disc space-y-1 pl-5 text-sm">{missing.map(field => <li key={String(field)}>{field}</li>)}</ul></section>}
       <section className="form-section space-y-4"><h2 className="text-lg font-semibold">Empresa e tributação</h2><p className="text-sm text-muted-foreground">UF, inscrição estadual e regime devem corresponder ao <Link className="text-primary underline" href="/preferencias/empresa/dados?secao=fiscal">cadastro da empresa</Link>.</p>
         <p className="text-sm">Regime tributário cadastrado: {regimeLabels[company.taxRegime] || "Não informado"}</p><Link className="inline-flex min-h-11 items-center text-sm text-primary underline" href="/preferencias/empresa/dados?secao=fiscal">{regimeLabels[company.taxRegime] ? "Editar regime tributário" : "Preencher regime tributário"}</Link>
         <fieldset disabled={!snapshot.canEdit || saving || blocked} className="grid gap-4 sm:grid-cols-2">
@@ -92,7 +93,7 @@ export function FiscalSettings() {
           <label className="space-y-2 text-sm">Código IBGE do município<Input value={draft.municipalityCode} inputMode="numeric" pattern="[0-9]{7}" maxLength={7} required onChange={event => setDraft({ ...draft, municipalityCode: event.target.value })} /><span className="text-xs text-muted-foreground">Município cadastrado: {company.city || "não informado"}</span></label>
           <label className="space-y-2 text-sm">Código de regime tributário<select aria-label="Código de regime tributário" className="h-10 w-full rounded-xl border bg-background px-3" required value={draft.crt} onChange={event => setDraft({ ...draft, crt: event.target.value === "" ? "" : Number(event.target.value) })}><option value="">Selecione o CRT</option><option value={1}>1 — Simples Nacional</option><option value={2}>2 — Simples Nacional com excesso de sublimite</option><option value={3}>3 — Regime normal</option><option value={4}>4 — Simples Nacional — MEI</option></select></label>
           <label className="space-y-2 text-sm">Série da NF-e<Input type="number" min={1} max={999} step={1} required placeholder="Informe a série" value={draft.series} onChange={event => setDraft({ ...draft, series: event.target.value === "" ? "" : Number(event.target.value) })} /></label>
-          <label className="space-y-2 text-sm">Ambiente<Input readOnly value="Homologação" /><span className="text-xs text-muted-foreground">Salvar a preparação não autoriza transmissão ou consumo de numeração.</span></label>
+          <label className="space-y-2 text-sm">Ambiente<select aria-label="Ambiente" className="h-10 w-full rounded-xl border bg-background px-3" required value={draft.environment} onChange={event => setDraft({ ...draft, environment: event.target.value === "homologation" ? "homologation" : "" })}><option value="">Selecione o ambiente</option><option value="homologation">Homologação</option></select><span className="text-xs text-muted-foreground">Ambiente disponível: homologação. Salvar a preparação não transmite uma nota.</span></label>
         </fieldset>
       </section>
       <section className="form-section space-y-4"><h2 className="text-lg font-semibold">Certificado digital A1</h2><p className="text-sm">Situação: {snapshot.certificateVerified ? "Certificado conectado e vigente" : "Nenhum certificado vigente disponível"}.</p><p className="text-sm text-muted-foreground">O arquivo e a senha são informados na tela própria do certificado, que confere o CNPJ, a validade e a cadeia de confiança.</p><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/certificado-digital">Gerenciar certificado A1</Link></section>

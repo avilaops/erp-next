@@ -15,7 +15,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
   const [state, setState] = useState<"loading" | "ready" | "error">("loading")
   const suffix = attempt ? `?retry=${attempt}` : ""
 
-  return <span className="relative block">
+  return <span className={expanded ? "relative block" : "relative block max-h-80 overflow-hidden sm:max-h-none"}>
     <picture className={state === "error" ? "hidden" : "block"}>
       <source media={landscapePreviewMedia} srcSet={"/erp-preview-landscape.png" + suffix} width={638} height={208} />
       <source media={mobilePreviewMedia} srcSet={"/erp-preview-mobile.png" + suffix} width={390} height={760} />
@@ -32,6 +32,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
         className={"block h-auto w-full" + (state === "ready" ? "" : " opacity-0")}
       />
     </picture>
+    {!expanded && state === "ready" && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-8 bg-gradient-to-t from-white to-transparent portrait:max-sm:block" />}
     {state === "loading" && <span role="status" className="absolute inset-0 flex items-center justify-center gap-2 bg-stone-50 p-4 text-sm text-stone-600">
       <LoaderCircle aria-hidden="true" className="size-5 shrink-0 animate-spin motion-reduce:animate-none" />Carregando prévia…
     </span>}
@@ -78,12 +79,12 @@ export function ErpEntryPreview() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        aria-label="Ampliar imagem do ERP"
+        aria-label="Ver tela completa do ERP"
         className="group mt-5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-white/20 bg-white text-left text-stone-900 shadow-xl shadow-black/15 focus-visible:ring-white focus-visible:ring-offset-[#134e4a]"
       >
         <PreviewCapture key={captureKey} attempt={attempt} />
         <span className="flex min-h-12 items-center justify-between gap-3 border-t border-stone-200 px-4 text-xs font-medium transition-colors group-hover:bg-teal-50">
-          Ampliar imagem<Expand aria-hidden="true" className="size-4 shrink-0 text-teal-700" />
+          Ver tela completa<Expand aria-hidden="true" className="size-4 shrink-0 text-teal-700" />
         </span>
       </DialogTrigger>
 

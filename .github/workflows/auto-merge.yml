@@ -14,8 +14,29 @@ jobs:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Enable squash auto-merge after branch protection checks
+      - name: Require branch protection with the complete CI gate
+        id: protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          protected=$(gh api "repos/$GH_REPO/branches/main" --jq '.protected')
+          if [ "$protected" != 'true' ]; then
+            echo '::notice::Automatic merge disabled: main has no branch protection. Review and merge only after CI succeeds.'
+            exit 0
+          fi
+          # Missing access or an unrecognized ruleset fails closed.
+          gh api "repos/$GH_REPO/branches/main/protection" > protection.json
+          if ! jq -e '.required_status_checks as $checks | (($checks.contexts // []) + [($checks.checks // [])[] | .context]) | index("gate") != null' protection.json; then
+            echo '::notice::Automatic merge disabled: the complete CI gate is not required by branch protection.'
+            exit 0
+          fi
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+      - name: Enable auto-merge only behind the required CI gate
+        if: steps.protection.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --auto --squash --delete-branch
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --merge --match-head-commit "$EXPECTED_HEAD" --delete-branch

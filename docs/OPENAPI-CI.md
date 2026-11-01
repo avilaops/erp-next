@@ -45,8 +45,10 @@ desse teste é um servidor sintético e não autenticação de produção.
 O comparador é o [oasdiff 1.34.1](https://github.com/oasdiff/oasdiff/releases/tag/v1.34.1),
 com SHA-256 do arquivo Linux fixado no instalador. O comando
 `breaking --fail-on WARN --format json` rejeita incompatibilidades e avisos.
-Não há upload para o serviço de revisão do fornecedor, exclusões de regras ou
-aceitação automática por aumento de versão. Referências externas são recusadas.
+Não há upload para o serviço de revisão do fornecedor, exclusões globais de regras
+ou aceitação automática por aumento de versão. Referências externas são recusadas.
+A única admissão excepcional autorizada está delimitada abaixo; o comparador e seu
+resultado original continuam intactos.
 O [contrato de comparação](https://github.com/oasdiff/oasdiff/blob/v1.34.1/docs/BREAKING-CHANGES.md)
 descreve as garantias e limites do comparador.
 
@@ -65,6 +67,43 @@ Fontes e regras afetadas por mudanças nessa operação:
   auditoria e outbox em PostgreSQL.
 - `apps/web/src`: consumidores existentes precisam ser revisados quando houver
   mudança de contrato; a compilação do painel permanece no workflow.
+
+## Exceção pontual autorizada: AVL-402
+
+Em 2026-11-01, o usuário autorizou explicitamente: “Autorizar exceção pontual”,
+em resposta à decisão limitada aos 12 achados de schema do PR #46 e ao
+contrato-base analisado. O registro versionado está em
+`scripts/contracts/reviewed-correction-avl402.json`, com os achados completos,
+a origem da evidência e a autorização. Essa decisão não cria autorização
+automática para futuras exceções.
+
+Para admitir essa comparação, é obrigatório:
+
+- Comparar a baseline real do evento, com captura e hashes já verificados pelo gate.
+- Manter o oasdiff 1.34.1 com `--fail-on WARN`, sem filtrar ou alterar sua saída.
+- Obter o hash-base `9bcdf547c4e5516c173a25d14bf02e5efd2722fb3124facbc8d47f7f7883c815`
+  e o hash-candidato `7888704571686e8228b1654143574684800c4b292907d0618a437e03e0089fd2`.
+- Obter exatamente os 12 achados registrados, incluindo fingerprint, regra,
+  operação, caminho, descrição, nível e demais campos. Achados ausentes,
+  adicionais, duplicados ou alterados impedem a admissão.
+- Preservar `compatible: false`, `eventBaseCompatibilityVerified: false`,
+  `runtimeVerified: false` e todos os achados no artefato `comparison.json`.
+  A decisão separada `policyDecision` identifica `reviewed_schema_correction`
+  e a referência `AVL-402-2026-11-01`.
+- Executar os demais consumidores e todos os jobs obrigatórios. A admissão desta
+  comparação não dispensa testes, lint, compilação ou navegador.
+
+Onze achados decorrem da colisão de nome entre o Recipient fiscal e o participante
+de assinatura, cujo handler já recebia role/name/email. Um achado decorre da
+descrição explícita de lastRun, que já era objeto ou null no monitor. A execução
+[41276259153](https://github.com/avilaops/erp-next/actions/runs/41276259153)
+e seu artefato original são a evidência de origem.
+
+Quando a baseline já contiver essas correções, os hashes deixarão de coincidir:
+a exceção não se aplica. Uma comparação sem achados segue a regra estrita normal.
+Qualquer outra incompatibilidade exige correção ou nova decisão explícita,
+com evidência e escopo próprios. Alterar este registro para ampliar a autorização
+sem essa decisão viola a política.
 
 ## Limites
 

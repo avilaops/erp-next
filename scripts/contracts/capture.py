@@ -7,6 +7,33 @@ import re
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
+
+
+BASELINE_REPAIR = json.loads(Path(__file__).with_name("baseline-1196d52.json").read_text())
+
+
+@contextmanager
+def baseline_compilation_repair(root, revision):
+    """Instrument one non-compiling historical tree; never patch another baseline."""
+    if revision != BASELINE_REPAIR["revision"]:
+        yield None
+        return
+    target = root / BASELINE_REPAIR["path"]
+    original = target.read_bytes()
+    if hashlib.sha256(original).hexdigest() != BASELINE_REPAIR["beforeSha256"]:
+        raise ValueError("BASELINE_REPAIR_SOURCE_MISMATCH")
+    before = BASELINE_REPAIR["original"].encode()
+    if original.count(before) != 1:
+        raise ValueError("BASELINE_REPAIR_NOT_UNIQUE")
+    repaired = original.replace(before, BASELINE_REPAIR["replacement"].encode())
+    if hashlib.sha256(repaired).hexdigest() != BASELINE_REPAIR["afterSha256"]:
+        raise ValueError("BASELINE_REPAIR_OUTPUT_MISMATCH")
+    try:
+        target.write_bytes(repaired)
+        yield BASELINE_REPAIR
+    finally:
+        target.write_bytes(original)
 
 
 def run(arguments, cwd, **kwargs):
@@ -79,8 +106,12 @@ def main():
         started = time.monotonic()
         environment = dict(os.environ)
         environment.pop("ERP_COMPANY_CONTRACT_OUTPUT", None)
-        run(["cargo", "test", "--locked", "-p", "erp-next-api", "export_openapi_contract_artifact", "--", "--test-threads=1"],
-            root, env={**environment, "ERP_OPENAPI_OUTPUT": str(destination)})
+        with baseline_compilation_repair(root, base) as repair:
+            if repair:
+                manifest["baselineCompilationRepair"] = repair
+                manifest["historicalCompatibilityVerified"] = False
+            run(["cargo", "test", "--locked", "-p", "erp-next-api", "export_openapi_contract_artifact", "--", "--test-threads=1"],
+                root, env={**environment, "ERP_OPENAPI_OUTPUT": str(destination)})
         manifest["captures"].append({"label": "baseline", "sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
                                      "seconds": round(time.monotonic() - started, 3)})
     finally:

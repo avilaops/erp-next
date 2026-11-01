@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+import baselineRepair from '../baseline-1196d52.json' with { type: 'json' };
 
 const adapter = await import('../gate.mjs').catch(() => null);
 function document() {
@@ -52,4 +53,41 @@ test('initial contract never claims event-base historical compatibility',async()
 test('comparator process failure fails closed', async()=>{
   assert.ok(adapter,'OpenAPI gate is not implemented');
   await assert.rejects(compare(()=>{}, {executable:'/nonexistent/oasdiff'}),/COMPARATOR_FAILED/);
+});
+
+async function repairedCapture(directory, override = {}) {
+  const captures = [];
+  for (const [label, file] of [['baseline', 'base.json'], ['candidate', 'candidate.json']]) captures.push({ label, sha256: createHash('sha256').update(await readFile(path.join(directory, file))).digest('hex') });
+  await writeFile(path.join(directory, 'capture.json'), JSON.stringify({
+    schemaVersion: 'erp-openapi-capture/1', initialContract: false,
+    eventBaseRevision: baselineRepair.revision, baselineRevision: baselineRepair.revision,
+    historicalCompatibilityVerified: false, baselineCompilationRepair: baselineRepair,
+    baselineSources: [{ path: baselineRepair.path, sha256: baselineRepair.beforeSha256 }], captures,
+    ...override,
+  }));
+}
+
+test('instrumented historical capture never claims unmodified event-base runtime proof', async () => {
+  const report = await compare(() => {}, { before: directory => repairedCapture(directory) });
+  assert.equal(report.compatible, true);
+  assert.equal(report.policyDecision.accepted, true);
+  assert.equal(report.comparisonScope, 'instrumented_event_base');
+  assert.equal(report.eventBaseCompatibilityVerified, false);
+  assert.equal(report.runtimeVerified, false);
+  assert.deepEqual(report.baselineCompilationRepair, baselineRepair);
+});
+
+test('altered revision, patch, source hash or historical claim rejects instrumentation', async () => {
+  for (const override of [
+    { baselineRevision: '0'.repeat(40) }, { eventBaseRevision: '0'.repeat(40) },
+    { baselineCompilationRepair: { ...baselineRepair, replacement: 'pub permissions: Vec<String>' } },
+    { baselineSources: [{ path: baselineRepair.path, sha256: '0'.repeat(64) }] },
+    { historicalCompatibilityVerified: true }, { initialContract: true },
+  ]) await assert.rejects(compare(() => {}, { before: directory => repairedCapture(directory, override) }), /INVALID_BASELINE_COMPILATION_REPAIR/);
+});
+
+test('baseline compilation instrumentation never admits a breaking API change', async () => {
+  const report = await compare(document => { document.paths = {}; }, { before: directory => repairedCapture(directory) });
+  assert.equal(report.compatible, false);
+  assert.equal(report.policyDecision.accepted, false);
 });

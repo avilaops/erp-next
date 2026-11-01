@@ -1,0 +1,11 @@
+{
+  "id": "ERP-BASELINE-1196D52",
+  "revision": "1196d525ea4ac2f39a909cf3791d6fd02617109a",
+  "path": "apps/api/src/platform/access.rs",
+  "beforeSha256": "548f327a8e869f2b55ed208dff9c3257c15d4c272774416747f85bf573a3be9a",
+  "afterSha256": "11e9c195ceb736ce8ee795c1189b7a656d30a6aae28058ccd1e1c1c6c55918d7",
+  "original": "pub(super) permissions: Vec<String>",
+  "replacement": "pub(crate) permissions: Vec<String>",
+  "reason": "PR #54 was automatically merged without branch protection before CI completed. The financial settings move made an internal field inaccessible. For this exact baseline only, widen the internal Rust visibility while exporting OpenAPI, then restore the original bytes. No handler, permission value, serialization attribute or OpenAPI declaration changes. The deployed candidate uses require_permission instead. This capture does not claim that the unmodified baseline compiles or runs.",
+  "evidence": "https://github.com/avilaops/erp-next/actions/runs/41288924845/job/124796613452"
+}

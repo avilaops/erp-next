@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import reviewedCorrection from './reviewed-correction-avl402.json' with { type: 'json' };
+import baselineRepair from './baseline-1196d52.json' with { type: 'json' };
 import { validateOpenApi } from './consumer/openapi-validation.mjs';
 
 export async function readOpenApi(file) {
@@ -65,12 +66,21 @@ export async function compareContracts({ baseline, candidate, output, executable
   if (capture && (capture.schemaVersion !== 'erp-openapi-capture/1'
       || capture.captures?.find(item => item.label === 'baseline')?.sha256 !== base.sha256
       || capture.captures?.find(item => item.label === 'candidate')?.sha256 !== revision.sha256)) throw new Error('CAPTURE_HASH_MISMATCH');
+  const repaired = Boolean(capture?.baselineCompilationRepair);
+  if (repaired && (!isDeepStrictEqual(capture.baselineCompilationRepair, baselineRepair)
+      || capture.eventBaseRevision !== baselineRepair.revision || capture.baselineRevision !== baselineRepair.revision
+      || capture.initialContract !== false || capture.historicalCompatibilityVerified !== false
+      || capture.baselineSources?.find(item => item.path === baselineRepair.path)?.sha256 !== baselineRepair.beforeSha256)) throw new Error('INVALID_BASELINE_COMPILATION_REPAIR');
   await mkdir(output, { recursive: true });
   const report = { schemaVersion: 'erp-openapi-compatibility/1', comparator: { name: 'oasdiff', version: '1.34.1', failOn: 'WARN' },
     baselineSha256: base.sha256, candidateSha256: revision.sha256, compatible: result.status === 0, findings,
-    comparisonScope: capture ? (capture.initialContract ? 'initial_contract' : 'event_base') : 'provided_documents',
-    eventBaseCompatibilityVerified: Boolean(capture && !capture.initialContract && result.status === 0),
+    comparisonScope: capture ? (repaired ? 'instrumented_event_base' : capture.initialContract ? 'initial_contract' : 'event_base') : 'provided_documents',
+    eventBaseCompatibilityVerified: Boolean(capture && !repaired && !capture.initialContract && result.status === 0),
     runtimeVerified: false, limitations: ['Compares declared OpenAPI structure; does not prove domain semantics, authorization or complete route coverage.'] };
+  if (repaired) {
+    report.baselineCompilationRepair = capture.baselineCompilationRepair;
+    report.limitations.push('The exact historical baseline required internal Rust visibility instrumentation to compile. The unmodified event base was not executable; this is a declared-schema comparison, not proof of historical runtime compatibility.');
+  }
   report.policyDecision = evaluateCompatibilityPolicy(report);
   await writeFile(path.join(output, 'comparison.json'), JSON.stringify(report, null, 2));
   return report;

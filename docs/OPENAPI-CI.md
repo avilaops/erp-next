@@ -81,8 +81,8 @@ Para admitir essa comparação, é obrigatório:
 
 - Comparar a baseline real do evento, com captura e hashes já verificados pelo gate.
 - Manter o oasdiff 1.34.1 com `--fail-on WARN`, sem filtrar ou alterar sua saída.
-- Obter o hash-base `e27dcd4a58ee5aeea7645f2513612f44b92d680775856d71bf837efa4fb28ec4`
-  e o hash-candidato `fc53a250e609d5be53d06a1cd543e830694601d2059d30b91050ce5f3fdbab31`.
+- Obter o hash-base `1f51d9f6646fd9aa76f70c1a8d6a41f89e0b4733c1e01fbd236bfe829ad939b3`
+  e o hash-candidato `3c5bab2e1c788e7bd1869c04a57b26dcbd66cbfb964c99bba49cae7717aac701`.
 - Obter exatamente os 12 achados registrados, incluindo fingerprint, regra,
   operação, caminho, descrição, nível e demais campos. Achados ausentes,
   adicionais, duplicados ou alterados impedem a admissão.
@@ -100,8 +100,9 @@ descrição explícita de lastRun, que já era objeto ou null no monitor. A exec
 e seu artefato original são a evidência de origem.
 
 Na integração autorizada em 2026-11-01, os hashes foram atualizados com o
-artefato 13072637858 da execução 41279737603. A comparação recursiva confirmou
-63 alterações da main idênticas nos dois lados e nenhum aumento do delta
+artefato 13075667430 da execução 41287019482. A comparação recursiva confirmou
+63 alterações da main idênticas nos dois lados na revisão anterior e mais 13
+após integrar o PR #52, sem nenhum aumento do delta
 baseline/candidato. Os 12 achados, inclusive fingerprints, são idênticos aos
 originais. Os hashes anteriores permanecem no histórico Git; o gate continua
 aceitando apenas o par exato atual, sem ampliar as regras de admissão.

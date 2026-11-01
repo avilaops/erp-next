@@ -9,17 +9,17 @@
     "scope": "Somente os 12 achados de schema do PR #46 e o contrato-base analisado. O candidato também é fixado por hash para impedir ampliação implícita."
   },
   "evidence": {
-    "sourceCommit": "bc7683367cac83e5c9dc446f7f98fc71369cdd94",
-    "workflowRun": "https://github.com/avilaops/erp-next/actions/runs/41279737603",
-    "artifactId": 13072637858,
-    "integrationReview": "Execução dos bloqueios autorizada em 2026-11-01. Comparação recursiva dos artefatos original 13071222948 e atual 13072637858: as 63 alterações vindas da main são idênticas em baseline e candidato. O delta baseline/candidato e os 12 achados completos permanecem idênticos. Nenhuma nova exceção foi adicionada.",
+    "sourceCommit": "a3e0ee687b782f7c00d92b63edf4a2a726afb46a",
+    "workflowRun": "https://github.com/avilaops/erp-next/actions/runs/41287019482",
+    "artifactId": 13075667430,
+    "integrationReview": "Execução dos bloqueios autorizada em 2026-11-01. A revisão original 13071222948 para 13072637858 preservou 63 alterações da main idênticas nos dois lados. A revisão de 13072637858 para 13075667430 preservou mais 13 alterações da main idênticas em baseline e candidato. O delta baseline/candidato e os 12 achados completos permanecem idênticos. Nenhuma nova exceção foi adicionada.",
     "explanation": [
       "ContractRecipient corrige a colisão entre o participante de assinatura (role/name/email) e o Recipient fiscal; o handler já recebia os campos de assinatura.",
       "MonitorLastRun descreve o objeto ou null que a consulta do monitor já produzia."
     ]
   },
-  "baselineSha256": "e27dcd4a58ee5aeea7645f2513612f44b92d680775856d71bf837efa4fb28ec4",
-  "candidateSha256": "fc53a250e609d5be53d06a1cd543e830694601d2059d30b91050ce5f3fdbab31",
+  "baselineSha256": "1f51d9f6646fd9aa76f70c1a8d6a41f89e0b4733c1e01fbd236bfe829ad939b3",
+  "candidateSha256": "3c5bab2e1c788e7bd1869c04a57b26dcbd66cbfb964c99bba49cae7717aac701",
   "comparator": {
     "name": "oasdiff",
     "version": "1.34.1",

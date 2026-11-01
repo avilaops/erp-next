@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useSyncExternalStore } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Building2, Calculator, ChevronRight, CircleDollarSign, ContactRound, Download, Fingerprint, Monitor, Package, PlugZap, ReceiptText, Search, Settings2, Truck, Upload, Users, Wrench } from "lucide-react"
 import { GuardedLink as Link } from "@/components/navigation-guard"
 import { Button } from "@/components/ui/button"
@@ -9,12 +9,15 @@ import { isDemonstrationRoute } from "@/lib/demonstration-routes"
 import { preferenceCategories } from "./preferences-catalog"
 
 const icons = { empresa: Building2, sistema: Monitor, cadastros: ContactRound, suprimentos: Package, vendas: Users, "notas-fiscais": ReceiptText, "certificado-digital": Fingerprint, financas: CircleDollarSign, servicos: Wrench, integracoes: PlugZap, logistica: Truck, contabilidade: Calculator, importacao: Download, exportacao: Upload }
+const subscribeHydration = () => () => {}
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR").trim()
 }
 
 export function PreferencesOverview() {
+  const router = useRouter()
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false)
   const [query, setQuery] = useState("")
   const selectedId = useSearchParams().get("categoria") || "empresa"
   const search = normalize(query)
@@ -30,7 +33,7 @@ export function PreferencesOverview() {
   function selectCategory(id: string) {
     const url = new URL(window.location.href)
     url.searchParams.set("categoria", id)
-    window.history.pushState(null, "", url)
+    router.push(`${url.pathname}${url.search}`, { scroll: false })
   }
 
   return (
@@ -59,7 +62,7 @@ export function PreferencesOverview() {
             {visibleCategories.map(category => {
               const active = category.id === selected.id
               const Icon = icons[category.id as keyof typeof icons] || Settings2
-              return <button key={category.id} type="button" aria-pressed={active} aria-controls="preference-options" onClick={() => selectCategory(category.id)}
+              return <button key={category.id} type="button" disabled={!hydrated} aria-pressed={active} aria-controls="preference-options" onClick={() => selectCategory(category.id)}
                 className={`flex min-h-12 w-full items-center gap-3 border-b border-border px-4 py-3 text-left text-sm font-medium transition last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${active ? "bg-primary/10 text-primary" : "text-foreground"}`}>
                 <Icon className="size-5 shrink-0" aria-hidden="true" />{category.label}
               </button>

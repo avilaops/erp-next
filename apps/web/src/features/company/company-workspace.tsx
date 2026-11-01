@@ -3,9 +3,9 @@ import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/components/work
 import { CompanyEditor } from "./company-editor"
 import { CompanySummary } from "./company-summary"
 
-export async function CompanyWorkspace({ summary = false }: { summary?: boolean }) {
+export async function CompanyWorkspace({ summary = false, partner = false }: { summary?: boolean; partner?: boolean }) {
   await connection()
   const access = await currentWorkspaceAccess()
   if (!access.session) return <WorkspaceAccessNotice state={access.state} />
-  return summary ? <CompanySummary /> : <CompanyEditor />
+  return summary ? <CompanySummary /> : <CompanyEditor partner={partner} />
 }

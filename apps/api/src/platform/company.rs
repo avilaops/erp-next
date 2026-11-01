@@ -211,6 +211,16 @@ pub async fn put_company(
     if previous.revision != expected {
         return Err(CompanyError::Conflict);
     }
+    // Older clients do not know the partner fields. Omission preserves them;
+    // an explicit empty string still clears a field from the new partner form.
+    let previous_data: CompanyData = serde_json::from_value(previous.details.clone())
+        .map_err(|_| access::AccessError::Internal)?;
+    if data.partner_name.is_none() {
+        data.partner_name = previous_data.partner_name;
+    }
+    if data.partner_mobile.is_none() {
+        data.partner_mobile = previous_data.partner_mobile;
+    }
     let result = sqlx::query("UPDATE tenants SET legal_name = $2, trade_name = NULLIF($3, ''), tax_id = $4, updated_at = now() WHERE id = $1")
         .bind(tenant_id).bind(&data.legal_name).bind(&data.trade_name).bind(&data.tax_id)
         .execute(&mut *transaction).await;

@@ -12,3 +12,4 @@ pub(crate) use company_data::{CompanyData, valid_document};
 pub mod langfuse;
 pub mod service_auth;
 pub mod state;
+pub mod subscriptions;

@@ -32,14 +32,14 @@ pub(super) async fn setup_with_danfe(
     admin: &PgPool,
     danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
-    setup_with_services(admin, danfe, None, None).await
+    setup_with_services(admin, danfe, None, None, None).await
 }
 
 pub(super) async fn setup_with_certificates(
     admin: &PgPool,
     vault: std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
-    setup_with_services(admin, None, Some(vault), None).await
+    setup_with_services(admin, None, Some(vault), None, None).await
 }
 
 pub(super) async fn setup_with_monitor(
@@ -51,8 +51,16 @@ pub(super) async fn setup_with_monitor(
         None,
         Some(crate::domains::fiscal::certificate_crypto::tests::vault()),
         Some(service),
+        None,
     )
     .await
+}
+
+pub(super) async fn setup_with_subscriptions(
+    admin: &PgPool,
+    provider: crate::platform::subscriptions::provider::MercadoPago,
+) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
+    setup_with_services(admin, None, None, None, Some(provider)).await
 }
 
 async fn setup_with_services(
@@ -62,6 +70,7 @@ async fn setup_with_services(
         std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>,
     >,
     monitor: Option<crate::domains::fiscal::sefaz_client::Sefaz>,
+    subscriptions: Option<crate::platform::subscriptions::provider::MercadoPago>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
     sqlx::raw_sql(r#"
         INSERT INTO tenants (id, legal_name, tax_id) VALUES
@@ -126,6 +135,7 @@ async fn setup_with_services(
             AuthClient::new(format!("http://{address}/userinfo")),
         )
         .with_danfe(danfe)
+        .with_subscriptions(subscriptions)
         .with_monitor(monitor)
         .with_certificates(certificates),
     );
@@ -173,6 +183,29 @@ pub(super) async fn cleanup(
         .execute(admin)
         .await
         .unwrap();
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn partner_data_survives_an_older_company_client(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    let mut data = company();
+    data["partnerName"] = json!("Sócia de teste");
+    data["partnerMobile"] = json!("11999999999");
+    assert_eq!(
+        call(&router, "PUT", TENANT, "editor", Some("\"0\""), data)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let (status, _, saved) = call(&router, "PUT", TENANT, "editor", Some("\"1\""), company()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(saved["data"]["partnerName"], "Sócia de teste");
+    let mut clear = company();
+    clear["partnerName"] = json!("");
+    let (_, _, saved) = call(&router, "PUT", TENANT, "editor", Some("\"2\""), clear).await;
+    assert_eq!(saved["data"]["partnerName"], "");
+    assert_eq!(saved["data"]["partnerMobile"], "11999999999");
+    cleanup(&admin, application, server, &role).await;
 }
 
 #[sqlx::test(migrations = "../../migrations")]

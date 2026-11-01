@@ -170,7 +170,7 @@ async fn audit(
     Ok(())
 }
 
-#[utoipa::path(get, path="/api/v1/company-account", tag="Platform", security(("bearerAuth"=[])), params(("X-Tenant-Id"=Uuid,Header)), responses((status=200,body=Account),(status=403,description="Sem permissão")))]
+#[utoipa::path(get, path="/api/v1/company-account", operation_id="get_company_account", tag="Platform", security(("bearerAuth"=[])), params(("X-Tenant-Id"=Uuid,Header)), responses((status=200,body=Account),(status=403,description="Sem permissão")))]
 pub async fn account(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -210,7 +210,7 @@ pub async fn account(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/company-account/checkout",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=Checkout,responses((status=200,body=Subscription),(status=409,description="Assinatura já existente ou confirmação pendente")))]
+#[utoipa::path(post,path="/api/v1/company-account/checkout",operation_id="checkout_company_subscription",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=Checkout,responses((status=200,body=Subscription),(status=409,description="Assinatura já existente ou confirmação pendente")))]
 pub async fn checkout(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -298,7 +298,7 @@ pub async fn checkout(
     Ok(response(StatusCode::OK, None, row))
 }
 
-#[utoipa::path(post,path="/api/v1/company-account/refresh",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
+#[utoipa::path(post,path="/api/v1/company-account/refresh",operation_id="refresh_company_subscription",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
 pub async fn refresh(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -354,7 +354,7 @@ pub async fn refresh(
     Ok(response(StatusCode::OK, None, row))
 }
 
-#[utoipa::path(post,path="/api/v1/company-account/change-plan",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
+#[utoipa::path(post,path="/api/v1/company-account/change-plan",operation_id="change_company_subscription_plan",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
 pub async fn change_plan(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -364,7 +364,7 @@ pub async fn change_plan(
     mutate(state, identity, headers, input(payload)?, false).await
 }
 
-#[utoipa::path(post,path="/api/v1/company-account/cancel",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
+#[utoipa::path(post,path="/api/v1/company-account/cancel",operation_id="cancel_company_subscription",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),request_body=SubscriptionCommand,responses((status=200,body=Subscription)))]
 pub async fn cancel(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -462,7 +462,7 @@ async fn mutate(
     Ok(response(StatusCode::OK, None, row))
 }
 
-#[utoipa::path(get,path="/api/v1/company-account/invoices",tag="Platform",security(("bearerAuth"=[])),params(InvoiceQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)))]
+#[utoipa::path(get,path="/api/v1/company-account/invoices",operation_id="list_company_subscription_invoices",tag="Platform",security(("bearerAuth"=[])),params(InvoiceQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)))]
 pub async fn invoices(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

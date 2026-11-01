@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret } from "../playwright.danfe.config"
+import { preferenceGroups } from "../src/components/navigation-catalog"
 
 test.beforeEach(async ({ context }) => {
   const iv = randomBytes(12)
@@ -8,6 +9,88 @@ test.beforeEach(async ({ context }) => {
   cipher.setAAD(Buffer.from("erp-session"))
   const encrypted = Buffer.concat([cipher.update(JSON.stringify({ accessToken: "navigation-fixture-token", tenantId: "11111111-1111-4111-8111-111111111111", expiresAt: Date.now() + 3600_000 })), cipher.final()])
   await context.addCookies([{ name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" }])
+})
+
+test("preferências abre o índice pelo cabeçalho e só entra na empresa após escolher Geral", async ({ page }) => {
+  await page.goto("/")
+  await page.locator("header").getByRole("link", { name: "Preferências", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias")
+  await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Escolha uma das opções abaixo", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Empresa", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("link", { name: "Alterar dados da empresa", exact: true })).toHaveAttribute("href", "/preferencias/empresa/dados")
+  await page.getByRole("link", { name: "Geral", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias/empresa")
+  await page.getByRole("link", { name: "Todas as preferências", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias")
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
+})
+
+test("categorias de preferências mostram opções sem redirecionar", async ({ page }) => {
+  await page.goto("/preferencias")
+  for (const category of preferenceGroups.flatMap(group => group.items)) {
+    const button = page.getByRole("button", { name: category.label, exact: true })
+    await button.focus()
+    await page.keyboard.press("Enter")
+    await expect(button).toHaveAttribute("aria-pressed", "true")
+    await expect(page).toHaveURL(origin + "/preferencias")
+    await expect(page.locator("#preference-options").getByRole("heading", { name: category.label, exact: true })).toBeVisible()
+    await expect(page.locator(`#preference-options a[href="${category.href}"]`)).toBeVisible()
+  }
+  await page.getByRole("button", { name: "Usuários e acessos", exact: true }).click()
+  await page.locator("#preference-options").getByRole("link", { name: "Usuários e acessos", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias/usuarios")
+})
+
+test("pesquisa do índice de preferências ignora acentos e permite limpar resultado vazio", async ({ page }) => {
+  await page.goto("/preferencias")
+  const search = page.getByRole("searchbox", { name: "Pesquisar nas preferências", exact: true })
+  await search.fill("  usuarios  ")
+  await expect(page.getByRole("button", { name: "Usuários e acessos", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Empresa", exact: true })).toHaveCount(0)
+  await expect(page.locator("#preference-options").getByRole("link", { name: "Usuários e acessos", exact: true })).toBeVisible()
+  await search.fill("alterar dados")
+  await expect(page.getByRole("link", { name: "Alterar dados da empresa", exact: true })).toBeVisible()
+  await search.fill("configuração inexistente xyz")
+  await expect(page.getByRole("status")).toHaveText("Nenhuma configuração encontrada.")
+  await page.getByRole("button", { name: "Limpar pesquisa", exact: true }).click()
+  await expect(search).toHaveValue("")
+  await expect(page.getByRole("button", { name: "Empresa", exact: true })).toBeVisible()
+})
+
+test("navegação móvel, módulos e busca global abrem o índice de preferências", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  await page.getByRole("navigation", { name: "Navegação móvel", exact: true }).getByRole("link", { name: "Preferências", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias")
+  await page.getByRole("button", { name: "Módulos", exact: true }).click()
+  await page.getByRole("dialog").getByRole("link", { name: "Preferências", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  await page.getByRole("button", { name: "Buscar", exact: true }).click()
+  await page.getByRole("dialog").getByRole("combobox").fill("Preferências")
+  await page.getByRole("option").filter({ has: page.getByText("Preferências", { exact: true }) }).click()
+  await expect(page).toHaveURL(origin + "/preferencias")
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+})
+
+test("índice de preferências cabe no celular e no desktop em ambos os temas", async ({ page }, testInfo) => {
+  await page.goto("/preferencias")
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => localStorage.setItem("erp-theme", value), theme)
+    await page.reload()
+    await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
+    if (theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/)
+    else await expect(page.locator("html")).not.toHaveClass(/dark/)
+    for (const width of [320, 390, 915, 1599, 1600, 1749]) {
+      await page.setViewportSize({ width, height: 950 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+      await page.getByRole("button", { name: "Empresa", exact: true }).click()
+      await expect(page.getByRole("link", { name: "Geral", exact: true })).toBeVisible()
+      if (width === 390 || width === 915 || width === 1749) await page.screenshot({ path: testInfo.outputPath(`preferences-overview-${theme}-${width}.png`), fullPage: true })
+    }
+  }
 })
 
 test("menu desktop é exclusivo, fecha fora e com Escape e mantém os painéis na janela", async ({ page }) => {

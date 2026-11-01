@@ -61,7 +61,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
             <Link className="icon-action hidden sm:grid" href="/aplicativos" aria-label="Aplicativos"><LayoutGrid className="size-4" /></Link>
             <Link className="icon-action" href="/notificacoes" aria-label="Notificações"><Bell className="size-4" /></Link>
             <Link className="icon-action hidden sm:grid" href="/ajuda" aria-label="Ajuda"><CircleHelp className="size-4" /></Link>
-            <Link className="icon-action" href="/preferencias/empresa" aria-label="Preferências"><Settings className="size-4" /></Link>
+            <Link className="icon-action" href="/preferencias" aria-label="Preferências"><Settings className="size-4" /></Link>
             <Link className="ml-1 flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
               <Building2 className="size-5 min-[360px]:hidden" aria-hidden="true" /><span className="hidden text-sm font-medium min-[360px]:inline">Empresas</span>
             </Link>

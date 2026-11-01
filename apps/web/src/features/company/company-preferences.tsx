@@ -52,6 +52,7 @@ export function CompanyPreferences({ summary }: { summary: ReactNode }) {
         <DialogTrigger render={<Button variant="outline" />}><Settings2 />Preferências<ChevronRight /></DialogTrigger>
         <DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Preferências</DialogTitle><DialogDescription>Acesse as configurações do ERP.</DialogDescription></DialogHeader><PreferenceLinks onNavigate={() => setOpen(false)} /></DialogContent>
       </Dialog></div>
+      <Link href="/preferencias" className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-primary hover:underline"><ChevronRight className="size-4 rotate-180" aria-hidden="true" />Todas as preferências</Link>
       <PageHeader eyebrow="Preferências / Empresa" title="Empresa" description="Identidade, configuração fiscal, acesso e conexões da empresa ativa." />
       <div className="mb-6 flex items-center gap-2">
         <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3">

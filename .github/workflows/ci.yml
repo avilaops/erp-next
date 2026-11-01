@@ -211,7 +211,7 @@ jobs:
           retention-days: 14
 
   gate:
-    needs: [fiscal-engine, rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
+    needs: [context-source, fiscal-engine, rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
     if: always()
     timeout-minutes: 1
     runs-on: ubuntu-latest

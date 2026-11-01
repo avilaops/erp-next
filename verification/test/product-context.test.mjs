@@ -105,7 +105,9 @@ test('context file reads reject traversal and private environment files', async 
   await mkdir(path.join(directory, 'src'));
   await writeFile(path.join(directory, 'src', 'module.ts'), 'export const valid = true;');
   assert.match((await readContextFile(directory, 'src/module.ts')).toString(), /valid/);
-  for (const invalid of ['../outside.json', '/outside.json', 'src/../../outside.json', '.env', 'src/.env.json', 'src\\module.ts']) {
+  await writeFile(path.join(directory, 'src', 'controller.rb'), 'class Controller; end');
+  assert.match((await readContextFile(directory, 'src/controller.rb')).toString(), /class Controller/);
+  for (const invalid of ['../outside.json', '/outside.json', 'src/../../outside.json', '.env', 'src/.env.json', 'src/.env.rb', 'src/../../outside.rb', 'src\\module.ts']) {
     await assert.rejects(() => readContextFile(directory, invalid), /arquivo de fonte relativo/);
   }
 });

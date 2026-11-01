@@ -29,7 +29,7 @@ export function useDashboardPreferences() {
   const generation = useRef(0)
   const pending = useRef(false)
   const command = useRef<AbortController | null>(null)
-  const layout = loading ? defaultLayout : draft || snapshot?.value.data.dashboardLayout || defaultLayout
+  const layout = loading || !snapshot ? defaultLayout : draft || snapshot?.value.data.dashboardLayout || defaultLayout
   const dirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(snapshot?.value.data.dashboardLayout || defaultLayout)
   useNavigationGuard(dirty ? "Sair e descartar as alterações da página inicial?" : null)
 

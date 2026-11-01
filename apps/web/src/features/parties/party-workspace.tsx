@@ -26,7 +26,7 @@ const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px
 function values(party: Party): PartyInput {
   return { personType: party.personType, legalName: party.legalName, tradeName: party.tradeName, taxId: party.taxId, email: party.email, phone: party.phone, isCustomer: party.isCustomer, isSupplier: party.isSupplier, status: party.status, addresses: party.addresses || [], contacts: party.contacts || [] }
 }
-function relationship(party: PartyInput) { return party.isCustomer && party.isSupplier ? "Cliente e fornecedor" : party.isCustomer ? "Cliente" : "Fornecedor" }
+function relationship(party: Pick<PartyInput, "isCustomer" | "isSupplier">) { return party.isCustomer && party.isSupplier ? "Cliente e fornecedor" : party.isCustomer ? "Cliente" : "Fornecedor" }
 
 export function PartyList() {
   const [query, setQuery] = useState({ q: "", role: "", status: "", offset: 0 })

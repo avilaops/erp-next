@@ -24,10 +24,10 @@
 
 ## Tasks
 
-- [ ] 1. Registrar testes de layout e contrato; observar falha na CI antes da implementação.
-- [ ] 2. Implementar schemas explícitos, geração de tipos, aliases e migração dos consumidores; compilar e validar contratos.
-- [ ] 3. Extrair ajuda para MDX local com componentes existentes; testar pesquisa, orientações e acesso às operações.
-- [ ] 4. Persistir layout com RLS/revisão/auditoria e salvar explicitamente na interface; testar releitura, conflitos e isolamento.
+- [x] 1. Registrar testes de layout e contrato; observar falha na CI antes da implementação.
+- [x] 2. Implementar schemas explícitos, geração de tipos, aliases e migração dos consumidores; compilar e validar contratos.
+- [x] 3. Extrair ajuda para MDX local com componentes existentes; testar pesquisa, orientações e acesso às operações.
+- [x] 4. Persistir layout com RLS/revisão/auditoria e salvar explicitamente na interface; testar releitura, conflitos e isolamento.
 - [ ] 5. Executar CI completa, revisar diff, corrigir achados e entregar PR com evidências.
 
 ## Ledger
@@ -43,3 +43,5 @@ Review fix: scope ownerKey verifica identidade além de empresa/revisão em grav
 Ruling: schemas auxiliares em contracts/api.rs e contratos do monitor/assistente foram adicionados onde o inventário inicial ainda não representava respostas genéricas e streams. Os workflows assistant e production-release também precisam gerar tipos para manter todos os builds reproduzíveis. Nenhum workflow de publicação foi disparado.
 
 Validação intermediária: 25d8b83 passou Rust/PostgreSQL, rustfmt/Clippy, regressões do gerador e lint web. A compilação apontou 13 incompatibilidades antes ocultas por tipos manuais (campos opcionais/nulos e kind do assistente); foram corrigidas por schemas precisos e tratamento explícito de ausência.
+
+Validação 794248a: suíte Rust/PostgreSQL, Clippy, lint web e testes do gerador aprovados. A web identificou duas diferenças restantes de projeção: descrição ausente no resumo de papéis e uso de relação comercial sem necessidade de endereços. Os consumidores foram ajustados aos campos efetivamente usados. Navegador e gate final ainda dependem da próxima execução.

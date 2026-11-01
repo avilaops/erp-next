@@ -1,4 +1,10 @@
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AssistantAnswerKind {
+    Model,
+    Erp,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantRecord {
     pub title: String,
@@ -31,7 +37,7 @@ pub struct AssistantEvent {
     #[serde(rename = "type")]
     pub event_type: String,
     pub text: Option<String>,
-    pub kind: Option<String>,
+    pub kind: Option<AssistantAnswerKind>,
     pub title: Option<String>,
     pub name: Option<String>,
     pub source: Option<AssistantSource>,

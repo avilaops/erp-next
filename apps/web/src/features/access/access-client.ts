@@ -5,13 +5,14 @@ import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 
 export type Access = Schema<"CurrentAccessResponse">
-export type Role = Schema<"RoleDetail">
+export type Role = Schema<"RolesResponse">["data"][number]
+export type RoleDetail = Schema<"RoleDetail">
 export type User = Schema<"UsersResponse">["data"][number]
 export type Member = Schema<"MemberDetail">
 export type Invitation = Schema<"Invitation">
 export type Invitations = Schema<"InvitationsResponse">
-export const invitationStatus = (status: Invitation["status"]) => ({ pending: "Aguardando primeiro acesso", expired: "Expirado", accepted: "Aceito", revoked: "Cancelado" })[status]
-export const invitationDelivery = (delivery: Invitation["delivery"]) => ({ sending: "Envio ainda não confirmado. Confira a caixa de entrada antes de reenviar.", sent: "E-mail enviado pelo Auth.", failed: "O Auth não enviou o e-mail. Tente reenviar o convite.", unknown: "Não foi possível confirmar o envio. Confira a caixa de entrada antes de reenviar.", limited: "Limite de envio atingido. Aguarde antes de tentar novamente." })[delivery]
+export const invitationStatus = (status: Invitation["status"]) => ({ pending: "Aguardando primeiro acesso", expired: "Expirado", accepted: "Aceito", revoked: "Cancelado" })[status] || status
+export const invitationDelivery = (delivery: Invitation["delivery"]) => ({ sending: "Envio ainda não confirmado. Confira a caixa de entrada antes de reenviar.", sent: "E-mail enviado pelo Auth.", failed: "O Auth não enviou o e-mail. Tente reenviar o convite.", unknown: "Não foi possível confirmar o envio. Confira a caixa de entrada antes de reenviar.", limited: "Limite de envio atingido. Aguarde antes de tentar novamente." })[delivery] || "Situação de envio não reconhecida. Confira o convite antes de repetir."
 export type Permission = Schema<"PermissionsResponse">["data"][number]
 export type Snapshot<T> = { data: T; etag: string }
 

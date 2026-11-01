@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 
 import { PartyComplements, type PartyAddress, type PartyContact } from "./party-complements"
 
-type PartyInput = Schema<"PartyInput">
+type PartyInput = Schema<"PartyInput"> & { addresses: NonNullable<Schema<"PartyInput">["addresses"]>; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
 type Party = Schema<"Party">
 type Snapshot = Omit<Schema<"PartySnapshot">, "data"> & { data?: Schema<"Party"> }
 type Page = Schema<"PartyList">

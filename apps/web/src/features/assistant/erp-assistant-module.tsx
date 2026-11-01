@@ -88,7 +88,7 @@ export function ErpAssistantModule() {
         if (event.type === "status") setStatus(event.text || "Preparando resposta…")
         if (event.type === "tool") setStatus(tools[event.name || ""] || "Consultando o ERP…")
         if (event.type === "source" && event.source) { answer.sources!.push(event.source); update() }
-        if (event.type === "answer") { answer.text = event.text || ""; answer.kind = event.kind; update() }
+        if (event.type === "answer") { answer.text = event.text || ""; answer.kind = event.kind || undefined; update() }
         if (event.type === "done") finished = true
       }
       try {
@@ -147,10 +147,10 @@ export function ErpAssistantModule() {
             {source.data.map((record, recordIndex) => <div className="mt-3 border-t border-border pt-3" key={recordIndex}>
               {internalLink(record.href) ? <Link className="font-medium text-primary underline underline-offset-4" href={record.href}>{record.title}</Link> : <p>{record.title}</p>}
               {record.sku && <p className="mt-1">SKU: {record.sku} · Unidade: {record.unit}</p>}
-              {record.basePrice !== undefined && <p>Preço base: R$ {record.basePrice.replace(".", ",")}</p>}
+              {record.basePrice != null && <p>Preço base: R$ {record.basePrice.replace(".", ",")}</p>}
               {record.tradeName && <p className="mt-1 break-words">Nome fantasia: {record.tradeName}</p>}
               {record.customerName && <p className="mt-1 break-words">Cliente: {record.customerName}</p>}
-              {record.amount !== undefined && <p>Valor do pedido: R$ {record.amount.replace(".", ",")}</p>}
+              {record.amount != null && <p>Valor do pedido: R$ {record.amount.replace(".", ",")}</p>}
               {record.dueDate && <p>Vencimento: {record.dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1")}</p>}
               {(source.tool === "buscar_clientes" || source.tool === "listar_pedidos" || source.tool === "consultar_pedido") && record.status && <p>Situação: {statuses[record.status] || record.status}</p>}
               {record.quantity !== undefined && <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">{[["Saldo", record.quantity], ["Reservado", record.reserved], ["Disponível", record.available]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value} {record.unit}</dd></div>)}</dl>}

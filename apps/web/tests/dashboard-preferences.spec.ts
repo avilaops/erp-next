@@ -75,3 +75,43 @@ test("leitura lenta não aplica edição sobre defaults e gráficos removidos po
   await page.getByRole("button", { name: "Adicionar gráfico", exact: true }).click()
   await expect(page.getByRole("button", { name: "Remover gráfico Ticket médio", exact: true })).toBeVisible()
 })
+
+test("navegação por favorito pede confirmação antes de descartar edição", async ({ page }) => {
+  await page.route("**/api/erp/preferences", route => route.fulfill({ headers: { ETag: '"1"' }, json: {
+    tenantId: tenant, ownerKey: "fixture-owner", revision: 1, data: { productPageSize: 25, dashboardLayout: layout() },
+  } }))
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeEnabled()
+  await page.getByRole("button", { name: "30D", exact: true }).click()
+  const dialog = page.waitForEvent("dialog")
+  const click = page.locator('main a[href="/compras/pedidos"]').first().click()
+  const confirmation = await dialog
+  expect(confirmation.message()).toContain("descartar")
+  await confirmation.dismiss()
+  await click
+  await expect(page).toHaveURL(/\/$/)
+})
+
+test("resposta antiga é descartada após perda de foco e troca de conta", async ({ page }) => {
+  let release!: () => void
+  const first = new Promise<void>(resolve => { release = resolve })
+  let calls = 0
+  await page.route("**/api/erp/preferences", async route => {
+    calls++
+    const previous = calls === 1
+    if (previous) await first
+    await route.fulfill({ headers: { ETag: '"1"' }, json: {
+      tenantId: tenant, ownerKey: previous ? "owner-a" : "owner-b", revision: 1,
+      data: { productPageSize: 25, dashboardLayout: {
+        favoritePaths: [previous ? "/vendas/pedidos" : "/financeiro/contas-pagar"], charts: [], period: "30D",
+      } },
+    } }).catch(() => {})
+  })
+  await page.goto("/")
+  await expect.poll(() => calls).toBe(1)
+  await page.evaluate(() => { window.dispatchEvent(new Event("blur")); window.dispatchEvent(new Event("focus")) })
+  await expect.poll(() => calls).toBeGreaterThan(1)
+  await expect(page.getByRole("button", { name: "Remover Contas a pagar", exact: true })).toBeVisible()
+  release()
+  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
+})

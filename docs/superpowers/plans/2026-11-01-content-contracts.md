@@ -39,3 +39,7 @@ Ruling: o recurso de contexto compartilhado Linear retornou Tool not found. Tick
 RED: CI 41274802541 confirmou dashboard_layout_persists_without_legacy_writes_erasing_it com HTTP 422 versus 200 esperado; 154 testes passaram, um falhou e um foi ignorado. O lint também identificou formatação, corrigida com rustfmt antes do próximo commit.
 
 Review fix: scope ownerKey verifica identidade além de empresa/revisão em gravações de layout; controles aguardam snapshot; links usam GuardedLink; qualquer gráfico removido pode ser readicionado. Testes cobrem revisões coincidentes de identidades distintas e leitura atrasada.
+
+Ruling: schemas auxiliares em contracts/api.rs e contratos do monitor/assistente foram adicionados onde o inventário inicial ainda não representava respostas genéricas e streams. Os workflows assistant e production-release também precisam gerar tipos para manter todos os builds reproduzíveis. Nenhum workflow de publicação foi disparado.
+
+Validação intermediária: 25d8b83 passou Rust/PostgreSQL, rustfmt/Clippy, regressões do gerador e lint web. A compilação apontou 13 incompatibilidades antes ocultas por tipos manuais (campos opcionais/nulos e kind do assistente); foram corrigidas por schemas precisos e tratamento explícito de ausência.

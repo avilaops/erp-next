@@ -2,7 +2,7 @@
 import type { Schema } from "@/lib/api/types"
 export const companyFields = ["legalName", "tradeName", "personType", "taxId", "stateRegistration", "municipalRegistration", "suframa", "cnae", "mainActivity", "taxRegime", "companySize", "activityDescription", "postalCode", "state", "city", "street", "number", "district", "complement", "contactName", "phone", "mobile", "email", "billingEmail", "website"] as const
 
-export type CompanyData = Schema<"CompanyData">
+export type CompanyData = Required<Schema<"CompanyData">>
 
 export type CompanySnapshot = Schema<"CompanyResponse">
 export type CompanyProblem = { title?: string; errors?: { field: string; message: string }[] }

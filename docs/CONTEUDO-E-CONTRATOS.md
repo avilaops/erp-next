@@ -29,3 +29,5 @@ A migration 202611010001_dashboard_preferences.sql precisa seguir o fluxo de mig
 ## Escopo restante
 
 Aprovações departamentais configuráveis exigem definição de processos, critérios e tratamento de instâncias em andamento. Essa definição não foi inferida nesta entrega. Os indicadores da página inicial continuam exibindo sua indisponibilidade enquanto suas fontes não forem conectadas.
+
+As gravações de layout incluem ownerKey, uma precondição opaca derivada da identidade/empresa autenticada. Ela evita aplicar uma edição de outra conta mesmo com a mesma revisão numérica. Perda de foco/visibilidade invalida requisições pendentes; a retomada confere a sessão e relê o snapshot antes de permitir edição.

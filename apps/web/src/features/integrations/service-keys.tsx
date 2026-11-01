@@ -17,7 +17,7 @@ async function failure(response: Response) {
   return typeof problem?.title === "string" ? problem.title : "Não foi possível concluir a operação."
 }
 
-function timestamp(value: string | null) {
+function timestamp(value: string | null | undefined) {
   if (!value) return "Nunca utilizada"
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? "Data indisponível" : date.toLocaleString("pt-BR")

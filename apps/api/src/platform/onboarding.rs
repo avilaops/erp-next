@@ -64,10 +64,16 @@ pub async fn list(
         .into_response())
 }
 
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatedCompany {
+    pub tenant_id: Uuid,
+    pub revision: i64,
+}
 #[utoipa::path(post, path = "/api/v1/companies", tag = "Platform",
     request_body = super::CompanyData, security(("bearerAuth" = [])),
     params(("Idempotency-Key" = Uuid, Header)), responses(
-    (status = 201, description = "Empresa criada e responsável vinculado"),
+    (status = 201, body = CreatedCompany, description = "Empresa criada e responsável vinculado"),
     (status = 400, description = "Chave inválida"),
     (status = 401, description = "Credencial inválida"),
     (status = 409, description = "Documento ou chave indisponível"),

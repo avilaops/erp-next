@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { AccessProblem, errorMessage, read, write, type Access, type Permission, type Role, type Snapshot } from "./access-client"
+import { AccessProblem, errorMessage, read, write, type Access, type Permission, type Role, type RoleDetail, type Snapshot } from "./access-client"
 
 type Loaded = { access: Access; roles: Role[]; permissions: Permission[] }
 async function load(signal?: AbortSignal): Promise<Loaded> {
@@ -13,7 +13,7 @@ async function load(signal?: AbortSignal): Promise<Loaded> {
 
 export function RolesManager() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
-  const [selected, setSelected] = useState<Snapshot<Role> | null>(null)
+  const [selected, setSelected] = useState<Snapshot<RoleDetail> | null>(null)
   const [creating, setCreating] = useState(false)
   const [generation, setGeneration] = useState(0)
   const [dirty, setDirty] = useState(false)
@@ -28,14 +28,14 @@ export function RolesManager() {
   async function choose(id?: string) {
     if (busy || (dirty && !window.confirm("Descartar a edição atual para abrir outro papel?"))) return
     setBusy(true); setProblem(""); setNotice(""); setSelected(null); setCreating(false)
-    try { setSelected(id ? await read<Role>(`roles/${id}`) : null); setCreating(!id); setGeneration((current) => current + 1); setDirty(false) }
+    try { setSelected(id ? await read<RoleDetail>(`roles/${id}`) : null); setCreating(!id); setGeneration((current) => current + 1); setDirty(false) }
     catch (error) { setProblem(errorMessage(error)) }
     finally { setBusy(false) }
   }
   async function completed(id?: string) {
     setDirty(false)
     setLoaded(await load())
-    setSelected(id ? await read<Role>(`roles/${id}`) : null)
+    setSelected(id ? await read<RoleDetail>(`roles/${id}`) : null)
     setCreating(false); setGeneration((current) => current + 1)
     setNotice(id ? "Papel salvo no servidor." : "Papel excluído no servidor.")
   }
@@ -44,11 +44,11 @@ export function RolesManager() {
     <p className="text-sm text-muted-foreground">{loaded.roles.length} papéis em {loaded.access.tenant.legalName}. Só é possível delegar permissões que você possui.</p>
     {notice && <p role="status">{notice}</p>}{problem && <p role="alert">{problem}</p>}
     <div className="flex flex-wrap gap-3">{loaded.roles.map((role) => <Button className="h-auto max-w-full whitespace-normal break-all py-2 text-left" disabled={busy} variant={selected?.data.id === role.id ? "default" : "outline"} key={role.id} onClick={() => choose(role.id)}>{role.name}</Button>)}<Button disabled={busy || !loaded.access.permissions.includes("platform.roles.manage")} onClick={() => choose()}>Novo papel</Button></div>
-    {(selected || creating) ? <RoleForm key={`${generation}-${selected?.data.id || "new"}`} loaded={loaded} snapshot={selected} onDirty={(value) => { setDirty(value); if (value) setNotice("") }} onBusy={setBusy} onComplete={completed} onReload={async () => { if (selected) { setSelected(await read<Role>(`roles/${selected.data.id}`)); setGeneration((current) => current + 1); setDirty(false) } else window.location.reload() }} /> : <p role="status">Selecione um papel para consultar suas permissões.</p>}
+    {(selected || creating) ? <RoleForm key={`${generation}-${selected?.data.id || "new"}`} loaded={loaded} snapshot={selected} onDirty={(value) => { setDirty(value); if (value) setNotice("") }} onBusy={setBusy} onComplete={completed} onReload={async () => { if (selected) { setSelected(await read<RoleDetail>(`roles/${selected.data.id}`)); setGeneration((current) => current + 1); setDirty(false) } else window.location.reload() }} /> : <p role="status">Selecione um papel para consultar suas permissões.</p>}
   </div>
 }
 
-function RoleForm({ loaded, snapshot, onDirty, onBusy, onComplete, onReload }: { loaded: Loaded; snapshot: Snapshot<Role> | null; onDirty: (dirty: boolean) => void; onBusy: (busy: boolean) => void; onComplete: (id?: string) => Promise<void>; onReload: () => Promise<void> }) {
+function RoleForm({ loaded, snapshot, onDirty, onBusy, onComplete, onReload }: { loaded: Loaded; snapshot: Snapshot<RoleDetail> | null; onDirty: (dirty: boolean) => void; onBusy: (busy: boolean) => void; onComplete: (id?: string) => Promise<void>; onReload: () => Promise<void> }) {
   const [code, setCode] = useState(snapshot?.data.code || "")
   const [name, setName] = useState(snapshot?.data.name || "")
   const [description, setDescription] = useState(snapshot?.data.description || "")
@@ -71,7 +71,7 @@ function RoleForm({ loaded, snapshot, onDirty, onBusy, onComplete, onReload }: {
     if (!canEdit || busy || conflict) return
     setBusy(true); onBusy(true); setProblem("")
     try {
-      const result = await write<Role>(snapshot ? `roles/${snapshot.data.id}` : "roles", snapshot ? "PUT" : "POST", loaded.access.tenant.id, { code, name, description, permissions }, snapshot?.etag, snapshot ? undefined : commandKey)
+      const result = await write<RoleDetail>(snapshot ? `roles/${snapshot.data.id}` : "roles", snapshot ? "PUT" : "POST", loaded.access.tenant.id, { code, name, description, permissions }, snapshot?.etag, snapshot ? undefined : commandKey)
       setDirty(false); onDirty(false)
       try { await onComplete(result.data.id) }
       catch { setProblem("Papel salvo no servidor. Não foi possível atualizar a consulta; recarregue a página para conferir seus acessos atuais."); setConflict(true) }

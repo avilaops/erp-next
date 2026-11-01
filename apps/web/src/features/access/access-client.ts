@@ -1,14 +1,19 @@
 "use client"
 
-export type Access = { tenant: { id: string; legalName: string }; permissions: string[] }
-export type Role = { id: string; code: string; name: string; description: string; revision: number; permissions: string[] }
-export type User = { id: string; name: string; email: string; status: string; roles: string[] }
-export type Member = Omit<User, "roles"> & { revision: number; roleIds: string[] }
-export type Invitation = { id: string; name: string; email: string; status: "pending" | "expired" | "accepted" | "revoked"; delivery: "sending" | "sent" | "failed" | "unknown" | "limited"; expiresAt: string; roles: string[] }
-export type Invitations = { data: Invitation[]; enabled: boolean }
-export const invitationStatus = (status: Invitation["status"]) => ({ pending: "Aguardando primeiro acesso", expired: "Expirado", accepted: "Aceito", revoked: "Cancelado" })[status]
-export const invitationDelivery = (delivery: Invitation["delivery"]) => ({ sending: "Envio ainda não confirmado. Confira a caixa de entrada antes de reenviar.", sent: "E-mail enviado pelo Auth.", failed: "O Auth não enviou o e-mail. Tente reenviar o convite.", unknown: "Não foi possível confirmar o envio. Confira a caixa de entrada antes de reenviar.", limited: "Limite de envio atingido. Aguarde antes de tentar novamente." })[delivery]
-export type Permission = { code: string; description: string }
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
+export type Access = Schema<"CurrentAccessResponse">
+export type Role = Schema<"RolesResponse">["data"][number]
+export type RoleDetail = Schema<"RoleDetail">
+export type User = Schema<"UsersResponse">["data"][number]
+export type Member = Schema<"MemberDetail">
+export type Invitation = Schema<"Invitation">
+export type Invitations = Schema<"InvitationsResponse">
+export const invitationStatus = (status: Invitation["status"]) => ({ pending: "Aguardando primeiro acesso", expired: "Expirado", accepted: "Aceito", revoked: "Cancelado" })[status] || status
+export const invitationDelivery = (delivery: Invitation["delivery"]) => ({ sending: "Envio ainda não confirmado. Confira a caixa de entrada antes de reenviar.", sent: "E-mail enviado pelo Auth.", failed: "O Auth não enviou o e-mail. Tente reenviar o convite.", unknown: "Não foi possível confirmar o envio. Confira a caixa de entrada antes de reenviar.", limited: "Limite de envio atingido. Aguarde antes de tentar novamente." })[delivery] || "Situação de envio não reconhecida. Confira o convite antes de repetir."
+export type Permission = Schema<"PermissionsResponse">["data"][number]
 export type Snapshot<T> = { data: T; etag: string }
 
 export class AccessProblem extends Error {
@@ -16,7 +21,7 @@ export class AccessProblem extends Error {
 }
 
 export async function read<T>(resource: string, signal?: AbortSignal): Promise<Snapshot<T>> {
-  const response = await fetch(`/api/erp/${resource}`, { cache: "no-store", signal })
+  const response = await erpFetch(`/api/erp/${resource}`, { cache: "no-store", signal })
   const data = await response.json()
   if (!response.ok) throw new AccessProblem(response.status, data.title || "Não foi possível consultar os acessos")
   return { data, etag: response.headers.get("etag") || "" }
@@ -25,7 +30,7 @@ export async function read<T>(resource: string, signal?: AbortSignal): Promise<S
 export async function write<T>(resource: string, method: string, tenant: string, body?: object, etag?: string, commandKey?: string): Promise<Snapshot<T>> {
   let response: Response
   try {
-    response = await fetch(`/api/erp/${resource}`, {
+    response = await erpFetch(`/api/erp/${resource}`, {
       method, headers: { "Content-Type": "application/json", "X-Tenant-Id": tenant, ...(etag ? { "If-Match": etag } : {}), ...(commandKey ? { "Idempotency-Key": commandKey } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     })

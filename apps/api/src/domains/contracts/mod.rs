@@ -1,3 +1,4 @@
+pub mod api;
 mod model;
 pub mod provider;
 mod sync;
@@ -64,7 +65,7 @@ pub struct Filter {
     offset: Option<i64>,
 }
 
-#[utoipa::path(get,path="/api/v1/commercial-contracts",operation_id="contracts_list",tag="Sales",security(("bearerAuth"=[])),params(Filter,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403,description="Sem permissão")))]
+#[utoipa::path(get,path="/api/v1/commercial-contracts",operation_id="contracts_list",tag="Sales",security(("bearerAuth"=[])),params(Filter,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=api::ContractList),(status=403,description="Sem permissão")))]
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -85,11 +86,13 @@ pub async fn list(
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"tenantId":tenant,"canEdit":edit,"data":data,"total":total}),
+        api::checked::<api::ContractList>(
+            json!({"tenantId":tenant,"canEdit":edit,"data":data,"total":total}),
+        )?,
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/commercial-contracts/options/{id}",operation_id="contracts_options",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403,description="Sem permissão")))]
+#[utoipa::path(get,path="/api/v1/commercial-contracts/options/{id}",operation_id="contracts_options",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=api::ContractOptions),(status=403,description="Sem permissão")))]
 pub async fn options(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -133,11 +136,13 @@ pub async fn options(
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"tenantId":tenant,"canEdit":edit,"configured":configured,"emailReady":state.contracts.as_ref().is_some_and(Docuseal::email_ready),"defaults":model::defaults(&snapshot),"snapshot":snapshot,"templates":templates}),
+        api::checked::<api::ContractOptions>(
+            json!({"tenantId":tenant,"canEdit":edit,"configured":configured,"emailReady":state.contracts.as_ref().is_some_and(Docuseal::email_ready),"defaults":model::defaults(&snapshot),"snapshot":snapshot,"templates":templates}),
+        )?,
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/commercial-contracts/{id}",operation_id="contracts_detail",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=404,description="Contrato não encontrado")))]
+#[utoipa::path(get,path="/api/v1/commercial-contracts/{id}",operation_id="contracts_detail",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=api::ContractDetail),(status=404,description="Contrato não encontrado")))]
 pub async fn detail(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -160,7 +165,7 @@ pub async fn detail(
     Ok(result)
 }
 
-#[utoipa::path(post,path="/api/v1/commercial-contracts",operation_id="contracts_generate",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=Generate,responses((status=200,body=Value),(status=409,description="Contrato em conferência"),(status=422,description="Campos inválidos")))]
+#[utoipa::path(post,path="/api/v1/commercial-contracts",operation_id="contracts_generate",tag="Sales",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=Generate,responses((status=200,body=api::ContractDetail),(status=409,description="Contrato em conferência"),(status=422,description="Campos inválidos")))]
 pub async fn generate(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -310,7 +315,7 @@ async fn reconcile_response(
     Ok(result)
 }
 
-#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/sync",operation_id="contracts_sync",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),request_body=Value,responses((status=200,body=Value)))]
+#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/sync",operation_id="contracts_sync",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),request_body=Value,responses((status=200,body=api::ContractDetail)))]
 pub async fn refresh(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -322,7 +327,7 @@ pub async fn refresh(
     reconcile_response(&state, &identity, &headers, tenant, id).await
 }
 
-#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/review",operation_id="contracts_review",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=Value),(status=412,description="Revisão desatualizada")))]
+#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/review",operation_id="contracts_review",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=api::ContractDetail),(status=412,description="Revisão desatualizada")))]
 pub async fn review(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -420,7 +425,7 @@ async fn ensure_active_order(
     Ok(())
 }
 
-#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/send",operation_id="contracts_send",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=Value),(status=409,description="Revisão necessária"),(status=403,description="Sem permissão de envio")))]
+#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/send",operation_id="contracts_send",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=api::ContractDetail),(status=409,description="Revisão necessária"),(status=403,description="Sem permissão de envio")))]
 pub async fn send(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

@@ -20,7 +20,7 @@ function gitState() {
 export async function readContextFile(repository, relative) {
   if (typeof relative !== 'string' || !relative || relative.includes('\\') || path.isAbsolute(relative)
       || relative.split('/').some(part => !part || part === '.' || part === '..' || part.startsWith('.'))
-      || !/\.(?:json|ya?ml|toml|lock|rs|sql|tsx?|jsx?|mjs|md)$/.test(relative)) {
+      || !/\.(?:json|ya?ml|toml|lock|rs|rb|sql|tsx?|jsx?|mjs|md)$/.test(relative)) {
     throw new Error('A referência de contexto precisa ser um arquivo de fonte relativo ao repositório');
   }
   let current = repository;

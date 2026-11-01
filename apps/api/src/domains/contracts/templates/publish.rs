@@ -1,7 +1,7 @@
 use super::*;
 use reqwest::Method;
 
-#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}/publish",operation_id="template_publish",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=Value),(status=403),(status=409),(status=412),(status=422),(status=428)))]
+#[utoipa::path(post,path="/api/v1/contract-template-drafts/{id}/publish",operation_id="template_publish",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=super::super::api::TemplatePublishResult),(status=403),(status=409),(status=412),(status=422),(status=428)))]
 pub async fn publish(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

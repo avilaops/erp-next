@@ -1,3 +1,5 @@
+
+import type { Schema } from "@/lib/api/types"
 export const referenceConfigs = {
   "categorias-produtos": {
     title: "Categorias de produtos", singular: "categoria de produtos", endpoint: "product-categories",
@@ -22,9 +24,9 @@ export const referenceConfigs = {
 } as const
 
 export type ReferenceKind = keyof typeof referenceConfigs
-export type ReferenceFields = { code: string; name: string; status: string; notes: string | null; [key: string]: string | number | null }
-export type ReferenceRecord = ReferenceFields & { id: string; revision: number }
-export type ReferenceSnapshot = { tenantId: string; canEdit: boolean; data: ReferenceRecord }
-export type ReferenceList = { tenantId: string; canEdit: boolean; data: ReferenceRecord[]; total: number }
+export type ReferenceFields = Omit<Schema<"Reference">, "id" | "revision"> & Record<string, string | number | null>
+export type ReferenceRecord = Schema<"Reference"> & Record<string, string | number | null>
+export type ReferenceSnapshot = Omit<Schema<"ReferenceSnapshot">, "data"> & { data: ReferenceRecord }
+export type ReferenceList = Omit<Schema<"ReferenceList">, "data"> & { data: ReferenceRecord[] }
 export const modalities = { pix: "Pix", cash: "Dinheiro", bank_transfer: "Transferência bancária", credit_card: "Cartão de crédito", debit_card: "Cartão de débito", boleto: "Boleto", other: "Outra" }
 export const accountTypes = { bank: "Conta bancária", cash: "Caixa interno", internal: "Conta interna" }

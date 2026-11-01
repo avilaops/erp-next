@@ -1,4 +1,4 @@
-import { HelpCenter } from "@/features/workspace/workspace-pages"
+import { HelpCenter } from "@/features/help/help-center"
 
 export default function Page() { return <HelpCenter /> }
 

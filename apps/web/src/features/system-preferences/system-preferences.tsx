@@ -1,5 +1,9 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import { useRef, useState } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
@@ -8,7 +12,7 @@ import { AccessLink } from "@/components/session-recovery"
 import { useNavigationGuard } from "@/components/navigation-guard"
 import { useResource } from "@/features/operations/use-operation"
 
-export type PersonalPreferences = { tenantId: string; revision: number; data: { productPageSize: number } }
+export type PersonalPreferences = Schema<"PreferencesSnapshot">
 
 export function SystemPreferences() {
   const [theme, setTheme] = useTheme()
@@ -27,7 +31,7 @@ export function SystemPreferences() {
     if (!resource.value || !resource.etag || !dirty || blocked || pending.current) return
     pending.current = true; setBusy(true); setError(""); setMessage("")
     try {
-      const response = await fetch("/api/erp/preferences", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ productPageSize: size }) })
+      const response = await erpFetch("/api/erp/preferences", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": resource.value.tenantId, "If-Match": resource.etag }, body: JSON.stringify({ productPageSize: size, ownerKey: resource.value.ownerKey }) })
       const result = await response.json()
       if (!response.ok) {
         if ([401,403,409,412].includes(response.status) || response.status >= 500) setBlocked(true)

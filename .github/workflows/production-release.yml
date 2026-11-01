@@ -57,7 +57,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
-      - run: cargo test --locked --workspace -- --test-threads=2
+      - name: Test and export the exact source contract
+        run: |
+          mkdir -p artifacts/contracts
+          ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" cargo test --locked --workspace -- --test-threads=2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-release-openapi-${{ inputs.source_ref }}
+          path: artifacts/contracts/candidate.json
+          if-no-files-found: error
+          retention-days: 7
       - run: cargo build --release --locked -p erp-next-api
       - run: docker build -f deploy/api.Dockerfile -t erp-next-api:sha-${{ inputs.source_ref }} .
       - run: docker save erp-next-api:sha-${{ inputs.source_ref }} | gzip > api-image.tar.gz
@@ -68,6 +77,7 @@ jobs:
           compression-level: 0
           retention-days: 7
   web:
+    needs: api
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -83,6 +93,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web lint
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-release-openapi-${{ inputs.source_ref }}
+          path: artifacts/contracts/
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: node scripts/contracts/generate-web.mjs
       - run: node --test tests/fiscal-tax-model.node.mjs
         working-directory: apps/web
       - run: pnpm --filter web build
@@ -109,3 +126,4 @@ jobs:
           path: web-image.tar.gz
           compression-level: 0
           retention-days: 7
+

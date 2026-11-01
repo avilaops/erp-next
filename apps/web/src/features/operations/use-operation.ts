@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import { normalizeDecimal } from "@/lib/decimal-input"
 
 import { useEffect, useRef, useState } from "react"
@@ -10,7 +12,7 @@ export function useResource<T>(url: string) {
   useEffect(() => {
     const controller = new AbortController()
     let status = 0
-    fetch(url, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(url, { cache: "no-store", signal: controller.signal }).then(async response => {
       status = response.status
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Consulta indisponível")
@@ -41,7 +43,7 @@ export function useCommand() {
     if (!uncertain) current.current = { url, tenant, body: JSON.stringify(body), etag, key: crypto.randomUUID(), method }
     const command = current.current!
     try {
-      const response = await fetch(command.url, {
+      const response = await erpFetch(command.url, {
         method: command.method,
         headers: { "Content-Type": "application/json", "X-Tenant-Id": command.tenant, "Idempotency-Key": command.key, ...(command.etag ? { "If-Match": command.etag } : {}) },
         body: command.body,

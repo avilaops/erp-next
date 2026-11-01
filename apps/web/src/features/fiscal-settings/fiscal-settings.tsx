@@ -1,13 +1,17 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type Profile = { environment: "homologation"; state: string; municipalityCode: string; stateRegistration: string; crt: number; series: number; certificateReference: string }
+type Profile = Schema<"ProfileInput">
+type Snapshot = Schema<"ProfileSnapshot">
 type ProfileDraft = Omit<Profile, "environment" | "crt" | "series"> & { environment: Profile["environment"] | ""; crt: number | ""; series: number | "" }
-type Snapshot = { tenantId: string; revision: number; canEdit: boolean; certificateVerified: boolean; data: Profile | null }
 type Company = { legalName: string; taxId: string; state: string; stateRegistration: string; taxRegime: string; city: string }
 const empty: ProfileDraft = { environment: "", state: "", municipalityCode: "", stateRegistration: "", crt: "", series: "", certificateReference: "" }
 const regimeLabels: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" }
@@ -39,7 +43,7 @@ export function FiscalSettings() {
   useEffect(() => {
     const controller = new AbortController()
     Promise.all(["/api/erp/fiscal/config", "/api/erp/company"].map(async url => {
-      const response = await fetch(url, { cache: "no-store", signal: controller.signal })
+      const response = await erpFetch(url, { cache: "no-store", signal: controller.signal })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Configuração fiscal indisponível")
       return { value, etag: response.headers.get("etag") }
@@ -65,7 +69,7 @@ export function FiscalSettings() {
     if (!snapshot?.canEdit || pending.current || blocked || missing.length) return
     pending.current = true; setSaving(true); setError(""); setNotice("")
     try {
-      const response = await fetch("/api/erp/fiscal/config", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag }, body: JSON.stringify(draft) })
+      const response = await erpFetch("/api/erp/fiscal/config", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag }, body: JSON.stringify(draft) })
       const value = await response.json()
       if (!response.ok) {
         if ([401, 403, 409, 412].includes(response.status) || response.status >= 500) setBlocked(true)

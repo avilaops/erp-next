@@ -82,3 +82,8 @@ aprova fluxos; probes e suítes de integração são registrados separadamente.
 
 Plataforma, Cadastros, Comercial, Estoque, Financeiro, Fiscal, Logística e Serviços. Um domínio não escreve diretamente nas tabelas de outro domínio.
 
+
+## Conteúdo e contratos
+
+A integração de tipos OpenAPI na web, a ajuda MDX e o layout pessoal estão descritos em [Conteúdo e contratos](docs/CONTEUDO-E-CONTRATOS.md).
+

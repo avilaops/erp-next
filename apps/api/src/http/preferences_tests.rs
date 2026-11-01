@@ -182,3 +182,98 @@ async fn personal_preferences_persist_and_isolate_owner_tenant_and_revisions(adm
     );
     super::company_tests::cleanup(&admin, application, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn dashboard_layout_persists_without_legacy_writes_erasing_it(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    let owner = call(&router, "GET", "editor", TENANT, None, Value::Null)
+        .await
+        .1["ownerKey"]
+        .clone();
+    let foreign = call(&router, "PUT", "reader", TENANT, Some("\"1\""),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":{"favoritePaths":[],"charts":[],"period":"30D"}})).await;
+    assert_eq!(foreign.0, StatusCode::CONFLICT);
+    let layout = json!({
+        "favoritePaths": ["/compras/pedidos", "/vendas/pedidos"],
+        "charts": ["Pedidos de venda"],
+        "period": "30D"
+    });
+    let (status, saved) = call(
+        &router,
+        "PUT",
+        "editor",
+        TENANT,
+        Some("\"1\""),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":layout}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["data"]["dashboardLayout"], layout);
+    let (status, _) = call(
+        &router,
+        "PUT",
+        "editor",
+        TENANT,
+        Some("\"2\""),
+        json!({"productPageSize":50}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let stored = call(&router, "GET", "editor", TENANT, None, Value::Null)
+        .await
+        .1;
+    assert_eq!(stored["data"]["dashboardLayout"], layout);
+    assert_eq!(stored["data"]["productPageSize"], 50);
+    let other = call(&router, "GET", "reader", TENANT, None, Value::Null)
+        .await
+        .1;
+    assert_ne!(other["data"]["dashboardLayout"], layout);
+    let stale = call(
+        &router,
+        "PUT",
+        "editor",
+        TENANT,
+        Some("\"2\""),
+        json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":layout}),
+    )
+    .await;
+    assert_eq!(stale.0, StatusCode::PRECONDITION_FAILED);
+    for invalid in [
+        json!({"favoritePaths":["/compras/pedidos","/compras/pedidos"],"charts":[],"period":"30D"}),
+        json!({"favoritePaths":["https://example.invalid"],"charts":[],"period":"30D"}),
+        json!({"favoritePaths":[],"charts":["Unknown"],"period":"30D"}),
+        json!({"favoritePaths":[],"charts":[],"period":"forever"}),
+    ] {
+        let response = call(
+            &router,
+            "PUT",
+            "editor",
+            TENANT,
+            Some("\"3\""),
+            json!({"productPageSize":25,"ownerKey":owner,"dashboardLayout":invalid}),
+        )
+        .await;
+        assert_eq!(
+            response.0,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{:?}",
+            response.1
+        );
+    }
+    let mut tx = application.begin().await.unwrap();
+    sqlx::query(
+        "SELECT set_config('app.tenant_id',$1,true),set_config('app.auth_subject','reader',true)",
+    )
+    .bind(TENANT)
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    let visible: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM personal_preferences WHERE auth_subject='editor'")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(visible, 0);
+    tx.rollback().await.unwrap();
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}

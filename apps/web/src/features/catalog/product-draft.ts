@@ -1,4 +1,6 @@
-export type ProductInput = { sku: string; name: string; unit: string; ncm: string | null; cest: string | null; basePrice: string; status: string; structureColors?: string[]; upholsteryColors?: string[]; photoDataUrl?: string }
+
+import type { Schema } from "@/lib/api/types"
+export type ProductInput = Schema<"ProductInput">
 export type ProductCommand = { key: string; body: string }
 export type ProductDraft = { version: 1; draft: ProductInput; baseline: string; etag: string; uncertain: boolean; conflict: boolean; command: ProductCommand | null }
 

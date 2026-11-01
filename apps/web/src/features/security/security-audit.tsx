@@ -1,5 +1,7 @@
 "use client"
 
+import type { Schema } from "@/lib/api/types"
+
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,8 +10,8 @@ import { AccessLink } from "@/components/session-recovery"
 import { useResource } from "@/features/operations/use-operation"
 import { auditActions, auditAreas, auditActionLabel, auditAreaLabel, sortedOptions } from "./audit-labels"
 
-type AuditEvent = { id: string; occurredAt: string; actor: string | null; action: string; entityType: string }
-type AuditResponse = { tenantId: string; data: AuditEvent[]; nextCursor: string | null }
+type AuditEvent = Schema<"AuditEvent">
+type AuditResponse = Schema<"AuditResponse">
 const empty = { q: "", action: "", entity: "", startDate: "", endDate: "" }
 const formatDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium", timeZone: "UTC" })
 

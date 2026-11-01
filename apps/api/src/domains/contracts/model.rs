@@ -10,6 +10,7 @@ use super::super::{DomainError, db};
 
 #[derive(Clone, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
+#[schema(as = ContractRecipient)]
 pub struct Recipient {
     pub role: String,
     pub name: String,
@@ -27,7 +28,7 @@ pub struct Generate {
     pub fields: BTreeMap<String, String>,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Contract {
     pub id: Uuid,
@@ -38,13 +39,17 @@ pub struct Contract {
     pub template_name: String,
     #[serde(skip)]
     pub template_snapshot: Value,
+    #[schema(value_type = super::api::ContractContext)]
     pub snapshot: Value,
+    #[schema(value_type = Vec<Recipient>)]
     pub recipients: Value,
+    #[schema(value_type = BTreeMap<String, String>)]
     pub fields: Value,
     pub external_id: Option<i64>,
     pub status: String,
     pub revision: i64,
     pub problem: Option<String>,
+    #[schema(value_type = Vec<super::api::SigningProgress>)]
     pub progress: Value,
     pub reviewed_by: Option<String>,
     pub reviewed_at: Option<String>,

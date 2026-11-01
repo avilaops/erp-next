@@ -63,7 +63,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke),
-    components(schemas(fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
+    components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
     modifiers(&Security),
     tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -129,6 +129,25 @@ pub async fn document() -> Json<utoipa::openapi::OpenApi> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn web_consumers_have_explicit_response_schemas() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for path in [
+            "/api/v1/preferences",
+            "/api/v1/financial-settings",
+            "/api/v1/legacy-history",
+            "/api/v1/commercial-contracts",
+            "/api/v1/contract-template-drafts",
+            "/api/v1/contract-template-drafts/{id}",
+            "/api/v1/contract-template-drafts/catalog",
+        ] {
+            let schema = &doc["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]
+                ["schema"];
+            assert!(schema.get("$ref").is_some(), "{path}: {schema}");
+        }
+        assert!(doc["components"]["schemas"]["AssistantEvent"].is_object());
+    }
 
     #[test]
     fn fiscal_profile_accepts_missing_alias_but_always_returns_it() {

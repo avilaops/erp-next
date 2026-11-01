@@ -10,6 +10,37 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyCollection {
+    pub name: String,
+    pub count: i64,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyFile {
+    pub id: Uuid,
+    pub filename: String,
+    pub media_type: String,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyRecord {
+    pub id: Uuid,
+    pub collection: String,
+    pub title: String,
+    pub details: Value,
+    pub files: Vec<LegacyFile>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyPage {
+    pub collections: Vec<LegacyCollection>,
+    pub data: Vec<LegacyRecord>,
+    pub total: i64,
+    pub offset: i64,
+    pub limit: i64,
+}
 #[derive(Deserialize, utoipa::IntoParams)]
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
@@ -18,7 +49,7 @@ pub struct HistoryQuery {
     offset: Option<i64>,
 }
 
-#[utoipa::path(get,path="/api/v1/legacy-history",tag="Platform",security(("bearerAuth"=[])),params(HistoryQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403,description="Sem permissão")))]
+#[utoipa::path(get,path="/api/v1/legacy-history",tag="Platform",security(("bearerAuth"=[])),params(HistoryQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=LegacyPage),(status=403,description="Sem permissão")))]
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -45,7 +76,10 @@ pub async fn list(
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"collections":collections,"data":rows,"total":total,"offset":offset,"limit":25}),
+        serde_json::from_value::<LegacyPage>(
+            json!({"collections":collections,"data":rows,"total":total,"offset":offset,"limit":25}),
+        )
+        .map_err(|_| crate::platform::access::AccessError::Internal)?,
     ))
 }
 

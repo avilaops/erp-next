@@ -19,6 +19,20 @@ env:
   npm_config_fetch_timeout: 10000
 
 jobs:
+  context-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm context:erp
+
   fiscal-engine:
     timeout-minutes: 3
     runs-on: ubuntu-latest
@@ -197,7 +211,7 @@ jobs:
           retention-days: 14
 
   gate:
-    needs: [fiscal-engine, rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
+    needs: [context-source, fiscal-engine, rust-build, rust, rust-lint, contract-tests, baseline, contracts, web, web-lint, web-browser]
     if: always()
     timeout-minutes: 1
     runs-on: ubuntu-latest
@@ -208,6 +222,7 @@ jobs:
         run: python3 -c 'import json,os,sys; jobs=json.loads(os.environ["VALIDATION_JOBS"]); sys.exit(0 if jobs and all(job["result"] == "success" for job in jobs.values()) else 1)'
 
   web:
+    needs: rust
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
@@ -221,6 +236,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --prefer-offline
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-openapi-candidate-${{ github.sha }}
+          path: artifacts/contracts/
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: scripts/contracts/consumer
+      - run: node scripts/contracts/generate-web.mjs
       - run: timeout 120s pnpm --filter web build
       - uses: actions/upload-artifact@v4
         with:
@@ -285,3 +307,4 @@ jobs:
           name: erp-danfe-browser-${{ github.run_id }}
           path: artifacts/danfe-browser/
           if-no-files-found: warn
+

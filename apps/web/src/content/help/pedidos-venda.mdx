@@ -1,0 +1,17 @@
+## Pedidos e propostas
+
+Crie e edite rascunhos antes de reservar estoque e concluir a venda.
+
+1. Selecione um cliente ativo e os produtos.
+2. Confira quantidades, preços e vencimento. Itens mantidos preservam os preços registrados.
+3. Confirmar reserva estoque. Concluir registra a saída e gera a conta a receber.
+
+<HelpAction action="sales" /> <HelpAction action="newOrder" />
+
+A conclusão não emite NF-e nem comprova entrega. As propostas continuam demonstrativas. Revise a empresa ativa antes de confirmar qualquer operação.
+
+## Criar um rascunho com o guia aberto
+
+O formulário abaixo reutiliza a operação do módulo de vendas. A API verifica empresa, permissões e dados. Salvar cria um rascunho real; confirmar e concluir continuam sendo etapas separadas.
+
+<HelpOrders />

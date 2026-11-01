@@ -1,5 +1,7 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
 import { AccessLink } from "@/components/session-recovery"
 
 import { useCallback, useEffect, useState } from "react"
@@ -28,7 +30,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch("/api/erp/company", { cache: "no-store", signal: controller.signal })
+    erpFetch("/api/erp/company", { cache: "no-store", signal: controller.signal })
       .then(async (response) => ({ response, result: await response.json() }))
       .then((result) => { if (!controller.signal.aborted) receive(result) })
       .catch(() => { if (!controller.signal.aborted) failed() })
@@ -39,7 +41,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
     setSnapshot(null)
     setProblem(null)
     setStatus("loading")
-    fetch("/api/erp/company", { cache: "no-store" })
+    erpFetch("/api/erp/company", { cache: "no-store" })
       .then(async (response) => ({ response, result: await response.json() }))
       .then(receive).catch(failed)
   }
@@ -49,7 +51,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
     setStatus("saving")
     setProblem(null)
     try {
-      const response = await fetch("/api/erp/company", { method: "PUT", headers: { "Content-Type": "application/json", "If-Match": etag, "X-Tenant-Id": snapshot.tenantId }, body: JSON.stringify(data) })
+      const response = await erpFetch("/api/erp/company", { method: "PUT", headers: { "Content-Type": "application/json", "If-Match": etag, "X-Tenant-Id": snapshot.tenantId }, body: JSON.stringify(data) })
       const result = await response.json()
       if (!response.ok) {
         setProblem(result)

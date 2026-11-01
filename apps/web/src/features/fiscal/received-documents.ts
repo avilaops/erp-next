@@ -1,15 +1,15 @@
-export type ReceivedNote = {
-  id: number; accessKey: string; issuerDocument: string; issuerName: string; recipientDocument: string
-  number: number; series: number; issuedAt: string; totalCents: number; itemCount: number
-  environment: number; xmlSha256: string; createdAt: string
-}
+
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+export type ReceivedNote = Schema<"ReceivedNfeSnapshot">
 
 export async function documentHash(bytes: ArrayBuffer) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
 
 export async function fetchReceivedDocument(note: ReceivedNote, tenantId: string, format: "xml" | "danfe", signal: AbortSignal) {
-  const response = await fetch(`/api/erp/fiscal/received-nfes/${note.id}/${format}`, {
+  const response = await erpFetch(`/api/erp/fiscal/received-nfes/${note.id}/${format}`, {
     cache: "no-store", headers: { "X-Tenant-Id": tenantId },
     signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
   })

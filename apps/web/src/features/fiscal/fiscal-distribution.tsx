@@ -1,14 +1,17 @@
 "use client"
 
+import { erpFetch } from "@/lib/api/client"
+
+import type { Schema } from "@/lib/api/types"
+
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { documentHash, saveDocument } from "./received-documents"
 
-type Manifestation = { id: string; eventType: string; outcome: "unknown" | "accepted" | "rejected"; status: string | null; protocol: string | null }
-type Document = { id: number; nsu: string; schema: string; kind: string; accessKey: string | null; issuerName: string | null; totalCents: number | null; situation: string | null; xmlSha256: string; receivedNfeId: number | null; manifestations: Manifestation[] }
-type Snapshot = { tenantId: string; canSync: boolean; canManifest: boolean; collectionEnabled: boolean; certificateReady: boolean; lastNsu: string; maxNsu: string; nextQueryAt: string | null; lastStatus: string | null; lastRun: { outcome: string } | null; documents: Document[]; total: number }
+type Document = Schema<"MonitorDocument">
+type Snapshot = Schema<"MonitorSnapshot">
 const events: Record<string, string> = { "210210": "Ciência da operação", "210200": "Confirmação da operação", "210220": "Desconhecimento da operação", "210240": "Operação não realizada" }
 const outcomes = { unknown: "Resultado não confirmado — conferir antes de qualquer nova ação", accepted: "Registrada e vinculada à NF-e", rejected: "Recusada pela SEFAZ" }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -28,7 +31,7 @@ export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`/api/erp/fiscal/monitor${offset ? `?offset=${offset}` : ""}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(`/api/erp/fiscal/monitor${offset ? `?offset=${offset}` : ""}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Não foi possível carregar a distribuição fiscal")
       if (controller.signal.aborted) return
@@ -53,7 +56,7 @@ export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
     operation.current = true; setBusy(true); setError(""); setNotice("")
     if (!command.current || command.current.tenant !== snapshot.tenantId) command.current = { tenant: snapshot.tenantId, key: crypto.randomUUID() }
     try {
-      const response = await fetch("/api/erp/fiscal/monitor/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "Idempotency-Key": command.current.key }, body: "{}" })
+      const response = await erpFetch("/api/erp/fiscal/monitor/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "Idempotency-Key": command.current.key }, body: "{}" })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Não foi possível confirmar a consulta. Atualize o monitor")
       if (value.outcome === "applied") {
@@ -105,7 +108,7 @@ function DistributionDocument({ document, snapshot, reload }: { document: Docume
     const payload = JSON.stringify({ eventType, justification: eventType === "210240" ? justification : null })
     if (!command.current || command.current.payload !== payload) command.current = { payload, key: crypto.randomUUID() }
     try {
-      const response = await fetch(`/api/erp/fiscal/monitor/documents/${document.id}/manifest`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "Idempotency-Key": command.current.key }, body: payload })
+      const response = await erpFetch(`/api/erp/fiscal/monitor/documents/${document.id}/manifest`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "Idempotency-Key": command.current.key }, body: payload })
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Manifestação não confirmada. Atualize o monitor")
       setConfirmed(false); reload()
@@ -116,7 +119,7 @@ function DistributionDocument({ document, snapshot, reload }: { document: Docume
     if (operation.current) return
     operation.current = true; setBusy(true); setError("")
     try {
-      const response = await fetch(`/api/erp/fiscal/monitor/documents/${document.id}/xml`, { cache: "no-store", headers: { "X-Tenant-Id": snapshot.tenantId } })
+      const response = await erpFetch(`/api/erp/fiscal/monitor/documents/${document.id}/xml`, { cache: "no-store", headers: { "X-Tenant-Id": snapshot.tenantId } })
       if (!response.ok) { const value = await response.json(); throw new Error(value.title || "Documento indisponível") }
       const bytes = await response.arrayBuffer()
       if (!bytes.byteLength || bytes.byteLength > 900 * 1024 || !response.headers.get("content-type")?.startsWith("application/xml") || await documentHash(bytes) !== document.xmlSha256 || response.headers.get("x-xml-sha256") !== document.xmlSha256) throw new Error("O arquivo não corresponde ao documento coletado")
@@ -128,7 +131,7 @@ function DistributionDocument({ document, snapshot, reload }: { document: Docume
     <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{document.issuerName || (document.kind === "event" ? "Evento fiscal" : "Documento fiscal")}</p><p className="text-muted-foreground">NSU {document.nsu} · {document.kind === "summary" ? "Resumo da NF-e" : document.kind === "nfe" ? "NF-e completa" : document.schema}</p></div>{document.totalCents != null && <p className="font-medium">{money.format(document.totalCents / 100)}</p>}</div>
     {document.accessKey && <p className="break-all text-xs">Chave: {document.accessKey}</p>}
     <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={busy} onClick={() => void download()}>Baixar XML {document.kind === "summary" ? "do resumo" : "coletado"}</Button>{document.receivedNfeId && <Link className="text-primary underline" href={`/fiscal/monitor/${document.receivedNfeId}`}>Abrir NF-e completa e DANFE</Link>}</div>
-    {document.manifestations.map(value => <p key={value.id}>{events[value.eventType]}: {outcomes[value.outcome]}{value.status ? ` · SEFAZ ${value.status}` : ""}{value.protocol ? ` · Protocolo ${value.protocol}` : ""}</p>)}
+    {document.manifestations.map(value => <p key={value.id}>{events[value.eventType]}: {outcomes[value.outcome as keyof typeof outcomes] || value.outcome}{value.status ? ` · SEFAZ ${value.status}` : ""}{value.protocol ? ` · Protocolo ${value.protocol}` : ""}</p>)}
     {snapshot.canManifest && snapshot.collectionEnabled && snapshot.certificateReady && document.kind === "summary" && document.situation === "1" && <details><summary className="cursor-pointer font-medium">Manifestar esta NF-e</summary><form className="mt-3 grid gap-3" onSubmit={manifest}>
       <div className="grid gap-2"><label htmlFor={`manifest-type-${document.id}`}>Evento de manifestação</label><select id={`manifest-type-${document.id}`} className="max-w-full rounded-lg border bg-background p-2" disabled={busy} value={eventType} onChange={event => { setEventType(event.target.value); setConfirmed(false) }}><option value="">Selecione o evento</option>{Object.entries(events).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></div>
       {eventType === "210240" && <label className="grid gap-2">Justificativa (15 a 255 caracteres)<Textarea minLength={15} maxLength={255} required value={justification} onChange={event => setJustification(event.target.value)} disabled={busy} /></label>}
@@ -139,3 +142,4 @@ function DistributionDocument({ document, snapshot, reload }: { document: Docume
     {error && <p role="alert" className="text-destructive">{error}</p>}
   </article>
 }
+

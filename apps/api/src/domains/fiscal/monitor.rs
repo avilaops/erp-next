@@ -1,3 +1,22 @@
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorManifestation {
+    pub id: Uuid,
+    pub event_type: String,
+    pub outcome: String,
+    pub status: Option<String>,
+    pub protocol: Option<String>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorLastRun {
+    pub id: Uuid,
+    pub outcome: String,
+    pub status: Option<String>,
+    pub document_count: i64,
+    pub created_at: String,
+    pub completed_at: Option<String>,
+}
 use super::{FiscalError, certificates, distribution, problem, sefaz_client};
 use crate::{
     domains::{DomainChange, DomainError, authorized, command_key, db, record, response},
@@ -41,6 +60,7 @@ pub struct MonitorDocument {
     situation: Option<String>,
     xml_sha256: String,
     received_nfe_id: Option<i64>,
+    #[schema(value_type = Vec<MonitorManifestation>)]
     manifestations: Value,
 }
 #[derive(Serialize, ToSchema)]
@@ -55,6 +75,7 @@ pub struct MonitorSnapshot {
     max_nsu: String,
     next_query_at: Option<String>,
     last_status: Option<String>,
+    #[schema(value_type = Option<MonitorLastRun>)]
     last_run: Option<Value>,
     documents: Vec<MonitorDocument>,
     total: i64,

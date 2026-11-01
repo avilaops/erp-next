@@ -69,7 +69,7 @@ export function InvitationEditor() {
       <p className="text-sm text-muted-foreground">Selecione também os papéis necessários para o trabalho dessa pessoa. Você só pode conceder permissões que possui.</p>
       <div className="grid gap-3 sm:grid-cols-2">{roles.map((role) => <label key={role.id} className="flex items-start gap-3 rounded-xl border p-4">
         <input className="mt-1 size-4 shrink-0" type="checkbox" checked={roleIds.includes(role.id)} onChange={(e) => setRoleIds((ids) => e.target.checked ? [...ids, role.id] : ids.filter((id) => id !== role.id))} />
-        <span className="min-w-0"><span className="block font-medium">{role.name}</span><span className="block text-sm text-muted-foreground">{role.description || `${role.permissions.length} permissões`}{role.permissions.includes("platform.users.manage") ? " · Inclui gerenciamento de usuários" : ""}</span></span>
+        <span className="min-w-0"><span className="block font-medium">{role.name}</span><span className="block text-sm text-muted-foreground">{`${role.permissions.length} permissões`}{role.permissions.includes("platform.users.manage") ? " · Inclui gerenciamento de usuários" : ""}</span></span>
       </label>)}</div>
       {!roles.length && <p>Nenhum papel adicional disponível para delegação.</p>}
     </fieldset>

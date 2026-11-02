@@ -115,9 +115,11 @@ async function LoginForm({ searchParams }: LoginProps) {
   )
 }
 
-export const metadata = {
+export async function generateMetadata() {
+ return {
   metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"),
   title: "Entrar",
   description: "Acesse o Ávila ERP: produtos, compras, vendas e financeiro em um só lugar.",
   openGraph: { title: "Ávila ERP · Sua operação, sob controle", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Ávila ERP: produtos, vendas e financeiro" }] },
+}
 }

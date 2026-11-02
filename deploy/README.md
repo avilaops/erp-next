@@ -43,7 +43,9 @@ sem liberar HTTP para hosts arbitrários. As duas portas são publicadas pelo
 serviço API, somente no loopback do servidor.
 
 O cliente OIDC dedicado `erp-next` pertence ao app Auth `erp` e aceita somente
-`https://erp.avilaops.com/api/auth/callback`. Não alterar o segredo do cliente
+`https://erp.avilaops.com/api/auth/callback` como redirect de login e
+`https://erp.avilaops.com/api/auth/logout/central/callback` como post-logout
+redirect. Não alterar o segredo do cliente
 legado `erp`. O BFF mantém tokens em cookie HttpOnly cifrado e a API consulta
 userinfo e valida a associação da empresa. O usuário conclui o login no Auth;
 nenhuma senha pessoal é necessária ao deploy.

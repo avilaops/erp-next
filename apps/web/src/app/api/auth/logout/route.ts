@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const jar = await cookies()
     jar.set(cookieName("session"), "", cookieOptions(0))
     jar.set(cookieName("auth"), "", cookieOptions(0))
-    const response = NextResponse.redirect(new URL("/entrar", config.origin), 303)
+    const response = NextResponse.redirect(new URL("/api/auth/logout/central", config.origin), 303)
     response.headers.set("Cache-Control", "no-store")
     return response
   } catch { return Response.json({ title: "Não foi possível encerrar a sessão local" }, { status: 503 }) }

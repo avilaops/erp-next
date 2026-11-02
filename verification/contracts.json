@@ -959,6 +959,18 @@
       "recovery": "Exigir origem válida; a próxima operação autenticada precisa entrar novamente."
     },
     {
+      "path": "/api/auth/logout/central",
+      "method": "GET",
+      "action": "Limpar cookies locais e iniciar o logout RP-initiated no Auth com retorno validado",
+      "recovery": "Configuração ausente ou retorno inválido impede o redirecionamento e mantém a sessão fora do ERP."
+    },
+    {
+      "path": "/api/auth/logout/central/callback",
+      "method": "GET",
+      "action": "Limpar qualquer resíduo local após o retorno do logout central e redirecionar para a entrada do ERP",
+      "recovery": "O ERP não reabre a sessão; a próxima navegação autenticada exige novo login."
+    },
+    {
       "path": "/api/auth/company",
       "method": "POST",
       "action": "Validar vínculo na API e selecionar empresa na sessão cifrada sem prolongar expiração",

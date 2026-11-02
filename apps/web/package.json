@@ -4,14 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/render-erp-media.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
     "test:danfe": "playwright test --config playwright.danfe.config.ts",
     "test:monitor": "playwright test --config playwright.monitor.config.ts",
-    "media:erp": "node scripts/render-erp-media.mjs",
-    "prebuild": "node scripts/render-erp-media.mjs"
+    "media:erp": "node scripts/render-erp-media.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

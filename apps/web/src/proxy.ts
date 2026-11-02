@@ -4,6 +4,13 @@ import { accessHref, recoveryDestination } from "@/lib/return-to"
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  if (pathname === "/_next/image") {
+    const source = request.nextUrl.searchParams.get("url") || ""
+    if (!/^\/(?!\/)[^?#'"\\\u0000-\u001f]*$/.test(source)) {
+      return NextResponse.json({ title: "Parâmetro de imagem inválido" }, { status: 400 })
+    }
+    return NextResponse.next()
+  }
   const publicPage = pathname === "/entrar" || pathname === "/criar-conta"
   let authenticated = false
   try { authenticated = !!identityFromCookie(request.cookies.get(cookieName("session"))?.value || "") }
@@ -21,5 +28,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/|_next/|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|svg|webp|avif|ico|woff2?)$).*)"],
+  matcher: ["/_next/image", "/((?!api/|_next/|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|svg|webp|avif|ico|woff2?)$).*)"],
 }

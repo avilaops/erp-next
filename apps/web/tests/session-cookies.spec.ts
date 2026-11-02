@@ -82,3 +82,20 @@ test("logout rejects an absent origin without changing either cookie", async ({ 
   expect(response.status()).toBe(403)
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
 })
+
+test("responses enforce the browser security policy without disclosing the framework", async ({ context }) => {
+  const response = await context.request.get(`${server}/entrar`, { maxRedirects: 0 })
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'")
+  expect(response.headers()["content-security-policy"]).toContain("frame-src 'self' blob:")
+  expect(response.headers()["content-security-policy"]).toContain("connect-src 'self' blob: data:")
+  expect(response.headers()["strict-transport-security"]).toBe("max-age=31536000; includeSubDomains")
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff")
+  expect(response.headers()["x-frame-options"]).toBe("DENY")
+  expect(response.headers()["x-powered-by"]).toBeUndefined()
+})
+
+test("image optimizer rejects malformed local paths before processing them", async ({ context }) => {
+  const response = await context.request.get(`${server}/_next/image?url=${encodeURIComponent("/erp-preview.webp'")}&w=1080&q=75`)
+  expect(response.status()).toBe(400)
+  await expect(response.json()).resolves.toEqual({ title: "Parâmetro de imagem inválido" })
+})

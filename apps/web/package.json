@@ -9,10 +9,15 @@
     "lint": "eslint",
     "test:e2e": "playwright test",
     "test:danfe": "playwright test --config playwright.danfe.config.ts",
-    "test:monitor": "playwright test --config playwright.monitor.config.ts"
+    "test:monitor": "playwright test --config playwright.monitor.config.ts",
+    "media:erp": "node scripts/render-erp-media.mjs",
+    "prebuild": "node scripts/render-erp-media.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@mdx-js/loader": "3.1.1",
+    "@mdx-js/react": "3.1.1",
+    "@next/mdx": "16.4.3",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "cn": "^0.5.0",
@@ -23,14 +28,12 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "shadcn": "^4.22.1",
-    "tw-animate-css": "^1.4.0",
-    "@next/mdx": "16.4.3",
-    "@mdx-js/loader": "3.1.1",
-    "@mdx-js/react": "3.1.1"
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
+    "@types/mdx": "2.0.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -38,7 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "@types/mdx": "2.0.13"
+    "takumi-js": "2.19.0",
+    "typescript": "^5"
   }
 }

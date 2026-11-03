@@ -10,6 +10,8 @@ import { EVENT_ACTION, eventEnvelope, eventUrl, eventXml, parseEvent, processedE
 import { DISTRIBUTION_ACTION, distributionEnvelope, distributionUrl, parseDistributionResponse } from "./lib/fiscal/distribution.ts";
 import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
 import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
+import { inspectReceivedNationalNfse } from "./lib/fiscal/nfse-received.ts";
+import { NationalNfseXmlError } from "./lib/fiscal/nfse-layout.ts";
 import type { RecipientManifestKind } from "./lib/fiscal/recipient-manifest.ts";
 import municipalities from "./lib/fiscal/municipios.json" with { type: "json" };
 import { roundCents } from "./lib/pricing/money.ts";
@@ -202,7 +204,15 @@ function material(input: ObjectValue, expected: string) {
 
 /** Only fixed authority endpoints exist here. No URL from a request is used. */
 export async function dispatch(operation: string, value: unknown, send: Send = sendToSefaz): Promise<ObjectValue> {
-  const input = object(value); homologation(input);
+  const input = object(value);
+  if (operation === "inspect-nfse") {
+    try { return { ...await inspectReceivedNationalNfse(input as { xml: string; recipientTaxId: string }) }; }
+    catch (error) {
+      if (error instanceof NationalNfseXmlError) refuse(error.message, error.code === "invalid" ? "invalid_nfse_xml" : "nfse_layout_unavailable");
+      throw error;
+    }
+  }
+  homologation(input);
   if (operation === "prepare") {
     const mapped = mapDraft(input), credentials = material(input, mapped.issuer.cnpj);
     const generated = buildNfeXml(mapped), signedXml = signNfeXml(generated.xml, signingKeyOf(credentials.pfx, credentials.passphrase));

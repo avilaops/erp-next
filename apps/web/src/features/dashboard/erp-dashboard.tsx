@@ -57,11 +57,19 @@ export function ErpDashboard() {
   }
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 lg:px-6">
-      <header className="flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0"><p className="text-sm font-medium text-primary">Ávila Ops</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Visão geral</h1><p className="mt-3 max-w-2xl text-muted-foreground">Acesse os módulos e organize seus atalhos de trabalho.</p></div>
-        <p className="rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">Os indicadores desta página aguardam conexão com os dados da empresa.</p>
+    <div className="erp-overview mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 lg:px-6">
+      <header className="erp-overview-heading flex flex-col gap-5 rounded-2xl bg-primary px-5 py-6 text-primary-foreground sm:px-7 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0"><p className="text-xs font-medium uppercase tracking-[0.18em] opacity-80">SEU ESPAÇO DE TRABALHO</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Visão geral</h1><p className="mt-3 max-w-2xl text-primary-foreground/85">Acesse os módulos e organize seus atalhos de trabalho.</p></div>
+        <Link href="/cadastros/produtos" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-background px-5 py-3 text-sm font-semibold text-primary hover:bg-accent"><Plus aria-hidden="true" className="size-4" />Cadastrar produto</Link>
       </header>
+
+      <nav aria-label="Comece uma operação" className="mt-5 grid gap-3 sm:grid-cols-3">
+        {[["Novo pedido", "/vendas/pedidos/novo", ShoppingCart], ["Consultar estoque", "/estoque", Boxes], ["Acessar documentos fiscais", "/fiscal", ReceiptText]].map(([label, href, Icon]) => {
+          const ActionIcon = Icon as typeof ShoppingCart
+          return <Link key={href as string} href={href as string} className="group flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-accent"><ActionIcon aria-hidden="true" className="size-5 text-primary" /><span className="flex-1">{label as string}</span><ArrowUpRight aria-hidden="true" className="size-4 text-muted-foreground" /></Link>
+        })}
+      </nav>
+      <p className="mt-5 text-sm text-muted-foreground">Os indicadores abaixo aguardam conexão com os dados da empresa.</p>
 
       <section className="mt-5 space-y-3 rounded-xl border p-4" aria-label="Preferências da página inicial">
         <div className="flex flex-wrap gap-3">

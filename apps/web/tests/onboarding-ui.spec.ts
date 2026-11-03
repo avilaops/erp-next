@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
+import axe from "axe-core"
 import { companyFields } from "../src/features/company/company-types"
 
 test.setTimeout(process.env.ERP_BROWSER_DEV === "1" ? 30000 : 10000)
@@ -12,6 +13,7 @@ let companyCount = 0
 let denied = false
 let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
+let redirectAuthorization = false
 const upstream = createServer(async (request, response) => {
   upstreamCalls++
   expect(request.headers.authorization).toBe("Bearer onboarding-fixture-token")
@@ -41,6 +43,12 @@ const auth = createServer(async (request, response) => {
   if (request.url === "/token") {
     response.end(JSON.stringify({ access_token: "onboarding-fixture-token", token_type: "Bearer", expires_in: 3600 })); return
   }
+  const authorization = new URL(request.url || "/", issuer)
+  if (redirectAuthorization && authorization.pathname === "/authorize") {
+    const callback = new URL("/api/auth/callback", origin)
+    callback.search = new URLSearchParams({ code: "fixture", state: authorization.searchParams.get("state") || "" }).toString()
+    response.writeHead(302, { Location: callback.href }); response.end(); return
+  }
   response.writeHead(404); response.end("{}");
 })
 function cookie(tenantId: string | null = null, expiresAt = Date.now() + 3600_000) {
@@ -61,13 +69,75 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0 })
+test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+
+for (const error of ["", "restart"]) test(`entry login reaches Auth from ${error || "normal access"} under the same-origin form policy and preserves its return path`, async ({ page, context }) => {
+  const destination = "/cadastros/produtos?status=active&offset=25"
+  const entry = await page.goto("/entrar?" + new URLSearchParams({ returnTo: destination, erro: error }))
+  expect(entry!.headers()["content-security-policy"]).toContain("form-action 'self'")
+  await page.getByText("Entrar", { exact: true }).click()
+  await expect(page).toHaveURL(url => url.origin === issuer && url.pathname === "/authorize")
+  const authorization = new URL(page.url())
+  expect(authorization.searchParams.get("code_challenge_method")).toBe("S256")
+  expect(authorization.searchParams.get("redirect_uri")).toBe(`${origin}/api/auth/callback`)
+  const callback = await context.request.get(`${origin}/api/auth/callback?` + new URLSearchParams({ code: "fixture", state: authorization.searchParams.get("state")! }), { maxRedirects: 0 })
+  expect(callback.status()).toBe(307)
+  expect(new URL(callback.headers().location).pathname).toBe("/cadastro/empresa")
+  expect(new URL(callback.headers().location).searchParams.get("returnTo")).toBe(destination)
+})
+
+for (const error of ["", "restart"]) test(`entry login completes the browser callback from ${error || "normal access"} and returns to sales preferences`, async ({ page }) => {
+  companyCount = 1
+  redirectAuthorization = true
+  const destination = "/preferencias?categoria=vendas"
+  const response = await page.goto("/entrar?" + new URLSearchParams({ returnTo: destination, erro: error }))
+  expect(response!.headers()["content-security-policy"]).toContain("form-action 'self'")
+  const authorizations: URL[] = []
+  page.on("request", request => {
+    const url = new URL(request.url())
+    if (url.origin === issuer && url.pathname === "/authorize") authorizations.push(url)
+  })
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(origin + destination)
+  expect(authorizations).toHaveLength(1)
+  expect(authorizations[0].searchParams.get("code_challenge_method")).toBe("S256")
+  expect(authorizations[0].searchParams.get("redirect_uri")).toBe(origin + "/api/auth/callback")
+  await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
+})
+
+test("entry offers persistent light, dark and system themes with readable text", async ({ page }, info) => {
+  test.setTimeout(60_000)
+  await page.goto("/entrar")
+  const theme = page.getByRole("combobox", { name: "Tema", exact: true })
+  await expect(theme).toBeVisible()
+  for (const value of ["dark", "light"] as const) {
+    await theme.selectOption(value)
+    await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(value === "dark")
+    await page.reload()
+    await expect(theme).toHaveValue(value)
+    for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 568, height: 320 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
+      await page.setViewportSize(viewport)
+      await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      expect(await page.locator("#acesso > p").evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14)
+      await page.addScriptTag({ content: axe.source })
+      const result = await page.evaluate(async () => (window as unknown as { axe: typeof axe }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } }))
+      expect(result.violations.map(item => ({ id: item.id, targets: item.nodes.map(node => node.target) }))).toEqual([])
+      await page.screenshot({ path: info.outputPath(`entrada-${value}-${viewport.width}x${viewport.height}.png`), fullPage: true })
+    }
+  }
+  await theme.selectOption("system")
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(true)
+  await page.emulateMedia({ colorScheme: "light" })
+  await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(false)
+})
 
 test("entry keeps access visible and its single preview supports keyboard reading and closing", async ({ page }) => {
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 900 })
     await page.goto("/entrar?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
 
     const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
@@ -130,11 +200,11 @@ test("entry recovery keeps the error and access controls together in the first p
       await expect(page.getByRole("heading", { name: "Retome o acesso", exact: true })).toBeVisible()
       const alert = page.locator("main").getByRole("alert")
       await expect(alert).toBeInViewport({ ratio: 1 })
-      const login = page.getByRole("button", { name: "Entrar", exact: true })
+      const login = page.getByRole("link", { name: "Entrar", exact: true })
       await expect(login).toBeInViewport({ ratio: 1 })
       await expect(login).toHaveAttribute("aria-describedby", "access-error")
       await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
-      await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+      await expect(login).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
     }
   }
 })
@@ -143,7 +213,7 @@ test("entry preview shows complete product data with margins in landscape and ad
   for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport)
     await page.goto("/entrar")
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
     await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
     const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
@@ -186,7 +256,7 @@ test("entry preview announces loading and recovers from a failed image without l
   await page.goto("/entrar", { waitUntil: "domcontentloaded" })
   const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
   await expect(trigger.getByRole("status")).toHaveText("Carregando prévia…")
-  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeEnabled()
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeEnabled()
   await trigger.click()
   const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
   await expect(dialog.getByRole("status")).toHaveText("Carregando prévia…")
@@ -274,7 +344,7 @@ test("cadastros distinguish a signed-out user from an authenticated user without
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
   await expect(page.getByRole("heading", { name: "Sua operação, sob controle.", exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
   await context.addCookies([cookie()])
   for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
@@ -323,7 +393,7 @@ test("expired access preserves the internal path and filters through the login f
   const destination = "/cadastros/produtos?status=archived&offset=25"
   await page.goto(destination)
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
-  await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
 })
 
 test("expired company selection retains the original destination during recovery", async ({ page, context }) => {

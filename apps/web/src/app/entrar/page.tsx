@@ -4,6 +4,7 @@ import { connection } from "next/server"
 import { Suspense } from "react"
 import { ErpEntryPreview } from "@/components/feedback/erp-entry-preview"
 import { isErpLoginConfigured, WorkspaceAccessNotice } from "@/features/access/workspace-access"
+import { EntryThemeSelector } from "@/features/access/entry-theme-selector"
 import { safeReturnTo } from "@/lib/return-to"
 import "./entrar.css"
 
@@ -33,17 +34,20 @@ async function LoginForm({ searchParams }: LoginProps) {
   const ready = isErpLoginConfigured()
 
   return (
-    <div className="min-h-dvh bg-primary/[0.035] text-foreground dark:bg-background lg:flex lg:flex-col lg:justify-center">
+    <div className="erp-entry min-h-dvh bg-primary/[0.035] text-foreground dark:bg-background lg:flex lg:flex-col lg:justify-center">
       <a href="#acesso" className="skip-link">Pular para o acesso</a>
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-10 lg:px-12">
         <header className="erp-entry-header flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
           <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-3 rounded-lg">
             <span aria-hidden="true" className="grid size-10 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground">A</span>
-            <span className="leading-tight"><strong className="block text-base tracking-tight">Ávila ERP</strong><span className="mt-1 block text-xs text-muted-foreground">Avila Ops</span></span>
+            <span className="leading-tight"><strong className="block text-base tracking-tight">Ávila ERP</strong><span className="mt-1 block text-sm text-muted-foreground">Avila Ops</span></span>
           </Link>
-          <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-1.5 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
-            Conhecer o ERP<ArrowUpRight aria-hidden="true" className="size-4" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="https://avilaops.com/erp" className="hidden min-h-11 items-center gap-1.5 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:text-primary sm:flex">
+              Conhecer o ERP<ArrowUpRight aria-hidden="true" className="size-4" />
+            </Link>
+            <EntryThemeSelector />
+          </div>
         </header>
 
         <main>
@@ -54,39 +58,36 @@ async function LoginForm({ searchParams }: LoginProps) {
                 <p id="access-error" role="alert" className="erp-entry-description mt-4 rounded-r-xl border-l-2 border-primary/40 bg-primary/5 py-2 pl-3 pr-2 text-sm leading-6 text-muted-foreground">{errorMessage}</p>
               </> : <>
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                  <span aria-hidden="true" className="h-px w-6 bg-primary" />Sua empresa, conectada
+                  <span aria-hidden="true" className="h-px w-6 bg-primary" />GESTÃO QUE ACOMPANHA VOCÊ
                 </p>
                 <h1 id="welcome-title" className="erp-entry-title mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
                   Sua operação,<br /><span className="text-primary">sob controle.</span>
                 </h1>
                 <p className="erp-entry-description mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                  Produtos, vendas e financeiro.<br />Tudo no mesmo lugar, com a sua equipe.
+                  Do primeiro cadastro ao próximo pedido.<br />Sua equipe trabalhando com a mesma informação.
                 </p>
               </>}
 
               <section id="acesso" aria-labelledby="access-title" className={"erp-entry-access scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary " + (errorMessage ? "mt-5" : "mt-7 sm:mt-9")} tabIndex={-1}>
-                <h2 id="access-title" className="text-sm font-medium">Acesse com sua conta Ávila Ops</h2>
+                <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
-                    <form action="/api/auth/login" method="get">
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <button type="submit" aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
-                        Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
-                      </button>
-                    </form>
-                    <Link href={"/criar-conta?" + new URLSearchParams({ returnTo })} prefetch={false} className="flex min-h-13 items-center justify-center rounded-xl border border-primary/30 bg-background px-5 py-3 text-base font-semibold text-primary transition-colors hover:bg-accent">
+                    <a href={"/api/auth/login?" + new URLSearchParams({ returnTo })} aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
+                      Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
+                    </a>
+                    <Link href={"/criar-conta?" + new URLSearchParams({ returnTo })} prefetch={false} className="flex min-h-13 items-center justify-center rounded-xl border border-primary bg-background px-5 py-3 text-base font-semibold text-primary transition-colors hover:bg-accent">
                       Criar minha conta
                     </Link>
                   </div>
-                  <p className="mt-3 max-w-sm text-xs leading-5 text-muted-foreground">Recebeu um convite? Entre com o e-mail convidado.</p>
+                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Recebeu um convite? Entre com o e-mail convidado.</p>
                 </> : <div className="mt-3 max-w-md"><WorkspaceAccessNotice state="configuration" /></div>}
               </section>
             </section>
 
-            <figure className="min-w-0 overflow-hidden rounded-[1.75rem] bg-[#134e4a] p-5 text-white sm:p-6 lg:rounded-[2rem]">
+            <figure className="erp-entry-showcase min-w-0 overflow-hidden rounded-[1.75rem] bg-[#134e4a] p-5 text-white sm:p-6 lg:rounded-[2rem]">
               <figcaption>
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-teal-200">Por dentro do ERP</p>
-                <h2 className="mt-3 max-w-sm text-2xl font-medium leading-tight tracking-tight sm:text-[1.75rem]">Uma visão clara da sua operação.</h2>
+                <h2 className="mt-3 max-w-sm text-2xl font-medium leading-tight tracking-tight sm:text-[1.75rem]">Menos caminhos.<br />Mais clareza para operar.</h2>
               </figcaption>
               <ErpEntryPreview />
               <p className="mt-3 text-xs leading-5 text-teal-100">Interface real · Dados demonstrativos</p>
@@ -97,15 +98,16 @@ async function LoginForm({ searchParams }: LoginProps) {
             {benefits.map(({ icon: Icon, title, description }) => (
               <div key={title} className="flex items-center gap-3 py-4 sm:px-5 sm:py-5">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/5 text-primary"><Icon aria-hidden="true" className="size-5" /></span>
-                <div><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p></div>
+                <div><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p></div>
               </div>
             ))}
           </section>
         </main>
 
-        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-xs text-muted-foreground">
+        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm text-muted-foreground">
           <span>Avila Ops</span>
           <nav aria-label="Informações legais" className="flex flex-wrap gap-x-5">
+            <Link href="https://avilaops.com/erp" className="inline-flex min-h-11 items-center rounded-md hover:text-primary sm:hidden">Conhecer o ERP</Link>
             <Link href="https://avilaops.com/politica-de-privacidade" className="inline-flex min-h-11 items-center rounded-md hover:text-primary">Privacidade</Link>
             <Link href="https://avilaops.com/termos-de-servico" className="inline-flex min-h-11 items-center rounded-md hover:text-primary">Termos de serviço</Link>
           </nav>
@@ -115,4 +117,11 @@ async function LoginForm({ searchParams }: LoginProps) {
   )
 }
 
-export const metadata = { title: "Entrar" }
+export async function generateMetadata() {
+ return {
+  metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"),
+  title: "Entrar",
+  description: "Acesse o Ávila ERP: produtos, compras, vendas e financeiro em um só lugar.",
+  openGraph: { title: "Ávila ERP · Sua operação, sob controle", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Ávila ERP: produtos, vendas e financeiro" }] },
+}
+}

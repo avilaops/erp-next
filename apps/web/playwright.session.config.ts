@@ -11,7 +11,7 @@ export default defineConfig({
   timeout: 60_000,
   use: { browserName: "chromium", channel: process.env.ERP_BROWSER_CHANNEL },
   webServer: {
-    command: process.env.ERP_BROWSER_DEV === "1" ? "pnpm dev --hostname 127.0.0.1 --port 33128" : "pnpm start --hostname 127.0.0.1 --port 33128",
+    command: `node node_modules/next/dist/bin/next ${process.env.ERP_BROWSER_DEV === "1" ? "dev" : "start"} --hostname 127.0.0.1 --port 33128`,
     url: `${server}/entrar`,
     reuseExistingServer: false,
     timeout: 60_000,

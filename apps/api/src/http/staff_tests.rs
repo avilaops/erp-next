@@ -700,7 +700,35 @@ async fn payroll_approval_idempotency_privacy_and_termination(admin: PgPool) {
         .iter()
         .find(|p| p["kind"] == "one_off")
         .unwrap();
-    let payable = format!("/api/v1/payables/{}", p["id"].as_str().unwrap());
+    let payable = format!("/api/v1/financial-payables/{}", p["id"].as_str().unwrap());
+    let legacy = payable.replace("/financial-payables/", "/payables/");
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &legacy,
+            TENANT,
+            "editor",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let legacy_list = call(
+        &router,
+        "GET",
+        "/api/v1/payables",
+        TENANT,
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(legacy_list.2["total"], 0);
     let pay=call(&router,"POST",&format!("{payable}/payments"),TENANT,"editor",Some("\"1\""),Some(Uuid::now_v7()),json!({"amount":"100.00","method":"bank_transfer","reference":"Pagamento externo conferido","occurredOn":"2026-11-10"})).await;
     assert_eq!(pay.0, StatusCode::OK, "{}", pay.2);
     assert_eq!(pay.2["data"]["staffId"], id);

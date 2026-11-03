@@ -19,12 +19,15 @@ use uuid::Uuid;
 pub(super) enum Kind {
     Receivable,
     Payable,
+    UnifiedPayable,
 }
 impl Kind {
     fn permissions(self) -> (&'static str, &'static str) {
         match self {
             Self::Receivable => ("finance.receivables.read", "finance.receivables.manage"),
-            Self::Payable => ("finance.payables.read", "finance.payables.manage"),
+            Self::Payable | Self::UnifiedPayable => {
+                ("finance.payables.read", "finance.payables.manage")
+            }
         }
     }
     fn names(self) -> (&'static str, &'static str, &'static str, &'static str) {
@@ -35,7 +38,9 @@ impl Kind {
                 "receivable_id",
                 "receipt",
             ),
-            Self::Payable => ("payables", "payable_payments", "payable_id", "payment"),
+            Self::Payable | Self::UnifiedPayable => {
+                ("payables", "payable_payments", "payable_id", "payment")
+            }
         }
     }
     fn scope(self, reversing: bool) -> &'static str {
@@ -44,12 +49,14 @@ impl Kind {
             (Self::Receivable, true) => "receivable.reverse",
             (Self::Payable, false) => "payable.pay",
             (Self::Payable, true) => "payable.reverse",
+            (Self::UnifiedPayable, false) => "financial_payable.pay",
+            (Self::UnifiedPayable, true) => "financial_payable.reverse",
         }
     }
     fn entity(self) -> &'static str {
         match self {
             Self::Receivable => "receivable",
-            Self::Payable => "payable",
+            Self::Payable | Self::UnifiedPayable => "payable",
         }
     }
     fn event(self, paid: bool, reversing: bool) -> &'static str {
@@ -57,9 +64,9 @@ impl Kind {
             (Self::Receivable, _, true) => "receivable.payment_reversed",
             (Self::Receivable, true, false) => "receivable.paid",
             (Self::Receivable, false, false) => "receivable.payment_recorded",
-            (Self::Payable, _, true) => "payable.payment_reversed",
-            (Self::Payable, true, false) => "payable.paid",
-            (Self::Payable, false, false) => "payable.payment_recorded",
+            (Self::Payable | Self::UnifiedPayable, _, true) => "payable.payment_reversed",
+            (Self::Payable | Self::UnifiedPayable, true, false) => "payable.paid",
+            (Self::Payable | Self::UnifiedPayable, false, false) => "payable.payment_recorded",
         }
     }
     async fn load(
@@ -71,6 +78,9 @@ impl Kind {
         match self {
             Self::Receivable => super::finance::settlement_snapshot(tx, tenant, id).await,
             Self::Payable => super::payables::settlement_snapshot(tx, tenant, id).await,
+            Self::UnifiedPayable => {
+                super::payables::unified_settlement_snapshot(tx, tenant, id).await
+            }
         }
     }
 }

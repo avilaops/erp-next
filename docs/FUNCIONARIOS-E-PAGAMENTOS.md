@@ -21,8 +21,10 @@ outro papel recebe dados salariais automaticamente. Cada proposta guarda autor,
 conteúdo, revisão original e decisão. Salário/Pix só são aplicados na aprovação.
 Uma revisão financeira antiga não pode sobrescrever uma mais recente.
 
-Contas geradas integram `payables`, com uma origem exclusiva: compra ou obrigação
-de funcionário. `receiptId` é nulo na segunda; `staffId` aponta ao funcionário.
+A API de compras `/api/v1/payables` mantém o contrato anterior e retorna somente
+obrigações de compra. A interface usa `/api/v1/financial-payables` para a visão
+unificada e seus pagamentos/estornos. Contas geradas integram a mesma tabela `payables`, com uma origem exclusiva: compra ou obrigação
+de funcionário. No contrato unificado, `receiptId` é nulo na segunda; `staffId` aponta ao funcionário.
 O domínio financeiro é responsável pela criação/cancelamento do título e pelos
 pagamentos/estornos manuais já existentes. Nada envia dinheiro, consulta saldo ou
 atesta liquidação bancária. Não há conexão com Bling Conta.

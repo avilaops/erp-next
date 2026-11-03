@@ -189,6 +189,16 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )
+        .route("/api/v1/financial-payables", get(payables::list_all))
+        .route("/api/v1/financial-payables/{id}", get(payables::get_all))
+        .route(
+            "/api/v1/financial-payables/{id}/payments",
+            post(payables::pay_all),
+        )
+        .route(
+            "/api/v1/financial-payables/{id}/reverse-payment",
+            post(payables::reverse_all),
+        )
         .route("/api/v1/staff-payroll", get(staff_payroll::list))
         .route(
             "/api/v1/staff-payroll/salaries",

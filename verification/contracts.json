@@ -22009,6 +22009,404 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-api-v1-financial-payables",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/financial-payables"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "offset 0..100000; limit 1..100"
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "Origem de compra ou obrigação aprovada de funcionário; contrato unificado separado do contrato de compras"
+      ],
+      "transition": {
+        "from": "open/paid",
+        "to": "Consultar obrigações originadas por recebimento de compra"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem execução bancária ou emissão/importação fiscal",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar ou liquidar manualmente título financeiro de compra ou funcionário"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [
+          "/financeiro/contas-pagar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/financial-payables"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-financial-payables-id",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/financial-payables/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "Origem de compra ou obrigação aprovada de funcionário; contrato unificado separado do contrato de compras"
+      ],
+      "transition": {
+        "from": "open/paid",
+        "to": "Consultar saldo e livro financeiro numa leitura consistente"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem execução bancária ou emissão/importação fiscal",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura com contexto da empresa e RLS forçada"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          500,
+          503
+        ],
+        "action": "Consultar ou liquidar manualmente título financeiro de compra ou funcionário"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [
+          "/financeiro/contas-pagar/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/financial-payables/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-financial-payables-id-payments",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/financial-payables/{id}/payments"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read",
+        "finance.payables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "PaymentInput",
+          "source": "apps/api/src/domains/finance.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando",
+        "Origem de compra ou obrigação aprovada de funcionário; contrato unificado separado do contrato de compras"
+      ],
+      "transition": {
+        "from": "open → open/paid",
+        "to": "Registrar pagamento declarado parcial/integral até saldo, sem executar banco"
+      },
+      "effects": {
+        "writes": [
+          "Livro financeiro append-only, situação/revisão/saldo derivado, auditoria/outbox/comando"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem execução bancária ou emissão/importação fiscal",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Consultar ou liquidar manualmente título financeiro de compra ou funcionário"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [
+          "/financeiro/contas-pagar/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/financial-payables/[id]/payments"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-financial-payables-id-reverse-payment",
+      "flow": "purchase_payment_chain",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/financial-payables/{id}/reverse-payment"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "finance.payables.read",
+        "finance.payables.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "ReversalInput",
+          "source": "apps/api/src/domains/finance.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada no Auth; empresa e permissões validadas na transação",
+        "IDs de fornecedor/produto/origem pertencem à empresa; quantidades/valores sem float",
+        "If-Match obrigatório; revisão antiga retorna 412",
+        "Idempotency-Key UUID obrigatório; corpo/revisão fazem parte do comando",
+        "Origem de compra ou obrigação aprovada de funcionário; contrato unificado separado do contrato de compras"
+      ],
+      "transition": {
+        "from": "open/paid → open",
+        "to": "Estornar integralmente um lançamento próprio ainda ativo; não desfazer recebimento físico"
+      },
+      "effects": {
+        "writes": [
+          "Livro financeiro append-only, situação/revisão/saldo derivado, auditoria/outbox/comando"
+        ],
+        "external": [
+          "Auth userinfo"
+        ],
+        "excludes": [
+          "Sem execução bancária ou emissão/importação fiscal",
+          "Não confundir estorno de pagamento com devolução física"
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Lock da empresa e revalidação de direitos; replay antes de recusar revisão; todos os efeitos compartilham a transação"
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Consultar ou liquidar manualmente título financeiro de compra ou funcionário"
+      },
+      "recovery": "Mesma chave/corpo recupera a resposta original sem duplicar efeitos; erro reverte transação; consultar compra/recebimento/conta e livro antes de novo comando",
+      "ui": {
+        "pages": [
+          "/financeiro/contas-pagar/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/financial-payables/[id]/reverse-payment"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/purchasing.rs",
+        "apps/api/src/domains/payables.rs",
+        "apps/api/src/domains/settlements.rs",
+        "apps/api/src/domains/inventory.rs",
+        "migrations/202610280004_purchase_payment_chain.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "pendingFlows": [

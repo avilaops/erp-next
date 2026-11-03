@@ -14,7 +14,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+    paths(payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::domains::registry_lookup::lookup,
         fiscal::ibpt::quote,
@@ -108,6 +108,7 @@ impl Modify for Security {
                     ) || (path.starts_with("/api/v1/purchase-orders")
                         || path.starts_with("/api/v1/payables")
                         || path.starts_with("/api/v1/commissions")
+                        || path.starts_with("/api/v1/financial-payables")
                         || path.starts_with("/api/v1/staff-payroll")
                         || (path.starts_with("/api/v1/staff/") && path.contains("/payroll"))
                         || path.starts_with("/api/v1/production")
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 165);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 169);
         assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
         for status in ["200", "401", "403", "409", "422"] {
             assert!(

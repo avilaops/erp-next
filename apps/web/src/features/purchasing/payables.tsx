@@ -16,9 +16,9 @@ import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 
-type Account = Schema<"Payable"> & { staffId?: string | null }
-type Detail = Omit<Schema<"PayableSnapshot">, "data"> & { data: Account }
-type Listing = Schema<"PayableList">
+type Account = Schema<"UnifiedPayable">
+type Detail = Schema<"UnifiedPayableSnapshot">
+type Listing = Schema<"UnifiedPayableList">
 const situation = (account: Account) => account.status === "cancelled" ? "Cancelado" : account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
 
 export function Payables({ id }: { id?: string }) {
@@ -27,7 +27,7 @@ export function Payables({ id }: { id?: string }) {
 
 function PayableList() {
   const [offset, setOffset] = useState(0)
-  const result = useResource<Listing>(`/api/erp/payables?offset=${offset}&limit=25`)
+  const result = useResource<Listing>(`/api/erp/financial-payables?offset=${offset}&limit=25`)
   return <><PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Obrigações de compras e pagamentos aprovados de funcionários. O registro de pagamento é manual e não envia dinheiro nem confirma liquidação bancária." />
     <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
       {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
@@ -40,7 +40,7 @@ function PayableList() {
 }
 
 function PayableDetail({ id }: { id: string }) {
-  const result = useResource<Detail>(`/api/erp/payables/${id}`)
+  const result = useResource<Detail>(`/api/erp/financial-payables/${id}`)
   if (result.loading) return <><PageHeader eyebrow="Financeiro" title={"Conta a pagar"} description="Consulte a obrigação e os pagamentos declarados." /><p role="status">Carregando conta a pagar…</p></>
   if (result.error || !result.value) return <><PageHeader eyebrow="Financeiro" title={"Conta a pagar"} description="Consulte a obrigação e os pagamentos declarados." /><Link className={purchaseLink} href="/financeiro/contas-pagar">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={result.error || "Conta indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   return <PayableForm key={result.etag} value={result.value} etag={result.etag} reload={result.reload} />
@@ -75,7 +75,7 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
         const normalizedAmount = normalizeDecimal(amount)
         if (!reversing && normalizedAmount === null) return
         const body = reversing ? { paymentId, reason: reference, occurredOn } : { amount: normalizedAmount, method, reference, occurredOn }
-        const response = await command.send<Detail>(`/api/erp/payables/${value.data.id}/${reversing ? "reverse-payment" : "payments"}`, value.tenantId, body, etag)
+        const response = await command.send<Detail>(`/api/erp/financial-payables/${value.data.id}/${reversing ? "reverse-payment" : "payments"}`, value.tenantId, body, etag)
         if (response) { setReference(""); setOccurredOn(""); setAmount(""); setPaymentId(""); reload() }
       }}>
         <h3 className="font-semibold">{reversing ? "Estornar pagamento declarado" : "Registrar pagamento declarado"}</h3>

@@ -24,9 +24,10 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [
-    { title: "Configurações de cadastros", items: [unavailable("Configurações de clientes e fornecedores"), unavailable("Configurações de produtos")] },
+    { title: "Configurações de cadastros", items: [{ label: "Configurações de clientes e fornecedores", href: "/preferencias/cadastros/clientes-fornecedores" }, { label: "Configurações de produtos", href: "/preferencias/cadastros/produtos" }] },
     { title: "Tabelas e configurações adicionais", items: [
-      { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, unavailable("Gerenciar tipos de contatos"),
+      { label: "Perfis tributários", href: "/preferencias/cadastros/perfis-tributarios" },
+      { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Gerenciar tipos de contatos", href: "/preferencias/cadastros/tipos-contatos" },
     ] },
   ] },
   { id: "suprimentos", label: "Suprimentos", sections: [

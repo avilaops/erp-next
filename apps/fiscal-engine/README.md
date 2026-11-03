@@ -10,6 +10,16 @@ de conformidade foram portados do ERP Ávila Ops, commit
 antes da validação offline. Os testes usam certificados fictícios e transporte
 sintético; não comprovam autorização real pela SEFAZ.
 
+## Matriz NF-e por UF e ambiente
+
+`nfe-authorizers.ts` consulta a matriz oficial local fixada por SHA-256, com
+fontes separadas para produção e homologação. Distingue autorizadores próprios,
+SVAN/SVRS, consulta de cadastro, contingência e URLs publicadas com `?wsdl`.
+Serviço ausente não recebe fallback. Os quatro resolvers de transporte continuam
+limitados a SP e preservam suas URLs; listar outras UFs não habilita emissão.
+Contingência é somente metadado. Fonte, diferença entre os portais e pendências
+de homologação estão no [plano AVL-101](../../docs/superpowers/plans/2026-11-03-matriz-autorizadores-nfe.md).
+
 ## Execução
 
 ```sh

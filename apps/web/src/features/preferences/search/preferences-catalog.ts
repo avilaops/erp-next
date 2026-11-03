@@ -24,6 +24,12 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [
+    { title: "Cadastros disponíveis", items: [
+      { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores", description: "Consultar, cadastrar e editar clientes e fornecedores." },
+      { label: "Produtos", href: "/cadastros/produtos", description: "Consultar, cadastrar e editar produtos." },
+      { label: "Funcionários", href: "/cadastros/funcionarios", description: "Cadastrar e manter os funcionários da empresa." },
+      { label: "Vendedores", href: "/cadastros/vendedores", description: "Cadastrar e manter os vendedores da empresa." },
+    ] },
     { title: "Configurações de cadastros", items: [{ label: "Configurações de clientes e fornecedores", href: "/preferencias/cadastros/clientes-fornecedores" }, { label: "Configurações de produtos", href: "/preferencias/cadastros/produtos" }] },
     { title: "Tabelas e configurações adicionais", items: [
       { label: "Perfis tributários", href: "/preferencias/cadastros/perfis-tributarios" },

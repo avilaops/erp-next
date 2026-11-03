@@ -16,6 +16,16 @@ const roleNames = ["carrier", "sender", "dispatcher", "receiver", "recipient", "
 const takerRoles = ["sender", "dispatcher", "receiver", "recipient", "other"]
 const fail = () => new Error("A conferência não corresponde ao arquivo ou à empresa selecionada. Atualize os arquivos")
 
+export type CteAccess = { id: string; legalName: string; subject: string }
+export function parseCteAccess(value: unknown, expected?: Pick<CteAccess, "id" | "subject">): CteAccess {
+  if (!record(value) || !record(value.tenant) || typeof value.tenant.id !== "string" || !uuid.test(value.tenant.id) || typeof value.tenant.legalName !== "string"
+    || !record(value.identity) || typeof value.identity.subject !== "string" || !value.identity.subject.trim()) throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
+  if (!Array.isArray(value.permissions) || !value.permissions.includes("fiscal.cte.read")) throw new Error("Sem permissão atual para consultar CT-e. Atualize os arquivos")
+  if (expected && value.tenant.id !== expected.id) throw new Error("A empresa da sessão mudou. Atualize os arquivos antes de continuar")
+  if (expected && value.identity.subject !== expected.subject) throw new Error("O usuário da sessão mudou. Atualize os arquivos antes de continuar")
+  return { id: value.tenant.id, legalName: value.tenant.legalName, subject: value.identity.subject }
+}
+
 function party(value: unknown): value is Record<string, unknown> {
   return record(value) && (value.kind === "CNPJ" && typeof value.value === "string" && /^[0-9A-Z]{12}[0-9]{2}$/.test(value.value)
     || value.kind === "CPF" && typeof value.value === "string" && /^[0-9]{11}$/.test(value.value))
@@ -55,7 +65,7 @@ export function parseCteInspection(value: unknown, selected: Selected, tenantId:
   if (declaredRoles.length !== expectedRoles.length || declaredRoles.some((role, index) => role !== expectedRoles[index])) throw fail()
   const verification = data.verification, protocol = data.protocol
   if (!record(verification) || verification.layout !== "official_schema_valid" || verification.signature !== "consistent" || verification.certificateTrust !== "not_verified" || verification.currentStatus !== "not_queried" || verification.protocolAuthenticity !== "not_verified"
-    || !record(protocol) || typeof protocol.code !== "string" || !/^[0-9]{3}$/.test(protocol.code) || typeof protocol.number !== "string" || !/^[0-9]{15}$/.test(protocol.number)
+    || !record(protocol) || typeof protocol.code !== "string" || !/^[0-9]{3,4}$/.test(protocol.code) || typeof protocol.number !== "string" || !/^[0-9]{15}$/.test(protocol.number)
     || !iso(protocol.receivedAt) || typeof protocol.digest !== "string" || !/^[A-Za-z0-9+/]{27}=$/.test(protocol.digest)) throw fail()
   return value as CteInspectionView
 }

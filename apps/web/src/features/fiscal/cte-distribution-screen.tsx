@@ -8,11 +8,9 @@ import { cteCodeLabel, readCtePage, readCteRun, readCteXml, type CteDocument, ty
 import { saveDocument } from "./received-documents"
 import { readCteInspection } from "./cte-inspections"
 import { CteInspectionPanel } from "./cte-inspection-panel"
-import type { CteInspectionView } from "./cte-inspection-model"
+import { parseCteAccess, type CteAccess, type CteInspectionView } from "./cte-inspection-model"
 
 const kinds = { full: "CT-e completo", event: "Evento CT-e", unrecognized: "Arquivo não interpretado" }
-const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value)
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function CteDistributionScreen() {
   const [view, setView] = useState<CtePage | null>(null)
@@ -26,19 +24,28 @@ export function CteDistributionScreen() {
   const [selected, setSelected] = useState<CteDocument | null>(null)
   const [inspection, setInspection] = useState<CteInspectionView | null>(null)
   const operation = useRef<AbortController | null>(null)
+  const accessContext = useRef<CteAccess | null>(null)
   const command = useRef<{ tenantId: string; documentId: string; hash: string; key: string } | null>(null)
 
   const readCompany = useCallback(async (expected: string | null, signal: AbortSignal) => {
     const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]) })
     const access: unknown = await response.json().catch(() => null)
     signal.throwIfAborted()
-    if (!response.ok || !record(access) || !record(access.tenant) || typeof access.tenant.id !== "string" || !uuid.test(access.tenant.id) || typeof access.tenant.legalName !== "string") throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
-    const current = { id: access.tenant.id, legalName: access.tenant.legalName }
-    if (expected && current.id !== expected || command.current && command.current.tenantId !== current.id) {
+    let current: CteAccess
+    try {
+      if (!response.ok) throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
+      current = parseCteAccess(access, expected && accessContext.current ? { id: expected, subject: accessContext.current.subject } : undefined)
+      if (expected && !accessContext.current) throw new Error("A sessão precisa ser atualizada antes de continuar")
+    } catch (reason) {
+      command.current = null; accessContext.current = null
+      setView(null); setCompany(""); setSelected(null); setInspection(null)
+      throw reason
+    }
+    if (accessContext.current && (accessContext.current.id !== current.id || accessContext.current.subject !== current.subject) || command.current && command.current.tenantId !== current.id) {
       command.current = null
       setView(null); setCompany(""); setSelected(null); setInspection(null)
-      if (expected && current.id !== expected) throw new Error("A empresa da sessão mudou. Atualize os arquivos antes de continuar")
     }
+    accessContext.current = current
     return current
   }, [])
 
@@ -75,7 +82,7 @@ export function CteDistributionScreen() {
         await readCompany(tenantId, controller.signal)
         controller.signal.throwIfAborted()
         saveDocument(bytes, "application/xml", `CTE-${document.nsu}.xml`)
-        setNotice(`XML original do NSU ${document.nsu} preparado para download. Conferência individual pendente.`)
+        setNotice(`XML original do NSU ${document.nsu} preparado para download. Situação fiscal externa pendente.`)
       } else if (action === "run") {
         const result = await readCteRun(document, tenantId, controller.signal)
         await readCompany(tenantId, controller.signal)
@@ -120,7 +127,7 @@ export function CteDistributionScreen() {
         <p className="text-sm text-muted-foreground">{view.snapshot.running ? "Uma captura está em andamento." : view.snapshot.lastCode ? `Última captura: ${cteCodeLabel(view.snapshot.lastCode)}.` : "Nenhuma captura concluída."}</p>
         {!view.data.length && <p className="text-sm">{view.total ? "Nenhum arquivo nesta página. Volte aos arquivos anteriores." : "Nenhum arquivo CT-e coletado em homologação."}</p>}
         {view.data.map(document => <article key={document.id} aria-label={`NSU ${document.nsu}`} className="min-w-0 space-y-3 rounded-xl border p-4 text-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold">{kinds[document.kind]}</h3><p className="break-all text-muted-foreground">NSU {document.nsu}</p></div><span className="rounded-md bg-muted px-2 py-1 text-xs">Conferência individual pendente</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold">{kinds[document.kind]}</h3><p className="break-all text-muted-foreground">NSU {document.nsu}</p></div><span className="rounded-md bg-muted px-2 py-1 text-xs">Situação fiscal externa pendente</span></div>
           <dl className="grid gap-3 sm:grid-cols-2"><div className="min-w-0"><dt className="text-muted-foreground">CNPJ da coleta</dt><dd className="break-all">{document.companyTaxId}</dd></div><div className="min-w-0"><dt className="text-muted-foreground">Formato recebido</dt><dd className="break-all">{document.schema}</dd></div><div><dt className="text-muted-foreground">Coletado em</dt><dd>{new Date(document.createdAt).toLocaleString("pt-BR")}</dd></div></dl>
           <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "xml")}>{busy === `${document.id}-xml` ? "Preparando XML…" : "Baixar XML original"}</Button><Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "run")}>{busy === `${document.id}-run` ? "Consultando captura…" : "Consultar captura"}</Button>{document.kind === "full" && document.schema === "procCTe_v4.00.xsd" && <Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "inspection")}>{busy === `${document.id}-inspection` ? "Lendo conferência…" : "Ver conferência"}</Button>}</div>
           {selected?.id === document.id && inspection && <CteInspectionPanel view={inspection} busy={!!busy || loading} checking={busy === `${document.id}-check`} onInspect={() => void inspect(document, "check")} />}

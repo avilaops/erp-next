@@ -129,3 +129,16 @@ Os cinco testes locais de modelos web (três novos de CT-e) e os 17 testes
 de contratos/contexto passaram. Foram mapeados os dois BFFs para `/fiscal/ctes`;
 a arquitetura tem 337 rotas e nenhum erro. Vínculos comerciais explícitos
 e homologação externa permanecem pendentes no escopo integral.
+
+A revisão da UI reproduziu recusa indevida de `cStat` com quatro dígitos,
+permitido pelo `TStat` fixado, e identificou consumo de resposta antiga após
+troca de usuário ou revogação de leitura no mesmo tenant. A fronteira agora
+aceita três/quatro dígitos e revalida `identity.subject` e `fiscal.cte.read`
+antes/depois do I/O, descartando comando ao mudar de usuário. Sete testes
+locais de modelos passaram. Uma inspeção real do motor com protocolo `1000`
+também passou pelo parser da UI, sem elevar confiança do protocolo.
+Os textos de captura/download identificam a pendência externa separadamente.
+
+O job Clippy `126044593817` apontou `unused_must_use` no wrapper `Json` do
+payload vazio. O código agora consome explicitamente `Json(InspectCteInput {})`;
+a validação remota será repetida sem qualquer execução Rust local.

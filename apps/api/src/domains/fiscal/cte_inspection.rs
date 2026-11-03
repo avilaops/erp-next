@@ -187,7 +187,7 @@ pub async fn inspect(
     payload: Result<Json<InspectCteInput>, JsonRejection>,
 ) -> Result<Response, FiscalError> {
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, INSPECT, true).await?;
-    payload.map_err(|_| {
+    let Json(InspectCteInput {}) = payload.map_err(|_| {
         DomainError::Invalid(
             "Envie somente um objeto JSON vazio para conferir o arquivo preservado",
         )

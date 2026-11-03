@@ -25,6 +25,8 @@ let lostInspectionReply = false
 let holdInspection: "GET" | "POST" | null = null
 let releaseInspection: (() => void) | null = null
 let activeTenant = tenant
+let activeSubject = "cte-actor-a"
+let canRead = true
 function releaseHeldInspection() { const release = releaseInspection; releaseInspection = null; release?.() }
 
 const upstream = createServer((request, response) => {
@@ -65,10 +67,10 @@ test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(async ({ context, page }) => {
   releaseHeldInspection()
-  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; inspectionAllowed = true; inspectionCorrupt = false; lostInspectionReply = false; holdInspection = null; activeTenant = tenant; requests.length = 0
+  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; inspectionAllowed = true; inspectionCorrupt = false; lostInspectionReply = false; holdInspection = null; activeTenant = tenant; activeSubject = "cte-actor-a"; canRead = true; requests.length = 0
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, permissions: ["fiscal.cte.read", "fiscal.cte.inspect"] } }))
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, identity: { subject: activeSubject }, permissions: [...(canRead ? ["fiscal.cte.read"] : []), "fiscal.cte.inspect"] } }))
 })
 
 test("conferência CT-e BFF fixa empresa e protege a escrita local por sessão e origem", async ({ context }) => {
@@ -88,7 +90,7 @@ test("conferência CT-e BFF fixa empresa e protege a escrita local por sessão e
 
 test("central CT-e exibe conferência local e transportadora sem declarar validação externa", async ({ page }) => {
   await page.goto("/fiscal/ctes")
-  await expect(page.getByRole("button", { name: "Ver conferência" })).toBeVisible({ timeout: 1000 })
+  await expect(page.getByRole("button", { name: "Ver conferência" })).toBeVisible()
   await page.getByRole("button", { name: "Ver conferência" }).click()
   const panel = page.getByRole("region", { name: "Conferência local do CT-e" })
   await expect(panel.getByText("Nenhuma conferência local registrada.", { exact: true })).toBeVisible()
@@ -99,6 +101,10 @@ test("central CT-e exibe conferência local e transportadora sem declarar valida
   await expect(panel.getByText("Confiança do certificado, autenticidade do protocolo e situação fiscal atual não verificadas.", { exact: true })).toBeVisible()
   expect(requests.filter(request => request.method === "POST").map(request => request.url)).toEqual([`/api/v1/fiscal/cte-distribution/documents/${documentId}/inspect`])
   expect(requests.some(request => /\/query|\/manifest|\/issue/.test(request.url))).toBe(false)
+  await expect(page.getByText("Situação fiscal externa pendente", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Consultar captura" }).click()
+  await expect(page.getByRole("status").filter({ hasText: "A situação fiscal externa permanece pendente" })).toBeVisible()
+  await expect(page.getByText(/conferência individual.*pendente/i)).toHaveCount(0)
 })
 
 test("conferência CT-e respeita capacidade de leitura e recusa resposta de outro arquivo", async ({ page }) => {
@@ -133,6 +139,23 @@ test("conferência CT-e incerta preserva chave para repetição após atualizar 
   expect(writes[1].command).toBe(writes[0].command)
 })
 
+test("conferência CT-e não reaproveita comando incerto após trocar usuário no mesmo tenant", async ({ page }) => {
+  lostInspectionReply = true
+  await page.goto("/fiscal/ctes")
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await page.getByRole("button", { name: "Conferir XML" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Conferência não confirmada" })).toBeVisible()
+  activeSubject = "cte-actor-b"
+  lostInspectionReply = false
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await page.getByRole("button", { name: "Conferir XML" }).click()
+  await expect(page.getByRole("status").filter({ hasText: /^Conferência local registrada/ })).toBeVisible()
+  const writes = requests.filter(request => request.method === "POST")
+  expect(writes).toHaveLength(2)
+  expect(writes[1].command).not.toBe(writes[0].command)
+})
+
 for (const method of ["GET", "POST"] as const) test(`conferência CT-e descarta resposta ${method} tardia após mudança real de empresa`, async ({ page, context }) => {
   await page.goto("/fiscal/ctes")
   if (method === "POST") {
@@ -150,6 +173,28 @@ for (const method of ["GET", "POST"] as const) test(`conferência CT-e descarta 
     activeTenant = documentId
     releaseHeldInspection()
     await expect(page.getByRole("alert").filter({ hasText: /empresa.*mudou/i })).toBeVisible()
+    await expect(page.getByText("TRANSPORTADORA FICTICIA", { exact: true })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  } finally { releaseHeldInspection() }
+})
+
+for (const method of ["GET", "POST"] as const) for (const change of ["revoked", "actor"] as const) test(`conferência CT-e descarta ${method} pendente quando ${change} muda no mesmo tenant`, async ({ page }) => {
+  inspected = method === "GET"
+  await page.goto("/fiscal/ctes")
+  if (method === "POST") {
+    await page.getByRole("button", { name: "Ver conferência" }).click()
+    holdInspection = "POST"
+    await page.getByRole("button", { name: "Conferir XML" }).click()
+  } else {
+    holdInspection = "GET"
+    await page.getByRole("button", { name: "Ver conferência" }).click()
+  }
+  try {
+    await expect.poll(() => releaseInspection !== null).toBe(true)
+    if (change === "revoked") canRead = false
+    else activeSubject = "cte-actor-b"
+    releaseHeldInspection()
+    await expect(page.getByRole("alert").filter({ hasText: change === "revoked" ? "Sem permissão atual" : "O usuário da sessão mudou" })).toBeVisible()
     await expect(page.getByText("TRANSPORTADORA FICTICIA", { exact: true })).toHaveCount(0)
     await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
   } finally { releaseHeldInspection() }
@@ -192,7 +237,7 @@ test("central CT-e baixa XML íntegro e consulta captura sem transmitir à SEFAZ
   await page.goto("/fiscal/ctes")
   await expect(page.getByRole("heading", { name: "CT-e recebidos" })).toBeVisible()
   await expect(page.getByText("Empresa CT-e sintética", { exact: true })).toBeVisible()
-  await expect(page.getByText("Conferência individual pendente", { exact: true })).toBeVisible()
+  await expect(page.getByText("Situação fiscal externa pendente", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /Consultar SEFAZ|Capturar CT-e/ })).toHaveCount(0)
   const download = page.waitForEvent("download")
   await page.getByRole("button", { name: "Baixar XML original" }).click()

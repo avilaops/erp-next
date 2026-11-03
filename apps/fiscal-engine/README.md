@@ -73,6 +73,16 @@ com hashes e origem; não afirma aprovação pelo XSD original sem correção.
 Consulte [o contrato do perfil e limites](../../docs/superpowers/specs/2026-11-03-nfse-recebida.md).
 Esta etapa ainda não adiciona importação na API Rust, central ou captura ADN.
 
+O módulo privado `src/lib/fiscal/nfce-qr.ts` compõe os parâmetros de QR Code
+NFC-e 2/3 a partir de XML 65 já assinado, após XSD e conferência criptográfica
+com o certificado embutido. A versão é explícita; versão 2 exige CSC privado,
+e versão 3 offline exige a chave do mesmo certificado do XML. Valores e dia
+local são preservados. O retorno contém somente payload e metadados/hash,
+sem segredo ou XML. Não verifica confiança ICP-Brasil, credenciamento,
+autorização ou situação fiscal. Não há rota, URL de UF, imagem, DANFE ou
+emissão de NFC-e nesta etapa. Consulte
+[o contrato e os limites do QR Code](../../docs/superpowers/plans/2026-11-03-nfce-qr.md).
+
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 
 - CRT 1: CSOSN 102/103/300/400, PIS e COFINS sem alíquota (CST 04–09),

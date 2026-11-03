@@ -62,8 +62,10 @@ export function createFiscalXmlValidator(
       throw new FiscalXmlError("invalid", "XML fiscal recusado: tamanho máximo de 1 MiB; DTD, entidades e caracteres nulos não são permitidos. Nada foi transmitido.");
     }
     const body = xml.replace(/^\s*<\?xml\b[^?]*\?>\s*/, "").trim();
-    const root = /^<([A-Za-z][A-Za-z0-9]*)\b/.exec(body)?.[1];
-    if (root !== ROOTS[kind] || !/<Signature\b/.test(body)) throw new FiscalXmlError("invalid", "O XML fiscal não é o documento assinado esperado. Nada foi transmitido.");
+    const root = /^<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?([A-Za-z][A-Za-z0-9]*)\b/.exec(body)?.[1];
+    // A namespace prefix changes the spelling, not the XML-DSig element.
+    // The pinned XSD below still checks its namespace and document position.
+    if (root !== ROOTS[kind] || !/<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Signature\b/.test(body)) throw new FiscalXmlError("invalid", "O XML fiscal não é o documento assinado esperado. Nada foi transmitido.");
     // Each validation starts an isolated worker with a bounded WASM heap.
     if (active >= 4) throw new FiscalXmlError("unavailable", "A conferência local está ocupada. Aguarde alguns instantes e tente novamente. Nada foi transmitido.");
     active += 1;

@@ -103,6 +103,8 @@ jobs:
       - run: node --test tests/fiscal-tax-model.node.mjs
         working-directory: apps/web
       - run: pnpm --filter web build
+      - name: Reserve browser fixture ports outside ephemeral allocation
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
       - run: pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome

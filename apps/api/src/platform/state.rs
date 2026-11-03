@@ -4,6 +4,8 @@ use super::auth::AuthClient;
 
 #[derive(Clone)]
 pub struct AppState {
+    pub ibpt: std::sync::Arc<crate::domains::fiscal::ibpt::IbptCatalog>,
+    pub registry: Option<std::sync::Arc<crate::domains::registry_lookup::RegistryClient>>,
     pub subscriptions: Option<super::subscriptions::provider::MercadoPago>,
     pub auth: AuthClient,
     pub database: PgPool,
@@ -20,6 +22,8 @@ pub struct AppState {
 impl AppState {
     pub fn new(database: PgPool, auth: AuthClient) -> Self {
         Self {
+            ibpt: std::sync::Arc::new(crate::domains::fiscal::ibpt::IbptCatalog::default()),
+            registry: None,
             subscriptions: None,
             auth,
             database,
@@ -38,6 +42,19 @@ impl AppState {
         client: Option<super::subscriptions::provider::MercadoPago>,
     ) -> Self {
         self.subscriptions = client;
+        self
+    }
+
+    pub fn with_registry(
+        mut self,
+        client: crate::domains::registry_lookup::RegistryClient,
+    ) -> Self {
+        self.registry = Some(std::sync::Arc::new(client));
+        self
+    }
+
+    pub fn with_ibpt(mut self, catalog: crate::domains::fiscal::ibpt::IbptCatalog) -> Self {
+        self.ibpt = std::sync::Arc::new(catalog);
         self
     }
 

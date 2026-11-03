@@ -7,6 +7,9 @@ pub(crate) mod danfe_test_support;
 pub mod distribution;
 pub mod emission;
 pub mod engine_client;
+pub mod ibpt;
+#[cfg(test)]
+mod ibpt_tests;
 pub mod incoming;
 pub mod lojas;
 pub mod manifestation;
@@ -42,6 +45,10 @@ const BODY_LIMIT: usize = 1024 * 1024;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/v1/fiscal/ibpt/quote",
+            axum::routing::post(ibpt::quote),
+        )
         .merge(emission::routes())
         .merge(incoming::routes())
         .route("/api/v1/fiscal/monitor", get(monitor::status))

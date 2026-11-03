@@ -29,7 +29,7 @@ export async function forwardFiscal(request: Request, resource: string) {
   const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource)
   const valid = request.method === "GET"
     ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations", "/monitor"].includes(resource) || operationRead || document || draft || preparation || !!download
-    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync"].includes(resource) || operationWrite || manifestation)
+    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync", "/ibpt/quote"].includes(resource) || operationWrite || manifestation)
   if (!valid) return failure("Recurso fiscal inválido", 400)
   let body: Uint8Array<ArrayBuffer> | undefined
   try {

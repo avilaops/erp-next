@@ -16,6 +16,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
+        crate::domains::registry_lookup::lookup,
+        fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
         crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
@@ -345,7 +347,15 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 142);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 144);
+        assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
+        for status in ["200", "401", "403", "409", "422"] {
+            assert!(
+                doc["paths"]["/api/v1/registry-lookups"]["post"]["responses"]
+                    .get(status)
+                    .is_some()
+            );
+        }
         for resource in ["inventory-settings", "purchase-settings"] {
             let path = format!("/api/v1/{resource}");
             assert!(doc["paths"][&path]["get"].is_object());

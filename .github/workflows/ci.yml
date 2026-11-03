@@ -320,6 +320,11 @@ jobs:
         if: matrix.shard == 1
         env:
           ERP_BROWSER_CHANNEL: chrome
+      - name: Verify registry lookups and tenant isolation
+        if: matrix.shard == 2
+        run: timeout 90s pnpm --filter web exec playwright test --config playwright.registry.config.ts
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:

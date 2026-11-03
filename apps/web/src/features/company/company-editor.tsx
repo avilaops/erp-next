@@ -98,6 +98,6 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
       {problem.errors?.length ? <ul>{problem.errors.map((error, index) => <li key={`${error.field}-${index}`}>{error.field}: {error.message}</li>)}</ul> : null}
       {conflict && <Button variant="outline" onClick={() => { if (window.confirm("Recarregar os dados do servidor e descartar sua edição atual?")) reload() }}>Recarregar e descartar edição</Button>}
     </div>}
-    {partner ? <CompanyPartnerForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} /> : <CompanyDataForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} />}
+    {partner ? <CompanyPartnerForm key={`${snapshot.tenantId}-${snapshot.revision}`} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} /> : <CompanyDataForm key={`${snapshot.tenantId}-${snapshot.revision}`} tenantId={snapshot.tenantId} initial={snapshot.data} canEdit={snapshot.canEdit} saving={status === "saving"} conflict={conflict} onSave={save} />}
   </div>
 }

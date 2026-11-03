@@ -12,6 +12,7 @@ pub mod payables;
 pub mod production;
 pub mod purchasing;
 pub mod reference_data;
+pub mod registry_lookup;
 pub mod returns;
 pub mod sales;
 mod settlements;

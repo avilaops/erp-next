@@ -5,6 +5,13 @@
     "product": "erp",
     "flows": [
       {
+        "id": "proposals", "title": "Propostas comerciais",
+        "goal": "Criar, versionar e decidir propostas; converter aceite em pedido em rascunho uma única vez.",
+        "kind": "product", "actionGroups": ["proposals"], "dependencies": ["orders"],
+        "nextStep": "Publicar a revisão validada e conferir acesso com os papéis autorizados; catálogo não comprova produção.",
+        "additionalSources": ["docs/sales-proposals.md"]
+      },
+      {
         "id": "registry-lookups", "title": "Consultas cadastrais CEP, CNPJ e IE",
         "goal": "Consultar dados mínimos com origem, cache e confirmação explícita dos campos vazios.",
         "kind": "support", "actionGroups": ["registry-lookups"], "dependencies": ["me"],
@@ -976,6 +983,11 @@
   ],
   "dispatches": [
     {
+      "path": "/api/erp/proposals/[id]/[action]",
+      "method": "POST",
+      "actions": ["{action}", "revise", "convert"]
+    },
+    {
       "path": "/api/erp/company-account/[action]",
       "method": "POST",
       "actions": [
@@ -1175,6 +1187,707 @@
     }
   ],
   "actions": [
+    {
+      "id": "get-api-v1-proposals",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/proposals"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, status, offset e limit"
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Consulta não altera estado."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura consistente na transação da empresa."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar propostas"
+      },
+      "recovery": "Repetir leitura sem tratar indisponibilidade como lista vazia.",
+      "ui": {
+        "pages": [
+          "/vendas",
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/proposals"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposals.rs",
+          "type": "ProposalInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Edição somente em rascunho; alterar preço exige sales.proposals.negotiate.",
+        "Envio e aceite exigem validade inclusiva em America/Sao_Paulo. Rejeição e cancelamento exigem motivo.",
+        "Revisão permitida de enviada, aceita ou rejeitada. Conversão somente de aceita. Proposta convertida não admite novas decisões."
+      ],
+      "transition": {
+        "from": "Estado atual compatível com o comando; criação exige inexistência",
+        "to": "Rascunho, versão publicada ou decisão registrada conforme comando; conversão vincula pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Proposta, versão e linhas conforme comando; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Autorização e serialização por empresa; revisão atual e chave idempotente antes da mutação."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar rascunho"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo. Após 412, consultar revisão atual antes de reenviar.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/proposals"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-proposals-id",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/proposals/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": "version opcional, inteiro positivo"
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Consulta não altera estado."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura consistente na transação da empresa."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar versão"
+      },
+      "recovery": "Repetir leitura sem tratar indisponibilidade como lista vazia.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/proposals/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-proposals-id",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/proposals/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposals.rs",
+          "type": "ProposalInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Edição somente em rascunho; alterar preço exige sales.proposals.negotiate.",
+        "Envio e aceite exigem validade inclusiva em America/Sao_Paulo. Rejeição e cancelamento exigem motivo.",
+        "Revisão permitida de enviada, aceita ou rejeitada. Conversão somente de aceita. Proposta convertida não admite novas decisões."
+      ],
+      "transition": {
+        "from": "Estado atual compatível com o comando; criação exige inexistência",
+        "to": "Rascunho, versão publicada ou decisão registrada conforme comando; conversão vincula pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Proposta, versão e linhas conforme comando; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Autorização e serialização por empresa; revisão atual e chave idempotente antes da mutação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Editar rascunho"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo. Após 412, consultar revisão atual antes de reenviar.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/proposals/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals-id-action",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals/{id}/{action}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage para send/cancel; sales.proposals.decide para accept/reject"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id",
+          "action: send, accept, reject ou cancel"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposals.rs",
+          "type": "ProposalDecision"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Edição somente em rascunho; alterar preço exige sales.proposals.negotiate.",
+        "Envio e aceite exigem validade inclusiva em America/Sao_Paulo. Rejeição e cancelamento exigem motivo.",
+        "Revisão permitida de enviada, aceita ou rejeitada. Conversão somente de aceita. Proposta convertida não admite novas decisões.",
+        "action aceita somente send, accept, reject e cancel. Outros valores são recusados; revise e convert têm rotas próprias."
+      ],
+      "transition": {
+        "from": "Estado atual compatível com o comando; criação exige inexistência",
+        "to": "Rascunho, versão publicada ou decisão registrada conforme comando; conversão vincula pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Proposta, versão e linhas conforme comando; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Autorização e serialização por empresa; revisão atual e chave idempotente antes da mutação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Registrar envio, aceite, rejeição ou cancelamento"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo. Após 412, consultar revisão atual antes de reenviar.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/proposals/[id]/[action]",
+          "action": "{action}"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals-id-revise",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals/{id}/revise"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Edição somente em rascunho; alterar preço exige sales.proposals.negotiate.",
+        "Envio e aceite exigem validade inclusiva em America/Sao_Paulo. Rejeição e cancelamento exigem motivo.",
+        "Revisão permitida de enviada, aceita ou rejeitada. Conversão somente de aceita. Proposta convertida não admite novas decisões."
+      ],
+      "transition": {
+        "from": "Estado atual compatível com o comando; criação exige inexistência",
+        "to": "Rascunho, versão publicada ou decisão registrada conforme comando; conversão vincula pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Proposta, versão e linhas conforme comando; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Autorização e serialização por empresa; revisão atual e chave idempotente antes da mutação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar nova versão"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo. Após 412, consultar revisão atual antes de reenviar.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/proposals/[id]/[action]",
+          "action": "revise"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals-id-convert",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals/{id}/convert"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage",
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposals.rs",
+          "type": "ProposalConversion"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, RLS forçado e referências pertencentes à empresa.",
+        "Edição somente em rascunho; alterar preço exige sales.proposals.negotiate.",
+        "Envio e aceite exigem validade inclusiva em America/Sao_Paulo. Rejeição e cancelamento exigem motivo.",
+        "Revisão permitida de enviada, aceita ou rejeitada. Conversão somente de aceita. Proposta convertida não admite novas decisões."
+      ],
+      "transition": {
+        "from": "Estado atual compatível com o comando; criação exige inexistência",
+        "to": "Rascunho, versão publicada ou decisão registrada conforme comando; conversão vincula pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Proposta, versão e linhas conforme comando; auditoria, outbox e comando idempotente na mesma transação.",
+          "Pedido e linhas em rascunho, preservando preços e acabamentos acordados."
+        ],
+        "external": [],
+        "excludes": [
+          "Envio externo de mensagens, assinatura digital, reserva de estoque, faturamento e cobrança."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Autorização e serialização por empresa; revisão atual e chave idempotente antes da mutação."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Gerar pedido em rascunho"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo. Após 412, consultar revisão atual antes de reenviar.",
+      "ui": {
+        "pages": [
+          "/vendas/propostas",
+          "/vendas/propostas/novo",
+          "/vendas/propostas/[id]",
+          "/vendas/propostas/[id]/editar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/proposals/[id]/[action]",
+          "action": "convert"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs",
+        "apps/web/src/features/sales/proposals.tsx",
+        "docs/sales-proposals.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "post-registry-lookups", "flow": "registry-lookups", "status": "implemented",
       "operation": {"method": "POST", "path": "/api/v1/registry-lookups"},
@@ -21483,31 +22196,6 @@
       ],
       "openDecisions": [
         "Sugestão não cria compra automaticamente; fórmula, estoque mínimo e reservas precisam de definição"
-      ],
-      "requiredFields": [
-        "actor",
-        "permissions",
-        "input",
-        "preconditions",
-        "transition",
-        "effects",
-        "response",
-        "recovery",
-        "acceptanceCriteria"
-      ],
-      "planningReference": "e4309570-83db-466e-8fd0-fee69f1567a3"
-    },
-    {
-      "id": "pending-10",
-      "title": "Propostas",
-      "status": "needs_definition",
-      "intent": "Criar/editar, enviar, aceitar/rejeitar/expirar, converter em pedido",
-      "proposedEndpoints": [
-        "/api/v1/quotes",
-        "/{id}"
-      ],
-      "openDecisions": [
-        "Conversão idempotente; explicitar preços/vigência; proposta não reserva estoque por si"
       ],
       "requiredFields": [
         "actor",

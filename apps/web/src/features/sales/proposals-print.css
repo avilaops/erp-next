@@ -1,0 +1,28 @@
+@media print {
+  body:has([data-proposal-document]) {
+    background: white;
+    color: black;
+  }
+
+  body:has([data-proposal-document]) header.sticky,
+  body:has([data-proposal-document]) .mobile-nav-bar,
+  body:has([data-proposal-document]) .skip-link {
+    display: none !important;
+  }
+
+  [data-proposal-document] {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    color: black;
+    background: white;
+  }
+
+  [data-proposal-document] tr {
+    break-inside: avoid;
+  }
+
+  [data-proposal-document] thead {
+    display: table-header-group;
+  }
+}

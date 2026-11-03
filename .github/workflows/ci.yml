@@ -342,6 +342,11 @@ jobs:
         run: timeout 90s pnpm --filter web exec playwright test --config playwright.registry.config.ts
         env:
           ERP_BROWSER_CHANNEL: chrome
+      - name: Verify proposal forms and command recovery
+        if: matrix.shard == 2
+        run: timeout 90s pnpm --filter web exec playwright test --config playwright.proposals.config.ts
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:

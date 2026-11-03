@@ -6,13 +6,11 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  BadgeCheck,
   CheckCircle2,
   CircleX,
   Clock3,
   Download,
   Pencil,
-  Plus,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -80,44 +78,6 @@ export function SalesOrderDetail({ id }: { id: string }) {
 
 export function SalesOrderEdit({ id }: { id: string }) {
   return <RecordForm kind="Pedido" id={id} back={`/vendas/pedidos/${id}`} fields={["Cliente", "Vendedor", "Forma de pagamento", "Data prevista"]} />;
-}
-
-export function ProposalForm({ id }: { id?: string }) {
-  const [version, setVersion] = useState(id ? 3 : 1);
-  const [saved, setSaved] = useState(false);
-  return (
-    <SalesShell back={id ? `/vendas/propostas/${id}` : "/vendas/propostas"} eyebrow="Vendas / Propostas" title={id ? `Editar ${id.toUpperCase()}` : "Nova proposta"} description="Crie uma versão comercial local para validar conteúdo, valores e validade.">
-      <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); setSaved(true); }}>
-        <Card title="Dados comerciais">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Cliente"><Input defaultValue="Arena Performance" required /></Field>
-            <Field label="Validade"><Input defaultValue="2026-11-04" type="date" required /></Field>
-            <Field label="Versão"><Input readOnly value={version} /></Field>
-            <Field label="Condição"><select defaultValue="30% entrada + 2 parcelas"><option>30% entrada + 2 parcelas</option><option>À vista</option></select></Field>
-          </div>
-        </Card>
-        <Card title="Proposta"><Item name="Linha completa de musculação" detail="Entrega e montagem inclusas" value="R$ 42.900,00" /></Card>
-        {saved && <Status>Versão {version} salva somente nesta sessão.</Status>}
-        <div className="flex flex-wrap justify-end gap-2">
-          {id && <Button type="button" variant="outline" onClick={() => { setVersion((value) => value + 1); setSaved(false); }}><Plus /> Criar nova versão</Button>}
-          <Button type="submit"><Save /> Salvar versão local</Button>
-        </div>
-      </form>
-    </SalesShell>
-  );
-}
-
-export function ProposalDetail({ id }: { id: string }) {
-  const [status, setStatus] = useState("Enviada");
-  const [notice, setNotice] = useState<Notice>(null);
-  const code = id.toUpperCase();
-  return (
-    <SalesShell back="/vendas/propostas" eyebrow="Vendas / Propostas" title={code} description="Versões, aprovação e condições da proposta comercial." actions={<><Button variant="outline" onClick={() => { setStatus("Rejeitada"); setNotice({ tone: "warning", text: "Proposta rejeitada somente nesta demonstração." }); }}><CircleX /> Rejeitar</Button><Button onClick={() => { setStatus("Aceita"); setNotice({ tone: "success", text: "Proposta aceita somente nesta demonstração." }); }}><BadgeCheck /> Aprovar</Button><ActionLink href={`/vendas/propostas/${id}/editar`}><Pencil /> Editar</ActionLink></>}>
-      <NoticeBox notice={notice} />
-      <div className="mt-6 grid gap-5 lg:grid-cols-2"><Card title="Resumo"><Facts values={[["Cliente", "Arena Performance"], ["Versão atual", "3"], ["Validade", "04/11/2026"], ["Situação", status], ["Total", "R$ 42.900,00"]]} /></Card><Card title="Versões"><Timeline entries={["Versão 1 · escopo inicial", "Versão 2 · frete revisado", "Versão 3 · montagem inclusa"]} /></Card></div>
-      <LocalOnly />
-    </SalesShell>
-  );
 }
 
 export function AdForm({ id }: { id?: string }) {

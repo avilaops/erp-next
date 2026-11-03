@@ -29,7 +29,7 @@ produção, emissão NF-e em homologação e entrada fiscal. Uma sequência decl
 documenta os comandos e suas dependências; continua sem comprovar execução ou
 publicação. Os demais grupos mantêm `actions_mapped`.
 
-O catálogo cobre 168 operações API, incluindo `GET /openapi.json`, e 144 métodos
+O catálogo cobre 222 operações API, incluindo `GET /openapi.json`, e 195 métodos
 de handlers BFF. Despachos `[action]` e `[...resource]` enumeram destinos
 explícitos, ligados a uma ficha API; um destino sem ficha ou que aponte para
 outra operação impede a verificação. A emissão é implementada somente para
@@ -42,6 +42,7 @@ mercadoria nem cria conta a pagar.
 pnpm context:erp
 pnpm context:erp --flow users
 pnpm context:erp --flow products
+pnpm context:erp --flow proposals
 pnpm context:erp --flow purchase_payment_chain
 pnpm context:erp:mcp
 ```

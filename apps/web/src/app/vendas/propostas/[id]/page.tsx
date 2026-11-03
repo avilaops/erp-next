@@ -1,9 +1,8 @@
 import { Suspense } from "react"
-import { ProposalDetail } from "@/features/sales/sales-details";
+import { ProposalsAccess } from "@/features/sales/proposals-access";
 
-export function generateStaticParams() { return [{ id: "pc-382" }]; }
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
-  return <ProposalDetail id={(await params).id} />;
+  return <ProposalsAccess id={(await params).id} />;
 }
 
 export const metadata = { title: "Detalhes de proposta" }

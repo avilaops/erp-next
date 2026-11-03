@@ -17,6 +17,8 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+mod proposal_rules;
+pub mod proposals;
 pub mod settings;
 
 #[derive(Deserialize, Serialize, ToSchema)]

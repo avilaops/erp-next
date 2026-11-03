@@ -17,13 +17,16 @@ const takerRoles = ["sender", "dispatcher", "receiver", "recipient", "other"]
 const fail = () => new Error("A conferência não corresponde ao arquivo ou à empresa selecionada. Atualize os arquivos")
 
 export type CteAccess = { id: string; legalName: string; subject: string; permissions: readonly string[] }
-export function parseCteAccess(value: unknown, expected?: Pick<CteAccess, "id" | "subject">): CteAccess {
+export function parseCteAccess(value: unknown, expected?: Pick<CteAccess, "id" | "subject"> & Partial<Pick<CteAccess, "permissions">>): CteAccess {
   if (!record(value) || !record(value.tenant) || typeof value.tenant.id !== "string" || !uuid.test(value.tenant.id) || typeof value.tenant.legalName !== "string"
     || !record(value.identity) || typeof value.identity.subject !== "string" || !value.identity.subject.trim()) throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
   if (!Array.isArray(value.permissions) || !value.permissions.every(p => typeof p === "string") || !value.permissions.includes("fiscal.cte.read")) throw new Error("Sem permissão atual para consultar CT-e. Atualize os arquivos")
+  const permissions = value.permissions
   if (expected && value.tenant.id !== expected.id) throw new Error("A empresa da sessão mudou. Atualize os arquivos antes de continuar")
   if (expected && value.identity.subject !== expected.subject) throw new Error("O usuário da sessão mudou. Atualize os arquivos antes de continuar")
-  return { id: value.tenant.id, legalName: value.tenant.legalName, subject: value.identity.subject, permissions: [...value.permissions] }
+  const relevant = ["fiscal.cte.read", "fiscal.cte.inspect", "fiscal.cte.link", "catalog.parties.read", "purchasing.orders.read", "sales.orders.read"]
+  if (expected?.permissions?.some(p => relevant.includes(p) && !permissions.includes(p))) throw new Error("O acesso atual da sessão mudou. Atualize os arquivos antes de continuar")
+  return { id: value.tenant.id, legalName: value.tenant.legalName, subject: value.identity.subject, permissions: [...permissions] }
 }
 
 function party(value: unknown): value is Record<string, unknown> {

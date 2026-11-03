@@ -30,8 +30,8 @@ test('every canonical action has one product owner and declared journeys are exp
   assert.equal(cte.actionIds.length, 11);
   assert.equal(cte.assessment.interface.state, 'partially_mapped');
   assert.deepEqual(cte.pages, ['/fiscal/ctes']);
-  assert.equal(cte.assessment.interface.mappedActionIds.length, 6);
-  assert.deepEqual(cte.assessment.interface.unmappedActionIds, ['get-api-v1-fiscal-cte-commercial-links', 'get-api-v1-fiscal-cte-commercial-options', 'post-api-v1-fiscal-cte-commercial-links', 'post-api-v1-fiscal-cte-commercial-unlink', 'post-api-v1-fiscal-cte-distribution-query']);
+  assert.equal(cte.assessment.interface.mappedActionIds.length, 10);
+  assert.deepEqual(cte.assessment.interface.unmappedActionIds, ['post-api-v1-fiscal-cte-distribution-query']);
   const nfse = context.flows.find(flow => flow.definition.id === 'fiscal-nfse-received');
   assert.equal(nfse.actionIds.length, 4);
   assert.equal(nfse.assessment.interface.state, 'not_mapped');

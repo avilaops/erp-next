@@ -88,3 +88,17 @@ A fixture adicional de transportadora própria passou na inspeção real Node;
 a suíte completa do motor aprovou 87 testes. Casos adicionais de transportadora
 própria, limite de vínculos ativos e revogação de leitura comercial serão
 executados no próximo Actions. Nenhuma ferramenta Rust foi executada localmente.
+
+No commit `ba91b47`, o job `126067549260` confirmou o caso RED de revogação:
+254 testes aprovados e uma falha, porque a resposta ainda não ocultava dados
+do pedido. Os casos de transportadora própria e limite ativo passaram.
+Após a correção, `a9c0d6e` aprovou 255 testes API + sete auxiliares no job
+`126071629823`; um Ollama ignorado. Build web e OpenAPI compatível passaram.
+
+O job de navegador `126073730097` confirmou HTTP 404 onde o BFF deveria
+retornar 200. A jornada seguinte aguardou `Ver vínculos comerciais` até o
+limite externo de 60 s encerrar o processo; os demais casos do monitor não
+foram executados nessa rodada. O erro e a espera constam no artefato
+`13252139300`. Foram então implementados handlers, fronteira e painel.
+Os 12 testes locais de modelos e 17 de catálogo/contexto passaram; arquitetura
+atual: 340 rotas, sem erros. UI/BFF ainda dependem da execução remota completa.

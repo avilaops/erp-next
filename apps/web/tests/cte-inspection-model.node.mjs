@@ -14,6 +14,7 @@ test("CT-e current access rejects revoked read permission and a different actor 
   const expected = { id: tenant, subject: "actor-a" };
   assert.equal(model.parseCteAccess(current, expected).subject, "actor-a");
   assert.deepEqual(model.parseCteAccess(current, expected).permissions, ["fiscal.cte.read"]);
+  assert.throws(() => model.parseCteAccess(current, { ...expected, permissions: ["fiscal.cte.read", "sales.orders.read"] }));
   for (const change of [
     value => { value.permissions = []; },
     value => { value.permissions = ["fiscal.cte.inspect"]; },

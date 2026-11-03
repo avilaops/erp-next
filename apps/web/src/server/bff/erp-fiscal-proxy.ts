@@ -27,11 +27,13 @@ export async function forwardFiscal(request: Request, resource: string) {
   const preparation = /^\/order-preparations\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const cteRead = ["/cte-distribution/status", "/cte-distribution/documents"].includes(resource) || /^\/cte-distribution\/(?:documents|runs)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource) || /^\/cte-distribution\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/inspection$/i.test(resource)
   const cteInspect = /^\/cte-distribution\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/inspect$/i.test(resource)
+  const cteCommercialRead = /^\/cte-distribution\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:commercial-links|commercial-options)$/i.test(resource)
+  const cteCommercialWrite = /^\/cte-distribution\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/commercial-links(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/unlink)?$/i.test(resource)
   const operationRead = /^\/nfe\/[a-f0-9-]{36}\/(?:emission|events)$|^\/distribution\/(?:status|documents(?:\/[0-9]{15})?)$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/manifestations\/[a-f0-9-]{36}$/i.test(resource)
   const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource) || cteInspect
   const valid = request.method === "GET"
-    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations", "/monitor"].includes(resource) || operationRead || document || draft || preparation || cteRead || !!download
-    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync"].includes(resource) || operationWrite || manifestation)
+    ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations", "/monitor"].includes(resource) || operationRead || document || draft || preparation || cteRead || cteCommercialRead || !!download
+    : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync"].includes(resource) || operationWrite || cteCommercialWrite || manifestation)
   if (!valid) return failure("Recurso fiscal inválido", 400)
   let body: Uint8Array<ArrayBuffer> | undefined
   try {
@@ -40,11 +42,11 @@ export async function forwardFiscal(request: Request, resource: string) {
     if (!session) return failure("Entre para acessar o fiscal da empresa", 401)
     const write = request.method !== "GET"
     if (write && request.headers.get("origin") !== config.origin) return failure("Origem não autorizada", 403)
-    if ((write || download || cteRead) && request.headers.get("x-tenant-id") !== session.tenantId) return failure("A empresa da sessão mudou. Recarregue os documentos antes de continuar", 409)
+    if ((write || download || cteRead || cteCommercialRead) && request.headers.get("x-tenant-id") !== session.tenantId) return failure("A empresa da sessão mudou. Recarregue os documentos antes de continuar", 409)
     const upstream = new URL(`${config.api}/api/v1/fiscal${resource}`)
     const query = new URL(request.url).searchParams
     for (const [key, value] of query) {
-      const allowed = resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : ["/distribution/documents", "/cte-distribution/documents", "/monitor"].includes(resource) ? ["offset", "limit"] : []
+      const allowed = cteCommercialRead && resource.endsWith("/commercial-options") ? ["kind", "offset", "limit"] : resource === "/received-nfes" ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : ["/distribution/documents", "/cte-distribution/documents", "/monitor"].includes(resource) ? ["offset", "limit"] : []
       if (!allowed.includes(key) || query.getAll(key).length !== 1) return failure("Filtro fiscal inválido", 400)
       upstream.searchParams.set(key, value)
     }

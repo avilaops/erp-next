@@ -8,6 +8,7 @@ import { cteCodeLabel, readCtePage, readCteRun, readCteXml, type CteDocument, ty
 import { saveDocument } from "./received-documents"
 import { readCteInspection } from "./cte-inspections"
 import { CteInspectionPanel } from "./cte-inspection-panel"
+import { CteLinksPanel } from "./cte-links-panel"
 import { parseCteAccess, type CteAccess, type CteInspectionView } from "./cte-inspection-model"
 
 const kinds = { full: "CT-e completo", event: "Evento CT-e", unrecognized: "Arquivo não interpretado" }
@@ -26,6 +27,7 @@ export function CteDistributionScreen() {
   const operation = useRef<AbortController | null>(null)
   const accessContext = useRef<CteAccess | null>(null)
   const command = useRef<{ tenantId: string; documentId: string; hash: string; key: string } | null>(null)
+  const commercialBusy = useCallback((value: boolean) => setBusy(value ? "commercial" : ""), [])
 
   const readCompany = useCallback(async (expected: string | null, signal: AbortSignal) => {
     const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]) })
@@ -34,7 +36,7 @@ export function CteDistributionScreen() {
     let current: CteAccess
     try {
       if (!response.ok) throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
-      current = parseCteAccess(access, expected && accessContext.current ? { id: expected, subject: accessContext.current.subject } : undefined)
+      current = parseCteAccess(access, expected && accessContext.current ? { id: expected, subject: accessContext.current.subject, permissions: accessContext.current.permissions } : undefined)
       if (expected && !accessContext.current) throw new Error("A sessão precisa ser atualizada antes de continuar")
     } catch (reason) {
       command.current = null; accessContext.current = null
@@ -48,6 +50,12 @@ export function CteDistributionScreen() {
     accessContext.current = current
     return current
   }, [])
+
+  const verifyCommercialAccess = useCallback(async (signal: AbortSignal) => {
+    if (!view) throw new Error("Atualize os arquivos antes de consultar vínculos")
+    try { return await readCompany(view.snapshot.tenantId, signal) }
+    catch (error) { if (!signal.aborted) setError(error instanceof Error ? error.message : "Não foi possível confirmar o acesso aos vínculos"); throw error }
+  }, [readCompany, view])
 
   useEffect(() => () => operation.current?.abort(), [])
   useEffect(() => {
@@ -131,6 +139,7 @@ export function CteDistributionScreen() {
           <dl className="grid gap-3 sm:grid-cols-2"><div className="min-w-0"><dt className="text-muted-foreground">CNPJ da coleta</dt><dd className="break-all">{document.companyTaxId}</dd></div><div className="min-w-0"><dt className="text-muted-foreground">Formato recebido</dt><dd className="break-all">{document.schema}</dd></div><div><dt className="text-muted-foreground">Coletado em</dt><dd>{new Date(document.createdAt).toLocaleString("pt-BR")}</dd></div></dl>
           <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "xml")}>{busy === `${document.id}-xml` ? "Preparando XML…" : "Baixar XML original"}</Button><Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "run")}>{busy === `${document.id}-run` ? "Consultando captura…" : "Consultar captura"}</Button>{document.kind === "full" && document.schema === "procCTe_v4.00.xsd" && <Button variant="outline" disabled={!!busy || loading} onClick={() => void inspect(document, "inspection")}>{busy === `${document.id}-inspection` ? "Lendo conferência…" : "Ver conferência"}</Button>}</div>
           {selected?.id === document.id && inspection && <CteInspectionPanel view={inspection} busy={!!busy || loading} checking={busy === `${document.id}-check`} onInspect={() => void inspect(document, "check")} />}
+          {selected?.id === document.id && inspection?.data && <CteLinksPanel inspected={inspection} verifyAccess={verifyCommercialAccess} disabled={loading || !!busy && busy !== "commercial"} onBusy={commercialBusy} />}
         </article>)}
         {(view.total > 25 || offset > 0) && <nav aria-label="Páginas de arquivos CT-e" className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading || !!busy || !offset} onClick={() => reload(Math.max(0, offset - 25))}>Arquivos anteriores</Button><span className="text-sm">{view.data.length ? `${offset + 1}–${offset + view.data.length} de ${view.total}` : `0 de ${view.total}`}</span><Button variant="outline" disabled={loading || !!busy || offset + 25 >= view.total} onClick={() => reload(offset + 25)}>Próximos arquivos</Button></nav>}
       </>}

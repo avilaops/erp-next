@@ -1083,9 +1083,14 @@
       },
       "recovery": "Atualizar leitura na empresa correta e respeitar a permissão do domínio comercial.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF de vínculos em implementação; catálogo não comprova execução ou homologação externa."
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
       },
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1107,7 +1112,14 @@
         "migrations/202611030004_cte_commercial_links.sql",
         "deploy/grant-cte-links.sql",
         "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
-        "docs/superpowers/plans/2026-11-03-vinculos-cte.md"
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
       ]
     },
     {
@@ -1177,9 +1189,14 @@
       },
       "recovery": "Atualizar leitura na empresa correta e respeitar a permissão do domínio comercial.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF de vínculos em implementação; catálogo não comprova execução ou homologação externa."
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-options"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
       },
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1201,7 +1218,14 @@
         "migrations/202611030004_cte_commercial_links.sql",
         "deploy/grant-cte-links.sql",
         "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
-        "docs/superpowers/plans/2026-11-03-vinculos-cte.md"
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-options/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
       ]
     },
     {
@@ -1282,9 +1306,14 @@
       },
       "recovery": "Resultado incerto: repetir mesma chave, payload e revisão; conflito: reler e reconferir sem apagar histórico.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF de vínculos em implementação; catálogo não comprova execução ou homologação externa."
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
       },
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1306,7 +1335,14 @@
         "migrations/202611030004_cte_commercial_links.sql",
         "deploy/grant-cte-links.sql",
         "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
-        "docs/superpowers/plans/2026-11-03-vinculos-cte.md"
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
       ]
     },
     {
@@ -1387,9 +1423,14 @@
       },
       "recovery": "Resultado incerto: repetir mesma chave, payload e revisão; conflito: reler e reconferir sem apagar histórico.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF de vínculos em implementação; catálogo não comprova execução ou homologação externa."
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/[linkId]/unlink"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
       },
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1411,7 +1452,14 @@
         "migrations/202611030004_cte_commercial_links.sql",
         "deploy/grant-cte-links.sql",
         "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
-        "docs/superpowers/plans/2026-11-03-vinculos-cte.md"
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/[linkId]/unlink/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
       ]
     },
     {

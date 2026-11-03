@@ -348,13 +348,14 @@ async fn cte_links_unlink_releases_budget_without_erasing_history_and_forces_rls
     let (router, pool, auth, role) = setup(&admin).await;
     let f = fixture(&admin).await;
     let path = format!("{BASE}/{}/commercial-links", f.doc);
+    let link_command = Uuid::now_v7();
     let created = call(
         &router,
         "POST",
         &path,
         TENANT,
         Some(1),
-        Some(Uuid::now_v7()),
+        Some(link_command),
         input(&f, "purchase", "15001"),
     )
     .await;
@@ -377,6 +378,19 @@ async fn cte_links_unlink_releases_budget_without_erasing_history_and_forces_rls
     assert_eq!(removed.2["revision"], 3);
     assert_eq!(removed.2["allocatedCents"], "0");
     assert_eq!(removed.2["data"], json!([]));
+    let historical = call(
+        &router,
+        "POST",
+        &path,
+        TENANT,
+        Some(1),
+        Some(link_command),
+        input(&f, "purchase", "15001"),
+    )
+    .await;
+    assert_eq!(historical.0, StatusCode::OK);
+    assert_eq!(historical.2["data"], json!([]));
+    assert_eq!(historical.2["revision"], 3);
     assert_eq!(
         call(
             &router,
@@ -439,6 +453,12 @@ async fn cte_links_unlink_releases_budget_without_erasing_history_and_forces_rls
     ] {
         assert!(
             sqlx::query(&format!("DELETE FROM {table}"))
+                .execute(&admin)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query(&format!("UPDATE {table} SET reason='histórico adulterado'"))
                 .execute(&admin)
                 .await
                 .is_err()

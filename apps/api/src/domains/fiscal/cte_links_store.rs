@@ -187,12 +187,20 @@ pub(super) async fn view(
             id: row.id,
             kind,
             order_id: (!restricted).then_some(order_id),
-            carrier_party_id: if rights.parties { row.carrier_party_id } else { None },
+            carrier_party_id: if rights.parties {
+                row.carrier_party_id
+            } else {
+                None
+            },
             carrier_tax_id: row.carrier_tax_id,
             carrier_name: if rights.parties {
                 row.carrier_name
             } else {
-                source.facts.carrier_name.clone().unwrap_or_else(|| "Transportadora do XML".to_owned())
+                source
+                    .facts
+                    .carrier_name
+                    .clone()
+                    .unwrap_or_else(|| "Transportadora do XML".to_owned())
             },
             counterparty_name: (!restricted).then_some(row.counterparty_name),
             order_amount_cents: (!restricted).then(|| row.order_amount_cents.to_string()),

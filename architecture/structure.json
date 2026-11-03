@@ -42,8 +42,8 @@
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 340,
-    "sha256": "19ff35f0c2053d5c2eb06a3f0c901e40c91d3bb87de34982b59bae50987b378f"
+    "count": 345,
+    "sha256": "9fe6922f38049adcdbc9cfb5c01af7019f9a530167989ca8e31f10d1cfe7a7f7"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

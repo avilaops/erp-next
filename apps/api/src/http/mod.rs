@@ -61,6 +61,8 @@ mod reconciliation_tests;
 #[cfg(test)]
 mod reference_tests;
 #[cfg(test)]
+mod registration_settings_tests;
+#[cfg(test)]
 mod returns_tests;
 #[cfg(test)]
 mod sales_settings_tests;
@@ -94,6 +96,11 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/registration-settings/{section}",
+            get(crate::domains::registration_settings::get)
+                .put(crate::domains::registration_settings::put),
+        )
         .route(
             "/api/v1/inventory-settings",
             get(crate::domains::supply_settings::get_inventory)

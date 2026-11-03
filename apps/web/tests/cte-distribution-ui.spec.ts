@@ -176,11 +176,12 @@ test.beforeEach(async ({ context, page }) => {
 test("vínculos CT-e BFF fixa empresa e encaminha revisão, chave e payload da conferência", async ({ context }) => {
   const base = `/api/erp/fiscal/cte-distribution/documents/${documentId}`
   const headers = { "X-Tenant-Id": tenant, Origin: origin, "If-Match": '"1"', "Idempotency-Key": "88888888-8888-4888-8888-888888888888", "X-Actor-Subject": "Y3RlLWFjdG9yLWE" }
-  expect((await context.request.get(`${base}/commercial-links`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${base}/commercial-links`, { headers: { "X-Tenant-Id": tenant } })).status()).toBe(200)
   expect((await context.request.get(`${base}/commercial-links`)).status()).toBe(409)
   expect((await context.request.get(`${base}/commercial-options?kind=purchase&offset=0&limit=25`, { headers })).status()).toBe(200)
   expect((await context.request.get(`${base}/commercial-options?kind=purchase&environment=production`, { headers })).status()).toBe(400)
   const data = { kind: "purchase", orderId, carrierPartyId: carrierId, freightCents: "15001", reason: "Conferência explícita do pedido" }
+  expect((await context.request.post(`${base}/commercial-links`, { headers: { "X-Tenant-Id": tenant, Origin: origin, "If-Match": '"1"', "Idempotency-Key": headers["Idempotency-Key"] }, data })).status()).toBe(409)
   expect((await context.request.post(`${base}/commercial-links`, { headers: { ...headers, Origin: "https://outside.example" }, data })).status()).toBe(403)
   expect((await context.request.post(`${base}/commercial-links`, { headers, data })).status()).toBe(201)
   expect((await context.request.post(`${base}/commercial-links/${commercialLinkId}/unlink`, { headers: { ...headers, "If-Match": '"2"', "Idempotency-Key": "99999999-9999-4999-8999-999999999999" }, data: { reason: "Corrigir a associação" } })).status()).toBe(200)

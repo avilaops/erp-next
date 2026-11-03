@@ -32,7 +32,7 @@
 
 **Files:**
 - Create: `apps/api/src/domains/fiscal/cte_links.rs`, `cte_links_model.rs`, `cte_links_store.rs`.
-- Create: `migrations/202611030004_cte_commercial_links.sql`, `deploy/grant-cte-links.sql`.
+- Create: `migrations/202611030007_cte_commercial_links.sql`, `deploy/grant-cte-links.sql`.
 - Modify: fiscal routes/OpenAPI/onboarding, produção-migrate preparada e catálogo de contratos.
 - Test: `apps/api/src/http/cte_links_tests.rs` (primeiro caso RED no módulo de inspeção existente).
 

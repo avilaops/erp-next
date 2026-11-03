@@ -51,7 +51,7 @@ export async function forwardFiscal(request: Request, resource: string) {
       upstream.searchParams.set(key, value)
     }
     const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": session.tenantId, Accept: download ? "application/pdf, application/xml, application/problem+json" : "application/json" })
-    if (cteCommercialWrite) {
+    if (write && cteCommercialWrite) {
       const actor = request.headers.get("x-actor-subject")
       if (!actor) return failure("Confirme o usuário da sessão antes de vincular CT-e", 409)
       headers.set("X-Actor-Subject", actor)

@@ -106,7 +106,7 @@ Os documentos entram com conferência individual pendente.
   rejeições e revogação de permissão com PostgreSQL isolado no GitHub Actions.
 - [x] Revisar, validar e registrar a etapa sem declarar homologação externa.
 
-Arquivos: `migrations/202611030001_cte_distribution.sql`, domínio
+Arquivos: `migrations/202611030003_cte_distribution.sql`, domínio
 `apps/api/src/domains/fiscal/cte_distribution.rs`, armazenamento/validação
 em `cte_distribution_store.rs`, worker em `cte_distribution_worker.rs` e testes
 HTTP em `apps/api/src/http/cte_distribution_tests.rs`. Integração mínima em

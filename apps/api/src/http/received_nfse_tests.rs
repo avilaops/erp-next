@@ -176,6 +176,58 @@ async fn received_nfse_import_requires_explicit_permission(admin: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn received_nfse_separates_read_and_import_permissions_and_requires_company_cnpj(
+    admin: PgPool,
+) {
+    let (router, pool, auth, role) = setup(&admin).await;
+    let path = format!("{BASE}/import");
+    for permission in ["fiscal.nfse.read", "fiscal.nfse.import"] {
+        sqlx::query("DELETE FROM role_permissions WHERE permission_code LIKE 'fiscal.nfse.%'")
+            .execute(&admin)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999',$1)")
+            .bind(permission).execute(&admin).await.unwrap();
+        let result = call(
+            &router,
+            "POST",
+            &path,
+            TENANT,
+            Some(Uuid::now_v7()),
+            json!({"xml":XML}),
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::FORBIDDEN);
+        let page = call(&router, "GET", BASE, TENANT, None, Value::Null).await;
+        assert_eq!(
+            page.0,
+            if permission == "fiscal.nfse.read" {
+                StatusCode::OK
+            } else {
+                StatusCode::FORBIDDEN
+            }
+        );
+    }
+    grant(&admin).await;
+    sqlx::query("UPDATE tenants SET tax_id='52998224725' WHERE id=$1")
+        .bind(Uuid::parse_str(TENANT).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    let result = call(
+        &router,
+        "POST",
+        &path,
+        TENANT,
+        Some(Uuid::now_v7()),
+        json!({"xml":XML}),
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::CONFLICT);
+    cleanup(&admin, pool, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn received_nfse_preserves_xml_replays_and_isolates_immutable_documents(admin: PgPool) {
     let (_, pool, auth, role) = setup(&admin).await;
     grant(&admin).await;

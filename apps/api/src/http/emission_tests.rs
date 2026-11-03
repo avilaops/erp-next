@@ -288,7 +288,7 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
                 body.clone(),
             )
             .await;
-            if required == permission {
+            if *required == permission {
                 // Authorization passes; the synthetic document/profile does not exist.
                 assert!(
                     matches!(result.0, StatusCode::NOT_FOUND | StatusCode::CONFLICT),

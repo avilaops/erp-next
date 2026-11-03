@@ -17,6 +17,8 @@ test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", as
   await page.setViewportSize({ width: 1749, height: 900 })
   await page.goto("/preferencias")
   const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
+  await expect(desktop).toBeVisible()
+  await expect(desktop.locator('a[href="/cadastros/funcionarios"]')).toHaveCount(1)
   const destinations = await desktop.locator("a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!))
   expect(destinations).toContain("/cadastros/funcionarios")
   await page.setViewportSize({ width: 390, height: 844 })

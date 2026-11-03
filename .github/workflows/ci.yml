@@ -304,14 +304,14 @@ jobs:
         with:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
+      - name: Verify secure session cookie removal in the browser
+        run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts
+        env:
+          ERP_BROWSER_CHANNEL: chrome
       - run: timeout 240s pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
       - run: timeout 60s pnpm --filter web test:monitor
-        env:
-          ERP_BROWSER_CHANNEL: chrome
-      - name: Verify secure session cookie removal in the browser
-        run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts
         env:
           ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
+import { createServer } from "node:http"
 import { origin, secret, server } from "../playwright.session.config"
 
 test.beforeEach(async ({ context, page }) => {
@@ -23,7 +24,7 @@ test.beforeEach(async ({ context, page }) => {
 test("logout removes both secure cookies and rejects the next protected API request", async ({ page, context }) => {
   const responseType = await page.evaluate(async () => (await fetch("/api/auth/logout", { method: "POST", redirect: "manual" })).type)
   expect(responseType).toBe("opaqueredirect")
-  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toEqual([])
+  expect((await context.cookies(origin)).filter(cookie => ["__Host-erp_session", "__Host-erp_auth"].includes(cookie.name))).toEqual([])
   const status = await page.evaluate(async () => (await fetch("/api/erp/me")).status)
   expect(status).toBe(401)
 })
@@ -122,4 +123,52 @@ test("image optimizer accepts the local preview retry query", async ({ context }
   const response = await context.request.get(`${server}/_next/image?url=${encodeURIComponent("/erp-preview.webp?retry=1")}&w=1080&q=75`)
   expect(response.status()).toBe(200)
   expect(response.headers()["content-type"]).toMatch(/^image\//)
+})
+
+test("verified logout follows the discovered Auth endpoint and consumes its flow cookie", async ({ page, context }) => {
+  const issuer = "http://127.0.0.1:33130"
+  const authorizations: URL[] = []
+  const auth = createServer((request, response) => {
+    const url = new URL(request.url || "/", issuer)
+    if (url.pathname === "/.well-known/openid-configuration") {
+      response.writeHead(200, { "Content-Type": "application/json" })
+      response.end(JSON.stringify({ issuer, code_challenge_methods_supported: ["S256"], authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, end_session_endpoint: `${issuer}/end-session` }))
+      return
+    }
+    if (url.pathname === "/end-session") {
+      authorizations.push(url)
+      response.writeHead(303, { Location: `${origin}/api/auth/logout/central/callback` })
+      response.end()
+      return
+    }
+    response.writeHead(404)
+    response.end()
+  })
+  await new Promise<void>((resolve, reject) => { auth.once("error", reject); auth.listen(33130, "127.0.0.1", resolve) })
+  try {
+    await page.evaluate(async () => fetch("/api/auth/logout?client_id=foreign&returnTo=https://foreign.test", { method: "POST", redirect: "manual" }).then(response => response.type))
+    expect((await context.cookies(origin)).some(cookie => cookie.name === "__Host-erp_logout")).toBe(true)
+    await page.goto(`${origin}/api/auth/logout/central`)
+    await expect(page).toHaveURL(`${origin}/entrar`)
+    expect(authorizations).toHaveLength(1)
+    expect(authorizations[0].searchParams.get("client_id")).toBe("cookie-fixture-client")
+    expect(authorizations[0].searchParams.get("post_logout_redirect_uri")).toBe(`${origin}/api/auth/logout/central/callback`)
+    expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toEqual([])
+    const replay = await page.evaluate(async () => (await fetch("/api/auth/logout/central/callback", { redirect: "manual" })).status)
+    expect(replay).toBe(403)
+  } finally {
+    await new Promise<void>(resolve => auth.close(() => resolve()))
+  }
+})
+
+test("expired logout markers cannot delete a newer session", async ({ page, context }) => {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
+  cipher.setAAD(Buffer.from("erp-logout"))
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ phase: "callback", expiresAt: Date.now() - 1000 })), cipher.final()])
+  const value = Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url")
+  await context.addCookies([{ name: "__Host-erp_logout", value, url: origin, secure: true, httpOnly: true, sameSite: "Lax" }])
+  const response = await page.evaluate(async () => (await fetch("/api/auth/logout/central/callback", { redirect: "manual" })).status)
+  expect(response).toBe(403)
+  expect((await context.cookies(origin)).map(cookie => cookie.name)).toEqual(expect.arrayContaining(["__Host-erp_auth", "__Host-erp_session"]))
 })

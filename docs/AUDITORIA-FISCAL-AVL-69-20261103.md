@@ -71,7 +71,7 @@ do estado fiscal. Ver [mapa arquitetural](../architecture/README.md).
 | Cofre e validação A1 | `certificates.rs`, `certificate_crypto.rs`; migration `202610290002_fiscal_a1_certificates.sql` |
 | Emissão, consulta, número e recuperação | `emission.rs`, `emission_events.rs`; migration `202611010002_fiscal_operations.sql` |
 | Distribuição de homologação e manifestação | `incoming.rs`, `incoming_worker.rs`; migration `202611010003_fiscal_incoming.sql` |
-| Monitor de produção e recebidas canônicas | `monitor.rs`, `received.rs`; migration `202610310006_fiscal_monitor.sql` |
+| Monitor de produção e recebidas canônicas | `monitor.rs`, `received.rs`; migrations `202610310006_fiscal_monitor.sql` e `202610280005_received_nfe_integrations.sql` |
 | Contrato máquina | `apps/api/src/http/openapi.rs`, `/openapi.json`; não substituir por tabela manual |
 | Contratos operacionais e limites | [continuidade fiscal](RETORNOS-E-CONTINUIDADE-FISCAL.md), [monitor](MONITOR-FISCAL-CANONICO.md), [motor](../apps/fiscal-engine/README.md) |
 

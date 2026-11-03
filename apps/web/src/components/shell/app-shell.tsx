@@ -33,7 +33,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
     <NavigationGuardProvider><MobileMenuProvider><div className="min-h-screen bg-background text-foreground">
       <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
       <header className="sticky top-0 z-50 border-b border-border/80 bg-background/92 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-2 px-4 lg:px-6">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-1 px-4 sm:gap-2 lg:px-6">
           <MobileMenuButton />
           <Link className="mr-2 flex shrink-0 items-center gap-2" href="/">
             <span className="grid size-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">A</span>

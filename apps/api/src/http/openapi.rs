@@ -60,6 +60,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::emission::issue, fiscal::order_source::get,
         fiscal::received::import, fiscal::received::list, fiscal::received::get_document, fiscal::received::download_xml,
         fiscal::received::download_danfe, fiscal::lojas::list, fiscal::lojas::download_xml,
+        fiscal::received_nfse::import, fiscal::received_nfse::list,
+        fiscal::received_nfse::get_document, fiscal::received_nfse::download_xml,
         fiscal::emission::list, fiscal::emission::get_document, fiscal::emission::download_xml, fiscal::emission::consult,
         fiscal::emission::events::cancel, fiscal::emission::events::correction, fiscal::emission::events::void_numbers,
         fiscal::emission::events::list, fiscal::emission::events::process_order_cancellation,
@@ -347,7 +349,15 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 148);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 152);
+        let nfse_import = &doc["paths"]["/api/v1/fiscal/received-nfses/import"]["post"];
+        for status in ["200", "201", "403", "409", "422", "428", "502", "503"] {
+            assert!(nfse_import["responses"].get(status).is_some());
+        }
+        for suffix in ["", "/{id}", "/{id}/xml"] {
+            let path = format!("/api/v1/fiscal/received-nfses{suffix}");
+            assert!(doc["paths"][&path]["get"].is_object());
+        }
         for suffix in ["status", "documents", "documents/{id}", "runs/{id}"] {
             let path = format!("/api/v1/fiscal/cte-distribution/{suffix}");
             assert!(doc["paths"][&path]["get"].is_object());

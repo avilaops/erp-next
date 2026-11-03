@@ -77,6 +77,7 @@ impl FiscalEngine {
             "void",
             "distribute",
             "distribute-cte",
+            "inspect-nfse",
             "manifest",
         ]
         .contains(&operation)

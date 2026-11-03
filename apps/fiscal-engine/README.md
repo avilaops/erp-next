@@ -48,8 +48,20 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
   limites de XML/descompressão. `nextNsu: null` proíbe confirmar cursor em
   rejeições. `minimumWaitSeconds` é um mínimo a persistir pela API; o motor
   não agenda nem repete consultas. A integração Rust e seu worker opcional
-  estão em validação no CI; a central visual continua pendente. Consulte
+  passaram no CI com a central de leitura no commit `a19dc38`; conferência
+  individual, vínculos de frete e homologação externa continuam pendentes. Consulte
   [o contrato e as limitações CT-e](../../docs/CTE-DISTRIBUICAO-AVL-111.md).
+
+`POST /v1/inspect-nfse` é uma inspeção privada de arquivo nacional recebido.
+Exige o mesmo Bearer e somente `{ xml, recipientTaxId }`, sem certificado ou
+ambiente de transporte. Não faz rede, abre A1 ou escreve documentos. Aceita
+XML UTF-8 de até 1 MiB e versões 1.00/1.01 com tomador CNPJ da empresa.
+Retorna original/hash, atores distintos, ambiente do arquivo, chave nacional
+de 50 posições e valores em centavos como strings exatas. Assinatura e situação
+atual permanecem não verificadas. A versão 1.01 declara perfil local de série,
+com hashes e origem; não afirma aprovação pelo XSD original sem correção.
+Consulte [o contrato do perfil e limites](../../docs/superpowers/specs/2026-11-03-nfse-recebida.md).
+Esta etapa ainda não adiciona importação na API Rust, central ou captura ADN.
 
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 

@@ -2,6 +2,7 @@ import { gunzipSync } from "node:zlib";
 import { DOMParser } from "@xmldom/xmldom";
 import type { Element } from "@xmldom/xmldom";
 import { UF_CODES } from "@/lib/fiscal/nfe";
+import { isNumericCnpj } from "./brazilian-document.ts";
 
 const CTE_NAMESPACE = "http://www.portalfiscal.inf.br/cte";
 const SOAP_NAMESPACES = new Set(["http://www.w3.org/2003/05/soap-envelope", "http://schemas.xmlsoap.org/soap/envelope/"]);
@@ -39,26 +40,12 @@ function paddedNsu(value: string): string {
   return value.padStart(15, "0");
 }
 
-function numericCnpj(value: string): boolean {
-  if (typeof value !== "string" || !/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
-  for (const length of [12, 13]) {
-    let weight = length - 7, total = 0;
-    for (let index = 0; index < length; index++) {
-      total += Number(value[index]) * weight;
-      weight = weight === 2 ? 9 : weight - 1;
-    }
-    const remainder = total % 11;
-    if (Number(value[length]) !== (remainder < 2 ? 0 : 11 - remainder)) return false;
-  }
-  return true;
-}
-
 /** Builds the CT-e distribution data, not an NF-e request or a transport call. */
 export function buildCteDistributionRequest(input: CteDistributionRequest): string {
   const environment = environmentCode(input.environment);
   if (typeof input.authorState !== "string" || !Object.hasOwn(UF_CODES, input.authorState)) throw new CteDistributionError("UF do ator CT-e inválida.");
   // The official PL_CTeDistDFe_100 package accepts numeric CNPJ only.
-  if (!numericCnpj(input.companyTaxId)) throw new CteDistributionError("CNPJ inválido para distribuição CT-e.");
+  if (!isNumericCnpj(input.companyTaxId)) throw new CteDistributionError("CNPJ inválido para distribuição CT-e.");
   const nsu = paddedNsu(input.lastNsu);
   return `<?xml version="1.0" encoding="UTF-8"?><distDFeInt xmlns="${CTE_NAMESPACE}" versao="1.00"><tpAmb>${environment}</tpAmb><cUFAutor>${UF_CODES[input.authorState]}</cUFAutor><CNPJ>${input.companyTaxId}</CNPJ><distNSU><ultNSU>${nsu}</ultNSU></distNSU></distDFeInt>`;
 }

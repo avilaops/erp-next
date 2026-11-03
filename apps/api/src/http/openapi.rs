@@ -108,6 +108,8 @@ impl Modify for Security {
                     ) || (path.starts_with("/api/v1/purchase-orders")
                         || path.starts_with("/api/v1/payables")
                         || path.starts_with("/api/v1/commissions")
+                        || path.starts_with("/api/v1/staff-payroll")
+                        || (path.starts_with("/api/v1/staff/") && path.contains("/payroll"))
                         || path.starts_with("/api/v1/production")
                         || path.ends_with("/commission")
                         || path.starts_with("/api/v1/invitations"))

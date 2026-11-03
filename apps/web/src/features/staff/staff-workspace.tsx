@@ -16,8 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 type StaffProfile = { cpf?: string | null; rg?: string | null; birthDate?: string | null; admissionDate?: string | null; documentIssuedOn?: string | null; pis?: string | null; ctps?: string | null; address?: string | null; emergencyPhone?: string | null; photo?: string | null }
-type StaffInput = Schema<"StaffInput"> & { profile?: StaffProfile }
-type Staff = Schema<"Staff"> & { profile?: StaffProfile }
+type StaffInput = Omit<Schema<"StaffInput">, "profile"> & { profile?: StaffProfile | null }
+type Staff = Omit<Schema<"Staff">, "profile"> & { profile?: StaffProfile | null }
 type Snapshot = Omit<Schema<"StaffSnapshot">, "data"> & { data?: Schema<"Staff"> }
 type Page = Schema<"StaffList">
 const blank = (kind: StaffKind): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: kind === "funcionarios", isSeller: kind === "vendedores", status: "active", profile: {} })

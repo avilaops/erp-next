@@ -112,7 +112,7 @@ test("visita anônima mostra entrada e cadastro inicia o Auth com PKCE", async (
   expect(authorization.pathname).toBe("/authorize")
   expect(authorization.searchParams.get("code_challenge_method")).toBe("S256")
   expect(authorization.searchParams.get("redirect_uri")).toBe(`${origin}/api/auth/callback`)
-  await page.getByRole("button", { name: "Entrar", exact: true }).click()
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(/\/preferencias\/empresa\/dados$/)
   await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible()
 })

@@ -346,8 +346,7 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
     let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM fiscal_nfe_events) + (SELECT count(*) FROM fiscal_nfe_documents)")
         .fetch_one(&admin).await.unwrap();
     assert_eq!(effects, 0);
-    auth.abort();
-    super::company_tests::cleanup(&admin, application, &role).await;
+    super::company_tests::cleanup(&admin, application, auth, &role).await;
 }
 
 async fn services(

@@ -104,8 +104,7 @@ async fn fiscal_configuration_cannot_manage_certificates_without_explicit_permis
     assert_eq!(preserved.2["revision"], 1);
     assert_eq!(preserved.2["canEdit"], false);
     assert_eq!(preserved.2["data"], saved.2["data"]);
-    auth.abort();
-    cleanup(&admin, application, &role).await;
+    cleanup(&admin, application, auth, &role).await;
 }
 
 #[sqlx::test(migrations = "../../migrations")]

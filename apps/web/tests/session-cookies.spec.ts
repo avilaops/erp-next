@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
+import { createServer } from "node:http"
 import { origin, secret, server } from "../playwright.session.config"
 
 test.afterEach(async ({ page }) => {
@@ -28,7 +29,7 @@ test.beforeEach(async ({ context, page }) => {
 test("logout removes both secure cookies and rejects the next protected API request", async ({ page, context }) => {
   const responseType = await page.evaluate(async () => (await fetch("/api/auth/logout", { method: "POST", redirect: "manual" })).type)
   expect(responseType).toBe("opaqueredirect")
-  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toEqual([])
+  expect((await context.cookies(origin)).filter(cookie => ["__Host-erp_session", "__Host-erp_auth"].includes(cookie.name))).toEqual([])
   const status = await page.evaluate(async () => (await fetch("/api/erp/me")).status)
   expect(status).toBe(401)
 })
@@ -88,13 +89,15 @@ test("logout rejects an absent origin without changing either cookie", async ({ 
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
 })
 
-test("botão Sair encerra a sessão pela interface com no-referrer", async ({ page, context }) => {
+test("botão Sair preserva a origem e inicia a continuação central", async ({ page, context }) => {
+  await page.route(`${origin}/api/auth/logout/central`, route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Continuação da saída</title>" }))
   await page.goto(`${origin}/preferencias`)
   const request = page.waitForRequest(request => request.url() === `${origin}/api/auth/logout`)
   await page.getByRole("button", { name: "Sair", exact: true }).click()
   expect((await request).headers().origin).toBe(origin)
-  await expect(page).toHaveURL(`${origin}/entrar`)
-  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(0)
+  await expect(page).toHaveURL(`${origin}/api/auth/logout/central`)
+  expect((await context.cookies(origin)).filter(cookie => ["__Host-erp_session", "__Host-erp_auth"].includes(cookie.name))).toHaveLength(0)
+  expect((await context.cookies(origin)).some(cookie => cookie.name === "__Host-erp_logout")).toBe(true)
 })
 
 test("falha na saída permanece na interface e permite tentar novamente", async ({ page, context }) => {
@@ -128,7 +131,7 @@ test("a navegação POST com no-referrer perde a origem, mas fetch conserva a or
   await page.goto(`${origin}/logout-form`)
   const responseType = await page.evaluate(async () => (await fetch("/api/auth/logout", { method: "POST", redirect: "manual" })).type)
   expect(responseType).toBe("opaqueredirect")
-  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(0)
+  expect((await context.cookies(origin)).filter(cookie => ["__Host-erp_session", "__Host-erp_auth"].includes(cookie.name))).toHaveLength(0)
 })
 
 test("responses enforce the browser security policy without disclosing the framework", async ({ context }) => {
@@ -146,4 +149,100 @@ test("image optimizer rejects malformed local paths before processing them", asy
   const response = await context.request.get(`${server}/_next/image?url=${encodeURIComponent("/erp-preview.webp'")}&w=1080&q=75`)
   expect(response.status()).toBe(400)
   await expect(response.json()).resolves.toEqual({ title: "Parâmetro de imagem inválido" })
+})
+
+for (const path of ["/api/auth/logout/central", "/api/auth/logout/central/callback"]) {
+  test(`direct GET ${path} preserves the session without a verified logout flow`, async ({ page, context }) => {
+    const response = await page.evaluate(async path => {
+      const response = await fetch(path, { redirect: "manual" })
+      return { status: response.status, type: response.type }
+    }, path)
+    expect(response).toEqual({ status: 403, type: "basic" })
+    expect((await context.cookies(origin)).map(cookie => cookie.name).sort()).toEqual(["__Host-erp_auth", "__Host-erp_session"])
+  })
+}
+
+test("stored contract files allow same-origin framing while the ERP pages reject framing", async ({ context }) => {
+  const response = await context.request.get(`${server}/api/erp/commercial-contracts/11111111-1111-4111-8111-111111111111/files/22222222-2222-4222-8222-222222222222`, { maxRedirects: 0 })
+  expect(response.status()).toBe(401)
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'self'")
+  expect(response.headers()["x-frame-options"]).toBe("SAMEORIGIN")
+})
+
+test("image optimizer accepts the local preview retry query", async ({ context }) => {
+  const response = await context.request.get(`${server}/_next/image?url=${encodeURIComponent("/erp-preview.webp?retry=1")}&w=1080&q=75`)
+  expect(response.status(), response.ok() ? "" : await response.text()).toBe(200)
+  expect(response.headers()["content-type"]).toMatch(/^image\//)
+})
+
+test("verified logout follows the discovered Auth endpoint and consumes its flow cookie", async ({ page, context }) => {
+  const issuer = "http://127.0.0.1:33130"
+  const authorizations: URL[] = []
+  const auth = createServer((request, response) => {
+    const url = new URL(request.url || "/", issuer)
+    if (url.pathname === "/.well-known/openid-configuration") {
+      response.writeHead(200, { "Content-Type": "application/json" })
+      response.end(JSON.stringify({ issuer, code_challenge_methods_supported: ["S256"], authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, end_session_endpoint: `${issuer}/end-session` }))
+      return
+    }
+    if (url.pathname === "/end-session") {
+      authorizations.push(url)
+      response.writeHead(200, { "Content-Type": "text/html" })
+      response.end("<!doctype html><title>Auth logout fixture</title>")
+      return
+    }
+    response.writeHead(404)
+    response.end()
+  })
+  await new Promise<void>((resolve, reject) => { auth.once("error", reject); auth.listen(33130, "127.0.0.1", resolve) })
+  try {
+    await page.evaluate(async () => fetch("/api/auth/logout?client_id=foreign&returnTo=https://foreign.test", { method: "POST", redirect: "manual" }).then(response => response.type))
+    expect((await context.cookies(origin)).some(cookie => cookie.name === "__Host-erp_logout")).toBe(true)
+    await page.goto(`${origin}/api/auth/logout/central`)
+    await expect(page).toHaveURL(url => url.origin === issuer && url.pathname === "/end-session")
+    expect(authorizations).toHaveLength(1)
+    expect(authorizations[0].searchParams.get("client_id")).toBe("cookie-fixture-client")
+    expect(authorizations[0].searchParams.get("post_logout_redirect_uri")).toBe(`${origin}/api/auth/logout/central/callback`)
+    // Keep redirects manual: the synthetic HTTPS hostname has no public DNS.
+    await page.goto(`${origin}/fixture`)
+    const flow = (await context.cookies(origin)).find(cookie => cookie.name === "__Host-erp_logout")!
+    const callback = await context.request.get(`${server}/api/auth/logout/central/callback`, { maxRedirects: 0, headers: { Cookie: `${flow.name}=${flow.value}` } })
+    expect(callback.status()).toBe(303)
+    expect(callback.headers().location).toBe(`${origin}/entrar`)
+    const callbackType = await page.evaluate(async () => (await fetch("/api/auth/logout/central/callback", { redirect: "manual" })).type)
+    expect(callbackType).toBe("opaqueredirect")
+    expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toEqual([])
+    const replay = await page.evaluate(async () => (await fetch("/api/auth/logout/central/callback", { redirect: "manual" })).status)
+    expect(replay).toBe(403)
+  } finally {
+    await new Promise<void>(resolve => auth.close(() => resolve()))
+  }
+})
+
+test("expired logout markers cannot delete a newer session", async ({ page, context }) => {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
+  cipher.setAAD(Buffer.from("erp-logout"))
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ phase: "callback", expiresAt: Date.now() - 1000 })), cipher.final()])
+  const value = Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url")
+  await context.addCookies([{ name: "__Host-erp_logout", value, url: origin, secure: true, httpOnly: true, sameSite: "Lax" }])
+  const response = await page.evaluate(async () => (await fetch("/api/auth/logout/central/callback", { redirect: "manual" })).status)
+  expect(response).toBe(403)
+  expect((await context.cookies(origin)).map(cookie => cookie.name)).toEqual(expect.arrayContaining(["__Host-erp_auth", "__Host-erp_session"]))
+})
+
+for (const phase of ["start", "callback"] as const) test(`a valid ${phase} logout marker preserves a newer session and login flow`, async ({ page, context }) => {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
+  cipher.setAAD(Buffer.from("erp-logout"))
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify({ phase, expiresAt: Date.now() + 120_000 })), cipher.final()])
+  const value = Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url")
+  await context.addCookies([{ name: "__Host-erp_logout", value, url: origin, secure: true, httpOnly: true, sameSite: "Lax" }])
+  const before = (await context.cookies(origin)).filter(cookie => ["__Host-erp_auth", "__Host-erp_session"].includes(cookie.name))
+  const result = await page.evaluate(async phase => {
+    const response = await fetch(`/api/auth/logout/central${phase === "callback" ? "/callback" : ""}`, { redirect: "manual" })
+    return phase === "start" ? response.status : response.type
+  }, phase)
+  expect(result).toBe(phase === "start" ? 403 : "opaqueredirect")
+  expect((await context.cookies(origin)).filter(cookie => ["__Host-erp_auth", "__Host-erp_session"].includes(cookie.name))).toEqual(before)
 })

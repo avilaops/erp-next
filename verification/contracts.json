@@ -961,8 +961,20 @@
     {
       "path": "/api/auth/logout",
       "method": "POST",
-      "action": "Encerrar sessão local; não revogar sessão global do Auth",
-      "recovery": "Exigir origem válida; a próxima operação autenticada precisa entrar novamente."
+      "action": "Exigir origem válida, encerrar sessão local e criar fluxo cifrado de saída central com validade de dois minutos",
+      "recovery": "Origem ausente ou estrangeira retorna 403 sem alterar cookies; a próxima operação autenticada precisa entrar novamente."
+    },
+    {
+      "path": "/api/auth/logout/central",
+      "method": "GET",
+      "action": "Validar fluxo cifrado iniciado pelo POST e redirecionar ao end_session_endpoint do discovery do issuer configurado",
+      "recovery": "Fluxo ausente, expirado ou sessão posterior retorna 403 sem apagar cookies; discovery indisponível retorna 503 e não comprova saída global."
+    },
+    {
+      "path": "/api/auth/logout/central/callback",
+      "method": "GET",
+      "action": "Consumir marcador cifrado do retorno da saída central e redirecionar para a entrada sem apagar sessão posterior",
+      "recovery": "Marcador ausente, expirado, inválido ou já consumido retorna 403 sem alterar a sessão."
     },
     {
       "path": "/api/auth/company",

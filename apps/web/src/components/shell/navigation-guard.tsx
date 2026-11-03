@@ -4,11 +4,16 @@ import NextLink from "next/link"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react"
 
 type Guard = () => string | null
-type NavigationGuard = { register: (guard: Guard) => () => void; confirmNavigation: () => boolean }
-const NavigationGuardContext = createContext<NavigationGuard>({ register: () => () => {}, confirmNavigation: () => true })
+type NavigationGuard = { register: (guard: Guard) => () => void; confirmNavigation: () => boolean; allowNextUnload: () => () => void }
+const NavigationGuardContext = createContext<NavigationGuard>({ register: () => () => {}, confirmNavigation: () => true, allowNextUnload: () => () => {} })
 
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   const activeGuard = useRef<Guard | null>(null)
+  const approvedUnload = useRef(false)
+  const allowNextUnload = useCallback(() => {
+    approvedUnload.current = true
+    return () => { approvedUnload.current = false }
+  }, [])
   const register = useCallback((guard: Guard) => {
     activeGuard.current = guard
     return () => { if (activeGuard.current === guard) activeGuard.current = null }
@@ -19,12 +24,13 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
   }, [])
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (approvedUnload.current) { approvedUnload.current = false; return }
       if (activeGuard.current?.()) { event.preventDefault(); event.returnValue = "" }
     }
     window.addEventListener("beforeunload", beforeUnload)
     return () => window.removeEventListener("beforeunload", beforeUnload)
   }, [])
-  const value = useMemo(() => ({ register, confirmNavigation }), [register, confirmNavigation])
+  const value = useMemo(() => ({ register, confirmNavigation, allowNextUnload }), [register, confirmNavigation, allowNextUnload])
   return <NavigationGuardContext.Provider value={value}>{children}</NavigationGuardContext.Provider>
 }
 
@@ -35,6 +41,10 @@ export function useNavigationGuard(message: string | null) {
 
 export function useConfirmNavigation() {
   return useContext(NavigationGuardContext).confirmNavigation
+}
+
+export function useAllowNextUnload() {
+  return useContext(NavigationGuardContext).allowNextUnload
 }
 
 export function GuardedLink({ onNavigate, ...props }: ComponentProps<typeof NextLink>) {

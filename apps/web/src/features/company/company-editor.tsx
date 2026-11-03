@@ -6,6 +6,7 @@ import { AccessLink } from "@/components/feedback/session-recovery"
 
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { LogoutButton } from "@/components/shell/logout-button"
 import { CompanyDataForm } from "./company-data-form"
 import { CompanyPartnerForm } from "./company-partner-form"
 import type { CompanyData, CompanyProblem, CompanySnapshot } from "./company-types"
@@ -88,7 +89,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-muted-foreground">Empresa: {snapshot.data.tradeName || snapshot.data.legalName} · Revisão {snapshot.revision}</p>
-      <form action="/api/auth/logout" method="post"><Button type="submit" variant="outline">Sair desta sessão</Button></form>
+      <LogoutButton label="Sair desta sessão" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-4 text-sm disabled:opacity-60" />
     </div>
     {!snapshot.canEdit && <p role="status">Você tem acesso de consulta. Solicite permissão para alterar o cadastro.</p>}
     {status === "saved" && <p role="status" className="rounded-xl border border-primary/30 p-4">Cadastro salvo no servidor.</p>}

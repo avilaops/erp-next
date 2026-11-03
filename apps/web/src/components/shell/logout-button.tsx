@@ -1,11 +1,13 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useId, useRef, useState } from "react"
 import { LogOut } from "lucide-react"
-import { useConfirmNavigation } from "./navigation-guard"
+import { useAllowNextUnload, useConfirmNavigation } from "./navigation-guard"
 
-export function LogoutButton() {
+export function LogoutButton({ label = "Sair", className = "flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60" }: { label?: string; className?: string }) {
   const confirmNavigation = useConfirmNavigation()
+  const allowNextUnload = useAllowNextUnload()
+  const errorId = useId()
   const pending = useRef(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -15,9 +17,9 @@ export function LogoutButton() {
     pending.current = true
     setBusy(true)
     setError("")
+    let restoreUnload: (() => void) | undefined
     try {
-      // Native form navigation sends Origin: null under our no-referrer policy.
-      // Fetch keeps the same-origin POST check and applies the response cookies.
+      // Fetch preserves Origin under no-referrer and applies the cleared cookies.
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "same-origin",
@@ -29,9 +31,11 @@ export function LogoutButton() {
           ? "A saída foi recusada. Recarregue a página e tente novamente."
           : "Não foi possível confirmar a saída. Tente novamente.")
       }
-      // A full navigation discards cached company data after the cookies are cleared.
-      window.location.assign(new URL("/entrar", window.location.origin).href)
+      // Full navigation uses the verified flow without following a form redirect.
+      restoreUnload = allowNextUnload()
+      window.location.assign(new URL("/api/auth/logout/central", window.location.origin).href)
     } catch (reason) {
+      restoreUnload?.()
       setError(reason instanceof Error && reason.name === "Error" ? reason.message : "Não foi possível confirmar a saída. Tente novamente.")
       pending.current = false
       setBusy(false)
@@ -39,11 +43,10 @@ export function LogoutButton() {
   }
 
   return <div className="relative">
-    <button type="button" onClick={logout} disabled={busy} aria-busy={busy} aria-describedby={error ? "logout-error" : undefined}
-      className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
-      title="Encerrar a sessão deste ERP">
-      <LogOut className="size-4" aria-hidden="true" />{busy ? "Saindo…" : "Sair"}
+    <button type="button" onClick={logout} disabled={busy} aria-busy={busy} aria-describedby={error ? errorId : undefined}
+      className={className} title="Encerrar a sessão no ERP e no Ávila Auth">
+      <LogOut className="size-4" aria-hidden="true" />{busy ? "Saindo…" : label}
     </button>
-    {error && <p id="logout-error" role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground shadow-lg">{error}</p>}
+    {error && <p id={errorId} role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground shadow-lg">{error}</p>}
   </div>
 }

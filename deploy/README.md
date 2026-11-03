@@ -43,10 +43,21 @@ sem liberar HTTP para hosts arbitrários. As duas portas são publicadas pelo
 serviço API, somente no loopback do servidor.
 
 O cliente OIDC dedicado `erp-next` pertence ao app Auth `erp` e aceita somente
-`https://erp.avilaops.com/api/auth/callback`. Não alterar o segredo do cliente
+`https://erp.avilaops.com/api/auth/callback` como redirect de login e
+`https://erp.avilaops.com/api/auth/logout/central/callback` como post-logout
+redirect. Não alterar o segredo do cliente
 legado `erp`. O BFF mantém tokens em cookie HttpOnly cifrado e a API consulta
 userinfo e valida a associação da empresa. O usuário conclui o login no Auth;
 nenhuma senha pessoal é necessária ao deploy.
+
+A saída começa com POST de mesma origem, apaga os cookies locais e cria um
+marcador cifrado HttpOnly com validade de dois minutos. A navegação seguinte
+consulta o `end_session_endpoint` do discovery do issuer configurado e usa
+somente o cliente e o retorno definidos pelo servidor. Os GETs de continuação
+e callback exigem a fase correspondente desse marcador; o callback não apaga
+uma sessão criada depois da saída. Falha no Auth não comprova logout global.
+Os controles de saída usam fetch com redirecionamento manual antes de navegar,
+preservando a verificação de origem sob a política `no-referrer`.
 
 Carregar imagens com `docker load`; iniciar por `docker compose up -d --no-build
 --wait`. O web escuta somente em `127.0.0.1:3140`, compatível com o proxy do

@@ -22,6 +22,43 @@
       }
     },
     {
+      "id": "config",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        110,
+        -160
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api-url",
+              "name": "apiBaseUrl",
+              "type": "string",
+              "value": "={{ $vars.ERP_FISCAL_API_URL }}"
+            },
+            {
+              "id": "tenant-id",
+              "name": "tenantId",
+              "type": "string",
+              "value": "={{ $vars.ERP_FISCAL_TENANT_ID }}"
+            },
+            {
+              "id": "allow-writes",
+              "name": "allowWrites",
+              "type": "boolean",
+              "value": "={{ $vars.ERP_FISCAL_ALLOW_WRITES === \"true\" }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "validate",
       "name": "Validate",
       "type": "n8n-nodes-base.code",
@@ -33,7 +70,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "\nconst items = $input.all();\nif (items.length !== 1) throw new Error('one_command_required');\nconst input = items[0].json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif ($vars.ERP_FISCAL_ALLOW_WRITES !== 'true') throw new Error('writes_disabled');\nif (input.confirm !== true) throw new Error('confirmation_required');\nif (!uuid.test(input.id) || !uuid.test(input.idempotencyKey)) throw new Error('invalid_uuid');\nif (!Number.isSafeInteger(input.revision) || input.revision < 1) throw new Error('invalid_revision');\nconst apiBaseUrl = String($vars.ERP_FISCAL_API_URL || '').replace(/\\/$/, '');\nif (!/^https:\\/\\/[a-z0-9.-]+(?::[0-9]+)?$/i.test(apiBaseUrl)) throw new Error('invalid_api_url');\nconst tenantId = $vars.ERP_FISCAL_TENANT_ID;\nif (!uuid.test(tenantId)) throw new Error('invalid_tenant');\nreturn [{ json: { apiBaseUrl, tenantId: tenantId.toLowerCase(), id: input.id.toLowerCase(), revision: input.revision,\n  idempotencyKey: input.idempotencyKey.toLowerCase(), attempts: 0 } }];\n"
+        "jsCode": "\nconst items = $('Input').all();\nif (items.length !== 1) throw new Error('one_command_required');\nconst input = items[0].json;\nconst config = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (config.allowWrites !== true) throw new Error('writes_disabled');\nif (input.confirm !== true) throw new Error('confirmation_required');\nif (!uuid.test(input.id) || !uuid.test(input.idempotencyKey)) throw new Error('invalid_uuid');\nif (!Number.isSafeInteger(input.revision) || input.revision < 1) throw new Error('invalid_revision');\nconst apiBaseUrl = String(config.apiBaseUrl || '').replace(/\\/$/, '');\nif (!/^https:\\/\\/[a-z0-9.-]+(?::[0-9]+)?$/i.test(apiBaseUrl)) throw new Error('invalid_api_url');\nconst tenantId = config.tenantId;\nif (!uuid.test(tenantId)) throw new Error('invalid_tenant');\nreturn [{ json: { apiBaseUrl, tenantId: tenantId.toLowerCase(), id: input.id.toLowerCase(), revision: input.revision,\n  idempotencyKey: input.idempotencyKey.toLowerCase(), attempts: 0 } }];\n"
       }
     },
     {
@@ -223,6 +260,17 @@
   ],
   "connections": {
     "Input": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
       "main": [
         [
           {

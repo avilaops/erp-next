@@ -127,6 +127,26 @@ o JSON exportável. Os testes verificam que o artefato importável corresponde
 à definição e executam a lógica dos nós Code e expressões HTTP. Validação de
 schema pelo conector n8n não substitui executar o workflow com a credencial real.
 
+`Config` lê somente as variáveis do operador e descarta campos do evento. O nó
+`Validate` verifica esse contexto separado e o comando original. Nos ensaios,
+apenas `Input`, `Config` e os dois nós HTTP recebem dados fixados; validação,
+esperas, condições, classificação e limite de tentativas executam no runtime.
+
+Para gerar o mesmo grafo no SDK e os dados sintéticos de teste:
+
+```bash
+node scripts/fiscal/n8n-sdk.mjs
+node scripts/fiscal/n8n-fixtures.mjs pending_then_authorized
+```
+
+Os cenários disponíveis são `authorized`, `pending_then_authorized`, `rejected`,
+`forbidden` e `exhausted`. Os fixtures não contêm credencial nem documento real.
+O SDK e o JSON são derivados da mesma definição; não manter um segundo fluxo
+manual divergente. O validador SDK verifica nós, expressões e conexões.
+O gerador passa também `workflow.settings`, incluindo a política de retenção,
+ao factory SDK. Essa importação foi conferida criando e relendo um rascunho
+temporário sem executar comandos; o rascunho de verificação foi arquivado.
+
 ## Ferramentas MCP
 
 Execute `node scripts/fiscal/mcp.mjs` no cliente que aceita transporte stdio.
@@ -200,6 +220,7 @@ implementado por esta PR.
 
 ```bash
 corepack pnpm test:fiscal-integrations
+node scripts/fiscal/check-contract.mjs artifacts/contracts/candidate.json
 ```
 
 A suíte cobre cliente HTTP contra servidor local de contrato, idempotência do
@@ -207,11 +228,38 @@ pedido, revisão, redirects, limites, XML/PDF, MCP pelo SDK em memória e stdio,
 schemas, comportamento dos nós n8n e falhas. Dados e respostas fiscais dos testes
 são fixtures; não são documentos autorizados pela SEFAZ.
 
+O verificador do contrato consome o OpenAPI exportado no mesmo CI. Confere oito
+operações, Bearer obrigatório em todas as alternativas de segurança, idempotência,
+revisão, respostas JSON de sucesso, os campos do snapshot na emissão, reconciliação
+e GET de acompanhamento, e os tipos XML/PDF. Não prova execução nem corrige silenciosamente
+metadados ausentes. Na base validada, `X-Tenant-Id` ainda não está declarado em
+`consult`, `emission` e `xml`; o cliente continua enviando esse cabeçalho e a API
+continua exigindo contexto de empresa. Essas três lacunas são reportadas para
+reconciliação com a AVL-81, sem inventar uma garantia no OpenAPI.
+
+Em 2026-11-03, foi criado o [rascunho n8n da AVL-116](https://n8n.avilaops.com/workflow/7ctDbZcILIz71b9v),
+no projeto pessoal Nicolas Avila, na raiz, sem pasta. Ele permanece inativo e
+sem credenciais. Cinco cenários foram executados e suas saídas verificadas no
+runtime n8n com os transportes HTTP simulados:
+
+| Cenário | Execução | Resultado observado |
+| --- | --- | --- |
+| Pendente e depois autorizado | `173821` | Uma consulta, autorizado |
+| Autorizado imediatamente | `173823` | Nenhuma consulta adicional |
+| HTTP 403 | `173824` | Sem autorização; requer intervenção |
+| Rejeitado | `173825` | Terminal, sem autorização; requer intervenção |
+| Pendente até o limite | `173830` | Seis consultas; incompleto; requer intervenção |
+
+A retenção foi habilitada temporariamente apenas para conferir saídas sintéticas
+e restaurada para não salvar execuções manuais ou payloads de sucesso/erro.
+Os dados fixados substituíram configuração e HTTP; esses ensaios não testam
+credencial, autorização da API Rust, assinatura de webhook ou SEFAZ.
+
 Antes do aceite integral da AVL-116, registrar separadamente:
 
 - Integração dos contratos finais AVL-81/AVL-85 e teste real de assinatura,
   duplicidade e indisponibilidade do consumidor de webhook.
-- Execução do workflow importado com credencial de menor privilégio: leitura
+- Execução do workflow com credencial real de menor privilégio: leitura
   permitida e emissão negada sem `fiscal.nfe.issue`; tenant diferente negado.
 - Emissão autorizada em homologação com A1/configuração aprovados, repetição do
   mesmo comando sem duplicação, reconciliação e download de XML/DANFE reais.

@@ -43,3 +43,25 @@ A revisão independente identificou comparação de UUID maiúsculo com snapshot
 canônicos; normalização e regressão foram adicionadas. Nenhum outro achado
 material permaneceu na revisão. Execução no runtime n8n, autorização SEFAZ,
 credencial real e webhooks continuam pendentes conforme os limites acima.
+
+## Continuação — integração no runtime
+
+- [x] Confirmar CI completo aprovado do commit `029c000` e reabrir a AVL-116.
+- [x] Separar configuração do operador em nó n8n, sem herdar payload do comando.
+- [x] Gerar SDK do mesmo grafo JSON e validar as dez configurações sem avisos.
+- [x] Criar rascunho n8n inativo, sem credenciais e sem publicação.
+- [x] Executar e verificar cinco cenários sintéticos no runtime, inclusive seis
+  consultas sem resultado terminal; restaurar retenção de dados desabilitada.
+- [x] Verificar oito operações no OpenAPI real do CI e ligar o verificador ao CI.
+- [x] Revisar mudanças e preparar atualização da PR com a nova validação.
+
+23 testes fiscais passaram. A revisão identificou e confirmou corrigidas duas
+lacunas: ausência de verificação do snapshot GET no gate e perda dos settings
+no SDK. Testes de regressão cobrem ambas. A importação SDK foi conferida em
+rascunho temporário sem ajustes posteriores de settings, e esse rascunho foi
+arquivado. O CI do novo commit ainda precisa ser observado separadamente.
+
+As três declarações ausentes de `X-Tenant-Id` no OpenAPI são reportadas pelo
+verificador para AVL-81. Não há contrato de webhook fiscal disponível na base.
+Nenhuma credencial ERP foi encontrada no conector n8n; aguarda referência de
+identidade/credencial de homologação para o próximo teste real.

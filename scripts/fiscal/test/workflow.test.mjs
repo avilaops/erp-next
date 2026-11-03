@@ -10,9 +10,10 @@ const vars = { ERP_FISCAL_API_URL: 'https://erp-api.example.com', ERP_FISCAL_TEN
 
 function run(name, json, previous, config = vars) {
   const node = workflow.nodes.find(n => n.name === name);
+  const incoming = name === 'Validate' ? { apiBaseUrl: config.ERP_FISCAL_API_URL, tenantId: config.ERP_FISCAL_TENANT_ID, allowWrites: config.ERP_FISCAL_ALLOW_WRITES === 'true' } : json;
   return runInNewContext(`(function() { ${node.parameters.jsCode} })()`, {
-    $input: { all: () => [{ json }], first: () => ({ json }) }, $vars: config,
-    $: () => ({ first: () => ({ json: previous }), item: { json: previous } }),
+    $input: { all: () => [{ json: incoming }], first: () => ({ json: incoming }) }, $vars: config,
+    $: name => ({ all: () => [{ json }], first: () => ({ json: name === 'Input' ? json : previous }), item: { json: previous } }),
   })[0].json;
 }
 
@@ -75,4 +76,15 @@ test('workflow uses authenticated HTTP nodes, no automatic retry, and no product
     assert.equal(node.parameters.options.redirect.redirect.followRedirects, false);
   }
   assert.equal(workflow.nodes.filter(node => node.type.endsWith('Trigger')).length, 1);
+});
+
+test('operator configuration excludes payload fields before validation', () => {
+  const config = workflow.nodes.find(node => node.name === 'Config');
+  assert.ok(config, 'operator configuration needs an isolated boundary');
+  assert.equal(config.parameters.includeOtherFields, false);
+  const values = Object.fromEntries(config.parameters.assignments.assignments.map(field => [field.name,
+    Function('$vars', `return (${field.value.slice(3, -2)});`)(vars)]));
+  assert.equal(values.apiBaseUrl, 'https://erp-api.example.com');
+  assert.equal(values.tenantId, tenantId);
+  assert.equal(values.allowWrites, true);
 });

@@ -2,17 +2,18 @@ import { pathToFileURL } from 'node:url';
 
 // Keep executable Code-node logic alongside tests; export the resulting JSON for import.
 const validate = `
-const items = $input.all();
+const items = $('Input').all();
 if (items.length !== 1) throw new Error('one_command_required');
 const input = items[0].json;
+const config = $input.first().json;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-if ($vars.ERP_FISCAL_ALLOW_WRITES !== 'true') throw new Error('writes_disabled');
+if (config.allowWrites !== true) throw new Error('writes_disabled');
 if (input.confirm !== true) throw new Error('confirmation_required');
 if (!uuid.test(input.id) || !uuid.test(input.idempotencyKey)) throw new Error('invalid_uuid');
 if (!Number.isSafeInteger(input.revision) || input.revision < 1) throw new Error('invalid_revision');
-const apiBaseUrl = String($vars.ERP_FISCAL_API_URL || '').replace(/\\/$/, '');
+const apiBaseUrl = String(config.apiBaseUrl || '').replace(/\\/$/, '');
 if (!/^https:\\/\\/[a-z0-9.-]+(?::[0-9]+)?$/i.test(apiBaseUrl)) throw new Error('invalid_api_url');
-const tenantId = $vars.ERP_FISCAL_TENANT_ID;
+const tenantId = config.tenantId;
 if (!uuid.test(tenantId)) throw new Error('invalid_tenant');
 return [{ json: { apiBaseUrl, tenantId: tenantId.toLowerCase(), id: input.id.toLowerCase(), revision: input.revision,
   idempotencyKey: input.idempotencyKey.toLowerCase(), attempts: 0 } }];
@@ -65,6 +66,12 @@ const workflow = {
   nodes: [
     { id: 'input', name: 'Input', type: 'n8n-nodes-base.executeWorkflowTrigger', typeVersion: 1.1,
       position: [0, 0], parameters: { inputSource: 'passthrough' } },
+    { id: 'config', name: 'Config', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [110, -160],
+      parameters: { mode: 'manual', includeOtherFields: false, assignments: { assignments: [
+        { id: 'api-url', name: 'apiBaseUrl', type: 'string', value: '={{ $vars.ERP_FISCAL_API_URL }}' },
+        { id: 'tenant-id', name: 'tenantId', type: 'string', value: '={{ $vars.ERP_FISCAL_TENANT_ID }}' },
+        { id: 'allow-writes', name: 'allowWrites', type: 'boolean', value: '={{ $vars.ERP_FISCAL_ALLOW_WRITES === "true" }}' },
+      ] }, options: {} } },
     code('Validate', validate, [220, 0]),
     http('Issue', 'POST', '={{ $json.apiBaseUrl + "/api/v1/fiscal/nfe/" + $json.id + "/issue" }}', [
       { name: 'X-Tenant-Id', value: '={{ $json.tenantId }}' },
@@ -85,7 +92,7 @@ const workflow = {
 return [{ json: { id, tenantId, status, httpStatus, revision, attempts, complete, authorized, needsAttention } }];`, [1100, 140]),
   ],
   connections: {
-    Input: { main: [[edge('Validate')]] }, Validate: { main: [[edge('Issue')]] },
+    Input: { main: [[edge('Config')]] }, Config: { main: [[edge('Validate')]] }, Validate: { main: [[edge('Issue')]] },
     Issue: { main: [[edge('Issue result')]] }, 'Issue result': { main: [[edge('Pending')]] },
     Pending: { main: [[edge('Wait')], [edge('Result')]] }, Wait: { main: [[edge('Status')]] },
     Status: { main: [[edge('Poll result')]] }, 'Poll result': { main: [[edge('Pending')]] },

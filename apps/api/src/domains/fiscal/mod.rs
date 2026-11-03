@@ -1,6 +1,7 @@
 pub mod certificate_crypto;
 pub mod certificates;
 pub mod cte_distribution;
+pub mod cte_inspection;
 pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
@@ -47,6 +48,7 @@ pub fn routes() -> Router<AppState> {
         .merge(emission::routes())
         .merge(incoming::routes())
         .merge(cte_distribution::routes())
+        .merge(cte_inspection::routes())
         .route("/api/v1/fiscal/monitor", get(monitor::status))
         .route(
             "/api/v1/fiscal/monitor/sync",

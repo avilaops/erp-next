@@ -77,6 +77,7 @@ impl FiscalEngine {
             "void",
             "distribute",
             "distribute-cte",
+            "inspect-cte",
             "inspect-nfse",
             "manifest",
         ]

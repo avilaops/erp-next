@@ -79,5 +79,26 @@ XML. Regressões incluem DVs inválidos em documentos reassinados. Os achados
 foram encerrados por releitura da correção; a suíte completa acima passou.
 
 O teste HTTP Rust da rota de conferência foi escrito antes da implementação
-pública. Sua primeira execução será feita no GitHub Actions para demonstrar a
-rota ausente; não foi compilado nem executado neste servidor.
+pública. O CI `41663360290`, job Rust `126013102778`, confirmou a falha esperada:
+HTTP 404 em vez de 403. Os 235 testes anteriores da API passaram. Essa execução
+não comprova a integração ainda em implementação e não foi executada localmente.
+
+## Integração da API em implementação
+
+Rotas GET `documents/{id}/inspection` e POST `documents/{id}/inspect` sob
+`/api/v1/fiscal/cte-distribution`. O POST recebe apenas `{}` e exige leitura,
+permissão nova `fiscal.cte.inspect` e Idempotency-Key. A permissão não entra no
+bootstrap/onboarding automático. O XML é lido do documento preservado, nunca do
+payload do navegador. Consulta ou falha de conferência não altera cursor.
+
+`fiscal_cte_inspections` é append-only, com RLS forçada e referência ao documento
+do mesmo tenant. Metadados tipados são correlacionados novamente com XML/hash,
+papéis, valores, referências e protocolo na API, sem fingir verificação de
+confiança ou situação atual. A transação libera o lock antes da chamada ao motor;
+no retorno, tenant/permissões/CNPJ/arquivo são revalidados. Resultado, comando,
+auditoria e outbox são atômicos. Replay e perfil já conferido não reinspecionam.
+
+Os testes HTTP acrescentados cobrem permissões separadas, chave obrigatória,
+tenant/imutabilidade, replay e conflito de comando, metadados forjados, revogação,
+troca de CNPJ durante I/O, falha do motor e do outbox e concorrência. Compilação,
+formatação, Clippy e execução ainda dependem do novo GitHub Actions.

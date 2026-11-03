@@ -68,6 +68,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
         fiscal::cte_distribution::status, fiscal::cte_distribution::documents, fiscal::cte_distribution::document,
         fiscal::cte_distribution::query, fiscal::cte_distribution::run,
+        fiscal::cte_inspection::get_inspection, fiscal::cte_inspection::inspect,
         fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,

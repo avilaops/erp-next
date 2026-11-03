@@ -79,7 +79,7 @@ test("CT-e recebido: valida o modal que o XSD principal ignora", async () => {
   ]) await assert.rejects(() => inspect(receivedCteFixture(key, { change }).xml), invalid);
 });
 
-test("CT-e recebido: centavos são exatos mesmo acima da precisão segura de Number", async () => {
+test("CT-e recebido: preserva o maior valor do schema como centavos exatos", async () => {
   const result = await inspect(receivedCteFixture(key, { amount: "9999999999999.99" }).xml);
   assert.equal(result.serviceCents, "999999999999999");
 });

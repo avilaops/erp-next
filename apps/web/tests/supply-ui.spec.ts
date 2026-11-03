@@ -57,6 +57,30 @@ test("configurações de consulta não permitem edição", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Salvar configurações", exact: true })).toBeDisabled()
 })
 
+test("listagem alterna tabela e cartões e permite limpar a busca", async ({ page }, testInfo) => {
+  await page.route("**/api/erp/warehouses**", route => {
+    const query = new URL(route.request().url()).searchParams
+    const data = query.get("q") ? [] : [{ id: record, revision: 1, code: "DEP-01", name: "Depósito principal", status: "active", notes: null, location: "Galpão A" }]
+    return route.fulfill({ json: { tenantId: tenant, canEdit: true, data, total: data.length, offset: 0, limit: 25 } })
+  })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto("/estoque/depositos")
+  const table = page.getByRole("table")
+  await expect(table.getByRole("link", { name: "Depósito principal", exact: true })).toBeVisible()
+  await expect(table.getByRole("link", { name: "Editar Depósito principal", exact: true })).toBeVisible()
+  await page.getByRole("textbox", { name: "Buscar nome ou código" }).fill("inexistente")
+  await page.getByRole("region", { name: "Depósitos de estoque", exact: true }).getByRole("button", { name: "Buscar", exact: true }).click()
+  await expect(page.getByText("Nenhum cadastro corresponde aos filtros.", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Limpar filtros" }).click()
+  await expect(table.getByText("Galpão A", { exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath("depositos-desktop.png"), fullPage: true })
+  await page.setViewportSize({ width: 320, height: 844 })
+  await expect(table).toBeHidden()
+  await expect(page.getByRole("link", { name: "Depósito principal", exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath("depositos-mobile.png"), fullPage: true })
+})
+
 for (const config of [
   { path: "/estoque/depositos", endpoint: "warehouses", extra: { location: "Galpão A" } },
   { path: "/cadastros/grupos-produtos", endpoint: "product-groups", extra: {} },

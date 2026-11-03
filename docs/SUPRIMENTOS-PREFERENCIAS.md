@@ -51,9 +51,27 @@ edições exigem revisão. Banco, auditoria e outbox participam da mesma transa�
   aprovados. As suítes usam papéis sem bypass de RLS.
 - OpenAPI exportado, validado e usado para gerar os tipos web.
 - TypeScript e build Next.js de produção aprovados.
-- Oito testes Playwright de suprimentos aprovados contra o build de produção
+- Nove testes Playwright de suprimentos aprovados contra o build de produção
   local, com autenticação e API sintéticas, incluindo viewport móvel.
 - Lint sem erros, com 12 avisos preexistentes fora dos arquivos desta entrega.
 - Verificador de arquitetura aprovado para 328 arquivos de rotas.
 - Revisão estática independente concluída; confirmação duplicada na navegação
   do editor corrigida.
+
+## Continuação da interface
+
+As listagens apresentam tabela no desktop e cartões no celular, localização dos
+depósitos, edição direta, filtros controlados com limpeza e estados vazios
+específicos. Os quatro cadastros de suprimentos oferecem retorno às preferências.
+
+O botão Sair usa POST via fetch para conservar a origem sob `no-referrer`.
+A navegação por formulário enviava `Origin: null` no Chromium e recebia 403.
+A validação de origem no servidor permanece ativa. Falhas aparecem na interface
+e permitem nova tentativa; o sucesso limpa os cookies e abre a tela de entrada.
+Seis testes de navegador passaram com o handler real local: saída pela interface,
+remoção dos cookies, bloqueio de origem inválida, recusa, falha de rede e
+reprodução da diferença entre formulário e fetch.
+
+O catálogo de verificação inclui 196 ações e 40 fluxos, com 40 testes aprovados.
+Os quatro testes OpenAPI também passaram. Esses registros não atestam execução
+ou publicação em produção.

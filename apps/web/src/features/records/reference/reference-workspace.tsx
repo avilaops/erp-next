@@ -20,27 +20,51 @@ export function ReferenceWorkspace({ kind, id, mode }: { kind: ReferenceKind; id
 
 function List({ kind }: { kind: ReferenceKind }) {
   const config = referenceConfigs[kind]
+  const [filters, setFilters] = useState({ q: "", status: "" })
   const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
   if (query.status) params.set("status", query.status)
   const result = useResource<ReferenceList>(`/api/erp/${config.endpoint}?${params}`)
-  return <><PageHeader eyebrow="Cadastros" title={config.title} description={config.description} /><section className="form-section min-w-0 space-y-5">
-    {result.value?.canEdit && <Link className={linkClass} href={`${referencePath(kind)}/novo`}>Novo cadastro</Link>}
-    <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); const values = new FormData(event.currentTarget); setQuery({ q: String(values.get("q") || ""), status: String(values.get("status") || ""), offset: 0 }) }}>
-      <label className="min-w-0 flex-1 space-y-2">Buscar nome ou código<Input name="q" maxLength={160} /></label>
-      <label className="space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-      <Button type="submit" disabled={result.loading}>Buscar</Button>
-    </form>
-    {result.loading ? <p role="status">Carregando cadastros…</p> : result.error ? <div className="space-y-3" role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
-      <p>{result.value.total} registro(s) · {result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-      {!result.value.data.length ? <p>Nenhum cadastro encontrado.</p> : <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value.data.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.id}>
-        <Link className={`${linkClass} break-words`} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link><p className="break-all text-sm">{item.code}</p><p>{item.status === "active" ? "Ativo" : "Arquivado"}</p>
-      </li>)}</ul>}
-      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 25) })}>Anterior</Button><span>Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.value.total} onClick={() => setQuery({ ...query, offset: query.offset + 25 })}>Próxima</Button></div>
-    </>}
-  </section></>
+  const supply = ["depositos", "grupos-produtos", "grupos-tags", "tags"].includes(kind)
+  const filtered = !!query.q || !!query.status
+  const total = result.value?.total ?? 0
+  function statusLabel(status: string) {
+    return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${status === "active" ? "border-primary/20 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>{status === "active" ? "Ativo" : "Arquivado"}</span>
+  }
+  return <>
+    {supply && <Link className="mb-5 inline-flex min-h-11 items-center text-sm text-primary underline underline-offset-4" href="/preferencias?categoria=suprimentos">Preferências / Suprimentos</Link>}
+    <PageHeader eyebrow="Cadastros" title={config.title} description={config.description} />
+    <section className="form-section min-w-0 space-y-5" aria-label={config.title}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h2 className="font-semibold">Registros da empresa</h2><p className="mt-1 text-sm text-muted-foreground">Consulte os dados e mantenha os cadastros atualizados.</p></div>
+        {result.value?.canEdit && <Link className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover" href={`${referencePath(kind)}/novo`}>Novo cadastro</Link>}
+      </div>
+      <form className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-4" onSubmit={event => { event.preventDefault(); setQuery({ ...filters, q: filters.q.trim(), offset: 0 }) }}>
+        <label className="min-w-0 flex-[1_1_220px] space-y-2 text-sm">Buscar nome ou código<Input name="q" placeholder="Digite um nome ou código" maxLength={160} value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} /></label>
+        <label className="min-w-[130px] space-y-2 text-sm">Situação<select name="status" className={selectClass} value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <Button type="submit" className="min-h-11" disabled={result.loading}>Buscar</Button>
+        {(filtered || filters.q || filters.status) && <Button type="button" variant="outline" className="min-h-11" disabled={result.loading} onClick={() => { setFilters({ q: "", status: "" }); setQuery({ q: "", status: "", offset: 0 }) }}>Limpar filtros</Button>}
+      </form>
+      {result.loading ? <p role="status" className="py-8 text-center text-sm text-muted-foreground">Carregando cadastros…</p> : result.error ? <div className="space-y-3 rounded-xl border border-destructive/30 p-5" role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><p role="status">{total} registro(s){filtered ? " encontrados" : ""}</p><span className="text-muted-foreground">{result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</span></div>
+        {!result.value.data.length ? <div className="space-y-2 rounded-xl border border-dashed p-8 text-center"><h3 className="font-medium">{filtered ? "Nenhum cadastro corresponde aos filtros." : "Nenhum cadastro encontrado."}</h3><p className="text-sm text-muted-foreground">{filtered ? "Revise a busca ou limpe os filtros para consultar todos os registros." : result.value.canEdit ? "Use Novo cadastro para adicionar o primeiro registro desta empresa." : "Os registros aparecerão aqui quando forem cadastrados."}</p></div> : <>
+          <ul className="grid gap-3 md:hidden">{result.value.data.map(item => <li className="min-w-0 space-y-3 rounded-xl border border-border p-4" key={item.id}>
+            <div className="flex items-start justify-between gap-3"><Link className={`${linkClass} min-w-0 break-words`} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{statusLabel(item.status)}</div>
+            <p className="break-all text-sm text-muted-foreground">Código: {item.code}</p>
+            {kind === "depositos" && <p className="break-words text-sm">Localização: {item.location || "Não informada"}</p>}
+            {result.value?.canEdit && <Link className="inline-flex min-h-11 items-center text-sm text-primary underline" href={`${referencePath(kind)}/${item.id}/editar`}>Editar {item.name}</Link>}
+          </li>)}</ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-border md:block"><table className="w-full text-left text-sm">
+            <caption className="sr-only">{config.title} da empresa ativa</caption>
+            <thead className="bg-muted/40 text-muted-foreground"><tr><th scope="col" className="px-4 py-3 font-medium">Código</th><th scope="col" className="px-4 py-3 font-medium">Nome</th>{kind === "depositos" && <th scope="col" className="px-4 py-3 font-medium">Localização</th>}<th scope="col" className="px-4 py-3 font-medium">Situação</th><th scope="col" className="px-4 py-3 font-medium"><span className="sr-only">Ações</span></th></tr></thead>
+            <tbody className="divide-y divide-border">{result.value.data.map(item => <tr className="hover:bg-muted/20" key={item.id}><td className="max-w-40 break-all px-4 py-3 font-mono text-xs">{item.code}</td><th scope="row" className="max-w-80 break-words px-4 py-3 font-medium"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link></th>{kind === "depositos" && <td className="max-w-60 break-words px-4 py-3">{item.location || "Não informada"}</td>}<td className="px-4 py-3">{statusLabel(item.status)}</td><td className="px-4 py-3">{result.value?.canEdit && <Link className="inline-flex min-h-11 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td></tr>)}</tbody>
+          </table></div>
+        </>}
+        <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4" aria-label="Paginação dos cadastros"><Button variant="outline" className="min-h-11" disabled={!query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 25) })}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1} de {Math.max(1, Math.ceil(total / 25))}</span><Button variant="outline" className="min-h-11" disabled={query.offset + 25 >= total} onClick={() => setQuery({ ...query, offset: query.offset + 25 })}>Próxima</Button></nav>
+      </>}
+    </section>
+  </>
 }
-
 function RecordAccess({ kind, id, mode }: { kind: ReferenceKind; id?: string; mode: "view" | "edit" | "create" }) {
   const config = referenceConfigs[kind]
   const result = useResource<ReferenceSnapshot | ReferenceList>(id ? `/api/erp/${config.endpoint}/${id}` : `/api/erp/${config.endpoint}?limit=1`)

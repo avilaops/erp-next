@@ -251,7 +251,19 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 132);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 142);
+        for resource in ["inventory-settings", "purchase-settings"] {
+            let path = format!("/api/v1/{resource}");
+            assert!(doc["paths"][&path]["get"].is_object());
+            assert!(doc["paths"][&path]["put"]["requestBody"].is_object());
+            for status in ["200", "403", "412", "422", "428"] {
+                assert!(
+                    doc["paths"][&path]["put"]["responses"]
+                        .get(status)
+                        .is_some()
+                );
+            }
+        }
         assert!(doc["paths"]["/api/v1/sales-settings"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/sales-settings"]["put"].is_object());
         let required = doc["components"]["schemas"]["SalesSettingsInput"]["required"]
@@ -298,6 +310,10 @@ mod tests {
         assert!(doc["paths"]["/api/v1/legacy-history/files/{id}"]["get"].is_object());
         for resource in [
             "product-categories",
+            "warehouses",
+            "product-groups",
+            "tag-groups",
+            "tags",
             "financial-categories",
             "financial-accounts",
             "payment-methods",

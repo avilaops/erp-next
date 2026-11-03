@@ -94,7 +94,9 @@ test("central CT-e remove linhas antigas em erro ou revogação e permite recupe
   mode = "empty"
   await page.getByRole("button", { name: "Atualizar arquivos" }).click()
   await expect(page.getByText("Nenhum arquivo CT-e coletado em homologação.", { exact: true })).toBeVisible()
-  await expect(page.getByRole("alert")).toHaveCount(0)
+  const files = page.getByRole("region", { name: /^Arquivos armazenados/ })
+  await expect(files).toBeVisible()
+  await expect(files.getByRole("alert")).toHaveCount(0)
 })
 
 test("falha persistida na última captura não oculta arquivos anteriores nem repete transporte", async ({ page }) => {
@@ -103,7 +105,9 @@ test("falha persistida na última captura não oculta arquivos anteriores nem re
     await page.goto("/fiscal/ctes")
     await expect(page.getByText(`Última captura: ${label}.`, { exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeEnabled()
-    await expect(page.getByRole("alert")).toHaveCount(0)
+    const files = page.getByRole("region", { name: /^Arquivos armazenados/ })
+    await expect(files).toBeVisible()
+    await expect(files.getByRole("alert")).toHaveCount(0)
   }
   expect(requests.every(value => value.method === "GET")).toBe(true)
 })

@@ -65,8 +65,8 @@ test("paleta Ctrl+K abre, recebe foco e devolve foco ao fechar", async ({ page }
 test("navegação móvel abre todos os módulos e a busca global", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 844 })
   await page.goto("/")
-  await page.getByRole("button", { name: "Módulos" }).click()
-  const dialog = page.getByRole("dialog", { name: "Módulos do ERP" })
+  await page.getByRole("button", { name: "Menu", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Menu do ERP" })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole("link", { name: "Fiscal" })).toBeVisible()
   await expect(dialog.getByRole("link", { name: "Logística" })).toBeVisible()

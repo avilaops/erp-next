@@ -46,9 +46,17 @@ esse upload.
 | DELETE | `/api/v1/fiscal/certificate` | Remove o conteúdo cifrado e incrementa a revisão |
 
 A consulta exige `fiscal.config.read`; alterações também exigem
-`fiscal.config.manage`. Todas as operações verificam identidade e associação
+`fiscal.certificate.manage`. `canEdit` reflete essa permissão específica.
+Configurar a preparação fiscal com `fiscal.config.manage` não autoriza conectar,
+substituir ou remover A1. Todas as operações verificam identidade e associação
 ativa à empresa. A tabela tem RLS obrigatório. O BFF usa a sessão selada,
 confere a origem das alterações e recusa troca de empresa entre tela e sessão.
+
+A migration `202611030002_fiscal_permissions.sql` registra o novo código sem
+concedê-lo a papéis existentes. Antes de liberar a administração de certificados,
+um administrador deve conceder explicitamente `fiscal.certificate.manage` aos
+papéis responsáveis, conservando `fiscal.config.read` para consulta. Essa
+concessão não habilita emissão nem eventos fiscais.
 
 O PUT recebe JSON com `pkcs12Base64` e `password`, sem outros campos.
 PUT e DELETE exigem `If-Match`: `"0"` para a primeira conexão e o ETag

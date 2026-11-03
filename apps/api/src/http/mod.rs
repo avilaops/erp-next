@@ -13,6 +13,8 @@ mod company_tests;
 #[cfg(test)]
 mod contracts_tests;
 #[cfg(test)]
+mod cte_distribution_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;

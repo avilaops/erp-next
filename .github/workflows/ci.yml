@@ -138,7 +138,20 @@ jobs:
             /home/runner/.cargo/git
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - run: cargo fmt --all --check
+      - name: Check Rust formatting and preserve a repair patch
+        run: |
+          if ! cargo fmt --all --check; then
+            mkdir -p artifacts
+            cargo fmt --all
+            git diff --binary > artifacts/rustfmt.patch
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: erp-rustfmt-${{ github.sha }}
+          path: artifacts/rustfmt.patch
+          if-no-files-found: ignore
       - run: timeout 480s cargo clippy --workspace --all-targets -- -D warnings
 
   contract-tests:

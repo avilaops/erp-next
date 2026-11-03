@@ -47,8 +47,8 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
   oficial `PL_CTeDistDFe_100`, além de ambiente, ordem/intervalo dos NSUs e
   limites de XML/descompressão. `nextNsu: null` proíbe confirmar cursor em
   rejeições. `minimumWaitSeconds` é um mínimo a persistir pela API; o motor
-  não agenda nem repete consultas. Esta operação ainda não está integrada à
-  API Rust, ao worker ou à central. Consulte
+  não agenda nem repete consultas. A integração Rust e seu worker opcional
+  estão em validação no CI; a central visual continua pendente. Consulte
   [o contrato e as limitações CT-e](../../docs/CTE-DISTRIBUICAO-AVL-111.md).
 
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:

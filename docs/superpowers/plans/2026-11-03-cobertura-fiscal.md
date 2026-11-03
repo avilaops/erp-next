@@ -28,6 +28,11 @@ Foi solicitada ao usuário a seleção de UFs, municípios e empresas. A respost
 continua necessária para as escolhas dependentes; tempo decorrido não a substitui.
 Não há contratação de fornecedor autorizada.
 
+Restrição de execução confirmada pelo usuário nesta retomada: não compilar Rust
+no servidor. Compilação, testes e lint Rust serão executados somente no GitHub
+Actions. Os processos locais desta tarefa foram interrompidos; a validação Rust
+desta etapa permanece pendente até o resultado do CI remoto.
+
 ## Primeira etapa: adaptador privado de distribuição CT-e
 
 **Decisão:** implementar pedido, leitura de lote e transporte privado CT-e,
@@ -78,6 +83,34 @@ interpretado, sem ser convertido em NF-e ou descartado antes da persistência.
 
 Não existe prova externa de CT-e no Next nesta etapa. O PDF DACTE citado no
 comentário histórico da AVL-111 pertence a outro serviço e não comprova coleta.
+
+## Segunda etapa: captura CT-e persistente em homologação
+
+Manter tabelas e permissões CT-e separadas de NF-e, sem conversão automática em
+compra, estoque ou financeiro. O cursor é vinculado ao tenant, CNPJ e ambiente;
+troca de CNPJ exige tratamento explícito, sem reutilizar NSU de outra empresa.
+Os documentos entram com conferência individual pendente.
+
+- [ ] Adicionar migração com estado, execuções e XML imutável, RLS forçada e
+  permissões `fiscal.cte.read` / `fiscal.cte.query`, sem concessão automática.
+- [ ] Adicionar rotas de status, consulta explícita, documentos e execução,
+  registradas no OpenAPI e protegidas por tenant/permissão.
+- [ ] Persistir intenção e lease antes do transporte; idempotência por usuário
+  e chave. Guardar lote e cursor na mesma transação, sem avanço parcial.
+- [ ] Preservar cursor em rejeição/timeout; persistir intervalo de uma hora em
+  137, 656, esgotamento ou resultado incerto. Lease perdido não pode confirmar.
+- [ ] Adicionar worker opcional, com tenant/usuário próprios e permissões
+  recarregadas a cada ciclo; desabilitado sem configuração explícita.
+- [ ] Testar isolamento, concorrência/replay, falha de persistência, retomada,
+  rejeições e revogação de permissão com PostgreSQL local isolado.
+- [ ] Revisar, validar e registrar a etapa sem declarar homologação externa.
+
+Arquivos: `migrations/202611030001_cte_distribution.sql`, domínio
+`apps/api/src/domains/fiscal/cte_distribution.rs`, armazenamento/validação
+em `cte_distribution_store.rs`, worker em `cte_distribution_worker.rs` e testes
+HTTP em `apps/api/src/http/cte_distribution_tests.rs`. Integração mínima em
+`fiscal/mod.rs`, cliente privado do motor, `http/mod.rs`, `http/openapi.rs` e
+`main.rs`. Reutilizar cofre A1, autorização e auditoria atuais.
 
 ## Fontes oficiais consultadas em 03/11/2026
 

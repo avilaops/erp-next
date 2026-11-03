@@ -8,15 +8,45 @@ Adaptador privado implementado no motor Node, em checkout isolado
 Base: `396826c4196aa09dfecfa8e048636fb4dee08287`.
 
 Esta entrega cobre protocolo, transporte interno e conferência local da
-distribuição CT-e. A integração Rust, cursor persistente, worker, central,
-vínculos comerciais e homologação externa continuam pendentes. Não conclui
+distribuição CT-e. A retomada acrescenta integração Rust, cursor persistente e
+worker opcional; a validação dessa etapa está pendente no GitHub Actions.
+Central visual, normalização individual, vínculos comerciais e homologação
+externa continuam pendentes. Não conclui
 AVL-111 nem a meta das seis issues. Nenhum certificado real foi aberto, nenhuma
 consulta fiscal externa foi executada e nenhuma capacidade de produção foi
 habilitada nesta rodada.
 
-O endpoint é interno e exige o Bearer do motor. Nenhuma rota de navegador ou
-permissão de usuário final foi adicionada. O cliente Rust ainda não permite a
-operação `distribute-cte`; sua integração será uma próxima etapa desta issue.
+O endpoint do motor é interno e exige seu Bearer. A API Rust acrescenta rotas
+autenticadas próprias e permissões CT-e específicas; a interface de navegador
+ainda não foi integrada. O cliente Rust admite `distribute-cte`, preservando
+os limites existentes das demais operações.
+
+## Integração Rust em validação
+
+As rotas `/api/v1/fiscal/cte-distribution/status`, `/query`, `/documents`,
+`/documents/{id}` e `/runs/{id}` exigem tenant e permissões específicas.
+Consulta explícita usa `If-Match` e `Idempotency-Key`. As tabelas de estado,
+execuções e documentos têm RLS forçada; documentos são imutáveis. O CNPJ
+congelado no cursor não pode ser substituído silenciosamente pelo cadastro atual.
+
+A intenção, concessão de execução e pausa conservadora são gravadas antes do
+transporte. O retorno confirma documentos e cursor na mesma transação; erro no
+segundo documento desfaz o lote. Rejeição, XML inválido, timeout, permissão
+revogada ou concessão perdida não autorizam avançar o cursor. Respostas incertas
+mantêm pausa de uma hora; as rejeições também usam essa pausa conservadora na API.
+Credenciais e corpo arbitrário do provedor não são guardados nos registros.
+
+O worker fica desabilitado sem `ERP_CTE_AUTOMATION_TENANT_ID` e
+`ERP_CTE_AUTOMATION_SUBJECT`. Ele recarrega permissões atuais e usa apenas o
+cursor CT-e. Os códigos `fiscal.cte.read` e `fiscal.cte.query` não entram nas
+concessões automáticas do bootstrap ou cadastro de empresa; sua atribuição é
+explícita pelo gerenciamento de acessos. Nenhum ambiente foi configurado nesta
+rodada para executar o worker.
+
+Os testes novos cobrem concorrência/replay, atomicidade, RLS, XML de outra
+empresa, revogação durante transporte, troca de CNPJ, retomada, pausas e grants.
+Compilação e execução Rust desta retomada serão validadas somente no GitHub
+Actions, conforme instrução do usuário; não são resultados aprovados ainda.
 
 ## Contrato interno
 

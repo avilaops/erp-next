@@ -21483,7 +21483,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {
@@ -21579,7 +21579,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {
@@ -21683,7 +21683,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {
@@ -21785,7 +21785,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {
@@ -21887,7 +21887,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {
@@ -21993,7 +21993,7 @@
       },
       "sources": [
         "apps/api/src/domains/staff_payroll.rs",
-        "migrations/202611030003_staff_payroll.sql",
+        "migrations/202611030008_staff_payroll.sql",
         "apps/web/src/features/staff/payroll-workspace.tsx"
       ],
       "verification": {

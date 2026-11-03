@@ -10,6 +10,16 @@ de conformidade foram portados do ERP Ávila Ops, commit
 antes da validação offline. Os testes usam certificados fictícios e transporte
 sintético; não comprovam autorização real pela SEFAZ.
 
+## Matriz NF-e por UF e ambiente
+
+`nfe-authorizers.ts` consulta a matriz oficial local fixada por SHA-256, com
+fontes separadas para produção e homologação. Distingue autorizadores próprios,
+SVAN/SVRS, consulta de cadastro, contingência e URLs publicadas com `?wsdl`.
+Serviço ausente não recebe fallback. Os quatro resolvers de transporte continuam
+limitados a SP e preservam suas URLs; listar outras UFs não habilita emissão.
+Contingência é somente metadado. Fonte, diferença entre os portais e pendências
+de homologação estão no [plano AVL-101](../../docs/superpowers/plans/2026-11-03-matriz-autorizadores-nfe.md).
+
 ## Execução
 
 ```sh
@@ -75,6 +85,16 @@ não recebe certificado, faz rede, altera cursor ou cria vínculos comerciais.
 O XML aceita até 2 MiB; somente esta rota permite JSON de até 4.195.328 bytes
 para acomodar escaping. Integração pública e persistência estão em andamento no
 [plano da conferência CT-e](../../docs/superpowers/plans/2026-11-03-conferencia-cte.md).
+
+O módulo privado `src/lib/fiscal/nfce-qr.ts` compõe os parâmetros de QR Code
+NFC-e 2/3 a partir de XML 65 já assinado, após XSD e conferência criptográfica
+com o certificado embutido. A versão é explícita; versão 2 exige CSC privado,
+e versão 3 offline exige a chave do mesmo certificado do XML. Valores e dia
+local são preservados. O retorno contém somente payload e metadados/hash,
+sem segredo ou XML. Não verifica confiança ICP-Brasil, credenciamento,
+autorização ou situação fiscal. Não há rota, URL de UF, imagem, DANFE ou
+emissão de NFC-e nesta etapa. Consulte
+[o contrato e os limites do QR Code](../../docs/superpowers/plans/2026-11-03-nfce-qr.md).
 
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 

@@ -68,6 +68,36 @@ pub enum ReferenceInput {
     FinancialCategory(FinancialCategoryInput),
     FinancialAccount(FinancialAccountInput),
     PaymentMethod(PaymentMethodInput),
+    ProductGroup(GroupInput),
+    TagGroup(GroupInput),
+    Warehouse(WarehouseInput),
+    Tag(TagInput),
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GroupInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct WarehouseInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub location: Option<String>,
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TagInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub group_id: Option<Uuid>,
 }
 #[derive(Clone, Copy)]
 enum Kind {
@@ -75,6 +105,10 @@ enum Kind {
     FinancialCategory,
     FinancialAccount,
     PaymentMethod,
+    Warehouse,
+    ProductGroup,
+    TagGroup,
+    Tag,
 }
 impl Kind {
     // SQL identifiers and projections come exclusively from this compile-time allowlist.
@@ -84,10 +118,18 @@ impl Kind {
             Self::FinancialCategory => "financial_categories",
             Self::FinancialAccount => "financial_accounts",
             Self::PaymentMethod => "payment_methods",
+            Self::Warehouse => "warehouses",
+            Self::ProductGroup => "product_groups",
+            Self::TagGroup => "tag_groups",
+            Self::Tag => "tags",
         }
     }
     fn permissions(self) -> (&'static str, &'static str) {
         match self {
+            Self::Warehouse => ("inventory.stock.read", "inventory.stock.manage"),
+            Self::ProductGroup | Self::TagGroup | Self::Tag => {
+                ("catalog.products.read", "catalog.products.manage")
+            }
             Self::ProductCategory => ("catalog.categories.read", "catalog.categories.manage"),
             Self::FinancialCategory => ("finance.categories.read", "finance.categories.manage"),
             Self::FinancialAccount => ("finance.accounts.read", "finance.accounts.manage"),
@@ -105,6 +147,9 @@ impl Kind {
                 "'accountType',account_type,'bank',bank,'branch',branch,'accountNumber',account_number"
             }
             Self::PaymentMethod => "'modality',modality,'settlementDays',settlement_days",
+            Self::Warehouse => "'location',location",
+            Self::ProductGroup | Self::TagGroup => "",
+            Self::Tag => "'groupId',group_id",
         }
     }
     fn event(self, updating: bool) -> &'static str {
@@ -117,6 +162,14 @@ impl Kind {
             (Self::FinancialAccount, true) => "financial_account.updated",
             (Self::PaymentMethod, false) => "payment_method.created",
             (Self::PaymentMethod, true) => "payment_method.updated",
+            (Self::Warehouse, false) => "warehouse.created",
+            (Self::Warehouse, true) => "warehouse.updated",
+            (Self::ProductGroup, false) => "product_group.created",
+            (Self::ProductGroup, true) => "product_group.updated",
+            (Self::TagGroup, false) => "tag_group.created",
+            (Self::TagGroup, true) => "tag_group.updated",
+            (Self::Tag, false) => "tag.created",
+            (Self::Tag, true) => "tag.updated",
         }
     }
 }
@@ -147,6 +200,9 @@ impl ReferenceInput {
             Self::FinancialCategory(v) => (&v.code, &v.name, &v.status, &v.notes),
             Self::FinancialAccount(v) => (&v.code, &v.name, &v.status, &v.notes),
             Self::PaymentMethod(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::Warehouse(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::ProductGroup(v) | Self::TagGroup(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::Tag(v) => (&v.code, &v.name, &v.status, &v.notes),
         }
     }
     fn validate(&mut self) -> Result<(), DomainError> {
@@ -155,6 +211,11 @@ impl ReferenceInput {
             Self::FinancialCategory(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
             Self::FinancialAccount(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
             Self::PaymentMethod(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
+            Self::Warehouse(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
+            Self::ProductGroup(v) | Self::TagGroup(v) => {
+                (&mut v.code, &mut v.name, &v.status, &mut v.notes)
+            }
+            Self::Tag(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
         };
         *code = code.trim().to_ascii_uppercase();
         if code.is_empty()
@@ -216,6 +277,7 @@ impl ReferenceInput {
                     "Modalidade inválida ou prazo fora de 0 a 365 dias",
                 ));
             }
+            Self::Warehouse(v) => optional(&mut v.location, 200)?,
             _ => {}
         }
         Ok(())
@@ -249,7 +311,7 @@ pub struct ReferenceList {
 
 fn select(kind: Kind) -> String {
     format!(
-        "SELECT id,revision,jsonb_build_object('code',code,'name',name,'status',status,'notes',notes,{}) AS data FROM {}",
+        "SELECT id,revision,(jsonb_build_object('code',code,'name',name,'status',status,'notes',notes) || jsonb_build_object({})) AS data FROM {}",
         kind.projection(),
         kind.table()
     )
@@ -404,6 +466,43 @@ async fn hierarchy(
     }
     Ok(())
 }
+async fn tag_group_relation(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+    input: &ReferenceInput,
+) -> Result<(), DomainError> {
+    // authorized() holds the tenant write lock across validation and storage.
+    // This also serializes group archival against creation/reactivation of tags.
+    match input {
+        ReferenceInput::Tag(tag) => {
+            if let Some(group_id) = tag.group_id {
+                let group = load(tx, tenant, Kind::TagGroup, group_id)
+                    .await
+                    .map_err(|error| match error {
+                        DomainError::NotFound => {
+                            DomainError::Conflict("Grupo de tags não pertence a esta empresa")
+                        }
+                        other => other,
+                    })?;
+                if tag.status == "active" && group.data.common().2 != "active" {
+                    return Err(DomainError::Conflict("Tag ativa exige grupo ativo"));
+                }
+            }
+        }
+        ReferenceInput::TagGroup(group) if group.status == "archived" => {
+            let active: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE tenant_id=$1 AND group_id=$2 AND status='active')")
+                .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)?;
+            if active {
+                return Err(DomainError::Conflict(
+                    "Arquive ou mova as tags ativas antes do grupo",
+                ));
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
 async fn store(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
@@ -414,6 +513,9 @@ async fn store(
     updating: bool,
 ) -> Result<(), DomainError> {
     let (columns, values, changes) = match input {
+        ReferenceInput::Warehouse(_) => ("location", "$8", "location=$8"),
+        ReferenceInput::Tag(_) => ("group_id", "$8", "group_id=$8"),
+        ReferenceInput::ProductGroup(_) | ReferenceInput::TagGroup(_) => ("", "", ""),
         ReferenceInput::ProductCategory(_) => (
             "parent_id,sort_order",
             "$8,$9",
@@ -433,14 +535,29 @@ async fn store(
             "modality=$8,settlement_days=$9",
         ),
     };
+    let columns = if columns.is_empty() {
+        String::new()
+    } else {
+        format!(",{columns}")
+    };
+    let values = if values.is_empty() {
+        String::new()
+    } else {
+        format!(",{values}")
+    };
+    let changes = if changes.is_empty() {
+        String::new()
+    } else {
+        format!(",{changes}")
+    };
     let sql = if updating {
         format!(
-            "UPDATE {} SET code=$3,name=$4,status=$5,notes=$6,revision=$7,updated_at=now(),{changes} WHERE id=$1 AND tenant_id=$2 AND revision=$7-1",
+            "UPDATE {} SET code=$3,name=$4,status=$5,notes=$6,revision=$7,updated_at=now(){changes} WHERE id=$1 AND tenant_id=$2 AND revision=$7-1",
             kind.table()
         )
     } else {
         format!(
-            "INSERT INTO {}(id,tenant_id,code,name,status,notes,revision,{columns}) VALUES($1,$2,$3,$4,$5,$6,$7,{values})",
+            "INSERT INTO {}(id,tenant_id,code,name,status,notes,revision{columns}) VALUES($1,$2,$3,$4,$5,$6,$7{values})",
             kind.table()
         )
     };
@@ -462,6 +579,9 @@ async fn store(
             .bind(&v.branch)
             .bind(&v.account_number),
         ReferenceInput::PaymentMethod(v) => query.bind(&v.modality).bind(v.settlement_days),
+        ReferenceInput::Warehouse(v) => query.bind(&v.location),
+        ReferenceInput::Tag(v) => query.bind(v.group_id),
+        ReferenceInput::ProductGroup(_) | ReferenceInput::TagGroup(_) => query,
     };
     let result = query.execute(&mut **tx).await.map_err(|e| {
         if e.as_database_error()
@@ -527,6 +647,7 @@ async fn write_record(
     };
     let record_id = id.unwrap_or_else(Uuid::now_v7);
     hierarchy(&mut tx, tenant, kind, record_id, &input).await?;
+    tag_group_relation(&mut tx, tenant, record_id, &input).await?;
     store(&mut tx, tenant, kind, record_id, next, &input, id.is_some()).await?;
     // Audit metadata excludes bank account identifiers and free-text notes.
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:kind.table(),id:record_id,event,details:serde_json::json!({"revision":next,"previousRevision":expected,"status":input.common().2})}).await?;
@@ -604,8 +725,75 @@ endpoints!(
     PaymentMethodInput
 );
 
+endpoints!(
+    list_warehouses,
+    get_warehouse,
+    create_warehouse,
+    update_warehouse,
+    "/api/v1/warehouses",
+    "/api/v1/warehouses/{id}",
+    Warehouse,
+    WarehouseInput
+);
+endpoints!(
+    list_product_groups,
+    get_product_group,
+    create_product_group,
+    update_product_group,
+    "/api/v1/product-groups",
+    "/api/v1/product-groups/{id}",
+    ProductGroup,
+    GroupInput
+);
+endpoints!(
+    list_tag_groups,
+    get_tag_group,
+    create_tag_group,
+    update_tag_group,
+    "/api/v1/tag-groups",
+    "/api/v1/tag-groups/{id}",
+    TagGroup,
+    GroupInput
+);
+endpoints!(
+    list_tags,
+    get_tag,
+    create_tag,
+    update_tag,
+    "/api/v1/tags",
+    "/api/v1/tags/{id}",
+    Tag,
+    TagInput
+);
+
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/v1/warehouses",
+            get(list_warehouses).post(create_warehouse),
+        )
+        .route(
+            "/api/v1/warehouses/{id}",
+            get(get_warehouse).put(update_warehouse),
+        )
+        .route(
+            "/api/v1/product-groups",
+            get(list_product_groups).post(create_product_group),
+        )
+        .route(
+            "/api/v1/product-groups/{id}",
+            get(get_product_group).put(update_product_group),
+        )
+        .route(
+            "/api/v1/tag-groups",
+            get(list_tag_groups).post(create_tag_group),
+        )
+        .route(
+            "/api/v1/tag-groups/{id}",
+            get(get_tag_group).put(update_tag_group),
+        )
+        .route("/api/v1/tags", get(list_tags).post(create_tag))
+        .route("/api/v1/tags/{id}", get(get_tag).put(update_tag))
         .route(
             "/api/v1/product-categories",
             get(list_product_categories).post(create_product_category),

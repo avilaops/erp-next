@@ -4,6 +4,12 @@
     "schemaVersion": "erp-product-flow-definitions/1",
     "product": "erp",
     "flows": [
+      {"id":"warehouses","title":"depósitos","goal":"Cadastro não distribui saldos por depósito nem transfere estoque.","kind":"product","actionGroups":["warehouses"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"product-groups","title":"grupos de produtos","goal":"Cadastro não altera vínculos de produtos existentes.","kind":"product","actionGroups":["product-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"tag-groups","title":"grupos de tags","goal":"Arquivamento exige ausência de tags ativas vinculadas.","kind":"product","actionGroups":["tag-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"tags","title":"tags","goal":"Grupo deve pertencer à empresa; tag ativa exige grupo ativo.","kind":"product","actionGroups":["tags"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"inventory-settings","title":"Configurações de estoque","goal":"Lançamentos e estornos manuais respeitam permissão e motivo mínimo; recebimentos e vendas mantêm seus próprios fluxos.","kind":"product","actionGroups":["inventory-settings"],"dependencies":["company_onboarding"],"nextStep":"Validar regras e gravação na versão publicada; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/supply_settings.rs"]},
+      {"id":"purchase-settings","title":"Configurações de compras","goal":"Regras verificadas na próxima confirmação de compra; pedidos confirmados não são alterados.","kind":"product","actionGroups":["purchase-settings"],"dependencies":["company_onboarding"],"nextStep":"Validar regras e gravação na versão publicada; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/supply_settings.rs"]},
       {
         "id": "company-account",
         "title": "Conta da empresa e assinaturas",
@@ -984,6 +990,1806 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "get-api-v1-warehouses",
+      "flow": "warehouses",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/warehouses"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "inventory.stock.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, status, offset e limit; filtros validados pelo domínio."
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar/pesquisar depósitos"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/estoque/depositos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/warehouses"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-warehouses",
+      "flow": "warehouses",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/warehouses"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "inventory.stock.read",
+        "inventory.stock.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "WarehouseInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Cadastro não distribui saldos por depósito nem transfere estoque."
+      ],
+      "transition": {
+        "from": "ausente",
+        "to": "criado; revisão inicial"
+      },
+      "effects": {
+        "writes": [
+          "Criar depósitos com validações do domínio",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Cadastro não distribui saldos por depósito nem transfere estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar depósitos com validações do domínio"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/estoque/depositos/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/warehouses"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-warehouses-id",
+      "flow": "warehouses",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/warehouses/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "inventory.stock.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar detalhe de depósitos"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/estoque/depositos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/warehouses/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-warehouses-id",
+      "flow": "warehouses",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/warehouses/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "inventory.stock.read",
+        "inventory.stock.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "WarehouseInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Cadastro não distribui saldos por depósito nem transfere estoque."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Alterar depósitos com revisão e autorização",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Cadastro não distribui saldos por depósito nem transfere estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Alterar depósitos com revisão e autorização"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/estoque/depositos/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/warehouses/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-product-groups",
+      "flow": "product-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/product-groups"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, status, offset e limit; filtros validados pelo domínio."
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar/pesquisar grupos de produtos"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-produtos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/product-groups"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-product-groups",
+      "flow": "product-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/product-groups"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "GroupInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Cadastro não altera vínculos de produtos existentes."
+      ],
+      "transition": {
+        "from": "ausente",
+        "to": "criado; revisão inicial"
+      },
+      "effects": {
+        "writes": [
+          "Criar grupos de produtos com validações do domínio",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Cadastro não altera vínculos de produtos existentes."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar grupos de produtos com validações do domínio"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-produtos/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/product-groups"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-product-groups-id",
+      "flow": "product-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/product-groups/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar detalhe de grupos de produtos"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-produtos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/product-groups/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-product-groups-id",
+      "flow": "product-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/product-groups/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "GroupInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Cadastro não altera vínculos de produtos existentes."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Alterar grupos de produtos com revisão e autorização",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Cadastro não altera vínculos de produtos existentes."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Alterar grupos de produtos com revisão e autorização"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-produtos/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/product-groups/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-tag-groups",
+      "flow": "tag-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/tag-groups"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, status, offset e limit; filtros validados pelo domínio."
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar/pesquisar grupos de tags"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-tags"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/tag-groups"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-tag-groups",
+      "flow": "tag-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/tag-groups"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "GroupInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Arquivamento exige ausência de tags ativas vinculadas."
+      ],
+      "transition": {
+        "from": "ausente",
+        "to": "criado; revisão inicial"
+      },
+      "effects": {
+        "writes": [
+          "Criar grupos de tags com validações do domínio",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Arquivamento exige ausência de tags ativas vinculadas."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar grupos de tags com validações do domínio"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-tags/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/tag-groups"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-tag-groups-id",
+      "flow": "tag-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/tag-groups/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar detalhe de grupos de tags"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-tags/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/tag-groups/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-tag-groups-id",
+      "flow": "tag-groups",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/tag-groups/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "GroupInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Arquivamento exige ausência de tags ativas vinculadas."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Alterar grupos de tags com revisão e autorização",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Arquivamento exige ausência de tags ativas vinculadas."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Alterar grupos de tags com revisão e autorização"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/grupos-tags/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/tag-groups/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-tags",
+      "flow": "tags",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/tags"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "q, status, offset e limit; filtros validados pelo domínio."
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar/pesquisar tags"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/tags"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/tags"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-tags",
+      "flow": "tags",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/tags"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "TagInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Grupo deve pertencer à empresa; tag ativa exige grupo ativo."
+      ],
+      "transition": {
+        "from": "ausente",
+        "to": "criado; revisão inicial"
+      },
+      "effects": {
+        "writes": [
+          "Criar tags com validações do domínio",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Grupo deve pertencer à empresa; tag ativa exige grupo ativo."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar tags com validações do domínio"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/tags/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/tags"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-tags-id",
+      "flow": "tags",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/tags/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Consulta não executa comando de escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar detalhe de tags"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/cadastros/tags/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/tags/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-tags-id",
+      "flow": "tags",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/tags/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/reference_data.rs",
+          "type": "TagInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
+        "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
+        "UUID de idempotência obrigatório; repetir a mesma intenção/chave, sem gerar novo comando.",
+        "Código único por empresa.",
+        "Grupo deve pertencer à empresa; tag ativa exige grupo ativo."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Alterar tags com revisão e autorização",
+          "Auditoria e outbox do comando na transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Grupo deve pertencer à empresa; tag ativa exige grupo ativo."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Alterar tags com revisão e autorização"
+      },
+      "recovery": "Se a resposta for perdida, repetir exatamente chave, corpo e revisão originais; revalidar acesso. Nova intenção usa nova chave. O resultado repetido não é uma leitura do estado atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/tags/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/tags/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/reference_data.rs",
+        "apps/web/src/features/records/reference/reference-workspace.tsx",
+        "apps/web/src/features/records/reference/reference-config.ts"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-inventory-settings",
+      "flow": "inventory-settings",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/inventory-settings"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; platform.company.manage OU platform.company.read OU inventory.stock.read."
+      ],
+      "transition": {
+        "from": "configuração da empresa ou ausência",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Lançamentos e estornos manuais respeitam permissão e motivo mínimo; recebimentos e vendas mantêm seus próprios fluxos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Ausência retorna data null e revisão virtual 1; padrão operacional permite movimentos manuais com motivo mínimo de 3 caracteres."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          500,
+          503
+        ],
+        "action": "Consultar configurações de estoque"
+      },
+      "recovery": "Repetir leitura; falha não é apresentada como ausência de regras.",
+      "ui": {
+        "pages": [
+          "/preferencias/suprimentos/estoque"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/inventory-settings"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/supply_settings.rs",
+        "apps/web/src/features/supply/supply-settings.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-inventory-settings",
+      "flow": "inventory-settings",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/inventory-settings"
+      },
+      "actor": "company_manager",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/supply_settings.rs",
+          "type": "InventorySettingsInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "platform.company.manage revalidada sob bloqueio da empresa; campos explícitos e válidos; If-Match da revisão atual.",
+        "Motivo mínimo inteiro de 3 a 200 caracteres."
+      ],
+      "transition": {
+        "from": "revisão atual",
+        "to": "regras da empresa com revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "inventory_settings",
+          "audit_log",
+          "outbox_events na mesma transação"
+        ],
+        "external": [],
+        "excludes": [
+          "Lançamentos e estornos manuais respeitam permissão e motivo mínimo; recebimentos e vendas mantêm seus próprios fluxos."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "If-Match e bloqueio da empresa; resposta incerta exige recarga explícita."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Salvar configurações de estoque"
+      },
+      "recovery": "Preservar edição e recarregar antes de repetir uma gravação incerta.",
+      "ui": {
+        "pages": [
+          "/preferencias/suprimentos/estoque"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/inventory-settings"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/supply_settings.rs",
+        "apps/web/src/features/supply/supply-settings.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-purchase-settings",
+      "flow": "purchase-settings",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/purchase-settings"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; platform.company.manage OU platform.company.read OU purchasing.orders.read."
+      ],
+      "transition": {
+        "from": "configuração da empresa ou ausência",
+        "to": "sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Regras verificadas na próxima confirmação de compra; pedidos confirmados não são alterados."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Ausência retorna data null e revisão virtual 1; não aplica regras adicionais."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          500,
+          503
+        ],
+        "action": "Consultar configurações de compras"
+      },
+      "recovery": "Repetir leitura; falha não é apresentada como ausência de regras.",
+      "ui": {
+        "pages": [
+          "/preferencias/suprimentos/compras"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/purchase-settings"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/supply_settings.rs",
+        "apps/web/src/features/supply/supply-settings.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-purchase-settings",
+      "flow": "purchase-settings",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/purchase-settings"
+      },
+      "actor": "company_manager",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/supply_settings.rs",
+          "type": "PurchaseSettingsInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "platform.company.manage revalidada sob bloqueio da empresa; campos explícitos e válidos; If-Match da revisão atual.",
+        "Valor mínimo decimal válido; prazo inteiro entre 0 e 3650 dias; contato booleano explícito."
+      ],
+      "transition": {
+        "from": "revisão atual",
+        "to": "regras da empresa com revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "purchase_settings",
+          "audit_log",
+          "outbox_events na mesma transação"
+        ],
+        "external": [],
+        "excludes": [
+          "Regras verificadas na próxima confirmação de compra; pedidos confirmados não são alterados."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "If-Match e bloqueio da empresa; resposta incerta exige recarga explícita."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Salvar configurações de compras"
+      },
+      "recovery": "Preservar edição e recarregar antes de repetir uma gravação incerta.",
+      "ui": {
+        "pages": [
+          "/preferencias/suprimentos/compras"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/purchase-settings"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/supply_settings.rs",
+        "apps/web/src/features/supply/supply-settings.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-api-v1-company-account",
       "flow": "company-account",
@@ -16736,11 +18542,10 @@
     },
     {
       "id": "pending-4",
-      "title": "Depósitos e transferências",
+      "title": "Transferências entre depósitos",
       "status": "needs_definition",
-      "intent": "Cadastrar/inativar depósito; transferir produtos entre origens/destinos",
+      "intent": "Cadastros de depósitos implementados; transferências e saldos por depósito permanecem pendentes.",
       "proposedEndpoints": [
-        "/api/v1/warehouses",
         "/api/v1/stock/transfers"
       ],
       "openDecisions": [

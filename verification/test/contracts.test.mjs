@@ -12,8 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 176);
-  assert.equal(assessment.bffOperations, 152);
+  assert.equal(assessment.apiOperations, 196);
+  assert.equal(assessment.bffOperations, 172);
   assert.equal(assessment.pendingFlows, 35);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
@@ -98,13 +98,32 @@ test('catalogue changes are part of source provenance and read preconditions are
 });
 
 test('auxiliary catalogue contracts preserve filter, not-found, conflict and precondition failures', () => {
-  for (const resource of ['product-categories', 'financial-categories', 'financial-accounts', 'payment-methods']) {
+  for (const resource of ['product-categories', 'financial-categories', 'financial-accounts', 'payment-methods', 'warehouses', 'product-groups', 'tag-groups', 'tags']) {
     for (const [method, suffix, expected] of [
       ['GET', '', [422]], ['GET', '/{id}', [404]],
       ['POST', '', [409, 422, 428]], ['PUT', '/{id}', [400, 404, 409, 412, 422, 428]],
     ]) {
       const action = catalogue.actions.find(item => item.operation.method === method && item.operation.path === `/api/v1/${resource}${suffix}`);
       for (const status of expected) assert.ok(action.response.errorStatuses.includes(status), `${method} ${resource}${suffix}: missing ${status}`);
+    }
+  }
+});
+
+test('supply settings use revision preconditions without inventing idempotency or runtime proof', () => {
+  for (const [resource, section] of [['inventory-settings', 'estoque'], ['purchase-settings', 'compras']]) {
+    for (const method of ['GET', 'PUT']) {
+      const action = catalogue.actions.find(item => item.operation.method === method && item.operation.path === `/api/v1/${resource}`);
+      assert.equal(action.concurrency.revision, method === 'PUT');
+      assert.equal(action.concurrency.idempotency, false);
+      assert.equal(action.input.headers.includes('Idempotency-Key'), false);
+      assert.deepEqual(action.ui.pages, [`/preferencias/suprimentos/${section}`]);
+      assert.equal(action.verification.status, 'not_verified_by_catalog');
+      if (method === 'PUT') {
+        assert.deepEqual(action.permissions, ['platform.company.manage']);
+        for (const status of [403, 412, 422, 428]) assert.ok(action.response.errorStatuses.includes(status));
+      } else {
+        assert.deepEqual(action.effects.writes, []);
+      }
     }
   }
 });

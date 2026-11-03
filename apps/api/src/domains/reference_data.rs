@@ -61,6 +61,8 @@ pub struct PaymentMethodInput {
     pub modality: String,
     pub settlement_days: i32,
 }
+// The internal row adapter also serves supply catalogs. It must not widen the
+// established ReferenceInput response contract of the original four catalogs.
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReferenceInput {
@@ -69,12 +71,55 @@ pub enum ReferenceInput {
     FinancialAccount(FinancialAccountInput),
     PaymentMethod(PaymentMethodInput),
 }
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+enum CatalogInput {
+    ProductCategory(ProductCategoryInput),
+    FinancialCategory(FinancialCategoryInput),
+    FinancialAccount(FinancialAccountInput),
+    PaymentMethod(PaymentMethodInput),
+    ProductGroup(GroupInput),
+    TagGroup(GroupInput),
+    Warehouse(WarehouseInput),
+    Tag(TagInput),
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GroupInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct WarehouseInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub location: Option<String>,
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TagInput {
+    pub code: String,
+    pub name: String,
+    pub status: String,
+    pub notes: Option<String>,
+    pub group_id: Option<Uuid>,
+}
 #[derive(Clone, Copy)]
 enum Kind {
     ProductCategory,
     FinancialCategory,
     FinancialAccount,
     PaymentMethod,
+    Warehouse,
+    ProductGroup,
+    TagGroup,
+    Tag,
 }
 impl Kind {
     // SQL identifiers and projections come exclusively from this compile-time allowlist.
@@ -84,10 +129,18 @@ impl Kind {
             Self::FinancialCategory => "financial_categories",
             Self::FinancialAccount => "financial_accounts",
             Self::PaymentMethod => "payment_methods",
+            Self::Warehouse => "warehouses",
+            Self::ProductGroup => "product_groups",
+            Self::TagGroup => "tag_groups",
+            Self::Tag => "tags",
         }
     }
     fn permissions(self) -> (&'static str, &'static str) {
         match self {
+            Self::Warehouse => ("inventory.stock.read", "inventory.stock.manage"),
+            Self::ProductGroup | Self::TagGroup | Self::Tag => {
+                ("catalog.products.read", "catalog.products.manage")
+            }
             Self::ProductCategory => ("catalog.categories.read", "catalog.categories.manage"),
             Self::FinancialCategory => ("finance.categories.read", "finance.categories.manage"),
             Self::FinancialAccount => ("finance.accounts.read", "finance.accounts.manage"),
@@ -105,6 +158,9 @@ impl Kind {
                 "'accountType',account_type,'bank',bank,'branch',branch,'accountNumber',account_number"
             }
             Self::PaymentMethod => "'modality',modality,'settlementDays',settlement_days",
+            Self::Warehouse => "'location',location",
+            Self::ProductGroup | Self::TagGroup => "",
+            Self::Tag => "'groupId',group_id",
         }
     }
     fn event(self, updating: bool) -> &'static str {
@@ -117,6 +173,14 @@ impl Kind {
             (Self::FinancialAccount, true) => "financial_account.updated",
             (Self::PaymentMethod, false) => "payment_method.created",
             (Self::PaymentMethod, true) => "payment_method.updated",
+            (Self::Warehouse, false) => "warehouse.created",
+            (Self::Warehouse, true) => "warehouse.updated",
+            (Self::ProductGroup, false) => "product_group.created",
+            (Self::ProductGroup, true) => "product_group.updated",
+            (Self::TagGroup, false) => "tag_group.created",
+            (Self::TagGroup, true) => "tag_group.updated",
+            (Self::Tag, false) => "tag.created",
+            (Self::Tag, true) => "tag.updated",
         }
     }
 }
@@ -140,13 +204,16 @@ fn optional(value: &mut Option<String>, max: usize) -> Result<(), DomainError> {
     }
     Ok(())
 }
-impl ReferenceInput {
+impl CatalogInput {
     fn common(&self) -> (&str, &str, &str, &Option<String>) {
         match self {
             Self::ProductCategory(v) => (&v.code, &v.name, &v.status, &v.notes),
             Self::FinancialCategory(v) => (&v.code, &v.name, &v.status, &v.notes),
             Self::FinancialAccount(v) => (&v.code, &v.name, &v.status, &v.notes),
             Self::PaymentMethod(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::Warehouse(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::ProductGroup(v) | Self::TagGroup(v) => (&v.code, &v.name, &v.status, &v.notes),
+            Self::Tag(v) => (&v.code, &v.name, &v.status, &v.notes),
         }
     }
     fn validate(&mut self) -> Result<(), DomainError> {
@@ -155,6 +222,11 @@ impl ReferenceInput {
             Self::FinancialCategory(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
             Self::FinancialAccount(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
             Self::PaymentMethod(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
+            Self::Warehouse(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
+            Self::ProductGroup(v) | Self::TagGroup(v) => {
+                (&mut v.code, &mut v.name, &v.status, &mut v.notes)
+            }
+            Self::Tag(v) => (&mut v.code, &mut v.name, &v.status, &mut v.notes),
         };
         *code = code.trim().to_ascii_uppercase();
         if code.is_empty()
@@ -216,6 +288,7 @@ impl ReferenceInput {
                     "Modalidade inválida ou prazo fora de 0 a 365 dias",
                 ));
             }
+            Self::Warehouse(v) => optional(&mut v.location, 200)?,
             _ => {}
         }
         Ok(())
@@ -227,7 +300,8 @@ pub struct Reference {
     revision: i64,
     #[serde(flatten)]
     #[sqlx(json)]
-    data: ReferenceInput,
+    #[schema(value_type = ReferenceInput)]
+    data: CatalogInput,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -247,9 +321,48 @@ pub struct ReferenceList {
     limit: u32,
 }
 
+// Response records are flat: composing a deny_unknown_fields input with id and
+// revision through allOf would reject the actual serialized response fields.
+macro_rules! supply_reference {
+    ($name:ident $(,$field:ident:$field_type:ty)*) => {
+        #[derive(Serialize, ToSchema)]
+        #[serde(rename_all = "camelCase")]
+        pub struct $name {
+            id: Uuid,
+            revision: i64,
+            code: String,
+            name: String,
+            status: String,
+            notes: Option<String>,
+            $($field: $field_type,)*
+        }
+    };
+}
+supply_reference!(WarehouseReference, location: Option<String>);
+supply_reference!(GroupReference);
+supply_reference!(TagReference, group_id: Option<Uuid>);
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplySnapshot<T> {
+    tenant_id: Uuid,
+    can_edit: bool,
+    data: T,
+}
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplyList<T> {
+    tenant_id: Uuid,
+    can_edit: bool,
+    data: Vec<T>,
+    total: i64,
+    offset: u32,
+    limit: u32,
+}
+
 fn select(kind: Kind) -> String {
     format!(
-        "SELECT id,revision,jsonb_build_object('code',code,'name',name,'status',status,'notes',notes,{}) AS data FROM {}",
+        "SELECT id,revision,(jsonb_build_object('code',code,'name',name,'status',status,'notes',notes) || jsonb_build_object({})) AS data FROM {}",
         kind.projection(),
         kind.table()
     )
@@ -342,11 +455,11 @@ async fn hierarchy(
     tenant: Uuid,
     kind: Kind,
     id: Uuid,
-    input: &ReferenceInput,
+    input: &CatalogInput,
 ) -> Result<(), DomainError> {
     let (parent, direction) = match input {
-        ReferenceInput::ProductCategory(v) => (v.parent_id, None),
-        ReferenceInput::FinancialCategory(v) => (v.parent_id, Some(v.direction.as_str())),
+        CatalogInput::ProductCategory(v) => (v.parent_id, None),
+        CatalogInput::FinancialCategory(v) => (v.parent_id, Some(v.direction.as_str())),
         _ => return Ok(()),
     };
     let status = input.common().2;
@@ -363,7 +476,7 @@ async fn hierarchy(
                 "Categoria ativa exige categoria superior ativa",
             ));
         }
-        if let ReferenceInput::FinancialCategory(v) = ancestor.data
+        if let CatalogInput::FinancialCategory(v) = ancestor.data
             && Some(v.direction.as_str()) != direction
         {
             return Err(DomainError::Conflict(
@@ -404,43 +517,98 @@ async fn hierarchy(
     }
     Ok(())
 }
+async fn tag_group_relation(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+    input: &CatalogInput,
+) -> Result<(), DomainError> {
+    // authorized() holds the tenant write lock across validation and storage.
+    // This also serializes group archival against creation/reactivation of tags.
+    match input {
+        CatalogInput::Tag(tag) => {
+            if let Some(group_id) = tag.group_id {
+                let group = load(tx, tenant, Kind::TagGroup, group_id)
+                    .await
+                    .map_err(|error| match error {
+                        DomainError::NotFound => {
+                            DomainError::Conflict("Grupo de tags não pertence a esta empresa")
+                        }
+                        other => other,
+                    })?;
+                if tag.status == "active" && group.data.common().2 != "active" {
+                    return Err(DomainError::Conflict("Tag ativa exige grupo ativo"));
+                }
+            }
+        }
+        CatalogInput::TagGroup(group) if group.status == "archived" => {
+            let active: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE tenant_id=$1 AND group_id=$2 AND status='active')")
+                .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)?;
+            if active {
+                return Err(DomainError::Conflict(
+                    "Arquive ou mova as tags ativas antes do grupo",
+                ));
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
 async fn store(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
     kind: Kind,
     id: Uuid,
     next: i64,
-    input: &ReferenceInput,
+    input: &CatalogInput,
     updating: bool,
 ) -> Result<(), DomainError> {
     let (columns, values, changes) = match input {
-        ReferenceInput::ProductCategory(_) => (
+        CatalogInput::Warehouse(_) => ("location", "$8", "location=$8"),
+        CatalogInput::Tag(_) => ("group_id", "$8", "group_id=$8"),
+        CatalogInput::ProductGroup(_) | CatalogInput::TagGroup(_) => ("", "", ""),
+        CatalogInput::ProductCategory(_) => (
             "parent_id,sort_order",
             "$8,$9",
             "parent_id=$8,sort_order=$9",
         ),
-        ReferenceInput::FinancialCategory(_) => {
+        CatalogInput::FinancialCategory(_) => {
             ("parent_id,direction", "$8,$9", "parent_id=$8,direction=$9")
         }
-        ReferenceInput::FinancialAccount(_) => (
+        CatalogInput::FinancialAccount(_) => (
             "account_type,bank,branch,account_number",
             "$8,$9,$10,$11",
             "account_type=$8,bank=$9,branch=$10,account_number=$11",
         ),
-        ReferenceInput::PaymentMethod(_) => (
+        CatalogInput::PaymentMethod(_) => (
             "modality,settlement_days",
             "$8,$9",
             "modality=$8,settlement_days=$9",
         ),
     };
+    let columns = if columns.is_empty() {
+        String::new()
+    } else {
+        format!(",{columns}")
+    };
+    let values = if values.is_empty() {
+        String::new()
+    } else {
+        format!(",{values}")
+    };
+    let changes = if changes.is_empty() {
+        String::new()
+    } else {
+        format!(",{changes}")
+    };
     let sql = if updating {
         format!(
-            "UPDATE {} SET code=$3,name=$4,status=$5,notes=$6,revision=$7,updated_at=now(),{changes} WHERE id=$1 AND tenant_id=$2 AND revision=$7-1",
+            "UPDATE {} SET code=$3,name=$4,status=$5,notes=$6,revision=$7,updated_at=now(){changes} WHERE id=$1 AND tenant_id=$2 AND revision=$7-1",
             kind.table()
         )
     } else {
         format!(
-            "INSERT INTO {}(id,tenant_id,code,name,status,notes,revision,{columns}) VALUES($1,$2,$3,$4,$5,$6,$7,{values})",
+            "INSERT INTO {}(id,tenant_id,code,name,status,notes,revision{columns}) VALUES($1,$2,$3,$4,$5,$6,$7{values})",
             kind.table()
         )
     };
@@ -454,14 +622,17 @@ async fn store(
         .bind(notes)
         .bind(next);
     let query = match input {
-        ReferenceInput::ProductCategory(v) => query.bind(v.parent_id).bind(v.sort_order),
-        ReferenceInput::FinancialCategory(v) => query.bind(v.parent_id).bind(&v.direction),
-        ReferenceInput::FinancialAccount(v) => query
+        CatalogInput::ProductCategory(v) => query.bind(v.parent_id).bind(v.sort_order),
+        CatalogInput::FinancialCategory(v) => query.bind(v.parent_id).bind(&v.direction),
+        CatalogInput::FinancialAccount(v) => query
             .bind(&v.account_type)
             .bind(&v.bank)
             .bind(&v.branch)
             .bind(&v.account_number),
-        ReferenceInput::PaymentMethod(v) => query.bind(&v.modality).bind(v.settlement_days),
+        CatalogInput::PaymentMethod(v) => query.bind(&v.modality).bind(v.settlement_days),
+        CatalogInput::Warehouse(v) => query.bind(&v.location),
+        CatalogInput::Tag(v) => query.bind(v.group_id),
+        CatalogInput::ProductGroup(_) | CatalogInput::TagGroup(_) => query,
     };
     let result = query.execute(&mut **tx).await.map_err(|e| {
         if e.as_database_error()
@@ -483,7 +654,7 @@ async fn write_record(
     headers: HeaderMap,
     id: Option<Uuid>,
     kind: Kind,
-    payload: Result<ReferenceInput, JsonRejection>,
+    payload: Result<CatalogInput, JsonRejection>,
 ) -> Result<Response, DomainError> {
     let key = command_key(&headers)?;
     let expected = if id.is_some() {
@@ -527,6 +698,7 @@ async fn write_record(
     };
     let record_id = id.unwrap_or_else(Uuid::now_v7);
     hierarchy(&mut tx, tenant, kind, record_id, &input).await?;
+    tag_group_relation(&mut tx, tenant, record_id, &input).await?;
     store(&mut tx, tenant, kind, record_id, next, &input, id.is_some()).await?;
     // Audit metadata excludes bank account identifiers and free-text notes.
     record(&mut tx,tenant,&identity,&headers,DomainChange{kind:kind.table(),id:record_id,event,details:serde_json::json!({"revision":next,"previousRevision":expected,"status":input.common().2})}).await?;
@@ -553,14 +725,17 @@ async fn write_record(
 // Concrete handlers keep each HTTP request schema and permission boundary explicit.
 macro_rules! endpoints {
     ($list:ident,$get:ident,$create:ident,$update:ident,$path:literal,$item:literal,$variant:ident,$input:ty) => {
-        #[utoipa::path(get,path=$path,tag="Reference data",security(("bearerAuth"=[])),params(super::catalog::ProductQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ReferenceList),(status=403,description="Sem permissão"),(status=422,description="Filtro inválido")))]
+        endpoints!($list,$get,$create,$update,$path,$item,$variant,$input,ReferenceSnapshot,ReferenceList);
+    };
+    ($list:ident,$get:ident,$create:ident,$update:ident,$path:literal,$item:literal,$variant:ident,$input:ty,$snapshot:ty,$collection:ty) => {
+        #[utoipa::path(get,path=$path,tag="Reference data",security(("bearerAuth"=[])),params(super::catalog::ProductQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=$collection),(status=403,description="Sem permissão"),(status=422,description="Filtro inválido")))]
         pub async fn $list(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,query:Result<Query<super::catalog::ProductQuery>,QueryRejection>)->Result<Response,DomainError>{list_records(state,identity,headers,query,Kind::$variant).await}
-        #[utoipa::path(get,path=$item,tag="Reference data",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente")))]
+        #[utoipa::path(get,path=$item,tag="Reference data",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=$snapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente")))]
         pub async fn $get(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>)->Result<Response,DomainError>{get_record(state,identity,headers,id,Kind::$variant).await}
-        #[utoipa::path(post,path=$path,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=409,description="Vínculo ou código em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
-        pub async fn $create(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,None,Kind::$variant,payload.map(|Json(v)|ReferenceInput::$variant(v))).await}
-        #[utoipa::path(put,path=$item,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente"),(status=409,description="Vínculo ou código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão e chave obrigatórias")))]
-        pub async fn $update(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,Some(id),Kind::$variant,payload.map(|Json(v)|ReferenceInput::$variant(v))).await}
+        #[utoipa::path(post,path=$path,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=$snapshot),(status=403,description="Sem permissão"),(status=409,description="Vínculo ou código em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
+        pub async fn $create(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,None,Kind::$variant,payload.map(|Json(v)|CatalogInput::$variant(v))).await}
+        #[utoipa::path(put,path=$item,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=$snapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente"),(status=409,description="Vínculo ou código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão e chave obrigatórias")))]
+        pub async fn $update(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,Some(id),Kind::$variant,payload.map(|Json(v)|CatalogInput::$variant(v))).await}
     }
 }
 endpoints!(
@@ -604,8 +779,83 @@ endpoints!(
     PaymentMethodInput
 );
 
+endpoints!(
+    list_warehouses,
+    get_warehouse,
+    create_warehouse,
+    update_warehouse,
+    "/api/v1/warehouses",
+    "/api/v1/warehouses/{id}",
+    Warehouse,
+    WarehouseInput,
+    SupplySnapshot<WarehouseReference>,
+    SupplyList<WarehouseReference>
+);
+endpoints!(
+    list_product_groups,
+    get_product_group,
+    create_product_group,
+    update_product_group,
+    "/api/v1/product-groups",
+    "/api/v1/product-groups/{id}",
+    ProductGroup,
+    GroupInput,
+    SupplySnapshot<GroupReference>,
+    SupplyList<GroupReference>
+);
+endpoints!(
+    list_tag_groups,
+    get_tag_group,
+    create_tag_group,
+    update_tag_group,
+    "/api/v1/tag-groups",
+    "/api/v1/tag-groups/{id}",
+    TagGroup,
+    GroupInput,
+    SupplySnapshot<GroupReference>,
+    SupplyList<GroupReference>
+);
+endpoints!(
+    list_tags,
+    get_tag,
+    create_tag,
+    update_tag,
+    "/api/v1/tags",
+    "/api/v1/tags/{id}",
+    Tag,
+    TagInput,
+    SupplySnapshot<TagReference>,
+    SupplyList<TagReference>
+);
+
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/v1/warehouses",
+            get(list_warehouses).post(create_warehouse),
+        )
+        .route(
+            "/api/v1/warehouses/{id}",
+            get(get_warehouse).put(update_warehouse),
+        )
+        .route(
+            "/api/v1/product-groups",
+            get(list_product_groups).post(create_product_group),
+        )
+        .route(
+            "/api/v1/product-groups/{id}",
+            get(get_product_group).put(update_product_group),
+        )
+        .route(
+            "/api/v1/tag-groups",
+            get(list_tag_groups).post(create_tag_group),
+        )
+        .route(
+            "/api/v1/tag-groups/{id}",
+            get(get_tag_group).put(update_tag_group),
+        )
+        .route("/api/v1/tags", get(list_tags).post(create_tag))
+        .route("/api/v1/tags/{id}", get(get_tag).put(update_tag))
         .route(
             "/api/v1/product-categories",
             get(list_product_categories).post(create_product_category),

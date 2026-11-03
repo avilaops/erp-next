@@ -1,5 +1,12 @@
 # Estado de implementação do ERP
 
+## Preferências de Suprimentos — 02/11/2026
+
+As seis opções da seção têm implementação descrita em
+[Preferências de Suprimentos](SUPRIMENTOS-PREFERENCIAS.md): regras de estoque e
+compras, grupos de tags, tags, depósitos e grupos de produtos. Esta seção documenta
+o código da branch; não representa publicação em produção.
+
 ## Continuidade local de 31/10/2026 — AVL-396
 
 As novas implementações de devolução, emissão/eventos, distribuição e conversão

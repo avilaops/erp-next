@@ -61,6 +61,10 @@ mod staff_tests;
 #[cfg(test)]
 mod subscription_tests;
 #[cfg(test)]
+mod supply_catalogs_tests;
+#[cfg(test)]
+mod supply_settings_tests;
+#[cfg(test)]
 mod template_draft_tests;
 
 use axum::{Router, middleware, routing::get};
@@ -82,6 +86,16 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/inventory-settings",
+            get(crate::domains::supply_settings::get_inventory)
+                .put(crate::domains::supply_settings::put_inventory),
+        )
+        .route(
+            "/api/v1/purchase-settings",
+            get(crate::domains::supply_settings::get_purchase)
+                .put(crate::domains::supply_settings::put_purchase),
+        )
         .route(
             "/api/v1/sales-settings",
             get(sales::settings::get).put(sales::settings::put),

@@ -633,6 +633,14 @@ async fn command(
         ));
     }
     if matches!(action, Action::Confirm) {
+        super::supply_settings::validate_purchase_confirmation(
+            &mut tx,
+            tenant,
+            &current.data.amount,
+            &current.data.due_date,
+            current.data.supplier_id,
+        )
+        .await?;
         let active:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM parties WHERE tenant_id=$1 AND id=$2 AND status='active' AND is_supplier)").bind(tenant).bind(current.data.supplier_id).fetch_one(&mut *tx).await.map_err(db)?;
         if !active {
             return Err(DomainError::Conflict(

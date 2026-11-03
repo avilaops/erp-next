@@ -65,6 +65,7 @@ hook ou configuração exclusivo de um domínio fica com esse domínio.
 | `finance/` | Contas a receber, comissões e `settings/` financeiras |
 | `sales/` | Pedidos de venda e demais telas comerciais |
 | `purchasing/` | Pedidos de compra, recebimentos e contas a pagar vinculadas à compra |
+| `supply/` | Configurações de estoque e compras por empresa |
 | `returns/` | Cancelamentos comerciais e estornos de recebimentos de compra |
 | `catalog/` | Produtos, variações e catálogo |
 | `parties/` | Clientes e fornecedores |

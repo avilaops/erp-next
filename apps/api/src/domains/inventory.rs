@@ -363,6 +363,7 @@ pub async fn post_movement(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, None, previous));
     }
+    super::supply_settings::validate_manual_movement(&mut tx, tenant, &input.reason).await?;
     let product = catalog::load(&mut tx, tenant, input.product_id).await?;
     if product.data.status != "active" {
         return Err(DomainError::Conflict(

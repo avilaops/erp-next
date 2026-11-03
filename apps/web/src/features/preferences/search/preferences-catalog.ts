@@ -30,10 +30,10 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "suprimentos", label: "Suprimentos", sections: [
-    { title: "Configurações de suprimentos", items: [unavailable("Estoque"), unavailable("Configurações de pedidos de compras")] },
+    { title: "Configurações de suprimentos", items: [{ label: "Estoque", href: "/preferencias/suprimentos/estoque" }, { label: "Configurações de pedidos de compras", href: "/preferencias/suprimentos/compras" }] },
     { title: "Tabelas e configurações adicionais", items: [
-      unavailable("Gerenciar grupos de tags"), unavailable("Gerenciar tags"),
-      { label: "Depósitos de estoque", href: "/estoque/depositos" }, unavailable("Grupos de produtos"),
+      { label: "Gerenciar grupos de tags", href: "/cadastros/grupos-tags" }, { label: "Gerenciar tags", href: "/cadastros/tags" },
+      { label: "Depósitos de estoque", href: "/estoque/depositos" }, { label: "Grupos de produtos", href: "/cadastros/grupos-produtos" },
     ] },
   ] },
   { id: "vendas", label: "Vendas", sections: [

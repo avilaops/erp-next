@@ -47,16 +47,44 @@ INSERT INTO permissions(code,description) VALUES
  ('finance.staff.read','Consultar salários, dados de pagamento e histórico de funcionários'),
  ('finance.staff.manage','Propor salário, Pix, recorrência e pagamentos de funcionários'),
  ('finance.staff.approve','Aprovar ou rejeitar alterações financeiras e desligar funcionários com pagamentos');
--- Existing administrators retain complete authority; other roles receive no payroll access.
-INSERT INTO role_permissions(role_id,permission_code)
- SELECT r.id,p.code FROM roles r CROSS JOIN permissions p WHERE r.code='administrator' AND p.code LIKE 'finance.staff.%' ON CONFLICT DO NOTHING;
-UPDATE roles SET revision=revision+1 WHERE code='administrator';
+-- The migration owner also obeys FORCE RLS in production. Walk each tenant with
+-- its normal context; the owner-only discovery policy exists only in this transaction.
+DO $migration$
+DECLARE tenant uuid; previous_tenant text := coalesce(current_setting('app.tenant_id',true),'');
+BEGIN
+ EXECUTE format('CREATE POLICY staff_payroll_migration_scan ON tenants FOR SELECT TO %I USING (true)',current_user);
+ FOR tenant IN SELECT id FROM tenants LOOP
+  PERFORM set_config('app.tenant_id',tenant::text,true);
+  INSERT INTO role_permissions(role_id,permission_code)
+   SELECT r.id,p.code FROM roles r CROSS JOIN permissions p
+   WHERE r.code='administrator' AND p.code LIKE 'finance.staff.%' ON CONFLICT DO NOTHING;
+  UPDATE roles SET revision=revision+1 WHERE code='administrator';
+ END LOOP;
+ PERFORM set_config('app.tenant_id',previous_tenant,true);
+ DROP POLICY staff_payroll_migration_scan ON tenants;
+END
+$migration$;
+-- Only the function's owner can use these SELECT policies. Runtime callers cannot
+-- enable discovery by setting the flag themselves: they are a different DB role.
+DO $policies$
+DECLARE table_name text;
+BEGIN
+ FOREACH table_name IN ARRAY ARRAY['staff','staff_payroll_profiles'] LOOP
+  EXECUTE format('CREATE POLICY staff_payroll_recurrence_discovery ON %I FOR SELECT TO %I USING (current_setting(''app.staff_payroll_discovery'',true)=''on'')',table_name,current_user);
+ END LOOP;
+END
+$policies$;
 -- Narrow background discovery: only tenant identifiers with an explicitly approved recurrence.
 -- No personal data or application mutation is exposed by this definer function.
 CREATE FUNCTION erp_staff_payroll_due_tenants() RETURNS SETOF uuid
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
- SELECT DISTINCT p.tenant_id FROM public.staff_payroll_profiles p
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE previous_flag text := coalesce(current_setting('app.staff_payroll_discovery',true),'');
+BEGIN
+ PERFORM set_config('app.staff_payroll_discovery','on',true);
+ RETURN QUERY SELECT DISTINCT p.tenant_id FROM public.staff_payroll_profiles p
  JOIN public.staff s ON s.tenant_id=p.tenant_id AND s.id=p.staff_id
- WHERE p.settings->>'recurring'='true' AND s.status='active' AND s.is_employee
+ WHERE p.settings->>'recurring'='true' AND s.status='active' AND s.is_employee;
+ PERFORM set_config('app.staff_payroll_discovery',previous_flag,true);
+END
 $$;
 REVOKE ALL ON FUNCTION erp_staff_payroll_due_tenants() FROM PUBLIC;

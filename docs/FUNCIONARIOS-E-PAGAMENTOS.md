@@ -42,7 +42,10 @@ do cadastro. Não inferimos o calendário da empresa.
 A função SECURITY DEFINER `erp_staff_payroll_due_tenants()` retorna somente IDs
 de empresas com recorrências aprovadas de funcionários ativos. Seu EXECUTE é
 revogado de PUBLIC e concedido apenas ao runtime no deploy. Nenhum endpoint
-expõe essa descoberta. Todas as tabelas financeiras continuam com FORCE RLS e
+expõe essa descoberta. Políticas de SELECT exclusivas do proprietário da função
+permitem essa consulta mesmo quando a identidade de migração respeita FORCE RLS;
+o runtime não pode ativá-las mudando configurações da sessão. A concessão das
+permissões administrativas percorre cada empresa com seu contexto normal. Todas as tabelas financeiras continuam com FORCE RLS e
 as gravações do worker usam o contexto e a trava da empresa. Não há Redis/BullMQ.
 
 Alterações aprovadas atualizam somente salários futuros em aberto sem qualquer

@@ -978,3 +978,101 @@ async fn staff_profile_is_validated_persisted_and_preserved_for_older_clients(ad
     );
     cleanup(&admin, app, server, &role).await;
 }
+
+#[sqlx::test(migrations = false)]
+async fn payroll_migration_and_discovery_work_with_a_force_rls_owner(admin: PgPool) {
+    let owner = format!("payroll_owner_{}", Uuid::new_v4().simple());
+    let runtime = format!("payroll_app_{}", Uuid::new_v4().simple());
+    let mut tx = admin.begin().await.unwrap();
+    sqlx::raw_sql(&format!("CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; CREATE ROLE {runtime} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"))
+        .execute(&mut *tx).await.unwrap();
+    let migrator = sqlx::migrate!("../../migrations");
+    for migration in migrator.iter().filter(|m| m.version < 202611030008) {
+        sqlx::raw_sql(&migration.sql)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    let first = Uuid::new_v4();
+    let second = Uuid::new_v4();
+    for tenant in [first, second] {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO tenants(id,legal_name,tax_id) VALUES($1,'Fixture',$1::text)")
+            .bind(tenant)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO roles(id,tenant_id,code,name) VALUES($1,$2,'administrator','Admin')",
+        )
+        .bind(Uuid::new_v4())
+        .bind(tenant)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    }
+    sqlx::query("SELECT set_config('app.tenant_id','',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../../migrations/202611030008_staff_payroll.sql"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    for tenant in [first, second] {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM role_permissions WHERE permission_code LIKE 'finance.staff.%'",
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+        assert_eq!(count, 3);
+        let staff = Uuid::new_v4();
+        sqlx::query("INSERT INTO staff(id,tenant_id,code,name,is_employee,is_seller,status) VALUES($1,$2,'EQ-001','Fixture',true,false,'active')").bind(staff).bind(tenant).execute(&mut *tx).await.unwrap();
+        sqlx::query(
+            "INSERT INTO staff_payroll_profiles(tenant_id,staff_id,settings) VALUES($1,$2,$3)",
+        )
+        .bind(tenant)
+        .bind(staff)
+        .bind(json!({"recurring":tenant==first}))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    }
+    sqlx::raw_sql(&format!("RESET ROLE; GRANT SELECT ON staff,staff_payroll_profiles TO {runtime}; GRANT EXECUTE ON FUNCTION erp_staff_payroll_due_tenants() TO {runtime}; SET LOCAL ROLE {runtime}; SET LOCAL app.tenant_id=''; SET LOCAL app.staff_payroll_discovery='on';"))
+        .execute(&mut *tx).await.unwrap();
+    for table in ["staff", "staff_payroll_profiles"] {
+        let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert_eq!(
+            count, 0,
+            "runtime cannot use the definer's discovery policy"
+        );
+    }
+    let tenants: Vec<Uuid> = sqlx::query_scalar("SELECT * FROM erp_staff_payroll_due_tenants()")
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
+    assert_eq!(tenants, vec![first]);
+    let temporary_policy: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM pg_policies WHERE policyname='staff_payroll_migration_scan'",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(temporary_policy, 0);
+    tx.rollback().await.unwrap();
+}

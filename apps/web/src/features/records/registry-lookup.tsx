@@ -78,8 +78,8 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     try {
       // Another tab can replace the shared session cookie without changing this form's props.
       const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
-      const session = await response.json()
-      if (!response.ok || session.tenantId !== preview.reply.tenantId) {
+      const session: Schema<"CurrentAccessResponse"> = await response.json()
+      if (!response.ok || session?.tenant?.id !== preview.reply.tenantId) {
         setResult(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
       }
       if (current.current.disabled || !validPreview()) return

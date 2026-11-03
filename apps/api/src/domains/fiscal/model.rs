@@ -450,6 +450,9 @@ pub struct DraftInput {
     /// Optional for historical drafts. CRT 3 emission requires this declaration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tax_declaration: Option<TaxDeclaration>,
+    /// Explicit request for server-calculated approximate taxes; not operation taxes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ibpt: Option<super::ibpt_document::IbptSelection>,
 }
 
 impl DraftInput {
@@ -466,6 +469,9 @@ impl DraftInput {
         self.recipient.validate()?;
         if self.items.is_empty() || self.items.len() > 990 {
             return Err(DomainError::Invalid("Informe de 1 a 990 itens"));
+        }
+        if let Some(selection) = &self.ibpt {
+            selection.validate(self.items.len())?;
         }
         let expected_cfop = if profile.state == self.recipient.state {
             b'5'

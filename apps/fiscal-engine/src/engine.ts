@@ -1,4 +1,4 @@
-import { buildNfeXml, accessKeyDigit, nfeTotals, UF_CODES, IPI_TAXED_CSTS, IPI_UNTAXED_CSTS } from "./lib/fiscal/nfe.ts";
+import { buildNfeXml, accessKeyDigit, nfeTotals, UF_CODES, IPI_TAXED_CSTS, IPI_UNTAXED_CSTS, exactFiscalCents, INVALID_FISCAL_TEXT, NFE_MAX_CENTS } from "./lib/fiscal/nfe.ts";
 import type { NfeInput } from "./lib/fiscal/nfe.ts";
 import { readCertificate } from "./lib/fiscal/certificate.ts";
 import { signNfeXml, signEventXml, signVoidXml, signingKeyOf } from "./lib/fiscal/sign.ts";
@@ -85,6 +85,84 @@ function rate(value: unknown, required: boolean): number {
 const centsOf = (value: number) => BigInt(value.toFixed(2).replace(".", ""));
 const formatCents = (value: bigint) => `${value / 100n}.${String(value % 100n).padStart(2, "0")}`;
 const taxCents = (base: bigint, fraction: number) => (base * BigInt((fraction * 100).toFixed(4).replace(".", "")) + 500_000n) / 1_000_000n;
+
+function ibptText(value: unknown, label: string, max = 200): string {
+  const result = text(value, label, max);
+  if (INVALID_FISCAL_TEXT.test(result)) refuse(`${label} contém controles inválidos`);
+  return result;
+}
+
+function ibptDate(value: unknown): string {
+  const result = ibptText(value, "Data IBPT", 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(result)) return refuse("Data IBPT inválida");
+  const parsed = new Date(`${result}T00:00:00Z`);
+  if (!Number.isFinite(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== result) refuse("Data IBPT inválida");
+  return result;
+}
+
+function ibptMoney(value: unknown): bigint {
+  const cents = exactFiscalCents(value);
+  if (cents === null) return refuse("Valor IBPT fora do limite da NF-e ou sem duas casas decimais");
+  return cents;
+}
+
+const IBPT_COMPONENTS = ["federal", "state", "municipal", "total"] as const;
+type IbptAmounts = Record<typeof IBPT_COMPONENTS[number], bigint>;
+function ibptAmounts(value: unknown): IbptAmounts {
+  const source = declaredObject(value, [...IBPT_COMPONENTS]);
+  const result = Object.fromEntries(IBPT_COMPONENTS.map(key => [key, ibptMoney(source[key])])) as IbptAmounts;
+  if (result.federal + result.state + result.municipal !== result.total) refuse("Soma dos tributos aproximados IBPT divergente");
+  return result;
+}
+
+/** The API resolves percentages and persists provenance. The engine verifies
+ * that this exact snapshot still belongs to this tenant, draft and issue date. */
+function mapIbptSnapshot(input: ObjectValue, draft: ObjectValue, mapped: NfeInput): NfeInput["approximateTaxes"] {
+  if (draft.ibpt == null && input.ibptSnapshot == null) return undefined;
+  if (draft.ibpt == null || input.ibptSnapshot == null) return refuse("Seleção IBPT e snapshot devem estar presentes em conjunto");
+  const selection = declaredObject(draft.ibpt, ["uf", "asOf", "items"]);
+  const snapshot = declaredObject(input.ibptSnapshot, ["tenantId", "uf", "asOf", "items", "amounts"]);
+  const tenant = ibptText(input.tenantId, "Tenant IBPT", 36);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant) || typeof snapshot.tenantId !== "string" || snapshot.tenantId.toLowerCase() !== tenant.toLowerCase()) refuse("Tenant do snapshot IBPT divergente");
+  const uf = ibptText(selection.uf, "UF IBPT", 2), asOf = ibptDate(selection.asOf);
+  if (!Object.hasOwn(UF_CODES, uf) || snapshot.uf !== uf || ibptDate(snapshot.asOf) !== asOf || mapped.issuedAt.slice(0, 10) !== asOf) refuse("UF ou data do snapshot IBPT diverge da seleção ou emissão");
+  if (!Array.isArray(selection.items) || !Array.isArray(snapshot.items) || selection.items.length !== mapped.items.length || snapshot.items.length !== mapped.items.length) return refuse("Quantidade de itens IBPT divergente");
+  const selectedItems = selection.items, snapshotItems = snapshot.items;
+  const totals: IbptAmounts = { federal: 0n, state: 0n, municipal: 0n, total: 0n };
+  const sources = new Set<string>();
+  const items = mapped.items.map((item, index) => {
+    const choice = declaredObject(selectedItems[index], ["ex", "origin", "version"]);
+    const entry = declaredObject(snapshotItems[index], ["itemCode", "code", "ex", "origin", "amount", "metadata", "amounts"]);
+    const metadata = declaredObject(entry.metadata, ["uf", "classification", "version", "source", "key", "validFrom", "validTo", "sha256"]);
+    const ex = ibptText(choice.ex, "EX IBPT", 3), origin = choice.origin;
+    const itemCode = ibptText(entry.itemCode, "Código do item IBPT", 60);
+    if (!/^\d{1,3}$/.test(ex) || !["national", "imported"].includes(String(origin)) || entry.ex !== ex || entry.origin !== origin || itemCode !== item.code || entry.code !== item.ncm || !/^\d{8}$/.test(item.ncm)) refuse("Vínculo de item, NCM, EX ou origem IBPT divergente");
+    const version = ibptText(metadata.version, "Versão IBPT", 6);
+    if (!/^\d{2}\.\d\.[A-Z]$/.test(version) || choice.version != null && choice.version !== version) refuse("Versão do snapshot IBPT divergente");
+    const validFrom = ibptDate(metadata.validFrom), validTo = ibptDate(metadata.validTo);
+    if (metadata.uf !== uf || metadata.classification !== "ncm" || validFrom > asOf || validTo < asOf || typeof metadata.sha256 !== "string" || !/^[0-9a-f]{64}$/i.test(metadata.sha256)) refuse("Proveniência ou vigência do snapshot IBPT inválida");
+    const source = ibptText(metadata.source, "Fonte IBPT"), key = ibptText(metadata.key, "Chave IBPT");
+    // JSON tuple avoids ambiguous deduplication when a source contains separators.
+    sources.add(JSON.stringify([source, version, uf, key]));
+    const product = centsOf(roundCents(item.quantity * item.unitPrice));
+    if (ibptMoney(entry.amount) !== product + taxCents(product, item.ipiRate)) refuse("Base do snapshot IBPT diverge do item com IPI");
+    const amounts = ibptAmounts(entry.amounts);
+    for (const component of IBPT_COMPONENTS) {
+      totals[component] += amounts[component];
+      if (totals[component] > NFE_MAX_CENTS) refuse("Total IBPT excede o limite da NF-e");
+    }
+    return formatCents(amounts.total);
+  });
+  const declared = ibptAmounts(snapshot.amounts);
+  for (const component of IBPT_COMPONENTS) if (totals[component] !== declared[component]) refuse("Total do snapshot IBPT diverge dos itens");
+  const provenance = [...sources].map(value => {
+    const [source, version, state, key] = JSON.parse(value) as string[];
+    return `${source} (versão ${version}, UF ${state}, chave ${key})`;
+  }).join("; ");
+  const additionalInfo = `Tributos aproximados: federais R$ ${formatCents(totals.federal)}; estaduais R$ ${formatCents(totals.state)}; municipais R$ ${formatCents(totals.municipal)}; total R$ ${formatCents(totals.total)}. Fontes: ${provenance}`;
+  if (additionalInfo.length + (mapped.rules.additionalInfo ? mapped.rules.additionalInfo.length + 2 : 0) > 5000) refuse("Proveniência IBPT excede o limite de 5000 caracteres das informações adicionais");
+  return { items, total: formatCents(totals.total), additionalInfo };
+}
 
 /** Compare every item and total with integer arithmetic before the legacy
  * floating-point XML builder runs. Values it cannot preserve are refused. */
@@ -184,6 +262,8 @@ export function mapDraft(value: unknown): NfeInput {
     payments, software: "ERP Next 0.1",
   };
   assertExactTaxes(mapped, cents);
+  const approximateTaxes = mapIbptSnapshot(input, draft, mapped);
+  if (approximateTaxes) mapped.approximateTaxes = approximateTaxes;
   const invoice = nfeTotals(mapped).invoice.toFixed(2);
   const paymentCents = payments.reduce((sum, payment) => sum + centsOf(payment.amount), 0n);
   if (noPayment ? payments.length !== 1 || payments[0].amount !== 0 : formatCents(paymentCents) !== invoice || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0)).toFixed(2) !== invoice) refuse("Valores das formas de pagamento divergem do total da nota, incluindo IPI");

@@ -4,14 +4,20 @@ import { companyFields } from "../src/features/company/company-types"
 import { origin, secret } from "../playwright.danfe.config"
 import { createServer } from "node:http"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
+import type { Schema } from "../src/lib/api/types"
 
 const party = { id: record, revision: 1, personType: "juridica", legalName: "Nome editado", tradeName: null, taxId: "12ABC34501DE35", email: null, phone: null, isCustomer: true, isSupplier: false, status: "active", addresses: [], contacts: [] }
+const access = (tenantId: string): Schema<"CurrentAccessResponse"> => ({
+  identity: { subject: "fixture", email: "fixture@example.test", name: "Fixture" },
+  tenant: { id: tenantId, legalName: "Empresa sintética", tradeName: null },
+  roles: [], permissions: ["platform.company.read", "catalog.parties.read"],
+})
 const reply = (kind: string, value: string) => ({ tenantId: tenant, kind, value, status: "found", source: "BrasilAPI", sourceUpdatedAt: null, fetchedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400_000).toISOString(), cached: false, attempts: [], warnings: [], data: { fields: kind === "cep" ? { state: "SP", city: "São Paulo", street: "Praça da Sé", district: "Sé", postalCode: value } : { legalName: "Nome da fonte", tradeName: "Fantasia da fonte" }, stateRegistrations: [], taxpayerStatus: "unknown", genericPostalCode: false } })
 let upstreamCalls = 0
 const upstream = createServer(async (request, response) => {
   if (request.url === "/api/v1/me") {
     response.setHeader("Content-Type", "application/json")
-    response.end(JSON.stringify({ tenantId: request.headers["x-tenant-id"] }))
+    response.end(JSON.stringify(access(String(request.headers["x-tenant-id"]))))
     return
   }
   upstreamCalls++
@@ -28,7 +34,7 @@ test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(()
 
 test.beforeEach(async ({ context }) => {
   await installFrontendFixture(context)
-  await context.route("**/api/erp/me", route => route.fulfill({ json: { tenantId: tenant } }))
+  await context.route("**/api/erp/me", route => route.fulfill({ json: access(tenant) }))
   await context.route(`**/api/erp/parties/${record}`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: party }, headers: { etag: '"1"' } }))
   await context.route("**/api/erp/registry-lookups", route => {
     const body = route.request().postDataJSON()
@@ -94,7 +100,7 @@ test("session confirmation prevents dismissal races and rechecks edits made whil
   await expect(page.getByText("Fantasia da fonte", { exact: true })).toBeVisible()
   await context.route("**/api/erp/me", async route => {
     received(); await gate
-    await route.fulfill({ json: { tenantId: tenant } })
+    await route.fulfill({ json: access(tenant) })
   })
   await page.getByRole("button", { name: "Preencher campos vazios", exact: true }).click()
   await started

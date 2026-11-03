@@ -5,7 +5,7 @@ const server = Array.isArray(base.webServer) ? base.webServer[0] : base.webServe
 if (!server) throw new Error("Registry browser fixture requires the base web server")
 export default defineConfig({
   ...base,
-  testMatch: ["registry-lookups-ui.spec.ts"],
+  testMatch: ["registry-lookups-ui.spec.ts", "ibpt-ui.spec.ts"],
   timeout: 45_000,
   webServer: {
     ...server,

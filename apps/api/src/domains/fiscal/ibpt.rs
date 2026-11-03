@@ -30,7 +30,7 @@ pub enum Classification {
     Nbs,
     Lc116,
 }
-#[derive(Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, Copy, Deserialize, Serialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum GoodsOrigin {
     National,
@@ -69,8 +69,8 @@ pub struct IbptMetadata {
     pub valid_to: String,
     pub sha256: String,
 }
-#[derive(Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IbptAmounts {
     pub federal: String,
     pub state: String,
@@ -128,7 +128,7 @@ pub struct IbptCatalog {
     snapshots: Vec<Snapshot>,
 }
 
-fn date(raw: &str) -> Option<Date> {
+pub(super) fn date(raw: &str) -> Option<Date> {
     let bytes = raw.as_bytes();
     if bytes.len() != 10
         || bytes[4] != b'-'
@@ -150,7 +150,7 @@ fn date(raw: &str) -> Option<Date> {
 fn text(raw: &str) -> bool {
     !raw.trim().is_empty() && raw.chars().count() <= 200 && !raw.chars().any(char::is_control)
 }
-fn valid_version(raw: &str) -> bool {
+pub(super) fn valid_version(raw: &str) -> bool {
     let b = raw.as_bytes();
     b.len() == 6
         && b[0].is_ascii_digit()
@@ -187,7 +187,8 @@ impl IbptCatalog {
         Self::load(Path::new(&file))
     }
 
-    pub(super) fn load(path: &Path) -> anyhow::Result<Self> {
+    /// Load an operator-provisioned local manifest; never accepts a remote URL.
+    pub fn load(path: &Path) -> anyhow::Result<Self> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase", deny_unknown_fields)]
         struct Entry {

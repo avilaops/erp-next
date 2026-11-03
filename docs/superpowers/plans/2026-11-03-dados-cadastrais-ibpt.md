@@ -46,8 +46,10 @@ auditoria de 81 amostras IBPT publicadas nesta sessão. Base: 396826c.
   resposta atrasada, permissão de leitura e acessibilidade nos cinco tamanhos.
 - [x] IBPT: implementar importação versionada e cálculo informativo com integridade,
   vigência/código/UF/EX explícitos. Testes com dados sintéticos.
-- [ ] IBPT: obter fonte vigente autorizada, validar amostras reais e integrar a
-  estimativa e sua origem à exportação fiscal pertinente.
+- [x] IBPT: persistir snapshot por revisão, integrar seleção à interface e exportar
+  estimativa/origem no XML sem alterar tributos da operação.
+- [ ] IBPT: obter fonte vigente autorizada, validar amostras reais e conferir o
+  DANFE no renderizador operacional e em ambiente publicado.
 - [x] Rodar suíte pertinente, tipos, lint, contrato OpenAPI e arquitetura; revisar
   somente o diff desta frente. Registrar implementação, CI/publicação e exercício
   externo separadamente. Aceites pendentes continuam pendentes.
@@ -58,13 +60,36 @@ Resposta de outro documento/UF, edição enquanto a consulta aguarda, sessão tr
 cadastro ausente tratado como inválido, tabela IBPT sem fim de vigência, e exposição
 de QSA/CPF de sócios não são comportamentos aceitáveis.
 
+## Continuação — associação e exportação IBPT
+
+1. Corrigir a confirmação da consulta cadastral para `CurrentAccessResponse.tenant.id`.
+   A fixture anterior usava `tenantId`, divergindo do contrato real. Registrar o
+   teste vermelho e repetir a suíte com fixture tipada pelo OpenAPI gerado.
+2. Adicionar seleção opcional `DraftInput.ibpt`: UF e data explícitas, com EX,
+   origem nacional/importada e versão opcional por item. NF-e atual usa NCM; a
+   API avulsa mantém NBS/LC116 sem inventar suporte a NFS-e.
+3. Resolver a estimativa no servidor ao gravar a revisão. Guardar snapshot
+   separado no rascunho, com empresa, NCM/EX, origem, base por item (produto +
+   IPI declarado), fonte, versão, vigência, hash e parcelas exatas. Sem tabela
+   disponível, recusar a solicitação explícita; ausência não equivale a zero.
+4. Encaminhar o snapshot persistido ao motor. Antes de reservar numeração, conferir
+   a data/validade. Retry de XML já assinado conserva seu documento original.
+5. Motor valida correspondência entre seleção, itens, empresa, data e totais;
+   exporta `det/imposto/vTotTrib`, `total/ICMSTot/vTotTrib` e fonte em `infCpl`
+   conforme os XSD já versionados. Não alterar impostos/pagamentos da operação.
+6. Interface permite adesão explícita, seleção por item e leitura do snapshot
+   salvo; apresentar indisponibilidade sem preencher alíquotas presumidas.
+7. Testar aritmética, isolamento, persistência/revisão e XML contra XSD; verificar
+   DANFE sintético quando o renderizador estiver disponível. Arquivo real,
+   licença, conversão original e amostras oficiais continuam necessários ao aceite.
+
 ## Pendências externas
 
 Fonte IBPT vigente autorizada da empresa ainda não fornecida. CNPJ.ws restringe
 comercialização dos dados; habilitação em ambiente multiempresa exige enquadramento
 confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologação.
 
-## Verificação local em 03/11/2026
+## Verificação da etapa inicial em 03/11/2026
 
 - PostgreSQL descartável: 233 testes da API e sete do utilitário A1 passaram;
   um teste ignorado e dois testes de alterações alheias foram excluídos após
@@ -92,3 +117,34 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   testes de verificação, geração de contexto e inventário estático passaram.
   O catálogo conserva 35 grupos pendentes e não afirma execução ou publicação.
 - Publicação, acesso real às fontes e XML/DANFE com IBPT permanecem sem validação.
+
+## Verificação da continuação
+
+- A fixture de sessão foi corrigida para o contrato real `tenant.id`. O teste
+  de preenchimento falhou com a fixture correta antes do ajuste de produção;
+  os 17 testes cadastrais passaram após o ajuste.
+- Seleção IBPT ausente no contrato de rascunho foi observada como falha antes
+  da implementação. Oito testes de domínio e seis testes HTTP cobrem contrato,
+  cálculo, snapshot, persistência/replay, revisão, remoção e isolamento.
+- Motor fiscal: 53 testes passaram, incluindo 11 IBPT, XML assinado nos XSD
+  versionados, limites exatos, soma e origem/UF explicitamente declaradas.
+- Interface: 11 testes IBPT passaram, incluindo axe e ausência de overflow em
+  320×568, 390×844, 768×1024, 1280×900 e 1920×1080. Tipos e lint passaram.
+- Revisão independente não confirmou achados importantes. Ainda não há teste
+  HTTP completo que conduza IBPT pelo handler de emissão até a preparação do
+  motor; há testes separados de persistência, domínio e exportação no motor.
+- MCP retornou erro interno para geração DANFE, análise e validação XML do
+  artefato sintético. Não há evidência de PDF renderizado nem de uso real.
+- Rodada integrada local: 244 testes da API e sete do utilitário A1 passaram,
+  com um ignorado e os mesmos dois testes alheios acima excluídos. A primeira
+  tentativa esgotou o disco; após liberar caches desta tarefa, a repetição passou.
+- Build de produção e 28 testes de navegador passaram juntos: 17 cadastrais e
+  11 IBPT. Os 53 testes do motor passaram novamente. Lint web dos arquivos
+  alterados e rustfmt dos arquivos Rust desta entrega passaram; a formatação
+  global ainda encontra alterações alheias nos dois arquivos de testes acima.
+- Os 40 testes de contratos/contexto passaram novamente; a geração conserva
+  42 fluxos, 198 ações e 35 grupos pendentes. A superfície web conserva 332 rotas
+  e o inventário não encontrou erros. A CI do novo commit ainda precisa ser
+  conferida separadamente das evidências da etapa inicial.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings` passou na
+  rodada integrada, sem avisos.

@@ -3,11 +3,58 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+#[path = "ibpt_document_tests.rs"]
+mod document_tests;
+
 fn table() -> Vec<u8> {
     serde_json::to_vec(&json!({"uf":"SP","classification":"ncm","version":"26.2.C","source":"IBPT — fixture sintética","key":"fixture-only","validFrom":"2026-10-20","validTo":"2026-11-30","licenseReference":"synthetic-test-not-a-real-license","rows":[{"code":"00000000","ex":"0","national":"10.0000","imported":"20.0000","state":"12.0000","municipal":"0.0000"}]})).unwrap()
 }
 fn request() -> IbptInput {
     serde_json::from_value(json!({"uf":"SP","classification":"ncm","code":"00000000","ex":"0","origin":"national","amount":"10.05","asOf":"2026-11-03"})).unwrap()
+}
+
+fn draft_value() -> serde_json::Value {
+    json!({
+        "environment":"homologation", "model":55, "operationNature":"Venda",
+        "taxRuleReference":"fixture-instruction",
+        "recipient":{"taxId":"52998224725","legalName":"Destinatário sintético",
+            "state":"SP","municipalityCode":"3550308","postalCode":"01001000",
+            "street":"Rua sintética","number":"1","district":"Centro"},
+        "items":[{"code":"FIXTURE","description":"Item sintético","unit":"UN",
+            "ncm":"00000000","cfop":"5102","quantity":"1.0000",
+            "unitPrice":"10.0500000000","grossTotal":"10.05","origin":0,
+            "icmsCst":null,"csosn":"102","pisCst":"07","cofinsCst":"07"}],
+        "productsTotal":"10.05",
+        "ibpt":{"uf":"SP","asOf":"2026-11-03",
+            "items":[{"ex":"0","origin":"national","version":"26.2.C"}]}
+    })
+}
+
+#[test]
+fn draft_ibpt_selection_requires_explicit_valid_date_uf_and_one_choice_per_item() {
+    use super::model::{DraftInput, ProfileInput};
+    let profile: ProfileInput = serde_json::from_value(json!({
+        "environment":"homologation","state":"SP","municipalityCode":"3550308",
+        "stateRegistration":"110042490114","crt":1,"series":1
+    }))
+    .unwrap();
+    let input: DraftInput = serde_json::from_value(draft_value()).unwrap();
+    assert_eq!(input.validate(&profile).unwrap(), 1005);
+    for (field, invalid) in [
+        ("uf", json!("XX")),
+        ("asOf", json!("2026-02-30")),
+        ("items", json!([])),
+        ("items", json!([{"ex":"","origin":"national"}])),
+        (
+            "items",
+            json!([{"ex":"0","origin":"national","version":"invalid"}]),
+        ),
+    ] {
+        let mut value = draft_value();
+        value["ibpt"][field] = invalid;
+        let input: DraftInput = serde_json::from_value(value).unwrap();
+        assert!(input.validate(&profile).is_err(), "{field}");
+    }
 }
 
 #[test]

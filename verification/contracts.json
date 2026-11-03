@@ -15,8 +15,8 @@
         "id": "ibpt-quotes", "title": "Estimativa informativa IBPT versionada",
         "goal": "Consultar snapshot local por empresa, UF, classificação, código/EX e vigência sem substituir tributos da operação.",
         "kind": "support", "actionGroups": ["ibpt-quotes"], "dependencies": ["fiscal-config"],
-        "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e integrar snapshot/estimativa ao XML/DANFE. API não conclui AVL-115.",
-        "additionalSources": ["docs/IBPT-AVL-115.md"]
+        "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e conferir o DANFE no renderizador operacional. Snapshot/XML implementados não concluem o aceite real da AVL-115.",
+        "additionalSources": ["docs/IBPT-AVL-115.md", "apps/api/src/domains/fiscal/ibpt_document.rs", "apps/fiscal-engine/src/engine.ts", "apps/fiscal-engine/src/lib/fiscal/nfe.ts", "apps/web/src/features/fiscal/ibpt-draft-fields.tsx"]
       },
       {"id":"warehouses","title":"depósitos","goal":"Cadastro não distribui saldos por depósito nem transfere estoque.","kind":"product","actionGroups":["warehouses"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
       {"id":"product-groups","title":"grupos de produtos","goal":"Cadastro não altera vínculos de produtos existentes.","kind":"product","actionGroups":["product-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
@@ -1064,7 +1064,7 @@
       "recovery": "Obter snapshot autorizado, conferir original/conversão e atualizar manifesto pelo procedimento de implantação; nunca substituir ausência por zero.",
       "ui": {
         "pages": [], "bff": {"method": "POST", "path": "/api/erp/fiscal/ibpt/quote"},
-        "gap": "API sem interface fiscal consumidora. Fonte real, amostras validadas e exportação pertinente ainda pendentes em AVL-115."
+        "gap": "Consulta avulsa sem tela própria; rascunhos resolvem e persistem a estimativa no servidor. Fonte real, amostras validadas e DANFE operacional ainda pendentes em AVL-115."
       },
       "sources": ["apps/api/src/domains/fiscal/ibpt.rs", "apps/web/src/server/bff/erp-fiscal-proxy.ts", "docs/IBPT-AVL-115.md"],
       "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}

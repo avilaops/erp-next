@@ -1,9 +1,10 @@
 # IBPT — tabelas versionadas por empresa
 
 AVL-115 permanece incompleta até obter a fonte vigente autorizada, validar amostras
-reais e integrar a exportação fiscal. Esta implementação adiciona o carregamento
-verificado e uma API de estimativa; não habilita emissão, não altera impostos da
-operação e não usa a CDN como fonte automática.
+reais e conferir o DANFE/uso publicado. A implementação inclui carregamento
+verificado, API de estimativa, snapshot por revisão do rascunho e exportação dos
+valores informativos no XML. A adesão é explícita; impostos e pagamentos da
+operação continuam com suas regras existentes. Não há carga automática de CDN.
 
 ## Estado das fontes
 
@@ -65,7 +66,7 @@ Entrada: `uf`, `classification`, `code`, `ex`, `origin` (`national` ou `imported
 `amount` com duas casas decimais, `asOf` ISO e `version` opcional. Sem versão,
 seleciona a mais recente cuja vigência cubra a data da operação, sem cruzar tenant,
 UF ou classificação. A resposta conserva versão, origem, chave, vigência e hash
-exatos para posterior associação ao documento fiscal.
+exatos. A consulta avulsa não grava nem emite documento fiscal.
 
 Estados:
 
@@ -84,12 +85,67 @@ uma vez para centavos, com meio centavo para cima, e o total soma essas parcelas
 Esse arredondamento está coberto por fixtures sintéticas, não por validação de
 alíquotas reais. O limite da entrada impede overflow dos inteiros usados.
 
+## Associação ao rascunho e exportação XML
+
+`DraftInput.ibpt` é opcional. Rascunhos manuais existentes continuam sem
+estimativa. A adesão recebe `uf`, `asOf` (data ISO) e uma escolha por item:
+`ex`, `origin` (`national` ou `imported`) e `version` opcional. A UF é escolhida
+explicitamente; a origem IBPT não é inferida do CST ou da origem fiscal da
+mercadoria. Versão omitida seleciona a mais recente válida para a data.
+
+No recorte NF-e atual, o código é o NCM já declarado no item. NBS/LC116 continuam
+na API avulsa; não foi implementada emissão de NFS-e. A base soma o total bruto
+do item e seu IPI declarado, arredondado por item. Frete e descontos não fazem
+parte do recorte atual da preparação.
+
+O servidor resolve a tabela da empresa ao criar/atualizar o rascunho. A migração
+`202611030001_ibpt_draft_snapshots.sql` adiciona JSONB separado e anulável para
+`ibptSnapshot`: empresa, UF/data, vínculo de item/NCM/EX/origem/base, metadados
+da fonte e parcelas exatas. O cliente recebe esse snapshot, mas não pode enviá-lo
+ou fornecer valores calculados na requisição. A revisão e a auditoria existentes
+continuam protegendo a gravação. Remoção explícita grava SQL `NULL`.
+
+Tabela ausente/vencida, versão ou NCM/EX ausentes recusam a solicitação com 409 e
+`code: ibpt_not_available`, sem gravar parte do rascunho, comando ou efeito fiscal.
+A interface conserva os campos editáveis para corrigir/remover a solicitação.
+Outros conflitos mantêm as regras de recuperação existentes. Replay de criação
+devolve o resultado original antes de consultar a configuração/catálogo atual.
+
+Antes de reservar numeração, a API confere o snapshot e a data de emissão em
+`-03:00`. A data IBPT deve coincidir com a emissão e estar dentro da vigência.
+O motor repete os vínculos e a aritmética dos valores recebidos. Alterar o catálogo
+não recalcula silenciosamente a revisão salva; atualizar o rascunho produz uma
+nova estimativa. Retry com XML já assinado reutiliza seus bytes originais.
+
+A exportação inclui `det/imposto/vTotTrib`, `total/ICMSTot/vTotTrib` e a fonte,
+versão, UF e chave em `infCpl`, junto das parcelas federal/estadual/municipal.
+Valores permanecem strings exatas em centavos. Limites numéricos do XSD e de
+5.000 caracteres de informações adicionais são verificados; proveniência não é
+truncada. Sem adesão, os campos IBPT não são acrescentados ao XML.
+
+A interface distingue a estimativa da revisão salva de alterações ainda não
+gravadas e mostra base, parcelas, total, versão, vigência e hash. Os testes usam
+dados sintéticos identificados como tais, incluindo XML assinado contra os XSD
+versionados. Não comprovam percentuais reais nem autorização SEFAZ.
+
+## Implantação e limite da conferência externa
+
+A migração aditiva deve preceder a nova API. API/web precisam compreender os
+novos campos antes de habilitar adesão; uma API antiga que rejeita campos
+desconhecidos não é um rollback transparente após gravar rascunhos com `ibpt`.
+Nenhuma migração ou implantação de produção foi executada nesta tarefa.
+
+O teste de renderização de um XML sintético pelo MCP Ávila Ops retornou erro
+interno. As ferramentas de análise e validação XML do mesmo conector também
+retornaram erro interno. Portanto, o PDF/DANFE efetivamente renderizado permanece
+sem comprovação, apesar dos testes locais do XML e do motor.
+
 ## Pendências para o aceite integral
 
 1. Obter a tabela vigente autorizada da empresa e confirmar licença/condições.
 2. Conferir conversão, integridade do original e percentuais com amostras oficiais.
-3. Associar snapshot e estimativa aos itens/documento fiscal; integrar `vTotTrib`
-   e indicação de fonte na exportação pertinente e testar o XML/DANFE produzido.
+3. Conferir o DANFE no renderizador operacional e os valores/fontes com dados
+   autorizados; os testes locais de XML usam alíquotas sintéticas.
 4. Validar o comportamento em ambiente publicado com acesso real autorizado.
 
 Não foi importada tabela real, contratado acesso pago, alterado cálculo fiscal

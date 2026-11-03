@@ -32,14 +32,21 @@ pub(super) async fn setup_with_danfe(
     admin: &PgPool,
     danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
-    setup_with_services(admin, danfe, None, None, None).await
+    setup_with_services(admin, danfe, None, None, None, None).await
+}
+
+pub(super) async fn setup_with_ibpt(
+    admin: &PgPool,
+    catalog: crate::domains::fiscal::ibpt::IbptCatalog,
+) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
+    setup_with_services(admin, None, None, None, None, Some(catalog)).await
 }
 
 pub(super) async fn setup_with_certificates(
     admin: &PgPool,
     vault: std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
-    setup_with_services(admin, None, Some(vault), None, None).await
+    setup_with_services(admin, None, Some(vault), None, None, None).await
 }
 
 pub(super) async fn setup_with_monitor(
@@ -52,6 +59,7 @@ pub(super) async fn setup_with_monitor(
         Some(crate::domains::fiscal::certificate_crypto::tests::vault()),
         Some(service),
         None,
+        None,
     )
     .await
 }
@@ -60,7 +68,7 @@ pub(super) async fn setup_with_subscriptions(
     admin: &PgPool,
     provider: crate::platform::subscriptions::provider::MercadoPago,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
-    setup_with_services(admin, None, None, None, Some(provider)).await
+    setup_with_services(admin, None, None, None, Some(provider), None).await
 }
 
 async fn setup_with_services(
@@ -71,6 +79,7 @@ async fn setup_with_services(
     >,
     monitor: Option<crate::domains::fiscal::sefaz_client::Sefaz>,
     subscriptions: Option<crate::platform::subscriptions::provider::MercadoPago>,
+    ibpt: Option<crate::domains::fiscal::ibpt::IbptCatalog>,
 ) -> (Router, PgPool, tokio::task::JoinHandle<()>, String) {
     sqlx::raw_sql(r#"
         INSERT INTO tenants (id, legal_name, tax_id) VALUES
@@ -137,6 +146,7 @@ async fn setup_with_services(
         .with_danfe(danfe)
         .with_subscriptions(subscriptions)
         .with_monitor(monitor)
+        .with_ibpt(ibpt.unwrap_or_default())
         .with_certificates(certificates),
     );
     (router, application, server, role)

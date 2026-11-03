@@ -245,6 +245,19 @@ pub async fn issue(
     }
     // Revalidate the snapshot and order linkage before permanently allocating a number.
     draft.input.validate(&draft.issuer.profile)?;
+    let issue_time = if existing {
+        load(&mut tx, tenant, id).await?.issued_at
+    } else {
+        now()
+    };
+    if !existing || load(&mut tx, tenant, id).await?.signed_xml.is_none() {
+        super::ibpt_document::validate_for_issue(
+            draft.ibpt_snapshot.as_ref(),
+            tenant,
+            &draft.input,
+            &issue_time,
+        )?;
+    }
     if existing && load(&mut tx, tenant, id).await?.signed_xml.is_none() {
         let document = load(&mut tx, tenant, id).await?;
         if document.series != i32::from(draft.issuer.profile.series)
@@ -284,7 +297,7 @@ pub async fn issue(
         sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,'homologation',$2,1) ON CONFLICT DO NOTHING").bind(tenant).bind(series).execute(&mut *tx).await.map_err(db)?;
         let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment='homologation' AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
-        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(now()).bind(random_code).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).execute(&mut *tx).await.map_err(db)?;
         record(
             &mut tx,
             tenant,
@@ -319,6 +332,11 @@ pub async fn issue(
         serde_json::to_value(&draft.issuer).map_err(|_| access::AccessError::Internal)?;
     body["draft"] =
         serde_json::to_value(&draft.input).map_err(|_| access::AccessError::Internal)?;
+    if let Some(snapshot) = &draft.ibpt_snapshot {
+        body["tenantId"] = json!(tenant);
+        body["ibptSnapshot"] =
+            serde_json::to_value(snapshot).map_err(|_| access::AccessError::Internal)?;
+    }
     body["number"] = json!(document.number);
     body["issuedAt"] = json!(document.issued_at);
     body["randomCode"] = json!(document.random_code);

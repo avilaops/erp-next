@@ -13,6 +13,43 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" }])
 })
 
+test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1749, height: 900 })
+  await page.goto("/preferencias")
+  const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
+  await expect(desktop).toBeVisible()
+  await expect(desktop.locator('a[href="/cadastros/funcionarios"]')).toHaveCount(1)
+  const destinations = await desktop.locator("a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!))
+  expect(destinations).toContain("/cadastros/funcionarios")
+  await page.setViewportSize({ width: 390, height: 844 })
+  const trigger = page.getByRole("button", { name: "Abrir menu", exact: true })
+  await trigger.click()
+  const menu = page.getByRole("dialog", { name: "Menu do ERP", exact: true })
+  for (const href of new Set(destinations)) await expect(menu.locator(`a[href="${href}"]`).first()).toHaveCount(1)
+  await page.keyboard.press("Escape")
+  await expect(menu).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await trigger.click()
+  await menu.locator("summary").filter({ hasText: "Cadastros" }).click()
+  await page.screenshot({ path: testInfo.outputPath("menu-celular-cadastros.png") })
+  await menu.getByRole("link", { name: "Funcionários", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/cadastros/funcionarios")
+  await expect(menu).toBeHidden()
+})
+
+test("preferências oferece os cadastros e preserva os destinos das configurações cadastrais", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/preferencias?categoria=cadastros")
+  const options = page.locator("#preference-options")
+  await expect(options.getByRole("link", { name: /^Funcionários/ })).toHaveAttribute("href", "/cadastros/funcionarios")
+  await expect(options.getByRole("link", { name: /^Produtos/ })).toHaveAttribute("href", "/cadastros/produtos")
+  await expect(options.getByRole("link", { name: "Configurações de clientes e fornecedores", exact: true })).toHaveAttribute("href", "/preferencias/cadastros/clientes-fornecedores")
+  await expect(options.getByRole("link", { name: "Configurações de produtos", exact: true })).toHaveAttribute("href", "/preferencias/cadastros/produtos")
+  await expect(options.getByRole("link", { name: "Perfis tributários", exact: true })).toHaveAttribute("href", "/preferencias/cadastros/perfis-tributarios")
+  await options.getByRole("link", { name: /^Clientes e fornecedores/ }).click()
+  await expect(page).toHaveURL(origin + "/cadastros/clientes-fornecedores")
+})
+
 test("preferências abre o índice pelo cabeçalho e só entra na empresa após escolher Geral", async ({ page }) => {
   await page.goto("/")
   await page.locator("header").getByRole("link", { name: "Preferências", exact: true }).click()
@@ -88,7 +125,7 @@ test("navegação móvel, módulos e busca global abrem o índice de preferênci
   await page.goto("/")
   await page.getByRole("navigation", { name: "Navegação móvel", exact: true }).getByRole("link", { name: "Preferências", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias")
-  await page.getByRole("button", { name: "Módulos", exact: true }).click()
+  await page.getByRole("button", { name: "Menu", exact: true }).click()
   await page.getByRole("dialog").getByRole("link", { name: "Preferências", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias")
   await expect(page.getByRole("dialog")).toHaveCount(0)
@@ -143,7 +180,7 @@ test("menu desktop é exclusivo, fecha fora e com Escape e mantém os painéis n
 
 test("cabeçalho cabe na janela e navegação compacta oferece os módulos em telas menores", async ({ page }) => {
   await page.goto("/")
-  for (const width of [390, 1280, 1440, 1599, 1600, 1749]) {
+  for (const width of [320, 390, 1280, 1440, 1599, 1600, 1749]) {
     await page.setViewportSize({ width, height: 950 })
     await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible()
     const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
@@ -153,8 +190,9 @@ test("cabeçalho cabe na janela e navegação compacta oferece os módulos em te
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   }
   await page.setViewportSize({ width: 1440, height: 950 })
-  await page.getByRole("button", { name: "Módulos", exact: true }).click()
+  await page.getByRole("button", { name: "Menu", exact: true }).click()
   const modules = page.getByRole("dialog")
+  await modules.locator("summary").filter({ hasText: "Cadastros" }).click()
   await expect(modules.getByRole("link", { name: "Produtos", exact: true })).toBeVisible()
   await modules.getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)

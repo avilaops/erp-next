@@ -105,22 +105,15 @@ async fn document_event(
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
     let text = normalized.as_str();
     validate_text(text, 15, if kind == "cancelamento" { 255 } else { 1000 })?;
-    let (tenant, mut tx, _) = authorized(
-        state,
-        headers,
-        identity,
-        "fiscal.nfe.read",
-        "fiscal.nfe.issue",
-        true,
-    )
-    .await?;
-    let expected = revision(headers)?;
-    let key = command_key(headers)?;
     let scope = if kind == "cancelamento" {
         "fiscal.nfe.cancel"
     } else {
         "fiscal.nfe.correction"
     };
+    let (tenant, mut tx, _) =
+        authorized(state, headers, identity, "fiscal.nfe.read", scope, true).await?;
+    let expected = revision(headers)?;
+    let key = command_key(headers)?;
     let request =
         json!({"id":id,"revision":expected,"kind":kind,"text":text,"sourceCancellationId":source});
     let previous = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?;
@@ -347,7 +340,7 @@ pub async fn void_numbers(
         &headers,
         &identity,
         "fiscal.nfe.read",
-        "fiscal.nfe.issue",
+        "fiscal.nfe.void",
         true,
     )
     .await?;
@@ -498,7 +491,7 @@ pub async fn process_order_cancellation(
         &headers,
         &identity,
         "fiscal.nfe.read",
-        "fiscal.nfe.issue",
+        "fiscal.nfe.cancel",
         true,
     )
     .await?;

@@ -83,7 +83,7 @@ async fn grant(admin: &PgPool) {
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('fiscal.cte.read','fiscal.cte.inspect') ON CONFLICT DO NOTHING").execute(admin).await.unwrap();
 }
 
-async fn seed(admin: &PgPool, nsu: &str) -> Uuid {
+pub(super) async fn seed(admin: &PgPool, nsu: &str) -> Uuid {
     let tenant = Uuid::parse_str(TENANT).unwrap();
     let run = Uuid::now_v7();
     let id = Uuid::now_v7();

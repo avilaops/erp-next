@@ -69,6 +69,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::cte_distribution::status, fiscal::cte_distribution::documents, fiscal::cte_distribution::document,
         fiscal::cte_distribution::query, fiscal::cte_distribution::run,
         fiscal::cte_inspection::get_inspection, fiscal::cte_inspection::inspect,
+        fiscal::cte_links::get_links, fiscal::cte_links::options, fiscal::cte_links::link, fiscal::cte_links::unlink,
         fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
@@ -350,7 +351,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 153);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 156);
         let nfse_import = &doc["paths"]["/api/v1/fiscal/received-nfses/import"]["post"];
         for status in ["200", "201", "403", "409", "422", "428", "502", "503"] {
             assert!(nfse_import["responses"].get(status).is_some());
@@ -364,6 +365,8 @@ mod tests {
             "documents",
             "documents/{id}",
             "documents/{id}/inspection",
+            "documents/{id}/commercial-links",
+            "documents/{id}/commercial-options",
             "runs/{id}",
         ] {
             let path = format!("/api/v1/fiscal/cte-distribution/{suffix}");
@@ -381,6 +384,12 @@ mod tests {
             "200", "201", "403", "404", "409", "422", "428", "502", "503",
         ] {
             assert!(inspection["responses"].get(status).is_some());
+        }
+        for suffix in ["commercial-links", "commercial-links/{linkId}/unlink"] {
+            let path = format!("/api/v1/fiscal/cte-distribution/documents/{{id}}/{suffix}");
+            for status in ["200", "403", "404", "409", "412", "422", "428"] {
+                assert!(doc["paths"][&path]["post"]["responses"].get(status).is_some());
+            }
         }
         for resource in ["inventory-settings", "purchase-settings"] {
             let path = format!("/api/v1/{resource}");

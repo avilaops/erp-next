@@ -18,7 +18,7 @@ VALUES (:'tenant'::uuid, 'administrator', 'Administrador') ON CONFLICT (tenant_i
 INSERT INTO role_permissions (role_id, permission_code)
 SELECT r.id, p.code FROM roles r CROSS JOIN permissions p
 WHERE r.tenant_id = :'tenant'::uuid AND r.code = 'administrator'
-  AND p.code NOT IN ('fiscal.cte.read','fiscal.cte.query','fiscal.cte.inspect','fiscal.nfse.read','fiscal.nfse.import')
+  AND p.code NOT IN ('fiscal.cte.read','fiscal.cte.query','fiscal.cte.inspect','fiscal.cte.link','fiscal.nfse.read','fiscal.nfse.import')
 ON CONFLICT DO NOTHING;
 INSERT INTO membership_roles (membership_id, role_id)
 SELECT m.id, r.id FROM tenant_memberships m

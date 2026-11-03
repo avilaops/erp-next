@@ -70,6 +70,17 @@ pub struct ReceivedCteMetadata {
     verification: CteVerification,
 }
 
+impl ReceivedCteMetadata {
+    pub(super) fn commercial_facts(self) -> Result<super::CteCommercialFacts, ()> {
+        if self.carrier.kind != "CNPJ" { return Err(()); }
+        Ok(super::CteCommercialFacts {
+            carrier_tax_id: self.carrier.value,
+            carrier_name: self.carrier.name,
+            service_cents: self.service_cents.parse().map_err(|_| ())?,
+        })
+    }
+}
+
 fn optional_child<'a>(
     node: Node<'a, 'a>,
     name: &str,

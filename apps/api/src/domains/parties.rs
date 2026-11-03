@@ -356,6 +356,14 @@ pub async fn create(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
+    let (_, settings) = super::registration_settings::load(&mut tx, tenant, "parties").await?;
+    if settings["requireEmail"] == true && input.email.as_deref().unwrap_or("").is_empty()
+        || settings["requirePhone"] == true && input.phone.as_deref().unwrap_or("").is_empty()
+    {
+        return Err(DomainError::Invalid(
+            "E-mail ou telefone obrigatório conforme a configuração da empresa",
+        ));
+    }
     let id = Uuid::now_v7();
     sqlx::query("INSERT INTO parties(id,tenant_id,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
         .bind(id).bind(tenant).bind(&input.person_type).bind(&input.legal_name).bind(&input.trade_name).bind(&input.tax_id).bind(&input.email).bind(&input.phone).bind(input.is_customer).bind(input.is_supplier).bind(&input.status).bind(sqlx::types::Json(input.addresses.as_deref().unwrap_or(&[]))).bind(sqlx::types::Json(input.contacts.as_deref().unwrap_or(&[]))).execute(&mut *tx).await.map_err(party_error)?;
@@ -401,6 +409,14 @@ pub async fn update(
     let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     input.validate()?;
+    let (_, settings) = super::registration_settings::load(&mut tx, tenant, "parties").await?;
+    if settings["requireEmail"] == true && input.email.as_deref().unwrap_or("").is_empty()
+        || settings["requirePhone"] == true && input.phone.as_deref().unwrap_or("").is_empty()
+    {
+        return Err(DomainError::Invalid(
+            "E-mail ou telefone obrigatório conforme a configuração da empresa",
+        ));
+    }
     let previous = load(&mut tx, tenant, id).await?;
     if input.addresses.is_none() {
         input.addresses = previous.data.addresses.clone();

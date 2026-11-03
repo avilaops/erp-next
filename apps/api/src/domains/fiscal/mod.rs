@@ -18,6 +18,7 @@ pub mod received;
 pub mod received_model;
 pub mod sefaz_client;
 pub mod sefaz_response;
+pub mod tax_profiles;
 
 use axum::{
     Extension, Json, Router,

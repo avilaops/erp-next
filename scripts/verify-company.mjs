@@ -138,6 +138,7 @@ try {
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','inventory.stock.read'),
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','catalog.parties.read'),
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','sales.orders.read'),
+      ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','sales.proposals.read'),
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','finance.receivables.read'),
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','catalog.categories.read'),
       ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','finance.categories.read'),
@@ -149,6 +150,8 @@ try {
   `);
   sql(source, `CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${rolePassword}';`); createdRole = true;
   sql(testUrl, `GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role};`);
+  const proposalGrants = await readFile(path.join(root, "deploy/grant-sales-proposals.sql"), "utf8");
+  sql(testUrl, proposalGrants.replaceAll("erp_next_app", role));
   const applicationUrl = new URL(testUrl); applicationUrl.username = role; applicationUrl.password = rolePassword;
   const api = launch(binary, [], { DATABASE_URL: applicationUrl.toString() });
   await ready(`${env.ERP_API_URL}/health/ready`, api);
@@ -219,7 +222,7 @@ try {
   const partiesBeforeRestart = await readParties();
   const readOperations = async () => {
     const headers = { Authorization: "Bearer fixture-editor-token", "X-Tenant-Id": tenant };
-    return Promise.all(["orders", "receivables"].map(async endpoint => {
+    return Promise.all(["orders", "receivables", "proposals"].map(async endpoint => {
       const response = await fetch(`${env.ERP_API_URL}/api/v1/${endpoint}?limit=100`, { headers });
       assert.equal(response.status, 200);
       const list = await response.json();
@@ -279,7 +282,7 @@ try {
   assert.deepEqual(await readNfeDrafts(), nfeBeforeRestart);
   console.log("NF-e drafts, their issuer snapshots and revisions survived an API process restart.");
   console.log("Product categories, financial categories, financial accounts and payment methods survived an API process restart.");
-  console.log("Company, roles, memberships, stock, parties, orders, receivables and payment histories survived an API process restart.");
+  console.log("Company, roles, memberships, stock, parties, orders, proposals, receivables and payment histories survived an API process restart.");
   console.log("Verified: Rust API + non-superuser PostgreSQL + PKCE test provider + production Next.js + browser.");
 } finally {
   for (const child of [...children]) await stop(child);

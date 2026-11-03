@@ -74,10 +74,6 @@ export const demonstrationRoutes = [
   "/vendas/pdv",
   "/vendas/pdv/fechamento",
   "/vendas/pdv/historico",
-  "/vendas/propostas",
-  "/vendas/propostas/novo",
-  "/vendas/propostas/[id]",
-  "/vendas/propostas/[id]/editar",
   "/vendas/relatorios"
 ] as const
 

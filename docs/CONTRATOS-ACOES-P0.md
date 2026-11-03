@@ -106,6 +106,12 @@ A revisão de movimentos de estoque fica no corpo; não é o cabeçalho If-Match
 
 ## Próximos contratos a fechar
 
+O contrato de propostas foi implementado em `/api/v1/proposals`, com sete
+operações canônicas no catálogo e cinco métodos BFF. Envio, aceite, rejeição e
+cancelamento compartilham o parâmetro `{action}`, restrito a `send`, `accept`,
+`reject` e `cancel`; revisão e conversão possuem endpoints próprios.
+Escopo e evidências: [Propostas comerciais](sales-proposals.md).
+
 | Família | Ações/intenção | Decisões pendentes |
 | --- | --- | --- |
 | Funcionários e vendedores | Listar/criar/consultar/editar/inativar e vincular à empresa | Separar identidade Auth de cadastro profissional; desligamento não apaga histórico; regras de comissão em contrato próprio |
@@ -117,7 +123,6 @@ A revisão de movimentos de estoque fica no corpo; não é o cabeçalho If-Match
 | Pedidos de compra | Criar/editar rascunho, aprovar/confirmar, cancelar, acompanhar recebimento | Aprovar pedido não aumenta saldo nem comprova obrigação financeira; definir recebimento parcial e tolerâncias |
 | Recebimento de compra/XML de entrada | Importar documento, conferir fornecedor/itens, registrar recebimento e divergência | Validar vínculo fiscal; estoque apenas por recebimento confirmado; conta a pagar só pelo evento acordado; não lançar XML repetido |
 | Sugestão de compra | Consultar demanda/recomendação e converter seleção em pedido | Sugestão não cria compra automaticamente; fórmula, estoque mínimo e reservas precisam de definição |
-| Propostas | Criar/editar, enviar, aceitar/rejeitar/expirar, converter em pedido | Conversão idempotente; explicitar preços/vigência; proposta não reserva estoque por si |
 | PDV | Abrir caixa/sessão, registrar venda, confirmar meios, cancelar/estornar e fechar | Fechamento reconciliável; não confundir pagamento declarado com liquidação; integração NFC-e separada |
 | Pedidos — extensão | Desconto/frete, devolução parcial/total e vínculos fiscal/expedição | Definir cálculo/tetos, quantidades elegíveis, crédito/estorno e efeitos reversos em cada domínio |
 | Anúncios/loja virtual/canais | Conectar catálogo, publicar/atualizar anúncio, importar pedido e sincronizar eventos | Credenciais protegidas; mapeamento externo; deduplicação; retentativas/reconciliação; respeitar fonte de verdade |

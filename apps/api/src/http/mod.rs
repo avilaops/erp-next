@@ -51,6 +51,8 @@ mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
 #[cfg(test)]
+mod received_nfse_tests;
+#[cfg(test)]
 mod reconciliation_tests;
 #[cfg(test)]
 mod reference_tests;

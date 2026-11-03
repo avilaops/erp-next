@@ -1,5 +1,12 @@
 # NF-e 55: preparação e bloqueio de emissão
 
+> Registro histórico da primeira etapa (AVL-328). A afirmação abaixo de emissão
+> não implementada e recusa permanente com 503 descreve aquela etapa, não o
+> código atual. O PR #48 acrescentou operações de homologação. Consulte
+> [continuidade fiscal](RETORNOS-E-CONTINUIDADE-FISCAL.md) e a
+> [reconciliação AVL-69](AUDITORIA-FISCAL-AVL-69-20261103.md) para o inventário
+> atual e a separação entre código, publicação e validação externa.
+
 Escopo da [AVL-328](https://linear.app/avilaops/issue/AVL-328): primeira NF-e
 autorizada em homologação, com XML assinado, protocolo, persistência documental
 e DANFE. **Esta implementação entrega somente a preparação persistente e a

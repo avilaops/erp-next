@@ -30,6 +30,8 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
   const [etag, setEtag] = useState("")
   const [canEdit, setCanEdit] = useState(false)
   const [canIssue, setCanIssue] = useState(false)
+  const [canCancel, setCanCancel] = useState(false)
+  const [canCorrect, setCanCorrect] = useState(false)
   const [fiscalLocked, setFiscalLocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -68,8 +70,10 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
         setTenant(me.tenant.id); setReadiness(ready); setCanEdit(me.permissions.includes("fiscal.nfe.manage") && (!current || current.canEdit))
         setCanSearch(me.permissions.includes("catalog.products.read")); setEtag(id ? responses[2].headers.get("etag") || "" : "")
         setCanIssue(me.permissions.includes("fiscal.nfe.issue"))
+        setCanCancel(me.permissions.includes("fiscal.nfe.cancel"))
+        setCanCorrect(me.permissions.includes("fiscal.nfe.correction"))
         setBlocked(false); setError(""); setProducts([]); command.current = null
-      } catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : "Falha ao abrir o rascunho"); setCanEdit(false) } }
+      } catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : "Falha ao abrir o rascunho"); setCanEdit(false); setCanIssue(false); setCanCancel(false); setCanCorrect(false) } }
       finally { if (!controller.signal.aborted) setLoading(false) }
     }
     void read()
@@ -219,7 +223,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
       </form>
       {snapshot?.data.ibptSnapshot && <IbptSavedSnapshot snapshot={snapshot.data.ibptSnapshot} revision={snapshot.data.revision} dirty={dirty} />}
       {readiness && !readiness.canTransmit && <section className="form-section space-y-2"><h2 className="font-semibold">Pendências para emitir</h2>{readiness.blockers.map(blocker => <p key={blocker} className="text-sm">{blockerLabels[blocker] || "Confira a configuração fiscal para esta operação"}</p>)}</section>}
-      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} dirty={dirty || saving || uncertain} onLocked={setFiscalLocked} />}
+      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
     </>}
   </main>
 }

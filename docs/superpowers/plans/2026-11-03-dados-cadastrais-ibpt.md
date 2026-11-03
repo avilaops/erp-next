@@ -179,7 +179,7 @@ frentes: módulos/rotas/OpenAPI, seletor de perfis tributários, consultas de CE
 seleção e snapshot IBPT, tipos de contato e contratos de ações.
 
 A migração de cadastros de `main` usa `202611030001`; a migração IBPT ainda não
-publicada foi renumerada para `202611030002_ibpt_draft_snapshots.sql`. A suíte
+publicada foi renumerada para `202611030004_ibpt_draft_snapshots.sql`. A suíte
 completa aplica ambas em PostgreSQL descartável: 250 testes da API e sete A1
 passaram, sem filtros e com um ignorado. Clippy e rustfmt de todo o workspace
 passaram. A revisão independente dos oito conflitos não encontrou defeito

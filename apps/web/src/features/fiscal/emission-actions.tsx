@@ -9,7 +9,7 @@ import { blockerLabels } from "./nfe-draft-model"
 type Emission = { tenantId: string; id: string; revision: number; status: string; number: number; series: number; accessKey?: string; protocol?: string; result: { code?: string; reason?: string; blockers?: string[] } }
 const labels: Record<string, string> = { preparing: "Preparação pendente", prepared: "XML preparado", unknown: "Resultado fiscal incerto", authorized: "Autorizada em homologação", rejected: "Rejeitada", cancelled: "Cancelada na SEFAZ" }
 
-export function EmissionActions({ id, tenantId, draftRevision, canIssue, dirty, onLocked }: { id: string; tenantId: string; draftRevision: number; canIssue: boolean; dirty: boolean; onLocked: (locked: boolean) => void }) {
+export function EmissionActions({ id, tenantId, draftRevision, canIssue, canCancel, canCorrect, dirty, onLocked }: { id: string; tenantId: string; draftRevision: number; canIssue: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void }) {
   const resource = useResource<Emission>(`/api/erp/fiscal/nfe/${id}/emission`)
   const command = useCommand()
   const [pendingAction, setPendingAction] = useState("issue")
@@ -17,11 +17,13 @@ export function EmissionActions({ id, tenantId, draftRevision, canIssue, dirty, 
   const [text, setText] = useState("")
   const [notice, setNotice] = useState("")
   const document = resource.value
+  const selectedEvent = event === "cancel" && canCancel ? "cancel" : canCorrect ? "correction" : "cancel"
+  const allowed = (action: string) => action === "cancel" ? canCancel : action === "correction" ? canCorrect : ["issue", "consult"].includes(action) && canIssue
   useEffect(() => { onLocked(Boolean(document?.accessKey || command.busy || command.uncertain)) }, [document?.accessKey, command.busy, command.uncertain, onLocked])
   const revision = document ? resource.etag : `"${draftRevision}"`
   const mismatched = Boolean(document && document.tenantId !== tenantId)
   async function act(action: string) {
-    if (command.busy || mismatched || dirty) return
+    if (command.busy || mismatched || dirty || !allowed(action)) return
     if (!command.uncertain && !window.confirm(action === "issue" ? "Emitir esta NF-e em homologação, gerando XML e transmitindo à SEFAZ?" : action === "consult" ? "Consultar e reconciliar a situação deste documento na SEFAZ?" : "Transmitir este evento fiscal em homologação com o texto informado?")) return
     setPendingAction(action); setNotice("")
     const result = await command.send<Emission>(`/api/erp/fiscal/nfe/${id}/${action}`, tenantId, ["cancel", "correction"].includes(action) ? { text } : {}, revision)
@@ -49,17 +51,17 @@ export function EmissionActions({ id, tenantId, draftRevision, canIssue, dirty, 
     {notice && <p role="status">{notice}</p>}
     {command.error && <p role="alert">{command.error}</p>}
     {dirty && <p>Salve as alterações do rascunho para habilitar os comandos fiscais.</p>}
-    {command.uncertain ? <Button disabled={command.busy} onClick={() => void act(pendingAction)}>Conferir mesma operação fiscal</Button> : <div className="flex flex-wrap gap-3">
+    {command.uncertain ? <Button className="min-h-11" disabled={command.busy || !allowed(pendingAction)} onClick={() => void act(pendingAction)}>Conferir mesma operação fiscal</Button> : <div className="flex flex-wrap gap-3">
       {canIssue && (!document || ["preparing", "prepared", "unknown"].includes(document.status)) && <Button disabled={dirty || command.busy || resource.loading || mismatched || command.stale} onClick={() => void act("issue")}>Emitir NF-e em homologação</Button>}
       {canIssue && document?.accessKey && <Button variant="outline" disabled={dirty || command.busy || command.stale || mismatched} onClick={() => void act("consult")}>Consultar situação na SEFAZ</Button>}
       {document?.accessKey && <Button variant="outline" onClick={() => void download()}>Baixar XML da emissão</Button>}
       <Button variant="outline" disabled={command.busy} onClick={() => { command.reset(); resource.reload() }}>Atualizar situação fiscal</Button>
     </div>}
-    {canIssue && document?.status === "authorized" && <form className="space-y-3 rounded-xl border p-4" onSubmit={e => { e.preventDefault(); void act(event) }}>
+    {(canCancel || canCorrect) && document?.status === "authorized" && <form className="space-y-3 rounded-xl border p-4" onSubmit={e => { e.preventDefault(); void act(selectedEvent) }}>
       <fieldset className="space-y-3" disabled={command.busy || command.uncertain || dirty || mismatched}>
-        <label className="grid gap-2 text-sm">Evento fiscal<select className="min-h-10 rounded-lg border bg-background px-3" value={event} onChange={e => setEvent(e.target.value)}><option value="correction">Carta de correção</option><option value="cancel">Cancelamento da NF-e</option></select></label>
-        <label className="grid gap-2 text-sm">Texto do evento<Input value={text} minLength={15} maxLength={event === "cancel" ? 255 : 1000} required onChange={e => setText(e.target.value)} /></label>
-        <Button type="submit" disabled={command.stale}>Transmitir evento fiscal</Button>
+        <label className="grid gap-2 text-sm">Evento fiscal<select className="min-h-11 min-w-0 rounded-lg border bg-background px-3" value={selectedEvent} onChange={e => setEvent(e.target.value)}>{canCorrect && <option value="correction">Carta de correção</option>}{canCancel && <option value="cancel">Cancelamento da NF-e</option>}</select></label>
+        <label className="grid gap-2 text-sm">Texto do evento<Input className="min-h-11" value={text} minLength={15} maxLength={selectedEvent === "cancel" ? 255 : 1000} required onChange={e => setText(e.target.value)} /></label>
+        <Button className="min-h-11" type="submit" disabled={command.stale}>Transmitir evento fiscal</Button>
       </fieldset>
     </form>}
   </section>

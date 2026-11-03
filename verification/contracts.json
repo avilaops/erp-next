@@ -4,6 +4,20 @@
     "schemaVersion": "erp-product-flow-definitions/1",
     "product": "erp",
     "flows": [
+      {
+        "id": "registry-lookups", "title": "Consultas cadastrais CEP, CNPJ e IE",
+        "goal": "Consultar dados mínimos com origem, cache e confirmação explícita dos campos vazios.",
+        "kind": "support", "actionGroups": ["registry-lookups"], "dependencies": ["me"],
+        "nextStep": "Validar fontes na versão publicada; CNPJ.ws permanece desabilitado até confirmar uso permitido no ERP multiempresa.",
+        "additionalSources": ["docs/CONSULTAS-CADASTRAIS-AVL-113-114.md"]
+      },
+      {
+        "id": "ibpt-quotes", "title": "Estimativa informativa IBPT versionada",
+        "goal": "Consultar snapshot local por empresa, UF, classificação, código/EX e vigência sem substituir tributos da operação.",
+        "kind": "support", "actionGroups": ["ibpt-quotes"], "dependencies": ["fiscal-config"],
+        "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e integrar snapshot/estimativa ao XML/DANFE. API não conclui AVL-115.",
+        "additionalSources": ["docs/IBPT-AVL-115.md"]
+      },
       {"id":"warehouses","title":"depósitos","goal":"Cadastro não distribui saldos por depósito nem transfere estoque.","kind":"product","actionGroups":["warehouses"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
       {"id":"product-groups","title":"grupos de produtos","goal":"Cadastro não altera vínculos de produtos existentes.","kind":"product","actionGroups":["product-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
       {"id":"tag-groups","title":"grupos de tags","goal":"Arquivamento exige ausência de tags ativas vinculadas.","kind":"product","actionGroups":["tag-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
@@ -396,7 +410,8 @@
           "company"
         ],
         "dependencies": [
-          "me"
+          "me",
+          "registry-lookups"
         ],
         "nextStep": "Conferir os campos pendentes do cadastro da empresa antes de usá-los em documentos."
       },
@@ -504,7 +519,8 @@
           "parties"
         ],
         "dependencies": [
-          "me"
+          "me",
+          "registry-lookups"
         ],
         "nextStep": "Definir o uso de endereços e condições comerciais nos documentos consumidores."
       },
@@ -990,6 +1006,69 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "post-registry-lookups", "flow": "registry-lookups", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/registry-lookups"},
+      "actor": "active_tenant_member",
+      "permissions": ["platform.company.read", "catalog.parties.read"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [],
+        "body": {"source": "apps/api/src/domains/registry_lookup/model.rs", "type": "LookupInput"}, "query": null
+      },
+      "preconditions": [
+        "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
+        "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
+        "BFF exige origem e empresa da sessão. Preencher exige confirmação, sessão atual, prévia válida e campos vazios; gravar usa contrato próprio."
+      ],
+      "transition": {"from": "entrada manual ou prévia anterior", "to": "prévia found, not_found, unavailable ou unsupported; cadastro não gravado"},
+      "effects": {
+        "writes": [],
+        "external": ["Consulta pontual ViaCEP/BrasilAPI; CNPJ.ws opt-in numérico. Cache positivo limitado e quotas por processo."],
+        "excludes": ["Não salva cadastro, consulta CPF, retorna QSA nem determina regime tributário ou condição de contribuinte."]
+      },
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta de leitura via POST; rejeitar prévia após mudança de documento, CEP, UF ou empresa e preservar edições."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 409, 415, 422, 503], "action": "Consultar dados cadastrais mínimos com origem e validade"},
+      "recovery": "Falha não invalida cadastro; continuar manualmente ou repetir consulta explícita. Falhas não entram no cache.",
+      "ui": {
+        "pages": ["/preferencias/empresa/dados", "/cadastros/clientes-fornecedores/novo", "/cadastros/clientes-fornecedores/[id]/editar"],
+        "bff": {"method": "POST", "path": "/api/erp/registry-lookups"},
+        "gap": "Cobertura IE é parcial e condicionada ao uso permitido. Fixtures não comprovam disponibilidade externa ou publicação."
+      },
+      "sources": [
+        "apps/api/src/domains/registry_lookup/mod.rs", "apps/api/src/domains/registry_lookup/model.rs",
+        "apps/api/src/domains/registry_lookup/client.rs", "apps/api/src/domains/registry_lookup/parse.rs",
+        "apps/web/src/features/records/registry-lookup.tsx", "apps/web/src/server/bff/erp-proxy.ts"
+      ],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-ibpt-quote", "flow": "ibpt-quotes", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/fiscal/ibpt/quote"},
+      "actor": "active_tenant_member", "permissions": ["fiscal.nfe.read"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [],
+        "body": {"source": "apps/api/src/domains/fiscal/ibpt.rs", "type": "IbptInput"}, "query": null
+      },
+      "preconditions": [
+        "Associação ativa e fiscal.nfe.read da empresa; BFF exige mesma origem e empresa da sessão.",
+        "UF, classificação, código/EX, origem, valor e data explícitos. Snapshot local exige SHA-256, fonte, versão, vigência e referência administrativa da autorização.",
+        "Sem fonte vigente autorizada da empresa não liberar uso real. Presença de referência de licença não confirma validade jurídica."
+      ],
+      "transition": {"from": "snapshot imutável carregado na inicialização ou catálogo vazio", "to": "available, not_configured, outside_validity ou code_not_found; sem mutação"},
+      "effects": {
+        "writes": [], "external": [],
+        "excludes": ["Não consulta CDN/API externa, grava documento, exporta XML/DANFE ou altera ICMS/IPI/PIS/COFINS/IBS/CBS."]
+      },
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Leitura de snapshots imutáveis por tenant/UF/classificação/versão; sem revisão de documento ou comando fiscal."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 409, 415, 422, 503], "action": "Consultar estimativa IBPT com metadados; indisponibilidade não retorna tributo zero"},
+      "recovery": "Obter snapshot autorizado, conferir original/conversão e atualizar manifesto pelo procedimento de implantação; nunca substituir ausência por zero.",
+      "ui": {
+        "pages": [], "bff": {"method": "POST", "path": "/api/erp/fiscal/ibpt/quote"},
+        "gap": "API sem interface fiscal consumidora. Fonte real, amostras validadas e exportação pertinente ainda pendentes em AVL-115."
+      },
+      "sources": ["apps/api/src/domains/fiscal/ibpt.rs", "apps/web/src/server/bff/erp-fiscal-proxy.ts", "docs/IBPT-AVL-115.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
     {
       "id": "get-api-v1-warehouses",
       "flow": "warehouses",

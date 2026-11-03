@@ -87,4 +87,8 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   ambas corrigidas e verificadas. Nenhum outro achado importante permaneceu.
 - Depois da correção de estilo, 11 testes de consultas e três de IBPT passaram
   novamente. A pesquisa externa é documental; fixtures não validam alíquotas reais.
+- A primeira CI detectou a ausência das duas novas fichas no catálogo de ações.
+  Foram adicionados os contratos, responsáveis e dependências dos fluxos; os 40
+  testes de verificação, geração de contexto e inventário estático passaram.
+  O catálogo conserva 35 grupos pendentes e não afirma execução ou publicação.
 - Publicação, acesso real às fontes e XML/DANFE com IBPT permanecem sem validação.

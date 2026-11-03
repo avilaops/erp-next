@@ -28,6 +28,77 @@ pub struct StaffInput {
     pub is_employee: bool,
     pub is_seller: bool,
     pub status: String,
+    #[serde(default)]
+    pub profile: Option<Profile>,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize, ToSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct Profile {
+    pub cpf: Option<String>,
+    pub rg: Option<String>,
+    pub birth_date: Option<String>,
+    pub admission_date: Option<String>,
+    pub document_issued_on: Option<String>,
+    pub pis: Option<String>,
+    pub ctps: Option<String>,
+    pub address: Option<String>,
+    pub emergency_phone: Option<String>,
+    pub photo: Option<String>,
+}
+impl Profile {
+    fn validate(&mut self) -> Result<(), DomainError> {
+        for value in [&mut self.cpf, &mut self.rg, &mut self.pis, &mut self.ctps] {
+            optional_text(value, 40)?;
+        }
+        optional_text(&mut self.address, 500)?;
+        optional_text(&mut self.emergency_phone, 40)?;
+        for date in [
+            &self.birth_date,
+            &self.admission_date,
+            &self.document_issued_on,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            super::sales::date(date)?;
+        }
+        if let Some(cpf) = &self.cpf {
+            let digits: Vec<u32> = cpf.chars().filter_map(|c| c.to_digit(10)).collect();
+            if digits.len() != 11
+                || digits.iter().all(|d| *d == digits[0])
+                || (9..11).any(|n| {
+                    let sum: u32 = (0..n).map(|i| digits[i] * (n + 1 - i) as u32).sum();
+                    let rem = (sum * 10) % 11;
+                    digits[n] != if rem == 10 { 0 } else { rem }
+                })
+            {
+                return Err(DomainError::Invalid("CPF inválido"));
+            }
+        }
+        if let Some(photo) = &self.photo {
+            use base64::Engine;
+            let (prefix, data) = photo
+                .split_once(',')
+                .ok_or(DomainError::Invalid("Foto inválida"))?;
+            if ![
+                "data:image/png;base64",
+                "data:image/jpeg;base64",
+                "data:image/webp;base64",
+            ]
+            .contains(&prefix)
+                || photo.len() > 280_000
+                || base64::engine::general_purpose::STANDARD
+                    .decode(data)
+                    .is_err()
+            {
+                return Err(DomainError::Invalid(
+                    "Use foto PNG, JPEG ou WebP de até 200 KB",
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 fn optional_text(value: &mut Option<String>, maximum: usize) -> Result<(), DomainError> {
@@ -49,6 +120,9 @@ fn optional_text(value: &mut Option<String>, maximum: usize) -> Result<(), Domai
 
 impl StaffInput {
     fn validate(&mut self) -> Result<(), DomainError> {
+        if let Some(profile) = self.profile.as_mut() {
+            profile.validate()?;
+        }
         self.name = self.name.trim().to_owned();
         if self.name.is_empty()
             || self.name.chars().count() > 200
@@ -120,6 +194,7 @@ struct StaffRow {
     is_employee: bool,
     is_seller: bool,
     status: String,
+    profile: sqlx::types::Json<Profile>,
 }
 impl From<StaffRow> for Staff {
     fn from(row: StaffRow) -> Self {
@@ -135,6 +210,7 @@ impl From<StaffRow> for Staff {
                 is_employee: row.is_employee,
                 is_seller: row.is_seller,
                 status: row.status,
+                profile: Some(row.profile.0),
             },
         }
     }
@@ -172,7 +248,7 @@ async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Staff, DomainError> {
-    sqlx::query_as::<_, StaffRow>("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status FROM staff WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as::<_, StaffRow>("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status,profile FROM staff WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.map(Into::into).ok_or(DomainError::NotFound)
 }
 fn staff_error(error: sqlx::Error) -> DomainError {
@@ -224,7 +300,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows = sqlx::query_as::<_, StaffRow>("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller)) ORDER BY name,id LIMIT $5 OFFSET $6")
+    let rows = sqlx::query_as::<_, StaffRow>("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status,profile FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller)) ORDER BY name,id LIMIT $5 OFFSET $6")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar("SELECT count(*) FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller))")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).fetch_one(&mut *tx).await.map_err(db)?;
@@ -309,9 +385,9 @@ pub async fn create(
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO staff(id,tenant_id,code,name,job_title,email,phone,is_employee,is_seller,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+    sqlx::query("INSERT INTO staff(id,tenant_id,code,name,job_title,email,phone,is_employee,is_seller,status,profile) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
         .bind(id).bind(tenant).bind(&input.code).bind(&input.name).bind(&input.job_title)
-        .bind(&input.email).bind(&input.phone).bind(input.is_employee).bind(input.is_seller).bind(&input.status)
+        .bind(&input.email).bind(&input.phone).bind(input.is_employee).bind(input.is_seller).bind(&input.status).bind(sqlx::types::Json(input.profile.clone().unwrap_or_default()))
         .execute(&mut *tx).await.map_err(staff_error)?;
     let result = serde_json::to_value(StaffSnapshot {
         tenant_id: tenant,
@@ -359,12 +435,17 @@ pub async fn update(
     if previous.revision != expected {
         return Err(DomainError::StaleRevision);
     }
+    if (input.status == "archived" && previous.data.status != "archived")
+        || (previous.data.is_employee && !input.is_employee)
+    {
+        super::staff_payroll::archive(&mut tx, tenant, id, &identity, &headers).await?;
+    }
     let next = expected
         .checked_add(1)
         .ok_or(crate::platform::access::AccessError::Internal)?;
-    sqlx::query("UPDATE staff SET code=$3,name=$4,job_title=$5,email=$6,phone=$7,is_employee=$8,is_seller=$9,status=$10,revision=$11,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+    sqlx::query("UPDATE staff SET code=$3,name=$4,job_title=$5,email=$6,phone=$7,is_employee=$8,is_seller=$9,status=$10,revision=$11,profile=COALESCE($12,profile),updated_at=now() WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).bind(&input.code).bind(&input.name).bind(&input.job_title)
-        .bind(&input.email).bind(&input.phone).bind(input.is_employee).bind(input.is_seller).bind(&input.status).bind(next)
+        .bind(&input.email).bind(&input.phone).bind(input.is_employee).bind(input.is_seller).bind(&input.status).bind(next).bind(input.profile.as_ref().map(sqlx::types::Json))
         .execute(&mut *tx).await.map_err(staff_error)?;
     record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "staff", id, event: "staff.updated", details: serde_json::json!({"previousRevision":expected,"revision":next,"isEmployee":input.is_employee,"isSeller":input.is_seller}) }).await?;
     let data = load(&mut tx, tenant, id).await?;

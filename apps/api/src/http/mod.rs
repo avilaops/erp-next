@@ -81,7 +81,10 @@ mod supply_settings_tests;
 #[cfg(test)]
 mod template_draft_tests;
 
-use axum::{Router, middleware, routing::get};
+use axum::{
+    Router, middleware,
+    routing::{get, post},
+};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
@@ -89,7 +92,7 @@ use tower_http::{
 
 use crate::domains::{
     catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff,
+    staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -187,6 +190,34 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
+        )
+        .route("/api/v1/financial-payables", get(payables::list_all))
+        .route("/api/v1/financial-payables/{id}", get(payables::get_all))
+        .route(
+            "/api/v1/financial-payables/{id}/payments",
+            post(payables::pay_all),
+        )
+        .route(
+            "/api/v1/financial-payables/{id}/reverse-payment",
+            post(payables::reverse_all),
+        )
+        .route("/api/v1/staff-payroll", get(staff_payroll::list))
+        .route(
+            "/api/v1/staff-payroll/salaries",
+            post(staff_payroll::salaries),
+        )
+        .route(
+            "/api/v1/staff-payroll/generate",
+            post(staff_payroll::generate),
+        )
+        .route(
+            "/api/v1/staff-payroll/requests/{id}/review",
+            post(staff_payroll::review),
+        )
+        .route("/api/v1/staff/{id}/payroll", get(staff_payroll::get))
+        .route(
+            "/api/v1/staff/{id}/payroll/requests",
+            post(staff_payroll::propose),
         )
         .route("/api/v1/staff", get(staff::list).post(staff::create))
         .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))

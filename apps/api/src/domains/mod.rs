@@ -18,6 +18,7 @@ pub mod returns;
 pub mod sales;
 mod settlements;
 pub mod staff;
+pub mod staff_payroll;
 pub mod supply_settings;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};

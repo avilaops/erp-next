@@ -37,13 +37,13 @@
     "returns": "Cancelamentos comerciais e estornos de recebimentos.",
     "sales": "Pedidos e demais telas comerciais.",
     "services": "Serviços.",
-    "staff": "Equipe e vendedores.",
+    "staff": "Cadastro pessoal da equipe, propostas e aprovação financeira, recorrência e histórico de pagamentos.",
     "supply": "Configurações operacionais de estoque e compras por empresa.",
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 355,
-    "sha256": "a9e17cad9ef5527db355c9999141790a91ca3ad15f397c0395fa2736de415504"
+    "count": 366,
+    "sha256": "b3ae560a203e6ad3a5b82e5515b7c46175a628fbce5ba1b7d6c61cdd08ca59ff"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

@@ -175,6 +175,12 @@ for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900],
     await expect(page.getByLabel("Endereço *", { exact: true })).toHaveValue("Rua manual")
     await expect(page.getByRole("combobox", { name: "UF *", exact: true })).toHaveValue("SP")
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    // Audit settled colors after lookup buttons transition from disabled to enabled.
+    await page.locator("main").evaluate(async main => {
+      await Promise.all(main.getAnimations({ subtree: true })
+        .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => undefined)))
+    })
     await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" })
     const violations = await page.evaluate(async () => (await (window as unknown as { axe: { run: (target: string, options: unknown) => Promise<{ violations: unknown[] }> } }).axe.run("main", { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations)
     expect(violations).toEqual([])
@@ -191,6 +197,12 @@ for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900],
     await expect(page.getByLabel("Endereço 1: Rua", { exact: true })).toHaveValue("Rua digitada durante a consulta")
     await expect(page.getByLabel("Endereço 1: Cidade", { exact: true })).toHaveValue("São Paulo")
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    // Audit settled colors after lookup buttons transition from disabled to enabled.
+    await page.locator("main").evaluate(async main => {
+      await Promise.all(main.getAnimations({ subtree: true })
+        .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => undefined)))
+    })
     await page.addScriptTag({ path: "node_modules/axe-core/axe.min.js" })
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (target: string, options: unknown) => Promise<{ violations: { id: string; impact: string }[] }> } }).axe

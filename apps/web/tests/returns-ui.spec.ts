@@ -87,7 +87,7 @@ test("cancelamento integral exige permissões atuais de estoque e financeiro", a
 
 test("títulos cancelados preservam consulta e histórico sem oferecer nova baixa", async ({ page }) => {
   for (const area of ["receivables", "payables"]) {
-    await page.route(`**/api/erp/${area}/${record}`, route => route.fulfill({ headers: { ETag: '"5"' }, json: { tenantId: tenant, canEdit: true, data: { id: record, orderId: record, receiptId, customerName: "Cliente devolução", supplierName: "Fornecedor devolução", status: "cancelled", revision: 5, amount: "20.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "0.00", dueDate: "2026-11-01", paymentId: null }, payments: [] } }))
+    await page.route(`**/api/erp/${area === "payables" ? "financial-payables" : area}/${record}`, route => route.fulfill({ headers: { ETag: '"5"' }, json: { tenantId: tenant, canEdit: true, data: { id: record, orderId: record, receiptId, customerName: "Cliente devolução", supplierName: "Fornecedor devolução", status: "cancelled", revision: 5, amount: "20.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "0.00", dueDate: "2026-11-01", paymentId: null }, payments: [] } }))
     await page.goto(`/financeiro/${area === "receivables" ? "contas-receber" : "contas-pagar"}/${record}`)
     await expect(page.getByText("Situação: Cancelado", { exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: /Confirmar (recebimento|pagamento) declarado/ })).toHaveCount(0)

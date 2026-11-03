@@ -15,7 +15,7 @@
         "dependencies": [
           "fiscal-integrations"
         ],
-        "nextStep": "Validar CI remoto, integrar central e conferência individual e homologar com empresa/papel autorizados antes de liberar cobertura.",
+        "nextStep": "Validar central de leitura em CI; integrar conferência individual e vínculos de frete; homologar com empresa/papel autorizados antes de liberar cobertura.",
         "additionalSources": [
           "docs/CTE-DISTRIBUICAO-AVL-111.md",
           "apps/api/src/domains/fiscal/cte_distribution_worker.rs"
@@ -1063,10 +1063,15 @@
       },
       "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada; BFF e central visual pendentes. Catálogo não comprova publicação, execução, certificado habilitado ou homologação externa."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/status" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/status/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030001_cte_distribution.sql",
@@ -1241,10 +1246,15 @@
       },
       "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada; BFF e central visual pendentes. Catálogo não comprova publicação, execução, certificado habilitado ou homologação externa."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030001_cte_distribution.sql",
@@ -1322,10 +1332,15 @@
       },
       "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada; BFF e central visual pendentes. Catálogo não comprova publicação, execução, certificado habilitado ou homologação externa."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents/[id]" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030001_cte_distribution.sql",
@@ -1403,10 +1418,15 @@
       },
       "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada; BFF e central visual pendentes. Catálogo não comprova publicação, execução, certificado habilitado ou homologação externa."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/runs/[id]" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/runs/[id]/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030001_cte_distribution.sql",

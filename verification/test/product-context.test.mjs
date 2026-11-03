@@ -28,9 +28,10 @@ test('every canonical action has one product owner and declared journeys are exp
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
   const cte = context.flows.find(flow => flow.definition.id === 'fiscal-cte');
   assert.equal(cte.actionIds.length, 5);
-  assert.equal(cte.assessment.interface.state, 'not_mapped');
-  assert.deepEqual(cte.pages, []);
-  assert.deepEqual(cte.assessment.interface.mappedActionIds, []);
+  assert.equal(cte.assessment.interface.state, 'partially_mapped');
+  assert.deepEqual(cte.pages, ['/fiscal/ctes']);
+  assert.equal(cte.assessment.interface.mappedActionIds.length, 4);
+  assert.deepEqual(cte.assessment.interface.unmappedActionIds, ['post-api-v1-fiscal-cte-distribution-query']);
 });
 
 test('operational journeys include their explicit dependencies while residual scope stays pending', async () => {

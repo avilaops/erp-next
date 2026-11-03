@@ -31,7 +31,8 @@ Não há contratação de fornecedor autorizada.
 Restrição de execução confirmada pelo usuário nesta retomada: não compilar Rust
 no servidor. Compilação, testes e lint Rust serão executados somente no GitHub
 Actions. Os processos locais desta tarefa foram interrompidos; a validação Rust
-desta etapa permanece pendente até o resultado do CI remoto.
+desta etapa foi aprovada no CI remoto do commit `0b63acf` (execução
+`41627372618`), incluindo os oito testes de integração CT-e.
 
 ## Primeira etapa: adaptador privado de distribuição CT-e
 
@@ -67,7 +68,7 @@ Checklist de execução:
 - [x] Rodar teste específico e suíte completa do motor: 61 aprovados.
 - [x] Revisar o diff; corrigir referências XML proibidas encontradas na revisão.
 - [x] Registrar resultado e limitações na AVL-111, mantendo a issue em andamento.
-- [ ] Integrar na API Rust com armazenamento, cursor transacional e worker CT-e.
+- [x] Integrar na API Rust com armazenamento, cursor transacional e worker CT-e.
 - [ ] Integrar central e vínculos de frete mediante conferência.
 - [ ] Homologar por papel/empresa e registrar evidência externa antes de habilitar.
 - [ ] Implementar e homologar as cinco demais capacidades conforme os tickets.
@@ -91,19 +92,19 @@ compra, estoque ou financeiro. O cursor é vinculado ao tenant, CNPJ e ambiente;
 troca de CNPJ exige tratamento explícito, sem reutilizar NSU de outra empresa.
 Os documentos entram com conferência individual pendente.
 
-- [ ] Adicionar migração com estado, execuções e XML imutável, RLS forçada e
+- [x] Adicionar migração com estado, execuções e XML imutável, RLS forçada e
   permissões `fiscal.cte.read` / `fiscal.cte.query`, sem concessão automática.
-- [ ] Adicionar rotas de status, consulta explícita, documentos e execução,
+- [x] Adicionar rotas de status, consulta explícita, documentos e execução,
   registradas no OpenAPI e protegidas por tenant/permissão.
-- [ ] Persistir intenção e lease antes do transporte; idempotência por usuário
+- [x] Persistir intenção e lease antes do transporte; idempotência por usuário
   e chave. Guardar lote e cursor na mesma transação, sem avanço parcial.
-- [ ] Preservar cursor em rejeição/timeout; persistir intervalo de uma hora em
+- [x] Preservar cursor em rejeição/timeout; persistir intervalo de uma hora em
   137, 656, esgotamento ou resultado incerto. Lease perdido não pode confirmar.
-- [ ] Adicionar worker opcional, com tenant/usuário próprios e permissões
+- [x] Adicionar worker opcional, com tenant/usuário próprios e permissões
   recarregadas a cada ciclo; desabilitado sem configuração explícita.
-- [ ] Testar isolamento, concorrência/replay, falha de persistência, retomada,
+- [x] Testar isolamento, concorrência/replay, falha de persistência, retomada,
   rejeições e revogação de permissão com PostgreSQL isolado no GitHub Actions.
-- [ ] Revisar, validar e registrar a etapa sem declarar homologação externa.
+- [x] Revisar, validar e registrar a etapa sem declarar homologação externa.
 
 Arquivos: `migrations/202611030001_cte_distribution.sql`, domínio
 `apps/api/src/domains/fiscal/cte_distribution.rs`, armazenamento/validação
@@ -111,6 +112,44 @@ em `cte_distribution_store.rs`, worker em `cte_distribution_worker.rs` e testes
 HTTP em `apps/api/src/http/cte_distribution_tests.rs`. Integração mínima em
 `fiscal/mod.rs`, cliente privado do motor, `http/mod.rs`, `http/openapi.rs` e
 `main.rs`. Reutilizar cofre A1, autorização e auditoria atuais.
+
+## Terceira etapa: central de leitura CT-e
+
+**Objetivo:** consultar arquivos CT-e já armazenados em homologação, com empresa
+visível, download do XML original e resultado da captura. Não habilitar comando
+de captura na interface antes da homologação externa. Não inferir validade
+individual nem criar vínculos de compra, venda ou frete nesta etapa.
+
+**Arquitetura:** página `/fiscal/ctes` usa quatro leituras pelo BFF existente
+`forwardFiscal`: status, lista de documentos, documento e execução. Cada chamada
+CT-e fixa o tenant lido em `/me`; o BFF compara esse tenant com a sessão atual
+antes de transportar credenciais. Download confere ID, NSU, schema, ambiente,
+hash retornado e SHA-256 do XML contra a linha selecionada. XML não vira HTML.
+
+**UX:** operador fiscal da empresa ativa consulta arquivos de teste. O cabeçalho
+mostra empresa e ambiente; a lista mostra origem e conferência pendente. Ações
+são atualizar, baixar XML e consultar captura. Resultado fica em aviso acessível.
+Falha remove os dados anteriores e permite nova leitura. Paginação evita baixar
+todos os XML. Próximo passo comercial permanece conferência individual, sem
+oferecer comando inexistente. `docs/ux.md` citado no ticket não está neste
+checkout; usar os padrões atuais da central fiscal e validar cinco tamanhos.
+
+- [x] Escrever testes de BFF autenticado, download íntegro, troca de empresa,
+  permissão, erro/vazio, paginação e leitura em cinco viewports.
+- [x] Executar os testes antes da implementação e confirmar falha pela rota ausente.
+- [x] Adicionar quatro handlers GET em `app/api/erp/fiscal/cte-distribution/`
+  e allowlist com validação de UUID, filtros e tenant no proxy fiscal existente.
+- [x] Criar `features/fiscal/cte-distribution-screen.tsx`, helpers de leitura em
+  `cte-documents.ts` e `app/fiscal/ctes/page.tsx`; adicionar acesso na central fiscal.
+- [x] Catalogar os quatro BFFs sem declarar a consulta externa mapeada.
+- [ ] Executar testes de navegador, lint e catálogo; build/Rust apenas no CI.
+- [x] Solicitar revisão independente, corrigir achados e registrar evidências.
+
+A revisão encerrou dois achados por leitura: status 200 com códigos internos
+de falha agora conserva a leitura dos documentos anteriores; qualquer falha de
+leitura individual remove as linhas antigas e permite atualizar novamente.
+Os testes acrescentam esses estados e a troca real de tenant na sessão.
+Navegador e build desta terceira etapa continuam pendentes no novo CI.
 
 ## Fontes oficiais consultadas em 03/11/2026
 

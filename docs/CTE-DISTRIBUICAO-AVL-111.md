@@ -9,8 +9,9 @@ Base: `396826c4196aa09dfecfa8e048636fb4dee08287`.
 
 Esta entrega cobre protocolo, transporte interno e conferência local da
 distribuição CT-e. A retomada acrescenta integração Rust, cursor persistente e
-worker opcional; a validação dessa etapa está pendente no GitHub Actions.
-Central visual, normalização individual, vínculos comerciais e homologação
+worker opcional, validados no GitHub Actions no commit `0b63acf`.
+A terceira etapa acrescenta central visual de leitura, ainda em validação.
+Normalização individual, vínculos comerciais e homologação
 externa continuam pendentes. Não conclui
 AVL-111 nem a meta das seis issues. Nenhum certificado real foi aberto, nenhuma
 consulta fiscal externa foi executada e nenhuma capacidade de produção foi
@@ -18,10 +19,10 @@ habilitada nesta rodada.
 
 O endpoint do motor é interno e exige seu Bearer. A API Rust acrescenta rotas
 autenticadas próprias e permissões CT-e específicas; a interface de navegador
-ainda não foi integrada. O cliente Rust admite `distribute-cte`, preservando
-os limites existentes das demais operações.
+agora recebe uma central de leitura em `/fiscal/ctes`. O cliente Rust admite
+`distribute-cte`, preservando os limites existentes das demais operações.
 
-## Integração Rust em validação
+## Integração Rust validada em CI
 
 As rotas `/api/v1/fiscal/cte-distribution/status`, `/query`, `/documents`,
 `/documents/{id}` e `/runs/{id}` exigem tenant e permissões específicas.
@@ -45,8 +46,40 @@ rodada para executar o worker.
 
 Os testes novos cobrem concorrência/replay, atomicidade, RLS, XML de outra
 empresa, revogação durante transporte, troca de CNPJ, retomada, pausas e grants.
-Compilação e execução Rust desta retomada serão validadas somente no GitHub
-Actions, conforme instrução do usuário; não são resultados aprovados ainda.
+Compilação, fmt/clippy e execução Rust foram aprovados somente no GitHub
+Actions, conforme instrução do usuário. A execução
+[`41627372618`](https://github.com/avilaops/erp-next/actions/runs/41627372618)
+aprovou 227 testes da API e sete de outro binário; um teste que exige Ollama
+configurado ficou ignorado. Os oito casos CT-e passaram. O gate OpenAPI
+registrou compatibilidade com zero achados, sem usar exceção. Build/lint web,
+navegador e inventário também passaram nesse commit; isso não comprova consulta
+à SEFAZ.
+
+## Central de leitura em implementação
+
+`/fiscal/ctes` mostra empresa, ambiente de homologação, arquivos paginados e
+conferência individual pendente. Os quatro handlers BFF permitem somente GET:
+status, lista, documento e execução. Cada leitura fixa a empresa da tela e o
+BFF a compara com a sessão antes de acessar a API. A tela não oferece comando
+de captura nem aceita cursor, ambiente ou CNPJ enviados pelo navegador.
+
+Baixar XML compara ID, execução, empresa, ambiente, NSU, schema, classificação,
+estado de conferência e hash com a linha selecionada. O SHA-256 dos bytes UTF-8
+precisa coincidir antes de criar o download; o XML original não vira HTML.
+Consultar captura lê o resultado persistido e não repete a consulta externa.
+Erro ou permissão revogada remove dados anteriores e permite atualizar a leitura.
+
+Os testes de navegador usam BFF real com sessão sintética e API injetada:
+autenticação, tenant fixado, métodos/filtros permitidos, download íntegro,
+recusa de XML divergente, mudança de empresa, erro/vazio e paginação em cinco
+tamanhos. O teste anterior à implementação confirmou 404 na rota ausente,
+usando o build web do CI anterior. A aprovação desta etapa depende do novo CI.
+
+A revisão independente encerrou dois achados por leitura das correções:
+aceitação dos três códigos internos de falha persistida sem ocultar documentos
+anteriores; e remoção das linhas em qualquer falha de leitura individual,
+incluindo HTTP 503 e divergência de hash. Os casos foram acrescentados aos
+testes de navegador e ainda dependem da execução no novo build.
 
 ## Contrato interno
 

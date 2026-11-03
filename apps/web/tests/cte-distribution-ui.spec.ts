@@ -1,0 +1,164 @@
+import { expect, test } from "@playwright/test"
+import { createServer } from "node:http"
+import { createHash } from "node:crypto"
+import { readFile } from "node:fs/promises"
+import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
+import { monitorOrigin as origin } from "../playwright.monitor.config"
+
+const documentId = "22222222-2222-4222-8222-222222222222"
+const runId = "33333333-3333-4333-8333-333333333333"
+const xml = '<?xml version="1.0"?><cteProc xmlns="http://www.portalfiscal.inf.br/cte"><!-- original: ç &amp; --></cteProc>\n'
+const hash = createHash("sha256").update(xml).digest("hex")
+const document = { id: documentId, runId, environment: "homologation", companyTaxId: "04252011000110", nsu: "000000000000001", schema: "procCTe_v4.00.xsd", kind: "full", xmlSha256: hash, verification: "pending", createdAt: "2026-11-03T10:00:00Z" }
+const requests: { url: string; method: string; tenant?: string; authorization?: string }[] = []
+let mode: "ready" | "empty" | "forbidden" | "error" = "ready"
+let corrupt = false
+let paginated = false
+let lastCode = "138"
+
+const upstream = createServer((request, response) => {
+  requests.push({ url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization })
+  response.setHeader("Content-Type", "application/json")
+  if (mode === "forbidden" || mode === "error") {
+    response.statusCode = mode === "forbidden" ? 403 : 503
+    return response.end(JSON.stringify({ title: mode === "forbidden" ? "Sem permissão para consultar CT-e" : "Leitura CT-e indisponível" }))
+  }
+  const url = new URL(request.url || "/", origin)
+  if (url.pathname === "/api/v1/fiscal/cte-distribution/status") return response.end(JSON.stringify({ tenantId: tenant, environment: "homologation", companyTaxId: document.companyTaxId, lastNsu: document.nsu, maxNsu: document.nsu, revision: 2, nextQueryAt: "2026-11-03T12:00:00Z", lastCode, running: false, canQuery: true }))
+  if (url.pathname === "/api/v1/fiscal/cte-distribution/documents") {
+    const offset = Number(url.searchParams.get("offset") || 0)
+    const data = mode === "empty" ? [] : paginated ? Array.from({ length: offset ? 1 : 25 }, (_, index) => ({ ...document, id: `${String(offset + index + 1).padStart(8, "0")}-2222-4222-8222-222222222222`, nsu: String(offset + index + 1).padStart(15, "0") })) : [document]
+    return response.end(JSON.stringify({ tenantId: tenant, environment: "homologation", data, total: mode === "empty" ? 0 : paginated ? 26 : 1 }))
+  }
+  if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}`) return response.end(JSON.stringify({ ...document, xml: corrupt ? `${xml} ` : xml }))
+  if (url.pathname === `/api/v1/fiscal/cte-distribution/runs/${runId}`) return response.end(JSON.stringify({ runId, environment: "homologation", companyTaxId: document.companyTaxId, requestedNsu: "000000000000000", status: "completed", code: "138", documentCount: 1, completedAt: "2026-11-03T10:00:00Z" }))
+  response.statusCode = 404
+  response.end(JSON.stringify({ title: "Recurso não encontrado" }))
+})
+
+test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33929, "127.0.0.1", resolve)) })
+test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
+test.beforeEach(async ({ context, page }) => {
+  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; requests.length = 0
+  await installFrontendFixture(context, origin)
+  await context.unroute("**/api/erp/**")
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa CT-e sintética" }, permissions: ["fiscal.cte.read"] } }))
+})
+
+test("CT-e BFF exige sessão e tenant fixado, limita filtros e transporta apenas leituras", async ({ context, playwright }) => {
+  const anonymous = await playwright.request.newContext({ baseURL: origin })
+  try { expect((await anonymous.get("/api/erp/fiscal/cte-distribution/status")).status()).toBe(401) }
+  finally { await anonymous.dispose() }
+  const path = "/api/erp/fiscal/cte-distribution"
+  const headers = { "X-Tenant-Id": tenant }
+  expect((await context.request.get(`${path}/status`)).status()).toBe(409)
+  expect((await context.request.get(`${path}/status`, { headers: { "X-Tenant-Id": documentId } })).status()).toBe(409)
+  expect((await context.request.get(`${path}/status`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${path}/documents?offset=0&limit=25`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${path}/documents?limit=1&limit=2`, { headers })).status()).toBe(400)
+  expect((await context.request.get(`${path}/documents?environment=production`, { headers })).status()).toBe(400)
+  expect((await context.request.get(`${path}/documents/not-a-uuid`, { headers })).status()).toBe(400)
+  expect((await context.request.get(`${path}/documents/${documentId}`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${path}/runs/${runId}`, { headers })).status()).toBe(200)
+  expect((await context.request.post(`${path}/status`, { headers, data: {} })).status()).toBe(405)
+  expect(requests).toHaveLength(4)
+  expect(requests.every(value => value.method === "GET" && value.tenant === tenant && value.authorization === "Bearer frontend-integration-fixture")).toBe(true)
+})
+
+test("central CT-e baixa XML íntegro e consulta captura sem transmitir à SEFAZ", async ({ page }) => {
+  await page.goto("/fiscal/ctes")
+  await expect(page.getByRole("heading", { name: "CT-e recebidos" })).toBeVisible()
+  await expect(page.getByText("Empresa CT-e sintética", { exact: true })).toBeVisible()
+  await expect(page.getByText("Conferência individual pendente", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: /Consultar SEFAZ|Capturar CT-e/ })).toHaveCount(0)
+  const download = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Baixar XML original" }).click()
+  const saved = await download
+  expect(saved.suggestedFilename()).toBe(`CTE-${document.nsu}.xml`)
+  expect(await readFile((await saved.path())!, "utf8")).toBe(xml)
+  await page.getByRole("button", { name: "Consultar captura" }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Captura concluída" })).toBeVisible()
+  expect(requests.every(value => value.method === "GET")).toBe(true)
+})
+
+test("central CT-e remove linhas antigas em erro ou revogação e permite recuperar leitura vazia", async ({ page }) => {
+  await page.goto("/fiscal/ctes")
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeVisible()
+  mode = "forbidden"
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Sem permissão" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  mode = "error"
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "indisponível" })).toBeVisible()
+  mode = "empty"
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await expect(page.getByText("Nenhum arquivo CT-e coletado em homologação.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("alert")).toHaveCount(0)
+})
+
+test("falha persistida na última captura não oculta arquivos anteriores nem repete transporte", async ({ page }) => {
+  for (const [code, label] of [["transport_uncertain", "Resposta da captura não confirmada"], ["invalid_batch", "Lote recusado por inconsistência"], ["persistence_failed", "Falha ao armazenar o lote"]]) {
+    lastCode = code
+    await page.goto("/fiscal/ctes")
+    await expect(page.getByText(`Última captura: ${label}.`, { exact: true })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeEnabled()
+    await expect(page.getByRole("alert")).toHaveCount(0)
+  }
+  expect(requests.every(value => value.method === "GET")).toBe(true)
+})
+
+test("XML divergente e troca de empresa impedem download e não acessam documento de outro tenant", async ({ page, context }) => {
+  let downloads = 0
+  page.on("download", () => downloads++)
+  await page.goto("/fiscal/ctes")
+  corrupt = true
+  await page.getByRole("button", { name: "Baixar XML original" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "não corresponde" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  corrupt = false
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeEnabled()
+  const before = requests.length
+  await installFrontendFixture(context, origin, documentId)
+  await context.unroute("**/api/erp/**")
+  await page.getByRole("button", { name: "Baixar XML original" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "A empresa da sessão mudou" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  expect(requests).toHaveLength(before)
+  expect(downloads).toBe(0)
+})
+
+test("falha na leitura individual remove dados antigos e permite atualizar sem repetir captura", async ({ page }) => {
+  for (const action of ["Baixar XML original", "Consultar captura"]) {
+    await page.goto("/fiscal/ctes")
+    await expect(page.getByRole("button", { name: action })).toBeEnabled()
+    mode = "error"
+    await page.getByRole("button", { name: action }).click()
+    await expect(page.getByRole("alert").filter({ hasText: "indisponível" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Consultar captura" })).toHaveCount(0)
+    mode = "ready"
+    await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+    await expect(page.getByRole("button", { name: action })).toBeEnabled()
+  }
+  expect(requests.every(value => value.method === "GET")).toBe(true)
+})
+
+test("paginação CT-e preserva filtros permitidos e cinco tamanhos não cortam ações", async ({ page }, info) => {
+  paginated = true
+  await page.goto("/fiscal/ctes")
+  await expect(page.getByRole("button", { name: "Próximos arquivos" })).toBeEnabled()
+  await page.getByRole("button", { name: "Próximos arquivos" }).click()
+  await expect(page.getByText("26–26 de 26", { exact: true })).toBeVisible()
+  await expect(page.getByText("NSU 000000000000026", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Próximos arquivos" })).toBeDisabled()
+  for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [1280, 900], [1920, 1080]]) {
+    await page.setViewportSize({ width, height })
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath(`cte-${width}.png`), fullPage: true })
+  }
+  await page.getByRole("button", { name: "Arquivos anteriores" }).click()
+  await expect(page.getByText("1–25 de 26", { exact: true })).toBeVisible()
+})

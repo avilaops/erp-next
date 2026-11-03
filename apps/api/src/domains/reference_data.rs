@@ -321,28 +321,40 @@ pub struct ReferenceList {
     limit: u32,
 }
 
-// New catalog responses have concrete fields instead of extending the legacy
-// response union. These DTOs mirror the serialized Reference envelopes above.
-#[derive(Serialize, ToSchema)]
-pub struct SupplyReference<T> {
-    id: Uuid,
-    revision: i64,
-    #[serde(flatten)]
-    data: T,
+// Response records are flat: composing a deny_unknown_fields input with id and
+// revision through allOf would reject the actual serialized response fields.
+macro_rules! supply_reference {
+    ($name:ident $(,$field:ident:$field_type:ty)*) => {
+        #[derive(Serialize, ToSchema)]
+        #[serde(rename_all = "camelCase")]
+        pub struct $name {
+            id: Uuid,
+            revision: i64,
+            code: String,
+            name: String,
+            status: String,
+            notes: Option<String>,
+            $($field: $field_type,)*
+        }
+    };
 }
+supply_reference!(WarehouseReference, location: Option<String>);
+supply_reference!(GroupReference);
+supply_reference!(TagReference, group_id: Option<Uuid>);
+
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SupplySnapshot<T> {
     tenant_id: Uuid,
     can_edit: bool,
-    data: SupplyReference<T>,
+    data: T,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SupplyList<T> {
     tenant_id: Uuid,
     can_edit: bool,
-    data: Vec<SupplyReference<T>>,
+    data: Vec<T>,
     total: i64,
     offset: u32,
     limit: u32,
@@ -776,8 +788,8 @@ endpoints!(
     "/api/v1/warehouses/{id}",
     Warehouse,
     WarehouseInput,
-    SupplySnapshot<WarehouseInput>,
-    SupplyList<WarehouseInput>
+    SupplySnapshot<WarehouseReference>,
+    SupplyList<WarehouseReference>
 );
 endpoints!(
     list_product_groups,
@@ -788,8 +800,8 @@ endpoints!(
     "/api/v1/product-groups/{id}",
     ProductGroup,
     GroupInput,
-    SupplySnapshot<GroupInput>,
-    SupplyList<GroupInput>
+    SupplySnapshot<GroupReference>,
+    SupplyList<GroupReference>
 );
 endpoints!(
     list_tag_groups,
@@ -800,8 +812,8 @@ endpoints!(
     "/api/v1/tag-groups/{id}",
     TagGroup,
     GroupInput,
-    SupplySnapshot<GroupInput>,
-    SupplyList<GroupInput>
+    SupplySnapshot<GroupReference>,
+    SupplyList<GroupReference>
 );
 endpoints!(
     list_tags,
@@ -812,8 +824,8 @@ endpoints!(
     "/api/v1/tags/{id}",
     Tag,
     TagInput,
-    SupplySnapshot<TagInput>,
-    SupplyList<TagInput>
+    SupplySnapshot<TagReference>,
+    SupplyList<TagReference>
 );
 
 pub fn routes() -> Router<AppState> {

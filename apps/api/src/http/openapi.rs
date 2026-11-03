@@ -172,11 +172,11 @@ mod tests {
     #[test]
     fn supply_catalog_contracts_use_typed_response_schemas() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        for (resource, input) in [
-            ("warehouses", "WarehouseInput"),
-            ("product-groups", "GroupInput"),
-            ("tag-groups", "GroupInput"),
-            ("tags", "TagInput"),
+        for (resource, input, record) in [
+            ("warehouses", "WarehouseInput", "WarehouseReference"),
+            ("product-groups", "GroupInput", "GroupReference"),
+            ("tag-groups", "GroupInput", "GroupReference"),
+            ("tags", "TagInput", "TagReference"),
         ] {
             for (method, suffix, status, list) in [
                 ("get", "", "200", true),
@@ -191,28 +191,42 @@ mod tests {
                         .as_str()
                         .unwrap();
                 let schema = schema_ref.strip_prefix("#/components/schemas/").unwrap();
-                assert!(schema.starts_with(if list {
+                let envelope = if list {
                     "SupplyList_"
                 } else {
                     "SupplySnapshot_"
-                }));
-                let data = &doc["components"]["schemas"][schema]["properties"]["data"];
-                let record_ref = if list {
-                    &data["items"]["$ref"]
-                } else {
-                    &data["$ref"]
                 };
-                let record_schema = record_ref
-                    .as_str()
-                    .unwrap()
-                    .strip_prefix("#/components/schemas/")
-                    .unwrap();
-                assert!(record_schema.starts_with("SupplyReference_"));
+                assert_eq!(schema, format!("{envelope}{record}"));
+                let data = &doc["components"]["schemas"][schema]["properties"]["data"];
+                let record_data = if list { &data["items"] } else { data };
+                let input_data = &doc["components"]["schemas"][input];
+                assert_eq!(record_data["type"], "object");
+                assert!(record_data.get("allOf").is_none(), "{method} {path}");
+                // Every input field plus the record identity must belong to one
+                // object, so additionalProperties cannot reject id/revision.
+                let properties = record_data["properties"].as_object().unwrap();
+                let input_properties = input_data["properties"].as_object().unwrap();
+                assert_eq!(properties.len(), input_properties.len() + 2);
+                for (name, property) in input_properties {
+                    assert_eq!(&properties[name], property, "{method} {path}: {name}");
+                }
                 assert_eq!(
-                    doc["components"]["schemas"][record_schema]["allOf"][0]["$ref"],
-                    format!("#/components/schemas/{input}"),
-                    "{method} {path} must describe only its own catalog data"
+                    properties["id"],
+                    serde_json::json!({"type":"string","format":"uuid"})
                 );
+                assert_eq!(
+                    properties["revision"],
+                    serde_json::json!({"type":"integer","format":"int64"})
+                );
+                let required = record_data["required"].as_array().unwrap();
+                for field in input_data["required"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .chain([&serde_json::json!("id"), &serde_json::json!("revision")])
+                {
+                    assert!(required.contains(field), "{method} {path}: {field}");
+                }
             }
         }
     }

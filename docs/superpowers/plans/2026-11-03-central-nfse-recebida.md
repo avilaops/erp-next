@@ -50,3 +50,10 @@ tenant. Dois cenários browser com resposta retida/troca real de cookie foram
 acrescentados; validação executável completa da interface segue pendente no CI.
 Checagem estática de arquitetura sem erros; 17 testes de contratos/contexto
 aprovados após reinstalar somente a dependência Ajv do diretório raiz.
+
+CI 41648409463 aprovou build, lint, contratos, Rust e 19 de 20 casos do monitor.
+O caso restante tinha seletor amplo que encontrava o aviso e o texto do cartão;
+foi restrito ao role status nos dois cenários de importação. As cinco capturas
+(320/390/768/1280/1920) foram inspecionadas, sem corte horizontal; o teste de
+paginação e os dois cenários novos de troca de sessão passaram. CI final após
+a correção do seletor ainda pendente.

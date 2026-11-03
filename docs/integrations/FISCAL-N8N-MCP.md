@@ -47,6 +47,44 @@ importável não contém tokens nem referências inventadas de credenciais.
 No MCP/CLI, o operador injeta o access token pelo ambiente do processo.
 Não coloque token, XML, certificado A1 ou senha em argumentos, commits ou logs.
 
+### Conectar pelo OAuth do Auth Ávila
+
+`OAuth2 API` é o tipo de credencial genérica do n8n; o provedor desta integração
+é o Auth Ávila. A [descoberta OIDC](https://auth.avilaops.com/.well-known/openid-configuration)
+anuncia Authorization Code, refresh token, PKCE e autenticação do cliente por
+Basic no cabeçalho ou por corpo. Não é necessário copiar access tokens manualmente.
+
+| Campo no n8n | Configuração |
+| --- | --- |
+| Nome sugerido | `ERP Next — Homologação` |
+| Tipo | `OAuth2 API` |
+| Grant Type | `Authorization Code` (PKCE também é suportado por ambos) |
+| Authorization URL | `https://auth.avilaops.com/oauth/authorize` |
+| Access Token URL | `https://auth.avilaops.com/oauth/token` |
+| Authentication | `Header` (`client_secret_basic`) |
+| Scope inicial | `openid profile email` |
+| Client ID e Client Secret | Cliente dedicado cadastrado no Auth; segredo salvo somente na credencial n8n |
+
+Em [Integrações do Auth](https://auth.avilaops.com/admin/integracoes), cadastre
+um cliente dedicado vinculado à aplicação ERP. Registre exatamente a **OAuth
+Redirect URL** exibida pela credencial n8n; não reutilize o callback do frontend
+ERP e não use wildcard. O cliente da integração e a identidade que autoriza são
+coisas diferentes: as permissões fiscais continuam nos papéis dessa identidade
+no ERP. `fiscal.nfe.read` e `fiscal.nfe.issue` não são scopes OAuth anunciados
+pelo Auth e não devem ser colocados no campo Scope do n8n.
+
+Após salvar o cliente e a credencial, use **Connect my account** no n8n e faça
+login no Auth com a identidade de homologação. Associe essa mesma credencial aos
+nós `Issue` e `Status`. Não copiar cookies de sessão nem transformar a senha da
+conta em token. O login administrativo para cadastrar o cliente e o login da
+identidade fiscal são etapas distintas.
+
+O Auth fornece refresh token no fluxo normal e revalida a conta ao renovar.
+Na implementação do Auth, `offline_access` conserva essa autorização após sair
+da sessão; adicione-o somente quando a operação exigir esse comportamento.
+O fluxo inicial usa os mesmos scopes básicos do login atual do ERP. O provider
+não anuncia o grant `client_credentials`; não selecioná-lo para essa conexão.
+
 ## Exemplos executáveis
 
 Requer Node.js 24 e `corepack pnpm install --frozen-lockfile --ignore-scripts`.

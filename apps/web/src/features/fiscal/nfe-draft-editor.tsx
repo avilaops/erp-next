@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TaxProfilePicker } from "./settings/tax-profile-picker"
 import { EmissionActions } from "./emission-actions"
-import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, blockerLabels, invoiceTotal, itemTotal, productsTotal, submission, type DraftInput, type DraftItem, type FiscalReadiness, type TaxDeclaration } from "./nfe-draft-model"
+import { applyTaxProfile, blankDraft, blankIbptItem, blankItem, blankTaxDeclaration, blockerLabels, invoiceTotal, itemTotal, productsTotal, submission, type DraftInput, type DraftItem, type FiscalReadiness, type TaxDeclaration } from "./nfe-draft-model"
+import { IbptDraftFields, IbptSavedSnapshot } from "./ibpt-draft-fields"
 
 type Product = { id: string; sku: string; name: string; unit: string; ncm: string | null; basePrice: string }
 type Snapshot = Schema<"DraftSnapshot">
@@ -110,7 +111,10 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
   }
   function addProduct(product: Product) {
     const item = { ...blankItem(), code: product.sku, description: product.name, unit: product.unit, ncm: product.ncm || "", unitPrice: product.basePrice }
-    setDraft(previous => ({ ...previous, items: previous.items.length === 1 && JSON.stringify(previous.items[0]) === JSON.stringify(blankItem()) ? [item] : [...previous.items, item] }))
+    setDraft(previous => {
+      const replaceBlank = previous.items.length === 1 && JSON.stringify(previous.items[0]) === JSON.stringify(blankItem())
+      return { ...previous, items: replaceBlank ? [item] : [...previous.items, item], ...(previous.ibpt ? { ibpt: { ...previous.ibpt, items: replaceBlank ? [blankIbptItem()] : [...previous.ibpt.items, blankIbptItem()] } } : {}) }
+    })
     setProducts([]); setQuery(""); setNotice("Dados do produto copiados. Confira o NCM e preencha a tributação conforme a instrução fiscal.")
   }
   async function save(event: React.FormEvent) {
@@ -132,7 +136,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
       if (!response.ok) {
         if (response.status >= 500) { setUncertain(true); throw new Error("Não foi possível confirmar a gravação. Confira o servidor antes de repetir ou confirme a mesma solicitação.") }
         resolved = true; setUncertain(false); command.current = null
-        if ([401, 403, 409, 412, 428].includes(response.status)) setBlocked(true)
+        if ([401, 403, 409, 412, 428].includes(response.status) && !(response.status === 409 && value.code === "ibpt_not_available")) setBlocked(true)
         throw new Error(value.title || "Não foi possível salvar o rascunho")
       }
       if (value.tenantId !== tenant || !value.data?.id || !response.headers.get("etag")) { setUncertain(true); throw new Error("Resposta sem confirmação do rascunho. Recarregue os dados do servidor") }
@@ -175,7 +179,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
           <section className="form-section space-y-4" aria-label="Itens do rascunho"><h2 className="text-lg font-semibold">Itens</h2>
             {canSearch && !draft.sourceOrderId && <div className="rounded-xl border p-4"><div className="flex flex-wrap items-end gap-3"><label className="grid min-w-0 flex-1 gap-2 text-sm">Buscar produto por nome ou SKU<Input value={query} onChange={event => setQuery(event.target.value)} /></label><Button type="button" variant="outline" disabled={searching || !query.trim()} onClick={() => void findProducts()}>{searching ? "Buscando…" : "Buscar produtos"}</Button></div>{productError && <p role="alert" className="mt-3 text-sm text-destructive">{productError}</p>}<ul className="mt-3 space-y-2">{products.map(product => <li key={product.id}><Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal text-left" disabled={draft.items.length >= 990} onClick={() => addProduct(product)}>Adicionar {product.sku} — {product.name}</Button></li>)}</ul></div>}
             {draft.items.map((item, index) => <section key={index} className="space-y-4 rounded-xl border p-4" aria-label={`Item ${index + 1}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-medium">Item {index + 1}</h3><Button type="button" variant="outline" disabled={!!draft.sourceOrderId || draft.items.length <= 1} onClick={() => setDraft({ ...draft, items: draft.items.filter((_, position) => position !== index) })}>Remover item {index + 1}</Button></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-medium">Item {index + 1}</h3><Button type="button" variant="outline" disabled={!!draft.sourceOrderId || draft.items.length <= 1} onClick={() => setDraft({ ...draft, items: draft.items.filter((_, position) => position !== index), ...(draft.ibpt ? { ibpt: { ...draft.ibpt, items: draft.ibpt.items.filter((_, position) => position !== index) } } : {}) })}>Remover item {index + 1}</Button></div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {([['code', 'Código do produto', 60], ['description', 'Descrição do produto', 120], ['unit', 'Unidade', 6], ['ncm', 'NCM', 8], ['cfop', 'CFOP', 4], ['quantity', 'Quantidade', 16], ['unitPrice', 'Preço unitário', 22], ['pisCst', 'CST do PIS', 2], ['cofinsCst', 'CST da COFINS', 2]] as const).map(([key, label, maximum]) => <Field key={key} label={label}><Input required readOnly={!!draft.sourceOrderId && ['code', 'unit', 'quantity', 'unitPrice'].includes(key)} maxLength={maximum} inputMode={['quantity', 'unitPrice'].includes(key) ? 'decimal' : 'text'} value={item[key]} onChange={event => changeItem(index, { [key]: event.target.value })} /></Field>)}
                 <Field label="Origem da mercadoria"><select required className="h-9 w-full rounded-lg border bg-background px-3 text-sm" value={item.origin < 0 ? "" : item.origin} onChange={event => changeItem(index, { origin: event.target.value === "" ? -1 : Number(event.target.value) })}><option value="">Selecione conforme a instrução fiscal</option>{[0,1,2,3,4,5,6,7,8].map(origin => <option key={origin} value={origin}>{origin}</option>)}</select></Field>
@@ -183,7 +187,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
                 <Field label="CSOSN"><Input maxLength={3} value={item.csosn || ""} onChange={event => changeItem(index, { csosn: event.target.value || null })} /></Field>
               </div><p className="text-xs text-muted-foreground">Informe CST ou CSOSN de acordo com o CRT, sem preencher ambos. Quantidade aceita até 4 casas; preço, até 10. Alíquotas dependem da declaração tributária abaixo.</p><p className="text-sm font-medium">Total bruto do item: {(() => { try { return `R$ ${itemTotal(item.quantity, item.unitPrice).replace(".", ",")}` } catch { return "Confira quantidade e preço" } })()}</p>
             </section>)}
-            <Button type="button" variant="outline" disabled={!!draft.sourceOrderId || draft.items.length >= 990} onClick={() => setDraft({ ...draft, items: [...draft.items, blankItem()] })}>Adicionar item manualmente</Button>
+            <Button type="button" variant="outline" disabled={!!draft.sourceOrderId || draft.items.length >= 990} onClick={() => setDraft({ ...draft, items: [...draft.items, blankItem()], ...(draft.ibpt ? { ibpt: { ...draft.ibpt, items: [...draft.ibpt.items, blankIbptItem()] } } : {}) })}>Adicionar item manualmente</Button>
           </section>
           <section className="form-section space-y-4" aria-label="Declaração tributária CRT 3"><h2 className="text-lg font-semibold">Declaração tributária — regime normal (CRT 3)</h2>
             <p className="text-sm text-muted-foreground">Preencha conforme a referência da instrução fiscal, sob responsabilidade de quem a declara. Disponível para operação interna em São Paulo, com a mesma classificação e alíquota em todos os itens. NCM, regime e recebimentos não determinam alíquotas automaticamente.</p>
@@ -203,6 +207,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
               <Button type="button" variant="outline" onClick={() => { const { taxDeclaration: removed, ...input } = draft; void removed; setDraft(input) }}>Remover declaração tributária</Button>
             </> : <Button type="button" variant="outline" onClick={() => setDraft({ ...draft, taxDeclaration: blankTaxDeclaration() })}>Adicionar declaração tributária CRT 3</Button>}
           </section>
+          <IbptDraftFields selection={draft.ibpt} items={draft.items} onChange={ibpt => setDraft({ ...draft, ibpt })} />
           <section className="form-section space-y-4" aria-label="Pagamento declarado na NF-e"><h2 className="text-lg font-semibold">Pagamento declarado na NF-e</h2>
             <p className="text-sm text-muted-foreground">Informe conforme a operação fiscal. Estes dados não geram recebimentos ou cobranças no financeiro.</p>
             {(draft.payments || []).map((payment, index) => <div className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2" key={index}>
@@ -216,6 +221,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
         </fieldset>
         <section className="form-section space-y-4"><p className="font-medium">Total bruto dos produtos: {total}</p>{draft.taxDeclaration && <p className="font-medium">Total da NF-e com IPI declarado: {(() => { try { return `R$ ${invoiceTotal(draft).replace(".", ",")}` } catch { return "Confira as alíquotas e os valores" } })()}</p>}<p className="text-sm text-muted-foreground">No recorte disponível, o total da NF-e soma produtos e IPI declarado, arredondado por item. Os pagamentos devem somar esse total. Frete e descontos não são suportados nesta operação.</p><div className="flex flex-wrap gap-3">{canEdit && <Button type="submit" disabled={loading || saving || blocked || !profileReady || !!id && (!etag || uncertain) || !uncertain && !dirty}>{saving ? "Confirmando gravação…" : uncertain && !id ? "Confirmar mesma solicitação" : "Salvar rascunho"}</Button>}<Button type="button" variant="outline" disabled={saving || loading} onClick={refresh}>Recarregar dados do servidor</Button></div>{uncertain && <p role="alert" className="text-sm">A gravação pode ter ocorrido. {id ? "Recarregue e confira a revisão antes de editar novamente." : "Confirme a mesma solicitação para consultar o resultado sem criar duplicatas."}</p>}</section>
       </form>
+      {snapshot?.data.ibptSnapshot && <IbptSavedSnapshot snapshot={snapshot.data.ibptSnapshot} revision={snapshot.data.revision} dirty={dirty} />}
       {readiness && !readiness.canTransmit && <section className="form-section space-y-2"><h2 className="font-semibold">Pendências para emitir</h2>{readiness.blockers.map(blocker => <p key={blocker} className="text-sm">{blockerLabels[blocker] || "Confira a configuração fiscal para esta operação"}</p>)}</section>}
       {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
     </>}

@@ -16,6 +16,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
     paths(crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
+        crate::domains::registry_lookup::lookup,
+        fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
         crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
@@ -68,6 +70,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
         fiscal::cte_distribution::status, fiscal::cte_distribution::documents, fiscal::cte_distribution::document,
         fiscal::cte_distribution::query, fiscal::cte_distribution::run,
+        fiscal::cte_inspection::get_inspection, fiscal::cte_inspection::inspect,
+        fiscal::cte_links::get_links, fiscal::cte_links::options, fiscal::cte_links::link, fiscal::cte_links::unlink,
         fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
@@ -349,7 +353,15 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 152);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 159);
+        assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
+        for status in ["200", "401", "403", "409", "422"] {
+            assert!(
+                doc["paths"]["/api/v1/registry-lookups"]["post"]["responses"]
+                    .get(status)
+                    .is_some()
+            );
+        }
         let nfse_import = &doc["paths"]["/api/v1/fiscal/received-nfses/import"]["post"];
         for status in ["200", "201", "403", "409", "422", "428", "502", "503"] {
             assert!(nfse_import["responses"].get(status).is_some());
@@ -358,7 +370,15 @@ mod tests {
             let path = format!("/api/v1/fiscal/received-nfses{suffix}");
             assert!(doc["paths"][&path]["get"].is_object());
         }
-        for suffix in ["status", "documents", "documents/{id}", "runs/{id}"] {
+        for suffix in [
+            "status",
+            "documents",
+            "documents/{id}",
+            "documents/{id}/inspection",
+            "documents/{id}/commercial-links",
+            "documents/{id}/commercial-options",
+            "runs/{id}",
+        ] {
             let path = format!("/api/v1/fiscal/cte-distribution/{suffix}");
             assert!(doc["paths"][&path]["get"].is_object());
         }
@@ -366,6 +386,24 @@ mod tests {
         assert!(cte_query["requestBody"].is_object());
         for status in ["200", "403", "409", "412", "428"] {
             assert!(cte_query["responses"].get(status).is_some());
+        }
+        let inspection =
+            &doc["paths"]["/api/v1/fiscal/cte-distribution/documents/{id}/inspect"]["post"];
+        assert!(inspection["requestBody"].is_object());
+        for status in [
+            "200", "201", "403", "404", "409", "422", "428", "502", "503",
+        ] {
+            assert!(inspection["responses"].get(status).is_some());
+        }
+        for suffix in ["commercial-links", "commercial-links/{linkId}/unlink"] {
+            let path = format!("/api/v1/fiscal/cte-distribution/documents/{{id}}/{suffix}");
+            for status in ["200", "403", "404", "409", "412", "422", "428"] {
+                assert!(
+                    doc["paths"][&path]["post"]["responses"]
+                        .get(status)
+                        .is_some()
+                );
+            }
         }
         let registration = &doc["paths"]["/api/v1/registration-settings/{section}"];
         assert!(registration["get"].is_object());

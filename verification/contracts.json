@@ -5,6 +5,20 @@
     "product": "erp",
     "flows": [
       {
+        "id": "registry-lookups", "title": "Consultas cadastrais CEP, CNPJ e IE",
+        "goal": "Consultar dados mínimos com origem, cache e confirmação explícita dos campos vazios.",
+        "kind": "support", "actionGroups": ["registry-lookups"], "dependencies": ["me"],
+        "nextStep": "Validar fontes na versão publicada; CNPJ.ws permanece desabilitado até confirmar uso permitido no ERP multiempresa.",
+        "additionalSources": ["docs/CONSULTAS-CADASTRAIS-AVL-113-114.md"]
+      },
+      {
+        "id": "ibpt-quotes", "title": "Estimativa informativa IBPT versionada",
+        "goal": "Consultar snapshot local por empresa, UF, classificação, código/EX e vigência sem substituir tributos da operação.",
+        "kind": "support", "actionGroups": ["ibpt-quotes"], "dependencies": ["fiscal-config"],
+        "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e conferir o DANFE no renderizador operacional. Snapshot/XML implementados não concluem o aceite real da AVL-115.",
+        "additionalSources": ["docs/IBPT-AVL-115.md", "apps/api/src/domains/fiscal/ibpt_document.rs", "apps/fiscal-engine/src/engine.ts", "apps/fiscal-engine/src/lib/fiscal/nfe.ts", "apps/web/src/features/fiscal/ibpt-draft-fields.tsx"]
+      },
+      {
         "id": "fiscal-nfse-received",
         "title": "Importação de NFS-e nacional recebida",
         "goal": "Armazenar XML nacional do tomador com isolamento e origem preservada; assinatura, situação atual, captura incremental e aceite externo permanecem pendentes.",
@@ -534,7 +548,8 @@
           "company"
         ],
         "dependencies": [
-          "me"
+          "me",
+          "registry-lookups"
         ],
         "nextStep": "Conferir os campos pendentes do cadastro da empresa antes de usá-los em documentos."
       },
@@ -642,7 +657,8 @@
           "parties"
         ],
         "dependencies": [
-          "me"
+          "me",
+          "registry-lookups"
         ],
         "nextStep": "Definir o uso de endereços e condições comerciais nos documentos consumidores."
       },
@@ -1159,6 +1175,711 @@
     }
   ],
   "actions": [
+    {
+      "id": "post-registry-lookups", "flow": "registry-lookups", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/registry-lookups"},
+      "actor": "active_tenant_member",
+      "permissions": ["platform.company.read", "catalog.parties.read"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [],
+        "body": {"source": "apps/api/src/domains/registry_lookup/model.rs", "type": "LookupInput"}, "query": null
+      },
+      "preconditions": [
+        "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
+        "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
+        "BFF exige origem e empresa da sessão. Preencher exige confirmação, sessão atual, prévia válida e campos vazios; gravar usa contrato próprio."
+      ],
+      "transition": {"from": "entrada manual ou prévia anterior", "to": "prévia found, not_found, unavailable ou unsupported; cadastro não gravado"},
+      "effects": {
+        "writes": [],
+        "external": ["Consulta pontual ViaCEP/BrasilAPI; CNPJ.ws opt-in numérico. Cache positivo limitado e quotas por processo."],
+        "excludes": ["Não salva cadastro, consulta CPF, retorna QSA nem determina regime tributário ou condição de contribuinte."]
+      },
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta de leitura via POST; rejeitar prévia após mudança de documento, CEP, UF ou empresa e preservar edições."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 409, 415, 422, 503], "action": "Consultar dados cadastrais mínimos com origem e validade"},
+      "recovery": "Falha não invalida cadastro; continuar manualmente ou repetir consulta explícita. Falhas não entram no cache.",
+      "ui": {
+        "pages": ["/preferencias/empresa/dados", "/cadastros/clientes-fornecedores/novo", "/cadastros/clientes-fornecedores/[id]/editar"],
+        "bff": {"method": "POST", "path": "/api/erp/registry-lookups"},
+        "gap": "Cobertura IE é parcial e condicionada ao uso permitido. Fixtures não comprovam disponibilidade externa ou publicação."
+      },
+      "sources": [
+        "apps/api/src/domains/registry_lookup/mod.rs", "apps/api/src/domains/registry_lookup/model.rs",
+        "apps/api/src/domains/registry_lookup/client.rs", "apps/api/src/domains/registry_lookup/parse.rs",
+        "apps/web/src/features/records/registry-lookup.tsx", "apps/web/src/server/bff/erp-proxy.ts"
+      ],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-ibpt-quote", "flow": "ibpt-quotes", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/fiscal/ibpt/quote"},
+      "actor": "active_tenant_member", "permissions": ["fiscal.nfe.read"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [],
+        "body": {"source": "apps/api/src/domains/fiscal/ibpt.rs", "type": "IbptInput"}, "query": null
+      },
+      "preconditions": [
+        "Associação ativa e fiscal.nfe.read da empresa; BFF exige mesma origem e empresa da sessão.",
+        "UF, classificação, código/EX, origem, valor e data explícitos. Snapshot local exige SHA-256, fonte, versão, vigência e referência administrativa da autorização.",
+        "Sem fonte vigente autorizada da empresa não liberar uso real. Presença de referência de licença não confirma validade jurídica."
+      ],
+      "transition": {"from": "snapshot imutável carregado na inicialização ou catálogo vazio", "to": "available, not_configured, outside_validity ou code_not_found; sem mutação"},
+      "effects": {
+        "writes": [], "external": [],
+        "excludes": ["Não consulta CDN/API externa, grava documento, exporta XML/DANFE ou altera ICMS/IPI/PIS/COFINS/IBS/CBS."]
+      },
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Leitura de snapshots imutáveis por tenant/UF/classificação/versão; sem revisão de documento ou comando fiscal."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 409, 415, 422, 503], "action": "Consultar estimativa IBPT com metadados; indisponibilidade não retorna tributo zero"},
+      "recovery": "Obter snapshot autorizado, conferir original/conversão e atualizar manifesto pelo procedimento de implantação; nunca substituir ausência por zero.",
+      "ui": {
+        "pages": [], "bff": {"method": "POST", "path": "/api/erp/fiscal/ibpt/quote"},
+        "gap": "Consulta avulsa sem tela própria; rascunhos resolvem e persistem a estimativa no servidor. Fonte real, amostras validadas e DANFE operacional ainda pendentes em AVL-115."
+      },
+      "sources": ["apps/api/src/domains/fiscal/ibpt.rs", "apps/web/src/server/bff/erp-fiscal-proxy.ts", "docs/IBPT-AVL-115.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "get-api-v1-fiscal-cte-commercial-links",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais; RLS forçada e tenant fixado.",
+        "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos."
+      ],
+      "transition": {
+        "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
+        "to": "Sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Sem consulta SEFAZ, emissão, evento fiscal ou validação de confiança.",
+          "Não altera XML, cursor, inspeção, pedido, custo, estoque ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sob lock compartilhado do tenant para revisão e linhas consistentes."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          500
+        ],
+        "action": "Consultar vínculos comerciais CT-e"
+      },
+      "recovery": "Atualizar leitura na empresa correta e respeitar a permissão do domínio comercial.",
+      "ui": {
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
+      },
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_links.rs",
+        "apps/api/src/domains/fiscal/cte_links_model.rs",
+        "apps/api/src/domains/fiscal/cte_links_store.rs",
+        "migrations/202611030007_cte_commercial_links.sql",
+        "deploy/grant-cte-links.sql",
+        "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
+      ]
+    },
+    {
+      "id": "get-api-v1-fiscal-cte-commercial-options",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/commercial-options"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read",
+        "catalog.parties.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": [
+          "kind",
+          "offset",
+          "limit"
+        ]
+      },
+      "preconditions": [
+        "Associação e permissões atuais; RLS forçada e tenant fixado.",
+        "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos.",
+        "Leitura do tipo de pedido selecionado: purchasing.orders.read ou sales.orders.read."
+      ],
+      "transition": {
+        "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
+        "to": "Sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Sem consulta SEFAZ, emissão, evento fiscal ou validação de confiança.",
+          "Não altera XML, cursor, inspeção, pedido, custo, estoque ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sob lock compartilhado do tenant para revisão e linhas consistentes."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          500
+        ],
+        "action": "Consultar pedidos disponíveis"
+      },
+      "recovery": "Atualizar leitura na empresa correta e respeitar a permissão do domínio comercial.",
+      "ui": {
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-options"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
+      },
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_links.rs",
+        "apps/api/src/domains/fiscal/cte_links_model.rs",
+        "apps/api/src/domains/fiscal/cte_links_store.rs",
+        "migrations/202611030007_cte_commercial_links.sql",
+        "deploy/grant-cte-links.sql",
+        "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-options/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
+      ]
+    },
+    {
+      "id": "post-api-v1-fiscal-cte-commercial-links",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read",
+        "fiscal.cte.link",
+        "catalog.parties.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key",
+          "X-Actor-Subject"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/cte_links_model.rs",
+          "type": "CteLinkInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais; RLS forçada e tenant fixado.",
+        "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos.",
+        "Leitura do tipo de pedido selecionado: purchasing.orders.read ou sales.orders.read.",
+        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito.",
+        "X-Actor-Subject UTF-8/base64url sem padding deve coincidir com a identidade autenticada; apenas restringe o comando."
+      ],
+      "transition": {
+        "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
+        "to": "Associação manual com frete exato e histórico"
+      },
+      "effects": {
+        "writes": [
+          "fiscal_cte_commercial_links",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [],
+        "excludes": [
+          "Sem consulta SEFAZ, emissão, evento fiscal ou validação de confiança.",
+          "Não altera XML, cursor, inspeção, pedido, custo, estoque ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match da revisão agregada, sujeito esperado, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Vincular CT-e a pedido existente"
+      },
+      "recovery": "Resultado incerto: repetir mesma chave, payload e revisão; conflito: reler e reconferir sem apagar histórico.",
+      "ui": {
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
+      },
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_links.rs",
+        "apps/api/src/domains/fiscal/cte_links_model.rs",
+        "apps/api/src/domains/fiscal/cte_links_store.rs",
+        "migrations/202611030007_cte_commercial_links.sql",
+        "deploy/grant-cte-links.sql",
+        "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
+      ]
+    },
+    {
+      "id": "post-api-v1-fiscal-cte-commercial-unlink",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links/{linkId}/unlink"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read",
+        "fiscal.cte.link",
+        "catalog.parties.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key",
+          "X-Actor-Subject"
+        ],
+        "pathParameters": [
+          "id",
+          "linkId"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/cte_links_model.rs",
+          "type": "CteUnlinkInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais; RLS forçada e tenant fixado.",
+        "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos.",
+        "Leitura do tipo de pedido selecionado: purchasing.orders.read ou sales.orders.read.",
+        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito.",
+        "X-Actor-Subject UTF-8/base64url sem padding deve coincidir com a identidade autenticada; apenas restringe o comando."
+      ],
+      "transition": {
+        "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
+        "to": "Desfazimento append-only sem apagar associação anterior"
+      },
+      "effects": {
+        "writes": [
+          "fiscal_cte_commercial_unlinks",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [],
+        "excludes": [
+          "Sem consulta SEFAZ, emissão, evento fiscal ou validação de confiança.",
+          "Não altera XML, cursor, inspeção, pedido, custo, estoque ou financeiro."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match da revisão agregada, sujeito esperado, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Desfazer vínculo comercial CT-e"
+      },
+      "recovery": "Resultado incerto: repetir mesma chave, payload e revisão; conflito: reler e reconferir sem apagar histórico.",
+      "ui": {
+        "pages": [
+          "/fiscal/ctes"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/[linkId]/unlink"
+        },
+        "gap": "Associação manual não comprova homologação externa nem gera lançamentos; publicação ainda não observada."
+      },
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_links.rs",
+        "apps/api/src/domains/fiscal/cte_links_model.rs",
+        "apps/api/src/domains/fiscal/cte_links_store.rs",
+        "migrations/202611030007_cte_commercial_links.sql",
+        "deploy/grant-cte-links.sql",
+        "docs/superpowers/specs/2026-11-03-vinculos-cte.md",
+        "docs/superpowers/plans/2026-11-03-vinculos-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/commercial-links/[linkId]/unlink/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-links-model.ts",
+        "apps/web/src/features/fiscal/cte-links.ts",
+        "apps/web/src/features/fiscal/cte-links-panel.tsx"
+      ]
+    },
+    {
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "actor": "active_tenant_member",
+      "preconditions": [
+        "Associação e permissões atuais do tenant; RLS obrigatório.",
+        "Documento imutável capturado em homologação, sem consulta à autoridade."
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "id": "get-api-v1-fiscal-cte-distribution-inspection",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/inspection"
+      },
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "transition": {
+        "from": "Conferência local existente ou pendente",
+        "to": "Sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não executa inspeção, consulta fiscal ou escrita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura autenticada do perfil atual, sem tocar o XML ou cursor."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar conferência local CT-e"
+      },
+      "recovery": "Atualizar leitura na empresa correta; distinguir ausência de conferência de falta de permissão.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents/[id]/inspection" },
+        "gap": "Leitura de fatos locais não comprova confiança, situação fiscal ou homologação."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_inspection.rs",
+        "apps/api/src/domains/fiscal/cte_inspection_model.rs",
+        "migrations/202611030006_cte_inspections.sql",
+        "deploy/grant-cte-inspections.sql",
+        "docs/superpowers/plans/2026-11-03-conferencia-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/inspection/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspections.ts",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-inspection-panel.tsx"
+      ]
+    },
+    {
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "actor": "active_tenant_member",
+      "preconditions": [
+        "Associação e permissões atuais do tenant; RLS obrigatório.",
+        "Documento imutável capturado em homologação, sem consulta à autoridade."
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      },
+      "id": "post-api-v1-fiscal-cte-distribution-inspect",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}/inspect"
+      },
+      "permissions": [
+        "fiscal.cte.read",
+        "fiscal.cte.inspect"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/cte_inspection.rs",
+          "type": "InspectCteInput"
+        },
+        "query": null
+      },
+      "transition": {
+        "from": "XML preservado sem conferência local ou comando repetido",
+        "to": "Conferência local append-only ou recusa sem efeitos parciais"
+      },
+      "effects": {
+        "writes": [
+          "fiscal_cte_inspections",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [
+          "Inspeção offline no motor fiscal privado, sem acesso à autoridade."
+        ],
+        "excludes": [
+          "Não modifica XML ou cursor de captura.",
+          "Não comprova confiança ICP-Brasil, autenticidade independente do protocolo ou situação fiscal atual.",
+          "Não cria vínculos comerciais, compras, vendas, estoque ou lançamentos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Tenant/ator/chave vinculados a documento, hash, CNPJ e versão; autorizar novamente após I/O; lock por tenant serializa commits e a unicidade do perfil impede duplicação."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          500,
+          502,
+          503
+        ],
+        "action": "Conferir offline CT-e preservado"
+      },
+      "recovery": "Repetir a mesma chave para resultado incerto; falha mantém XML/cursor e não registra sucesso.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "POST", "path": "/api/erp/fiscal/cte-distribution/documents/[id]/inspect" },
+        "gap": "Operação local ainda sem evidência externa ou publicação."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_inspection.rs",
+        "apps/api/src/domains/fiscal/cte_inspection_model.rs",
+        "migrations/202611030006_cte_inspections.sql",
+        "deploy/grant-cte-inspections.sql",
+        "docs/superpowers/plans/2026-11-03-conferencia-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/inspect/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspections.ts",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-inspection-panel.tsx"
+      ]
+    },
     {
       "id": "post-api-v1-fiscal-received-nfses-import",
       "flow": "fiscal-nfse-received",

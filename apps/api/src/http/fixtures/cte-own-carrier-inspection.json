@@ -1,0 +1,67 @@
+{
+  "source": "cte_distribution",
+  "schemaVersion": "4.00",
+  "profile": "PL_CTe_400_NT2026.004_RTC_1.00_2026-10-16",
+  "environment": "homologation",
+  "companyTaxId": "04252011000110",
+  "accessKey": "35261004252011000110570010000001231482917367",
+  "number": "123",
+  "series": "1",
+  "issuedAt": "2026-10-02T23:30:00-03:00",
+  "modal": "01",
+  "documentType": "0",
+  "carrier": {
+    "kind": "CNPJ",
+    "value": "04252011000110",
+    "name": "TRANSPORTADORA FICTICIA"
+  },
+  "sender": {
+    "kind": "CNPJ",
+    "value": "48240052000161",
+    "name": "PARTICIPANTE FICTICIO"
+  },
+  "dispatcher": {
+    "kind": "CNPJ",
+    "value": "48240052000161",
+    "name": "PARTICIPANTE FICTICIO"
+  },
+  "receiver": {
+    "kind": "CNPJ",
+    "value": "48240052000161",
+    "name": "PARTICIPANTE FICTICIO"
+  },
+  "recipient": {
+    "kind": "CNPJ",
+    "value": "48240052000161",
+    "name": "PARTICIPANTE FICTICIO"
+  },
+  "taker": {
+    "kind": "CNPJ",
+    "value": "48240052000161",
+    "name": "PARTICIPANTE FICTICIO"
+  },
+  "takerRole": "sender",
+  "companyRoles": [
+    "carrier"
+  ],
+  "serviceCents": "15001",
+  "receivableCents": "15001",
+  "nfeReferences": [
+    "35261012345678000195550010000001231482917364"
+  ],
+  "cteReferences": [],
+  "protocol": {
+    "code": "100",
+    "number": "135260000000123",
+    "receivedAt": "2026-10-03T00:00:00-03:00",
+    "digest": "+MGQWsEOICJzSefAahgsC3LxXYA="
+  },
+  "xmlSha256": "fac5b114da98a662918e1b26cfaaa63f792252e4e84623b96b5983622c7e2ef7",
+  "verification": {
+    "layout": "official_schema_valid",
+    "signature": "consistent",
+    "certificateTrust": "not_verified",
+    "currentStatus": "not_queried",
+    "protocolAuthenticity": "not_verified"
+  }
+}

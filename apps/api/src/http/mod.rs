@@ -15,6 +15,10 @@ mod contracts_tests;
 #[cfg(test)]
 mod cte_distribution_tests;
 #[cfg(test)]
+mod cte_inspection_tests;
+#[cfg(test)]
+mod cte_links_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -59,6 +63,8 @@ mod reference_tests;
 #[cfg(test)]
 mod registration_settings_tests;
 #[cfg(test)]
+mod registry_tests;
+#[cfg(test)]
 mod returns_tests;
 #[cfg(test)]
 mod sales_settings_tests;
@@ -92,6 +98,10 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let protected = Router::new()
+        .route(
+            "/api/v1/registry-lookups",
+            axum::routing::post(crate::domains::registry_lookup::lookup),
+        )
         .route(
             "/api/v1/registration-settings/{section}",
             get(crate::domains::registration_settings::get)

@@ -2,7 +2,9 @@ import type { TaxProfile } from "./settings/tax-profile-model"
 
 import type { Schema } from "@/lib/api/types"
 export type DraftItem = Schema<"DraftItem">
-export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration"> & { taxDeclaration?: TaxDeclaration | null }
+export type IbptDraftItem = Omit<Schema<"IbptItemSelection">, "origin"> & { origin: "national" | "imported" | "" }
+export type IbptDraftSelection = Omit<Schema<"IbptSelection">, "items"> & { items: IbptDraftItem[] }
+export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration" | "ibpt"> & { taxDeclaration?: TaxDeclaration | null; ibpt?: IbptDraftSelection | null }
 export type NfeDraft = Schema<"Draft">
 export type FiscalReadiness = Schema<"Readiness">
 type TaxBooleanField = "recipientTaxpayer" | "finalConsumer" | "ipiInIcmsBase" | "icmsOutOfContributions"
@@ -11,6 +13,7 @@ export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & R
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
 export const blankTaxDeclaration = (): TaxDeclaration => ({ recipientTaxpayer: null, recipientStateRegistration: null, finalConsumer: null, icmsRate: null, pisRate: null, cofinsRate: null, ipiCst: null, ipiFrameCode: null, ipiRate: null, ipiInIcmsBase: null, icmsOutOfContributions: null, ibsCbs: { cst: "", classCode: "", ibsStateRate: "", ibsCityRate: "", cbsRate: "" } })
+export const blankIbptItem = (): IbptDraftItem => ({ ex: "", origin: "", version: null })
 
 export function fixed(value: string, scale: number, wholeDigits: number): string {
   const match = /^(\d+)(?:[.,](\d+))?$/.exec(value.trim())
@@ -64,13 +67,27 @@ function declaredTaxes(declaration: TaxDeclaration): Schema<"TaxDeclaration"> {
 }
 
 export function submission(draft: DraftInput): Schema<"DraftInput"> {
-  const { taxDeclaration, ...input } = draft
+  const { taxDeclaration, ibpt, ...input } = draft
   const items = draft.items.map((item, index) => {
     if (item.origin < 0) throw new Error(`Informe a origem da mercadoria no item ${index + 1}`)
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
     return { ...item, quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
-  return { ...input, items, productsTotal: productsTotal(items), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
+  return { ...input, items, productsTotal: productsTotal(items), ...(ibpt === undefined ? {} : { ibpt: ibpt === null ? null : ibptSubmission(ibpt, items.length) }), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
+}
+
+function ibptSubmission(selection: IbptDraftSelection, count: number): Schema<"IbptSelection"> {
+  if (!selection.uf || !/^\d{4}-\d{2}-\d{2}$/.test(selection.asOf) || selection.items.length !== count) throw new Error("Informe UF, data e uma escolha IBPT para cada item")
+  return {
+    uf: selection.uf,
+    asOf: selection.asOf,
+    items: selection.items.map((item, index) => {
+      if (!/^\d{1,3}$/.test(item.ex) || item.origin !== "national" && item.origin !== "imported") throw new Error(`Informe EX e origem IBPT no item ${index + 1}`)
+      const version = item.version?.trim() || null
+      if (version && !/^\d{2}\.\d\.[A-Z]$/.test(version)) throw new Error(`Informe a versão IBPT no formato 26.2.A no item ${index + 1}`)
+      return { ex: item.ex, origin: item.origin, version }
+    }),
+  }
 }
 
 export const blockerLabels: Record<string, string> = {

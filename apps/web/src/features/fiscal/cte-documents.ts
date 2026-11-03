@@ -79,5 +79,5 @@ export async function readCteRun(document: CteDocument, tenantId: string, signal
     || !Number.isInteger(value.documentCount) || (value.documentCount as number) < 0 || (value.documentCount as number) > 50
     || !validCode(value.code)) throw new Error("A captura não corresponde ao arquivo selecionado")
   const labels: Record<string, string> = { running: "Captura em andamento", completed: "Captura concluída", rejected: "Captura rejeitada", failed: "Captura não aplicada", unknown: "Resultado da captura não confirmado" }
-  return `${labels[value.status]}${typeof value.code === "string" ? ` · ${cteCodeLabel(value.code)}` : ""} · ${value.documentCount} arquivo(s). A conferência individual permanece pendente.`
+  return `${labels[value.status]}${typeof value.code === "string" ? ` · ${cteCodeLabel(value.code)}` : ""} · ${value.documentCount} arquivo(s). A situação fiscal externa permanece pendente.`
 }

@@ -9,6 +9,9 @@ use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+#[path = "fiscal_ibpt_tests.rs"]
+mod ibpt;
+
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "22222222-2222-4222-8222-222222222222";
 

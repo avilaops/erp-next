@@ -6,6 +6,7 @@ import type { Schema } from "@/lib/api/types"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { RegistryLookup } from "@/features/records/registry-lookup"
 
 export type PartyAddress = Schema<"PartyAddress">
 export type PartyContact = Schema<"PartyContact">
@@ -26,12 +27,14 @@ export function PartyComplements({
   addresses,
   contacts,
   onAddresses,
-  onContacts
+  onContacts,
+  tenantId
 }: {
   addresses: PartyAddress[]
   contacts: PartyContact[]
   onAddresses?: (value: PartyAddress[]) => void
   onContacts?: (value: PartyContact[]) => void
+  tenantId?: string
 }) {
   const listId = useId()
   const editing = !!onContacts
@@ -100,7 +103,7 @@ export function PartyComplements({
       <section className="space-y-3">
         <h2 className="font-semibold">Endereços</h2>
         <p className="text-sm text-muted-foreground">
-          Até dez endereços declarados, com um principal. Nenhuma consulta automática de CEP.
+          Até dez endereços declarados, com um principal. A consulta de CEP exige sua confirmação para preencher campos vazios.
         </p>
         {addresses.map((item, index) => (
           <fieldset className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2" key={index}>
@@ -134,6 +137,31 @@ export function PartyComplements({
                 />
               </label>
             ))}
+            {tenantId && (
+              <RegistryLookup
+                kind="cep"
+                context="party"
+                tenantId={tenantId}
+                readValue={() => item.postalCode}
+                onApply={(fields) => {
+                  let count = 0
+                  onAddresses(
+                    addresses.map((value, position) => {
+                      if (position !== index) return value
+                      const updated = { ...value }
+                      for (const field of ["state", "city", "street", "district"] as const) {
+                        if (!updated[field].trim() && fields[field]) {
+                          updated[field] = fields[field]
+                          count++
+                        }
+                      }
+                      return updated
+                    })
+                  )
+                  return count
+                }}
+              />
+            )}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"

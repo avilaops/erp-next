@@ -73,6 +73,19 @@ com hashes e origem; não afirma aprovação pelo XSD original sem correção.
 Consulte [o contrato do perfil e limites](../../docs/superpowers/specs/2026-11-03-nfse-recebida.md).
 Esta etapa ainda não adiciona importação na API Rust, central ou captura ADN.
 
+`POST /v1/inspect-cte` recebe `{ xml, companyTaxId, environment: "homologation" }`
+com o mesmo Bearer interno. Confere offline o `cteProc` modelo 57/4.00 com
+schemas fixados da NT 2026.004 e também o schema específico do modal; CT-e
+complementar não possui esse bloco. Retorna XML/hash, transportadora,
+participantes/tomador, papéis da empresa, valores exatos e referências do XML.
+Confere consistência XMLDSig e correlação do protocolo/digest, sem estabelecer
+confiança ICP-Brasil, autenticidade independente do protocolo ou situação atual.
+Formato fora do perfil é informado separadamente de XML inválido. A operação
+não recebe certificado, faz rede, altera cursor ou cria vínculos comerciais.
+O XML aceita até 2 MiB; somente esta rota permite JSON de até 4.195.328 bytes
+para acomodar escaping. Integração pública e persistência estão em andamento no
+[plano da conferência CT-e](../../docs/superpowers/plans/2026-11-03-conferencia-cte.md).
+
 O módulo privado `src/lib/fiscal/nfce-qr.ts` compõe os parâmetros de QR Code
 NFC-e 2/3 a partir de XML 65 já assinado, após XSD e conferência criptográfica
 com o certificado embutido. A versão é explícita; versão 2 exige CSC privado,

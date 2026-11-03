@@ -13,6 +13,7 @@ pub mod production;
 pub mod purchasing;
 pub mod reference_data;
 pub mod registration_settings;
+pub mod registry_lookup;
 pub mod returns;
 pub mod sales;
 mod settlements;

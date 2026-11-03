@@ -1,0 +1,79 @@
+{
+  "release": "PL_CTe_400_NT2026.004_RTC_1.00_2026-10-16",
+  "source": "https://www.cte.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=zeylq8Ib5E0%3D",
+  "sourceZipSha256": "c8f8915adfe7730da43b0ec57d6a1a26130ef25e23c847f334af3bc5ad969a66",
+  "normalization": "UTF-8 without BOM, LF and one final newline; schema content unchanged",
+  "entry": "procCTe_v4.00.xsd",
+  "modals": {
+    "01": {
+      "root": "rodo",
+      "entry": "cteModalRodoviario_v4.00.xsd"
+    },
+    "02": {
+      "root": "aereo",
+      "entry": "cteModalAereo_v4.00.xsd"
+    },
+    "03": {
+      "root": "aquav",
+      "entry": "cteModalAquaviario_v4.00.xsd"
+    },
+    "04": {
+      "root": "ferrov",
+      "entry": "cteModalFerroviario_v4.00.xsd"
+    },
+    "05": {
+      "root": "duto",
+      "entry": "cteModalDutoviario_v4.00.xsd"
+    },
+    "06": {
+      "root": "multimodal",
+      "entry": "cteMultiModal_v4.00.xsd"
+    }
+  },
+  "files": [
+    {
+      "name": "DFeTiposBasicos_v1.00.xsd",
+      "sha256": "83fbe232df38a73a9185b09c9d1c3771cb76cbcfa221f2cb669366f2176b6a5c"
+    },
+    {
+      "name": "cteModalAereo_v4.00.xsd",
+      "sha256": "d2021f652b08abe89d802c2130cb1c722eb4f33a7f6476e76affac773eb82880"
+    },
+    {
+      "name": "cteModalAquaviario_v4.00.xsd",
+      "sha256": "87fd0742e7e94887871c75e45f6658cacc4f148d7a71409813ce6d4f6b058350"
+    },
+    {
+      "name": "cteModalDutoviario_v4.00.xsd",
+      "sha256": "6c9ebe3cc6c76be75600eb503475dc21d9e71be2c1e2c4c92bda666daba3fd3e"
+    },
+    {
+      "name": "cteModalFerroviario_v4.00.xsd",
+      "sha256": "0091c8adf8e537c2b0a041912d74ace8851860a845f2d2eb25b4073424a7c812"
+    },
+    {
+      "name": "cteModalRodoviario_v4.00.xsd",
+      "sha256": "faa7662a08058549508f2ad1defcaeb35c965a3f2a268e844761425d4f192139"
+    },
+    {
+      "name": "cteMultiModal_v4.00.xsd",
+      "sha256": "6d6ceff572c6514af084306631b2858b8e3f0e593d3060d2e8e36d06e102c8b7"
+    },
+    {
+      "name": "cteTiposBasico_v4.00.xsd",
+      "sha256": "849041246917384c7e54adee3de151f60222c6729ae2b3f4ae78ba397583bbc7"
+    },
+    {
+      "name": "procCTe_v4.00.xsd",
+      "sha256": "aa04c85a29b20f3b2b32d251d718590f43035f88436cdcb095f51ec06be6ad41"
+    },
+    {
+      "name": "tiposGeralCTe_v4.00.xsd",
+      "sha256": "8d5402a84612c778370f4c89d3c2eda7ff288eb0a1448954402f6b0b72c4f609"
+    },
+    {
+      "name": "xmldsig-core-schema_v1.01.xsd",
+      "sha256": "66ca2c4e385fd6e7b5fc86165eee1524cea811e21811df5899ffb4a227825035"
+    }
+  ]
+}

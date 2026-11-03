@@ -47,6 +47,10 @@ async fn run() -> anyhow::Result<()> {
     let local_address = listener.local_addr()?;
     let auth = AuthClient::new(config.auth_userinfo_url);
     let state = AppState::new(pool, auth)
+        .with_ibpt(domains::fiscal::ibpt::IbptCatalog::from_env()?)
+        .with_registry(domains::registry_lookup::RegistryClient::new(
+            std::env::var("ERP_CNPJ_WS_ENABLED").as_deref() == Ok("true"),
+        )?)
         .with_subscriptions(platform::subscriptions::provider::MercadoPago::from_env()?)
         .with_fiscal_engine(domains::fiscal::engine_client::FiscalEngine::from_env()?)
         .with_monitor(domains::fiscal::sefaz_client::Sefaz::from_env()?)

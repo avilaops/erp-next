@@ -13,7 +13,8 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-import { PartyComplements, type PartyAddress, type PartyContact } from "./party-complements"
+import { PartyComplements } from "./party-complements"
+import { RegistryLookup } from "@/features/records/registry-lookup"
 
 type PartyInput = Schema<"PartyInput"> & { addresses: NonNullable<Schema<"PartyInput">["addresses"]>; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
 type Party = Schema<"Party">
@@ -165,8 +166,14 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
             <label className="min-w-0 space-y-2">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
             <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
             {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["taxId", "CPF ou CNPJ", 30], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName" || field === "taxId"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" || field === "taxId" ? "" : null))} /></label>)}
+            {draft.personType === "juridica" && <RegistryLookup kind="cnpj" context="party" tenantId={snapshot.tenantId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
+              const count = Number(!draft.legalName.trim() && !!fields.legalName) + Number(!draft.tradeName?.trim() && !!fields.tradeName)
+              setDraft(current => ({ ...current, legalName: current.legalName.trim() ? current.legalName : fields.legalName || "", tradeName: current.tradeName?.trim() ? current.tradeName : fields.tradeName || null }))
+              setSaved(false)
+              return count
+            }} />}
             <div className="min-w-0 space-y-3"><p className="font-medium">Relacionamento comercial</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos um papel.</p></div>
-          <PartyComplements addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />
+          <PartyComplements tenantId={snapshot.tenantId} addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />
           </fieldset>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outra pessoa.</p>}
           <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar pessoa"}</Button>

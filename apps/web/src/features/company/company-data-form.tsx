@@ -7,9 +7,11 @@ import { Info, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { brazilianStates, companyFields, type CompanyData } from "./company-types";
 import { companySections, type CompanySection } from "./company-sections";
+import { RegistryLookup } from "@/features/records/registry-lookup";
 
 const segments = ["Comércio", "E-commerce", "Serviços", "Indústria"];
-export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: {
+export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, tenantId }: {
+  tenantId: string;
   initial: CompanyData;
   canEdit: boolean;
   saving: boolean;
@@ -54,6 +56,21 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
   function markDirty() {
     setDirty(true);
     setSaved(false);
+  }
+
+  function readField(name: string) {
+    return (formRef.current?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null)?.value || "";
+  }
+
+  function applyRegistryFields(fields: Record<string, string>) {
+    if (!canEdit || saving || conflict) return 0;
+    let count = 0;
+    for (const field of ["legalName", "tradeName", "postalCode", "state", "city", "street", "district", "number", "complement", "cnae", "activityDescription", "stateRegistration"]) {
+      const input = formRef.current?.elements.namedItem(field) as HTMLInputElement | HTMLSelectElement | null;
+      if (input && !input.value.trim() && fields[field]) { input.value = fields[field]; count++; }
+    }
+    if (count) markDirty();
+    return count;
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -143,6 +160,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
             CPF ou CNPJ *
             <input name="taxId" defaultValue={initial.taxId} required />
           </label>
+          <RegistryLookup kind="cnpj" context="company" tenantId={tenantId} disabled={!canEdit || saving || conflict} readValue={() => readField("taxId")} onApply={applyRegistryFields} />
         </div>
       </section>
 
@@ -153,6 +171,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
             Inscrição estadual
             <input name="stateRegistration" defaultValue={initial.stateRegistration} />
           </label>
+          <RegistryLookup kind="ie" context="company" tenantId={tenantId} disabled={!canEdit || saving || conflict} readValue={() => readField("taxId")} readState={() => readField("state")} onApply={applyRegistryFields} />
           <label className="field">
             Inscrição municipal
             <input name="municipalRegistration" defaultValue={initial.municipalRegistration} />
@@ -238,6 +257,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave }: 
           <label className="field">
             CEP *<input name="postalCode" defaultValue={initial.postalCode} required />
           </label>
+          <RegistryLookup kind="cep" context="company" tenantId={tenantId} disabled={!canEdit || saving || conflict} readValue={() => readField("postalCode")} onApply={applyRegistryFields} />
           <label className="field">
             UF *
             <select name="state" defaultValue={initial.state} required>

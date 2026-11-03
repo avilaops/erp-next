@@ -162,6 +162,8 @@ export type NfeInput = {
   delivery: NfeDelivery | null;
   rules: NfeRules;
   items: NfeItem[];
+  /** Server-resolved IBPT snapshot totals; decimal strings retain exact cents. */
+  approximateTaxes?: { items: string[]; total: string; additionalInfo: string };
   /** ICMS of the operation, as a fraction: the internal rate inside the state, the outbound rate to another. */
   icmsRate: number;
   /** The destination's internal rate and poverty fund, for the DIFAL of a sale to a non taxpayer of another state. */
@@ -177,6 +179,33 @@ const NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
 const onlyDigits = (text: string) => text.replace(/\D/g, "");
 const money = (value: number) => roundCents(value).toFixed(2);
 const rate = (value: number) => (Math.round(value * 1e6) / 1e4).toFixed(4);
+
+/** XML text must not hide controls, invalid surrogate code points or noncharacters. */
+export const INVALID_FISCAL_TEXT = /[\p{Cc}\p{Cf}\p{Cs}\uFFFE\uFFFF]/u;
+export const NFE_MAX_CENTS = 999_999_999_999_999n;
+
+/** Parse bounded nonnegative fixed-scale money without a floating-point conversion. */
+export function exactFiscalCents(value: unknown): bigint | null {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,12})\.[0-9]{2}$/.test(value)) return null;
+  const cents = BigInt(value.replace(".", ""));
+  return cents <= NFE_MAX_CENTS ? cents : null;
+}
+
+function additionalInfo(input: NfeInput): string {
+  return [input.rules.additionalInfo, input.approximateTaxes?.additionalInfo].filter(Boolean).join("; ");
+}
+
+function approximateTaxProblems(input: NfeInput): string[] {
+  const approximate = input.approximateTaxes;
+  if (approximate == null) return [];
+  const invalid = ["Tributos aproximados: itens, soma, valores ou informações adicionais inválidos."];
+  if (typeof approximate !== "object" || Array.isArray(approximate) || !Array.isArray(approximate.items) || approximate.items.length !== input.items.length) return invalid;
+  const items = approximate.items.map(exactFiscalCents), total = exactFiscalCents(approximate.total);
+  if (total === null || items.some(value => value === null) || items.reduce<bigint>((sum, value) => sum + (value ?? 0n), 0n) !== total) return invalid;
+  if (typeof approximate.additionalInfo !== "string" || !approximate.additionalInfo.trim() || INVALID_FISCAL_TEXT.test(approximate.additionalInfo)) return invalid;
+  const info = additionalInfo(input);
+  return info.length > 5000 || INVALID_FISCAL_TEXT.test(info) ? invalid : [];
+}
 
 /** Text as the layout takes it: no line breaks, no doubled spaces, no edges, cut at the size of the field. */
 function clean(text: string, max: number): string {
@@ -286,7 +315,7 @@ export function interstateRate(origin: number, fromUf: string, toUf: string): nu
 
 /** What is missing or wrong before any XML is written. Every problem at once, each naming the register that fixes it. */
 export function nfeProblems(input: NfeInput): string[] {
-  const problems: string[] = [];
+  const problems: string[] = approximateTaxProblems(input);
   const { issuer, recipient, rules } = input;
   const need = (ok: boolean, message: string) => {
     if (!ok) problems.push(message);
@@ -508,7 +537,8 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
 
   const taxes = group(
     "imposto",
-    group("ICMS", icms) +
+    tag("vTotTrib", input.approximateTaxes?.items[index]) +
+      group("ICMS", icms) +
       ipi +
       contribution("PIS", rules.pisCst, figures.contributionBase, rules.pisRate, figures.pis) +
       contribution("COFINS", rules.cofinsCst, figures.contributionBase, rules.cofinsRate, figures.cofins) +
@@ -652,7 +682,8 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
         tag("vPIS", money(totals.pis)) +
         tag("vCOFINS", money(totals.cofins)) +
         tag("vOutro", "0.00") +
-        tag("vNF", money(totals.invoice)),
+        tag("vNF", money(totals.invoice)) +
+        tag("vTotTrib", input.approximateTaxes?.total),
     ) +
       (rules.ibsCbs
         ? group(
@@ -693,7 +724,7 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
     total +
     transportXml(input) +
     payment +
-    group("infAdic", tag("infCpl", rules.additionalInfo ? clean(rules.additionalInfo, 5000) : null));
+    group("infAdic", tag("infCpl", additionalInfo(input) ? clean(additionalInfo(input), 5000) : null));
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="${NAMESPACE}"><infNFe versao="4.00" Id="NFe${key}">${body}</infNFe></NFe>`;
   return { key, xml, totals };

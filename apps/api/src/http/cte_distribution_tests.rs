@@ -33,6 +33,23 @@ const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER_TENANT: &str = "22222222-2222-4222-8222-222222222222";
 const BASE: &str = "/api/v1/fiscal/cte-distribution";
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn cte_individual_inspection_requires_permission_before_loading_source(admin: PgPool) {
+    let (router, application, auth, role) = setup(&admin).await;
+    let id = Uuid::now_v7();
+    let result = call(
+        &router,
+        "POST",
+        &format!("{BASE}/documents/{id}/inspect"),
+        TENANT,
+        Some(Uuid::now_v7()),
+        None,
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::FORBIDDEN, "{}", result.1);
+    cleanup(&admin, application, auth, &role).await;
+}
+
 async fn call(
     router: &Router,
     method: &str,

@@ -1,6 +1,8 @@
 pub mod certificate_crypto;
 pub mod certificates;
 pub mod cte_distribution;
+pub mod cte_inspection;
+pub mod cte_links;
 pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
@@ -8,6 +10,10 @@ pub(crate) mod danfe_test_support;
 pub mod distribution;
 pub mod emission;
 pub mod engine_client;
+pub mod ibpt;
+pub mod ibpt_document;
+#[cfg(test)]
+mod ibpt_tests;
 pub mod incoming;
 pub mod lojas;
 pub mod manifestation;
@@ -45,9 +51,15 @@ const BODY_LIMIT: usize = 1024 * 1024;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route(
+            "/api/v1/fiscal/ibpt/quote",
+            axum::routing::post(ibpt::quote),
+        )
         .merge(emission::routes())
         .merge(incoming::routes())
         .merge(cte_distribution::routes())
+        .merge(cte_inspection::routes())
+        .merge(cte_links::routes())
         .route("/api/v1/fiscal/monitor", get(monitor::status))
         .route(
             "/api/v1/fiscal/monitor/sync",
@@ -105,6 +117,7 @@ pub fn service_routes() -> Router<AppState> {
 pub enum FiscalError {
     Domain(DomainError),
     Json(JsonRejection),
+    IbptUnavailable(&'static str),
 }
 impl From<DomainError> for FiscalError {
     fn from(value: DomainError) -> Self {
@@ -120,6 +133,12 @@ impl IntoResponse for FiscalError {
     fn into_response(self) -> Response {
         match self {
             Self::Domain(value) => value.into_response(),
+            Self::IbptUnavailable(title) => problem(
+                StatusCode::CONFLICT,
+                "ibpt_not_available",
+                title,
+                serde_json::json!({"code":"ibpt_not_available"}),
+            ),
             Self::Json(value) => problem(
                 value.status(),
                 "invalid_json",
@@ -380,6 +399,7 @@ struct DraftRow {
     issuer_snapshot: serde_json::Value,
     details: serde_json::Value,
     products_total_cents: i64,
+    ibpt_snapshot: Option<serde_json::Value>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -391,6 +411,8 @@ pub struct Draft {
     input: DraftInput,
     products_total: String,
     fiscal_validation_complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ibpt_snapshot: Option<ibpt_document::IbptDocumentSnapshot>,
 }
 impl TryFrom<DraftRow> for Draft {
     type Error = DomainError;
@@ -405,6 +427,11 @@ impl TryFrom<DraftRow> for Draft {
                 .map_err(|_| access::AccessError::Internal)?,
             products_total: model::products_total(row.products_total_cents),
             fiscal_validation_complete: false,
+            ibpt_snapshot: row
+                .ibpt_snapshot
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(|_| access::AccessError::Internal)?,
         })
     }
 }
@@ -435,7 +462,7 @@ async fn load_draft(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Draft, DomainError> {
-    let row = sqlx::query_as::<_,DraftRow>("SELECT id,revision,issuer_snapshot,details,products_total_cents FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND id=$2")
+    let row = sqlx::query_as::<_,DraftRow>("SELECT id,revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     row.try_into()
 }
@@ -460,7 +487,7 @@ pub async fn list(
     if !(1..=100).contains(&limit) {
         return Err(DomainError::Invalid("Limite deve ser de 1 a 100").into());
     }
-    let rows=sqlx::query_as::<_,DraftRow>("SELECT id,revision,issuer_snapshot,details,products_total_cents FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND ($2::uuid IS NULL OR id<$2) ORDER BY id DESC LIMIT $3")
+    let rows=sqlx::query_as::<_,DraftRow>("SELECT id,revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND ($2::uuid IS NULL OR id<$2) ORDER BY id DESC LIMIT $3")
         .bind(tenant).bind(page.cursor).bind(limit+1).fetch_all(&mut *tx).await.map_err(db)?;
     let has_more = rows.len() > limit as usize;
     let data = rows
@@ -538,6 +565,17 @@ async fn prepare(
         total,
     ))
 }
+
+fn draft_ibpt_snapshot(
+    state: &AppState,
+    tenant: Uuid,
+    value: &DraftInput,
+) -> Result<Option<ibpt_document::IbptDocumentSnapshot>, FiscalError> {
+    ibpt_document::snapshot(&state.ibpt, tenant, value).map_err(|error| match error {
+        DomainError::Conflict(title) => FiscalError::IbptUnavailable(title),
+        other => FiscalError::Domain(other),
+    })
+}
 #[utoipa::path(post,path="/api/v1/fiscal/nfe",tag="Fiscal",request_body=DraftInput,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=DraftSnapshot),(status=403,description="Sem permissão fiscal"),(status=409,description="Configuração ausente, incompatível ou chave reutilizada"),(status=413,description="Corpo excede 1 MiB"),(status=422,description="Dados inválidos"),(status=428,description="Idempotency-Key obrigatório")))]
 pub async fn create(
     State(state): State<AppState>,
@@ -578,10 +616,12 @@ pub async fn create(
     }
     order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
+    let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     let id = Uuid::now_v7();
     let issuer_json = serde_json::to_value(&issuer).map_err(|_| access::AccessError::Internal)?;
-    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents) VALUES($1,$2,'homologation',55,$3,$4,$5,$6,$7)")
-        .bind(tenant).bind(id).bind(issuer.profile_revision).bind(issuer.company_revision).bind(issuer_json).bind(&request).bind(total).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,'homologation',55,$3,$4,$5,$6,$7,$8)")
+        .bind(tenant).bind(id).bind(issuer.profile_revision).bind(issuer.company_revision).bind(issuer_json).bind(&request).bind(total)
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,
@@ -648,6 +688,7 @@ pub async fn update(
     }
     order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
+    let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     if let Some(series) = sqlx::query_scalar::<_, i32>(
         "SELECT series FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
     )
@@ -665,8 +706,9 @@ pub async fn update(
     let next = expected
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
-    sqlx::query("UPDATE fiscal_nfe_drafts SET revision=$3,profile_revision=$4,company_revision=$5,issuer_snapshot=$6,details=$7,products_total_cents=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2")
-        .bind(tenant).bind(id).bind(next).bind(issuer.profile_revision).bind(issuer.company_revision).bind(serde_json::to_value(issuer).map_err(|_|access::AccessError::Internal)?).bind(serde_json::to_value(value).map_err(|_|access::AccessError::Internal)?).bind(total).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("UPDATE fiscal_nfe_drafts SET revision=$3,profile_revision=$4,company_revision=$5,issuer_snapshot=$6,details=$7,products_total_cents=$8,ibpt_snapshot=$9,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+        .bind(tenant).bind(id).bind(next).bind(issuer.profile_revision).bind(issuer.company_revision).bind(serde_json::to_value(issuer).map_err(|_|access::AccessError::Internal)?).bind(serde_json::to_value(value).map_err(|_|access::AccessError::Internal)?).bind(total)
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,

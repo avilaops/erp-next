@@ -24,6 +24,8 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
+#[path = "emission_ibpt_tests.rs"]
+mod ibpt;
 type Calls = Arc<Mutex<Vec<(String, Value)>>>;
 #[derive(Clone)]
 struct Provider {
@@ -389,6 +391,15 @@ async fn services(
     application: PgPool,
     mode: &'static str,
 ) -> (Router, Vec<tokio::task::JoinHandle<()>>, Calls) {
+    services_with_ibpt(admin, application, mode, Default::default()).await
+}
+
+async fn services_with_ibpt(
+    admin: &PgPool,
+    application: PgPool,
+    mode: &'static str,
+    ibpt: crate::domains::fiscal::ibpt::IbptCatalog,
+) -> (Router, Vec<tokio::task::JoinHandle<()>>, Calls) {
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code LIKE 'fiscal.%'; INSERT INTO role_permissions(role_id,permission_code) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fiscal.nfe.read');").execute(admin).await.unwrap();
     sqlx::query("INSERT INTO company_profiles(tenant_id,revision,details) VALUES($1::uuid,1,$2)").bind(TENANT).bind(json!({"legalName":"Empresa A","personType":"juridica","taxId":"04252011000110","taxRegime":"simples","stateRegistration":"110042490114","segments":["Indústria"],"postalCode":"01001000","state":"SP","city":"São Paulo","street":"Rua de teste","number":"1","district":"Centro"})).execute(admin).await.unwrap();
     let vault = vault();
@@ -438,6 +449,7 @@ async fn services(
             AuthClient::new(format!("http://{auth_address}/userinfo")),
         )
         .with_certificates(Some(vault))
+        .with_ibpt(ibpt)
         .with_fiscal_engine(Some(
             FiscalEngine::new(&format!("http://{engine_address}"), "synthetic-token").unwrap(),
         )),

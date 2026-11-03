@@ -165,6 +165,8 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
                 Some(
                     "fiscal.cte.read"
                         | "fiscal.cte.query"
+                        | "fiscal.cte.inspect"
+                        | "fiscal.cte.link"
                         | "fiscal.nfse.read"
                         | "fiscal.nfse.import"
                 )

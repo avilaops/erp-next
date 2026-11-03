@@ -65,7 +65,11 @@ fn field(node: Node<'_, '_>, name: &str) -> Result<String, ()> {
     if node.children().any(|item| item.is_element()) {
         return Err(());
     }
-    let value: String = node.children().filter(|item| item.is_text()).filter_map(|item| item.text()).collect();
+    let value: String = node
+        .children()
+        .filter(|item| item.is_text())
+        .filter_map(|item| item.text())
+        .collect();
     if value.is_empty() {
         return Err(());
     }
@@ -86,8 +90,9 @@ fn party(node: Node<'_, '_>) -> Result<NfseParty, ()> {
     }
     let kind = names[0];
     let value = field(node, kind)?;
+    let person = if kind == "CNPJ" { "juridica" } else { "fisica" };
     if matches!(kind, "CNPJ" | "CPF")
-        && (!digits(&value, if kind == "CNPJ" { 14 } else { 11 }) || !valid_document(&value))
+        && (!digits(&value, if kind == "CNPJ" { 14 } else { 11 }) || !valid_document(&value, person))
     {
         return Err(());
     }
@@ -113,8 +118,8 @@ fn cents(raw: &str) -> Result<String, ()> {
     {
         return Err(());
     }
-    let value = whole.parse::<u128>().map_err(|_| ())? * 100
-        + fraction.parse::<u128>().map_err(|_| ())?;
+    let value =
+        whole.parse::<u128>().map_err(|_| ())? * 100 + fraction.parse::<u128>().map_err(|_| ())?;
     Ok(value.to_string())
 }
 
@@ -124,7 +129,10 @@ pub(super) fn correlate(
     recipient: &str,
 ) -> Result<ReceivedNfseMetadata, ()> {
     let object = result.as_object_mut().ok_or(())?;
-    if object.remove("xml").and_then(|value| value.as_str().map(str::to_owned)).as_deref()
+    if object
+        .remove("xml")
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .as_deref()
         != Some(xml)
     {
         return Err(());
@@ -139,10 +147,13 @@ pub(super) fn correlate(
         return Err(());
     }
     match data.schema_version.as_str() {
-        "1.00" if data.verification.layout == "official_schema_valid"
-            && data.verification.correction.is_none() => {}
-        "1.01" if data.verification.layout == "local_profile_valid"
-            && data.verification.correction.as_deref() == Some("nfse-1.01-dps-series-regex-v1") => {}
+        "1.00"
+            if data.verification.layout == "official_schema_valid"
+                && data.verification.correction.is_none() => {}
+        "1.01"
+            if data.verification.layout == "local_profile_valid"
+                && data.verification.correction.as_deref()
+                    == Some("nfse-1.01-dps-series-regex-v1") => {}
         _ => return Err(()),
     }
     let document = Document::parse_with_options(
@@ -152,9 +163,12 @@ pub(super) fn correlate(
             nodes_limit: 100_000,
             ..Default::default()
         },
-    ).map_err(|_| ())?;
+    )
+    .map_err(|_| ())?;
     let root = document.root_element();
-    if !root.has_tag_name((NS, "NFSe")) || root.attribute("versao") != Some(data.schema_version.as_str()) {
+    if !root.has_tag_name((NS, "NFSe"))
+        || root.attribute("versao") != Some(data.schema_version.as_str())
+    {
         return Err(());
     }
     let info = child(root, "infNFSe")?;
@@ -185,8 +199,10 @@ pub(super) fn correlate(
         || field(detail, "dhEmi")? != data.issued_at
         || field(service, "cTribNac")? != data.service_code
         || field(service, "xDescServ")? != data.description
-        || cents(&field(child(child(detail, "valores")?, "vServPrest")?, "vServ")?)?
-            != data.service_cents
+        || cents(&field(
+            child(child(detail, "valores")?, "vServPrest")?,
+            "vServ",
+        )?)? != data.service_cents
         || cents(&field(child(info, "valores")?, "vLiq")?)? != data.net_cents
     {
         return Err(());

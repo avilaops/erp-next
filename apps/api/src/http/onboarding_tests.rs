@@ -162,7 +162,12 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
             .iter()
             .any(|permission| matches!(
                 permission.as_str(),
-                Some("fiscal.cte.read" | "fiscal.cte.query" | "fiscal.nfse.read" | "fiscal.nfse.import")
+                Some(
+                    "fiscal.cte.read"
+                        | "fiscal.cte.query"
+                        | "fiscal.nfse.read"
+                        | "fiscal.nfse.import"
+                )
             ))
     );
     assert!(

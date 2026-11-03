@@ -16,8 +16,8 @@ pub mod monitor;
 mod monitor_store;
 pub mod order_source;
 pub mod received;
-pub mod received_nfse;
 pub mod received_model;
+pub mod received_nfse;
 pub mod sefaz_client;
 pub mod sefaz_response;
 

@@ -63,6 +63,19 @@ com hashes e origem; não afirma aprovação pelo XSD original sem correção.
 Consulte [o contrato do perfil e limites](../../docs/superpowers/specs/2026-11-03-nfse-recebida.md).
 Esta etapa ainda não adiciona importação na API Rust, central ou captura ADN.
 
+`POST /v1/inspect-cte` recebe `{ xml, companyTaxId, environment: "homologation" }`
+com o mesmo Bearer interno. Confere offline o `cteProc` modelo 57/4.00 com
+schemas fixados da NT 2026.004 e também o schema específico do modal; CT-e
+complementar não possui esse bloco. Retorna XML/hash, transportadora,
+participantes/tomador, papéis da empresa, valores exatos e referências do XML.
+Confere consistência XMLDSig e correlação do protocolo/digest, sem estabelecer
+confiança ICP-Brasil, autenticidade independente do protocolo ou situação atual.
+Formato fora do perfil é informado separadamente de XML inválido. A operação
+não recebe certificado, faz rede, altera cursor ou cria vínculos comerciais.
+O XML aceita até 2 MiB; somente esta rota permite JSON de até 4.195.328 bytes
+para acomodar escaping. Integração pública e persistência estão em andamento no
+[plano da conferência CT-e](../../docs/superpowers/plans/2026-11-03-conferencia-cte.md).
+
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 
 - CRT 1: CSOSN 102/103/300/400, PIS e COFINS sem alíquota (CST 04–09),

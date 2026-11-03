@@ -12,6 +12,7 @@ import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
 import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
 import { inspectReceivedNationalNfse } from "./lib/fiscal/nfse-received.ts";
 import { NationalNfseXmlError } from "./lib/fiscal/nfse-layout.ts";
+import { inspectReceivedCte, CteInspectionError } from "./lib/fiscal/cte-received.ts";
 import type { RecipientManifestKind } from "./lib/fiscal/recipient-manifest.ts";
 import municipalities from "./lib/fiscal/municipios.json" with { type: "json" };
 import { roundCents } from "./lib/pricing/money.ts";
@@ -205,6 +206,13 @@ function material(input: ObjectValue, expected: string) {
 /** Only fixed authority endpoints exist here. No URL from a request is used. */
 export async function dispatch(operation: string, value: unknown, send: Send = sendToSefaz): Promise<ObjectValue> {
   const input = object(value);
+  if (operation === "inspect-cte") {
+    try { return { ...await inspectReceivedCte(input as { xml: string; companyTaxId: string; environment: "homologation" }) }; }
+    catch (error) {
+      if (error instanceof CteInspectionError) refuse(error.message, error.reason === "invalid" ? "invalid_cte_xml" : error.reason === "unsupported" ? "cte_profile_unsupported" : "cte_layout_unavailable");
+      throw error;
+    }
+  }
   if (operation === "inspect-nfse") {
     try { return { ...await inspectReceivedNationalNfse(input as { xml: string; recipientTaxId: string }) }; }
     catch (error) {

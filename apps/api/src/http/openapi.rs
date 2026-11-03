@@ -345,7 +345,13 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 142);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 143);
+        let registration = &doc["paths"]["/api/v1/registration-settings/{section}"];
+        assert!(registration["get"].is_object());
+        assert!(registration["put"]["requestBody"].is_object());
+        for status in ["200", "403", "404", "412", "422", "428"] {
+            assert!(registration["put"]["responses"].get(status).is_some());
+        }
         for resource in ["inventory-settings", "purchase-settings"] {
             let path = format!("/api/v1/{resource}");
             assert!(doc["paths"][&path]["get"].is_object());

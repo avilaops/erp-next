@@ -157,7 +157,7 @@ async fn transaction<'a>(
     }
     Ok((tenant, tx, can_edit))
 }
-#[utoipa::path(get,path="/api/v1/registration-settings/{section}",operation_id="get_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=RegistrationSnapshot),(status=403,description="Sem acesso")))]
+#[utoipa::path(get,path="/api/v1/registration-settings/{section}",operation_id="get_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=RegistrationSnapshot),(status=403,description="Sem acesso"),(status=404,description="Seção desconhecida")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -179,7 +179,7 @@ pub async fn get(
         },
     ))
 }
-#[utoipa::path(put,path="/api/v1/registration-settings/{section}",operation_id="put_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=RegistrationInput,responses((status=200,body=RegistrationSnapshot),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
+#[utoipa::path(put,path="/api/v1/registration-settings/{section}",operation_id="put_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=RegistrationInput,responses((status=200,body=RegistrationSnapshot),(status=403,description="Exige gestão da empresa"),(status=404,description="Seção desconhecida"),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida"),(status=428,description="If-Match obrigatório")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

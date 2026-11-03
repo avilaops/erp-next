@@ -124,6 +124,7 @@ const configs: Record<
 const shortcuts = [
   ["Notas recebidas e importação de XML", "/fiscal/monitor", MonitorCheck],
   ["CT-e recebidos em homologação", "/fiscal/ctes", FileText],
+  ["NFS-e recebidas e importação de XML nacional", "/fiscal/nfses", FileText],
   ["Configurações fiscais", "/preferencias/fiscal", FileText],
   ["DANFE de XML autorizado", "/fiscal/danfe", ReceiptText],
   ["Notas fiscais de saída", "/fiscal/notas-saida", FileText],

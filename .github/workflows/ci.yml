@@ -324,7 +324,7 @@ jobs:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
       - name: Reserve browser fixture ports outside ephemeral allocation
-        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
       - name: Verify secure session cookie removal in the browser
         if: matrix.shard == 1
         run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts

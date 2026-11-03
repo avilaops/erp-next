@@ -209,7 +209,7 @@ async fn received_nfse_separates_read_and_import_permissions_and_requires_compan
         );
     }
     grant(&admin).await;
-    sqlx::query("UPDATE tenants SET tax_id='52998224725' WHERE id=$1")
+    sqlx::query("UPDATE tenants SET tax_id='11144477735' WHERE id=$1")
         .bind(Uuid::parse_str(TENANT).unwrap())
         .execute(&admin)
         .await

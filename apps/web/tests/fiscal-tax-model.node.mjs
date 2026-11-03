@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { blankDraft, blankItem, blankTaxDeclaration, invoiceTotal, submission } from "../src/features/fiscal/nfe-draft-model.ts";
+import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, invoiceTotal, submission } from "../src/features/fiscal/nfe-draft-model.ts";
 
 test("draft tax fields remain optional for historical drafts and decisions start blank", () => {
   const draft = blankDraft();
@@ -20,4 +20,18 @@ test("declared percentage normalization preserves zero, rejects extra precision 
   assert.equal(submission(draft).taxDeclaration?.ibsCbs.ibsStateRate, "0.1000");
   draft.taxDeclaration.icmsRate = "18.00001"; assert.throws(() => submission(draft));
   draft.taxDeclaration.icmsRate = "100"; assert.throws(() => submission(draft));
+});
+
+test("applying a reusable profile preserves item origin, CFOP, recipient decisions and unknown rates", () => {
+ const draft=blankDraft(); draft.items[0].origin=2; draft.items[0].cfop="5102";
+ const profile={name:"Importados",operationNature:"Venda",pisRate:"1.6500",cofinsRate:"7.6000",ibsCbsCst:"000",classCode:"000001",active:true};
+ const applied=applyTaxProfile(draft,profile,4);
+ assert.equal(applied.items[0].origin,2); assert.equal(applied.items[0].cfop,"5102");
+ assert.equal(applied.taxDeclaration.pisRate,"1.6500"); assert.equal(applied.taxDeclaration.cofinsRate,"7.6000");
+ assert.equal(applied.taxDeclaration.ibsCbs.classCode,"000001"); assert.equal(applied.taxDeclaration.ibsCbs.cst,"000");
+ assert.equal(applied.taxDeclaration.icmsRate,null); assert.equal(applied.taxDeclaration.finalConsumer,null);
+ assert.equal(applied.taxDeclaration.ibsCbs.cbsRate,""); assert.equal(draft.taxDeclaration,undefined);
+ assert.throws(()=>submission(applied),/Informe|Declare/);
+ applied.taxDeclaration.icmsRate="18.0000";
+ assert.equal(applyTaxProfile(applied,profile,5).taxDeclaration.icmsRate,"18.0000");
 });

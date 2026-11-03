@@ -5,7 +5,7 @@ export const monitorOrigin = "http://127.0.0.1:33928"
 const server = Array.isArray(base.webServer) ? base.webServer[0] : base.webServer
 export default defineConfig({
   ...base,
-  testMatch: ["monitor-ui.spec.ts", "cte-distribution-ui.spec.ts"],
+  testMatch: ["monitor-ui.spec.ts", "cte-distribution-ui.spec.ts", "nfse-received-ui.spec.ts"],
   use: { ...base.use, baseURL: monitorOrigin },
   webServer: {
     ...server,

@@ -91,3 +91,7 @@ Plataforma, Cadastros, Comercial, Estoque, Financeiro, Fiscal, Logística e Serv
 
 A integração de tipos OpenAPI na web, a ajuda MDX e o layout pessoal estão descritos em [Conteúdo e contratos](docs/CONTEUDO-E-CONTRATOS.md).
 
+Os [exemplos fiscais HTTP, n8n e MCP](docs/integrations/FISCAL-N8N-MCP.md)
+reutilizam a API Rust e documentam credenciais, idempotência, acompanhamento de
+estado, XML/DANFE e as dependências restantes para homologação e webhooks.
+

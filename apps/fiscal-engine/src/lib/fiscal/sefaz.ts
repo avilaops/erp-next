@@ -1,5 +1,7 @@
 import { request } from "node:https";
 import { ACCESS_KEY_PATTERN, CNPJ_PATTERN } from "@/lib/fiscal/nfe";
+import { configuredNfeServiceUrl, NfeRoutingError } from "./nfe-authorizers.ts";
+import type { NfeService } from "./nfe-authorizers.ts";
 
 /**
  * The conversation with SEFAZ for authorising an NF-e (web service
@@ -15,21 +17,17 @@ const WSDL = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4";
 /** A refusal the company can read: the message goes to the screen as it is. */
 export class SefazError extends Error {}
 
-/**
- * Where each state authorises. Only what was checked against the published
- * list is here: a state that is missing is an error, never a guess.
- */
-const AUTHORIZATION_URLS: Record<string, { homologacao: string; producao: string }> = {
-  SP: {
-    homologacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
-    producao: "https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
-  },
-};
+/** Read the pinned catalogue without enabling a state merely because it is listed. */
+export function configuredNfeUrl(uf: string, environment: "homologacao" | "producao", service: NfeService): string {
+  try { return configuredNfeServiceUrl(uf, environment, service); }
+  catch (error) {
+    if (error instanceof NfeRoutingError) throw new SefazError(error.message);
+    throw error;
+  }
+}
 
 export function authorizationUrl(uf: string, environment: "homologacao" | "producao"): string {
-  const urls = AUTHORIZATION_URLS[uf];
-  if (!urls) throw new SefazError(`A emissão ainda não está configurada para empresas de ${uf || "estado não informado"}: só São Paulo.`);
-  return urls[environment];
+  return configuredNfeUrl(uf, environment, "autorizacao");
 }
 
 export const AUTHORIZATION_ACTION = `${WSDL}/nfeAutorizacaoLote`;
@@ -179,17 +177,8 @@ export function transmit(url: string, action: string, envelope: string, channel:
 
 const CONSULT_WSDL = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4";
 export const CONSULT_ACTION = `${CONSULT_WSDL}/nfeConsultaNF`;
-const CONSULT_URLS: Record<string, { homologacao: string; producao: string }> = {
-  SP: {
-    homologacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx",
-    producao: "https://nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx",
-  },
-};
-
 export function consultUrl(uf: string, environment: "homologacao" | "producao"): string {
-  const urls = CONSULT_URLS[uf];
-  if (!urls) throw new SefazError(`A consulta ainda não está configurada para empresas de ${uf || "estado não informado"}: só São Paulo.`);
-  return urls[environment];
+  return configuredNfeUrl(uf, environment, "consulta");
 }
 
 /** Asks SEFAZ what it knows about one access key. Nothing to sign: the certificate of the connection identifies who asks. */
@@ -261,17 +250,8 @@ export function consultEvents(response: string, accessKey: string): ConsultedEve
 
 const VOID_WSDL = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4";
 export const VOID_ACTION = `${VOID_WSDL}/nfeInutilizacaoNF`;
-const VOID_URLS: Record<string, { homologacao: string; producao: string }> = {
-  SP: {
-    homologacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
-    producao: "https://nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
-  },
-};
-
 export function voidUrl(uf: string, environment: "homologacao" | "producao"): string {
-  const urls = VOID_URLS[uf];
-  if (!urls) throw new SefazError(`A inutilização ainda não está configurada para empresas de ${uf || "estado não informado"}: só São Paulo.`);
-  return urls[environment];
+  return configuredNfeUrl(uf, environment, "inutilizacao");
 }
 
 export type NumberVoid = {

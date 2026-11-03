@@ -180,7 +180,7 @@ pub async fn create(
     .await
     .map_err(db)?;
     sqlx::query(
-        "INSERT INTO role_permissions (role_id, permission_code) SELECT $1, code FROM permissions",
+        "INSERT INTO role_permissions (role_id, permission_code) SELECT $1, code FROM permissions WHERE code NOT IN ('fiscal.cte.read','fiscal.cte.query','fiscal.cte.inspect','fiscal.cte.link','fiscal.nfse.read','fiscal.nfse.import')",
     )
     .bind(role_id)
     .execute(&mut *tx)

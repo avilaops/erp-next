@@ -60,6 +60,7 @@ async fn run() -> anyhow::Result<()> {
         .with_contracts(config.contracts)
         .with_invitations(config.invitations);
     let fiscal_worker = domains::fiscal::incoming::worker::start(state.clone())?;
+    let cte_worker = domains::fiscal::cte_distribution::worker::start(state.clone())?;
     let app = http::router(state);
 
     info!(%local_address, "ERP Next API listening");
@@ -68,6 +69,9 @@ async fn run() -> anyhow::Result<()> {
         .await
         .context("HTTP server failed");
     if let Some(worker) = fiscal_worker {
+        worker.abort();
+    }
+    if let Some(worker) = cte_worker {
         worker.abort();
     }
     result

@@ -9,6 +9,10 @@ import { AUTHORIZATION_ACTION, CONSULT_ACTION, VOID_ACTION, authorizationEnvelop
 import { EVENT_ACTION, eventEnvelope, eventUrl, eventXml, parseEvent, processedEventXml } from "./lib/fiscal/events.ts";
 import { DISTRIBUTION_ACTION, distributionEnvelope, distributionUrl, parseDistributionResponse } from "./lib/fiscal/distribution.ts";
 import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
+import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
+import { inspectReceivedNationalNfse } from "./lib/fiscal/nfse-received.ts";
+import { NationalNfseXmlError } from "./lib/fiscal/nfse-layout.ts";
+import { inspectReceivedCte, CteInspectionError } from "./lib/fiscal/cte-received.ts";
 import type { RecipientManifestKind } from "./lib/fiscal/recipient-manifest.ts";
 import municipalities from "./lib/fiscal/municipios.json" with { type: "json" };
 import { roundCents } from "./lib/pricing/money.ts";
@@ -281,7 +285,22 @@ function material(input: ObjectValue, expected: string) {
 
 /** Only fixed authority endpoints exist here. No URL from a request is used. */
 export async function dispatch(operation: string, value: unknown, send: Send = sendToSefaz): Promise<ObjectValue> {
-  const input = object(value); homologation(input);
+  const input = object(value);
+  if (operation === "inspect-cte") {
+    try { return { ...await inspectReceivedCte(input as { xml: string; companyTaxId: string; environment: "homologation" }) }; }
+    catch (error) {
+      if (error instanceof CteInspectionError) refuse(error.message, error.reason === "invalid" ? "invalid_cte_xml" : error.reason === "unsupported" ? "cte_profile_unsupported" : "cte_layout_unavailable");
+      throw error;
+    }
+  }
+  if (operation === "inspect-nfse") {
+    try { return { ...await inspectReceivedNationalNfse(input as { xml: string; recipientTaxId: string }) }; }
+    catch (error) {
+      if (error instanceof NationalNfseXmlError) refuse(error.message, error.code === "invalid" ? "invalid_nfse_xml" : "nfse_layout_unavailable");
+      throw error;
+    }
+  }
+  homologation(input);
   if (operation === "prepare") {
     const mapped = mapDraft(input), credentials = material(input, mapped.issuer.cnpj);
     const generated = buildNfeXml(mapped), signedXml = signNfeXml(generated.xml, signingKeyOf(credentials.pfx, credentials.passphrase));
@@ -322,6 +341,10 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
     const rawXml = await send(distributionUrl("homologacao"), DISTRIBUTION_ACTION, distributionEnvelope(cnpj, text(input.lastNsu, "NSU", 15), "homologacao"), credentials);
     return { ...parseDistributionResponse(rawXml), rawXml };
+  }
+  if (operation === "distribute-cte") {
+    const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
+    return queryCteDistribution({ environment: "homologation", companyTaxId: cnpj, authorState: text(input.authorState, "UF do ator", 2), lastNsu: text(input.lastNsu, "NSU", 15) }, credentials, send);
   }
   if (operation === "event" || operation === "manifest") {
     const key = validKey(input.accessKey), cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);

@@ -17,21 +17,23 @@ export function createHandler(token: string) {
     const candidate = Buffer.from(request.headers.authorization ?? "");
     if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) { reply(response, 401, { code: "unauthorized" }); return; }
     if (request.method === "GET" && request.url === "/healthz") { reply(response, 200, { status: "ok", environment: "homologation" }); return; }
-    const match = /^\/v1\/(prepare|authorize|consult|event|void|distribute|manifest)$/.exec(request.url ?? "");
+    const match = /^\/v1\/(prepare|authorize|consult|event|void|distribute|distribute-cte|inspect-cte|inspect-nfse|manifest)$/.exec(request.url ?? "");
     if (request.method !== "POST" || !match) { reply(response, 404, { code: "not_found" }); return; }
     if (!request.headers["content-type"]?.startsWith("application/json")) { reply(response, 415, { code: "json_required" }); return; }
     if (active >= 4) { reply(response, 503, { code: "busy" }); return; }
     active++;
     try {
       let length = 0;
+      // Captured CT-e permits 2 MiB of XML; JSON escaping may double its bytes.
+      const maximum = match[1] === "inspect-cte" ? 4_195_328 : MAX_BODY;
       const chunks: Buffer[] = [];
       for await (const chunk of request) {
         length += chunk.length;
-        if (length > MAX_BODY) { reply(response, 413, { code: "body_too_large" }); return; }
+        if (length > maximum) { reply(response, 413, { code: "body_too_large" }); return; }
         chunks.push(Buffer.from(chunk));
       }
       let input: unknown;
-      try { input = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+      try { input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks))); }
       catch { reply(response, 400, { code: "invalid_json" }); return; }
       reply(response, 200, await dispatch(match[1], input));
     } catch (error) {

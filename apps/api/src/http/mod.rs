@@ -13,6 +13,12 @@ mod company_tests;
 #[cfg(test)]
 mod contracts_tests;
 #[cfg(test)]
+mod cte_distribution_tests;
+#[cfg(test)]
+mod cte_inspection_tests;
+#[cfg(test)]
+mod cte_links_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -48,6 +54,8 @@ mod production_tests;
 mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
+#[cfg(test)]
+mod received_nfse_tests;
 #[cfg(test)]
 mod reconciliation_tests;
 #[cfg(test)]

@@ -86,7 +86,7 @@ jobs:
 
   rust:
     needs: rust-build
-    timeout-minutes: 3
+    timeout-minutes: 4
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -111,7 +111,7 @@ jobs:
           name: erp-rust-tests-${{ github.sha }}
           path: artifacts/rust-tests/
       - name: Test Rust and export candidate contract
-        run: timeout 120s python3 -B scripts/contracts/run-test-binaries.py
+        run: timeout 180s python3 -B scripts/contracts/run-test-binaries.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -138,7 +138,20 @@ jobs:
             /home/runner/.cargo/git
             ${{ github.workspace }}/target
           key: v0-rust-rust-Linux-x64-daeb8fa6-9ef83cd1
-      - run: cargo fmt --all --check
+      - name: Check Rust formatting and preserve a repair patch
+        run: |
+          if ! cargo fmt --all --check; then
+            mkdir -p artifacts
+            cargo fmt --all
+            git diff --binary > artifacts/rustfmt.patch
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: erp-rustfmt-${{ github.sha }}
+          path: artifacts/rustfmt.patch
+          if-no-files-found: ignore
       - run: timeout 480s cargo clippy --workspace --all-targets -- -D warnings
 
   contract-tests:
@@ -209,6 +222,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: scripts/contracts/consumer
       - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
+      - name: Verify fiscal integration examples against the generated OpenAPI
+        run: node scripts/fiscal/check-contract.mjs artifacts/contracts/candidate.json
       - name: Check fixed company consumer
         working-directory: scripts/contracts/consumer
         run: |
@@ -282,7 +297,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --prefer-offline
       - run: timeout 35s pnpm --filter web lint
-      - run: node --test tests/fiscal-tax-model.node.mjs
+      - run: node --test tests/*-model.node.mjs
         working-directory: apps/web
 
   web-browser:
@@ -308,6 +323,8 @@ jobs:
         with:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
+      - name: Reserve browser fixture ports outside ephemeral allocation
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929
       - name: Verify secure session cookie removal in the browser
         if: matrix.shard == 1
         run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts
@@ -316,7 +333,7 @@ jobs:
       - run: timeout 240s pnpm --filter web test:danfe --shard=${{ matrix.shard }}/2
         env:
           ERP_BROWSER_CHANNEL: chrome
-      - run: timeout 60s pnpm --filter web test:monitor
+      - run: timeout 120s pnpm --filter web test:monitor
         if: matrix.shard == 1
         env:
           ERP_BROWSER_CHANNEL: chrome

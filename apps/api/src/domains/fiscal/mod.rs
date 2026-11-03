@@ -1,5 +1,8 @@
 pub mod certificate_crypto;
 pub mod certificates;
+pub mod cte_distribution;
+pub mod cte_inspection;
+pub mod cte_links;
 pub mod danfe;
 pub mod danfe_client;
 #[cfg(test)]
@@ -20,6 +23,7 @@ mod monitor_store;
 pub mod order_source;
 pub mod received;
 pub mod received_model;
+pub mod received_nfse;
 pub mod sefaz_client;
 pub mod sefaz_response;
 pub mod tax_profiles;
@@ -53,6 +57,9 @@ pub fn routes() -> Router<AppState> {
         )
         .merge(emission::routes())
         .merge(incoming::routes())
+        .merge(cte_distribution::routes())
+        .merge(cte_inspection::routes())
+        .merge(cte_links::routes())
         .route("/api/v1/fiscal/monitor", get(monitor::status))
         .route(
             "/api/v1/fiscal/monitor/sync",
@@ -100,6 +107,7 @@ pub fn routes() -> Router<AppState> {
             axum::routing::post(received::import),
         )
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        .merge(received_nfse::routes())
 }
 
 pub fn service_routes() -> Router<AppState> {

@@ -10,6 +10,16 @@ de conformidade foram portados do ERP Ávila Ops, commit
 antes da validação offline. Os testes usam certificados fictícios e transporte
 sintético; não comprovam autorização real pela SEFAZ.
 
+## Matriz NF-e por UF e ambiente
+
+`nfe-authorizers.ts` consulta a matriz oficial local fixada por SHA-256, com
+fontes separadas para produção e homologação. Distingue autorizadores próprios,
+SVAN/SVRS, consulta de cadastro, contingência e URLs publicadas com `?wsdl`.
+Serviço ausente não recebe fallback. Os quatro resolvers de transporte continuam
+limitados a SP e preservam suas URLs; listar outras UFs não habilita emissão.
+Contingência é somente metadado. Fonte, diferença entre os portais e pendências
+de homologação estão no [plano AVL-101](../../docs/superpowers/plans/2026-11-03-matriz-autorizadores-nfe.md).
+
 ## Execução
 
 ```sh
@@ -30,7 +40,7 @@ no PostgreSQL; nunca é enviada em respostas públicas.
 
 ## Contrato
 
-`POST /v1/{prepare,authorize,consult,event,void,distribute,manifest}` exige
+`POST /v1/{prepare,authorize,consult,event,void,distribute,distribute-cte,manifest}` exige
 Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
 `pkcs12Base64` e `password`, abertos exclusivamente no servidor.
 
@@ -42,6 +52,49 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
   retornam o resultado efetivamente recebido. Nenhum timeout confirma evento.
 - `distribute`: consulta lote sequencial, limita descompressão e retorna NSUs e
   documentos. O cursor somente é confirmado pela transação da API Rust.
+- `distribute-cte`: consulta o distribuidor nacional CT-e em homologação, com
+  `issuerTaxId`, `authorState` e `lastNsu`. Valida pedido e retorno com o pacote
+  oficial `PL_CTeDistDFe_100`, além de ambiente, ordem/intervalo dos NSUs e
+  limites de XML/descompressão. `nextNsu: null` proíbe confirmar cursor em
+  rejeições. `minimumWaitSeconds` é um mínimo a persistir pela API; o motor
+  não agenda nem repete consultas. A integração Rust e seu worker opcional
+  passaram no CI com a central de leitura no commit `a19dc38`; conferência
+  individual, vínculos de frete e homologação externa continuam pendentes. Consulte
+  [o contrato e as limitações CT-e](../../docs/CTE-DISTRIBUICAO-AVL-111.md).
+
+`POST /v1/inspect-nfse` é uma inspeção privada de arquivo nacional recebido.
+Exige o mesmo Bearer e somente `{ xml, recipientTaxId }`, sem certificado ou
+ambiente de transporte. Não faz rede, abre A1 ou escreve documentos. Aceita
+XML UTF-8 de até 1 MiB e versões 1.00/1.01 com tomador CNPJ da empresa.
+Retorna original/hash, atores distintos, ambiente do arquivo, chave nacional
+de 50 posições e valores em centavos como strings exatas. Assinatura e situação
+atual permanecem não verificadas. A versão 1.01 declara perfil local de série,
+com hashes e origem; não afirma aprovação pelo XSD original sem correção.
+Consulte [o contrato do perfil e limites](../../docs/superpowers/specs/2026-11-03-nfse-recebida.md).
+Esta etapa ainda não adiciona importação na API Rust, central ou captura ADN.
+
+`POST /v1/inspect-cte` recebe `{ xml, companyTaxId, environment: "homologation" }`
+com o mesmo Bearer interno. Confere offline o `cteProc` modelo 57/4.00 com
+schemas fixados da NT 2026.004 e também o schema específico do modal; CT-e
+complementar não possui esse bloco. Retorna XML/hash, transportadora,
+participantes/tomador, papéis da empresa, valores exatos e referências do XML.
+Confere consistência XMLDSig e correlação do protocolo/digest, sem estabelecer
+confiança ICP-Brasil, autenticidade independente do protocolo ou situação atual.
+Formato fora do perfil é informado separadamente de XML inválido. A operação
+não recebe certificado, faz rede, altera cursor ou cria vínculos comerciais.
+O XML aceita até 2 MiB; somente esta rota permite JSON de até 4.195.328 bytes
+para acomodar escaping. Integração pública e persistência estão em andamento no
+[plano da conferência CT-e](../../docs/superpowers/plans/2026-11-03-conferencia-cte.md).
+
+O módulo privado `src/lib/fiscal/nfce-qr.ts` compõe os parâmetros de QR Code
+NFC-e 2/3 a partir de XML 65 já assinado, após XSD e conferência criptográfica
+com o certificado embutido. A versão é explícita; versão 2 exige CSC privado,
+e versão 3 offline exige a chave do mesmo certificado do XML. Valores e dia
+local são preservados. O retorno contém somente payload e metadados/hash,
+sem segredo ou XML. Não verifica confiança ICP-Brasil, credenciamento,
+autorização ou situação fiscal. Não há rota, URL de UF, imagem, DANFE ou
+emissão de NFC-e nesta etapa. Consulte
+[o contrato e os limites do QR Code](../../docs/superpowers/plans/2026-11-03-nfce-qr.md).
 
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 

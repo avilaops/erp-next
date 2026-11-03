@@ -76,6 +76,9 @@ impl FiscalEngine {
             "event",
             "void",
             "distribute",
+            "distribute-cte",
+            "inspect-cte",
+            "inspect-nfse",
             "manifest",
         ]
         .contains(&operation)
@@ -102,7 +105,13 @@ impl FiscalEngine {
             .await
             .map_err(|_| EngineError::Unavailable)?
         {
-            if bytes.len() + chunk.len() > 12 * 1024 * 1024 {
+            let limit = if operation == "distribute-cte" {
+                32
+            } else {
+                12
+            } * 1024
+                * 1024;
+            if bytes.len() + chunk.len() > limit {
                 return Err(EngineError::InvalidResponse);
             }
             bytes.extend_from_slice(&chunk);

@@ -1,0 +1,65 @@
+{
+  "release": "NFSe-ESQUEMAS_XSD-v1.01-20260209",
+  "source": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/nfse-esquemas_xsd-v1-01-20260209.zip/@@download/file",
+  "retrievedOn": "2026-11-03",
+  "archiveSha256": "e7935cbd9470527c6cc32984c1b2263e614183bf0139ce2733eaaed2de9a8072",
+  "normalization": "UTF-8 without BOM, LF line endings; trailing whitespace at end of file removed",
+  "localProfiles": {
+    "1.01": {
+      "id": "nfse-1.01-dps-series-regex-v1",
+      "version": "1.01",
+      "file": "tiposSimples_v1.01.xsd",
+      "before": "<xs:pattern value=\"^0{0,4}\\d{1,5}$\"/>",
+      "after": "<xs:pattern value=\"0{0,4}\\d{1,5}\"/>",
+      "originalSha256": "0fd5c960367c459f7f0819000e0848175c82fd8b257d7f92d8385082faa2c52b",
+      "derivedSha256": "8f3bad64e97b490bebd9d4e094ff1eca24f30e6eea67caf3d1124288b2b5bec6",
+      "layoutSource": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/anexo_i-sefin_adn-dps_nfse-snnfse-v1-01-20260209.xlsx/@@download/file",
+      "layoutSha256": "de5bc492959eadc8bfa7540e16939995924f2188f743648eaf84d3b31e9eeb7c",
+      "standardSource": "https://www.w3.org/TR/xmlschema-2/#regexs"
+    }
+  },
+  "versions": {
+    "1.00": {
+      "entry": "NFSe_v1.00.xsd",
+      "files": [
+        {
+          "name": "NFSe_v1.00.xsd",
+          "sha256": "408c6afcd32fd9f1825d36370b1b5e6a96e363827920003de281f1360c1782e7"
+        },
+        {
+          "name": "tiposComplexos_v1.00.xsd",
+          "sha256": "f26aa6110ca7e40fe9ee51c28ef4690e7d7a1c29436fac090f998523a0761d24"
+        },
+        {
+          "name": "tiposSimples_v1.00.xsd",
+          "sha256": "c709e5ee8e7bf6582e29f17fe49d4bbedb531361b5c3d4f7a725fc2f3bd463fd"
+        },
+        {
+          "name": "xmldsig-core-schema.xsd",
+          "sha256": "b4a4d07a5dcfe016838a351399a72b4fc7e05baf2fe69beb9a5d50c55690b559"
+        }
+      ]
+    },
+    "1.01": {
+      "entry": "NFSe_v1.01.xsd",
+      "files": [
+        {
+          "name": "NFSe_v1.01.xsd",
+          "sha256": "a2cfc804c82f01240d9f39ebea05eb91c9b46d3b72f305668830e81e10e863af"
+        },
+        {
+          "name": "tiposComplexos_v1.01.xsd",
+          "sha256": "640c326b6ac30a82b760b95a6be2765c314e440c8f36af20a7f398e73c19f6ce"
+        },
+        {
+          "name": "tiposSimples_v1.01.xsd",
+          "sha256": "0fd5c960367c459f7f0819000e0848175c82fd8b257d7f92d8385082faa2c52b"
+        },
+        {
+          "name": "xmldsig-core-schema.xsd",
+          "sha256": "5baf55ea1ef7cfb89ca33209d7a764c594d26feca814116dacc04bee51b868ce"
+        }
+      ]
+    }
+  }
+}

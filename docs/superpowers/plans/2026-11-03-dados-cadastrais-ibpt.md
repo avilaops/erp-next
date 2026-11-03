@@ -130,9 +130,9 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   versionados, limites exatos, soma e origem/UF explicitamente declaradas.
 - Interface: 11 testes IBPT passaram, incluindo axe e ausência de overflow em
   320×568, 390×844, 768×1024, 1280×900 e 1920×1080. Tipos e lint passaram.
-- Revisão independente não confirmou achados importantes. Ainda não há teste
-  HTTP completo que conduza IBPT pelo handler de emissão até a preparação do
-  motor; há testes separados de persistência, domínio e exportação no motor.
+- Revisão independente não confirmou achados importantes. A primeira etapa
+  cobria persistência, domínio e exportação separadamente; a ligação HTTP entre
+  rascunho e preparação foi verificada na etapa abaixo.
 - MCP retornou erro interno para geração DANFE, análise e validação XML do
   artefato sintético. Não há evidência de PDF renderizado nem de uso real.
 - Rodada integrada local: 244 testes da API e sete do utilitário A1 passaram,
@@ -148,3 +148,24 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   conferida separadamente das evidências da etapa inicial.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passou na
   rodada integrada, sem avisos.
+
+## Ligação HTTP do snapshot à emissão
+
+- Três testes novos percorrem o handler de emissão com PostgreSQL e motor double
+  em loopback. Conferem seleção/snapshot exatos, valores esperados e fonte, replay
+  sem novo preparo, data anterior recusada sem documento/sequência/comando ou
+  auditoria de solicitação e retomada da data de uma reserva antiga.
+- Depois da preparação e de um transporte incerto, a consulta conserva os bytes
+  do XML assinado mesmo com o snapshot persistido definido como SQL `NULL`, sem
+  nova preparação ou numeração. O catálogo em memória não é removido e não há
+  reinício da aplicação nesse teste.
+- Os três testes passaram localmente. A revisão independente não encontrou
+  defeito relevante. O motor double não gera IBPT no XML: validade XSD,
+  assinatura e exportação permanecem evidências da suíte real do motor.
+- Prova de regressão: a retirada temporária da integração do handler fez os
+  três testes falharem por snapshot ausente e aceitação indevida da data anterior.
+  A implementação foi restaurada byte a byte ao commit `cb835dc`; os 13 testes
+  de emissão passaram, incluindo os três novos. Não há mudança de produção
+  nessa etapa.
+- Clippy de todo o workspace com avisos como erros e rustfmt dos dois arquivos
+  de testes alterados passaram após a restauração.

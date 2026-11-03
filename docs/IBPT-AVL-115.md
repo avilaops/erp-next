@@ -128,6 +128,15 @@ gravadas e mostra base, parcelas, total, versão, vigência e hash. Os testes us
 dados sintéticos identificados como tais, incluindo XML assinado contra os XSD
 versionados. Não comprovam percentuais reais nem autorização SEFAZ.
 
+Os testes HTTP de emissão conferem que o snapshot da revisão salva chega à
+preparação, o replay não repete a preparação e uma estimativa do dia anterior é
+recusada antes de reservar numeração. Também cobrem a retomada de uma reserva
+antiga com sua data original e a consulta do mesmo XML assinado quando o snapshot
+persistido deixa de estar disponível. O motor usado nesse limite HTTP é um double
+em loopback; não comprova geração de `vTotTrib`, validade XSD ou assinatura. Essas
+verificações são executadas separadamente na suíte do motor real. O teste de
+retomada não remove o catálogo em memória nem simula reinício da aplicação.
+
 ## Implantação e limite da conferência externa
 
 A migração aditiva deve preceder a nova API. API/web precisam compreender os

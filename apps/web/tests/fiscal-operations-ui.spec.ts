@@ -75,7 +75,7 @@ for (const scenario of [
         await expect(control).toHaveCount(0)
       }
       await expect(page.getByRole("button", { name: "Baixar XML da emissão", exact: true })).toBeVisible()
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), `Largura do documento em ${width}px`).toBeLessThanOrEqual(width)
     }
     expect(commands).toEqual([])
     if (scenario.cancel || scenario.correction) {

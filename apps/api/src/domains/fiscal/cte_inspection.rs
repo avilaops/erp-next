@@ -30,8 +30,15 @@ pub(crate) struct CteCommercialFacts {
     pub carrier_name: Option<String>,
     pub service_cents: i64,
 }
-pub(crate) fn commercial_facts(mut metadata: serde_json::Value, xml: &str, company: &str) -> Result<CteCommercialFacts, ()> {
-    metadata.as_object_mut().ok_or(())?.insert("xml".to_owned(), json!(xml));
+pub(crate) fn commercial_facts(
+    mut metadata: serde_json::Value,
+    xml: &str,
+    company: &str,
+) -> Result<CteCommercialFacts, ()> {
+    metadata
+        .as_object_mut()
+        .ok_or(())?
+        .insert("xml".to_owned(), json!(xml));
     model::correlate(metadata, xml, company)?.commercial_facts()
 }
 

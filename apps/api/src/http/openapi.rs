@@ -388,7 +388,11 @@ mod tests {
         for suffix in ["commercial-links", "commercial-links/{linkId}/unlink"] {
             let path = format!("/api/v1/fiscal/cte-distribution/documents/{{id}}/{suffix}");
             for status in ["200", "403", "404", "409", "412", "422", "428"] {
-                assert!(doc["paths"][&path]["post"]["responses"].get(status).is_some());
+                assert!(
+                    doc["paths"][&path]["post"]["responses"]
+                        .get(status)
+                        .is_some()
+                );
             }
         }
         for resource in ["inventory-settings", "purchase-settings"] {

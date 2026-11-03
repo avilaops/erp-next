@@ -72,7 +72,9 @@ pub struct ReceivedCteMetadata {
 
 impl ReceivedCteMetadata {
     pub(super) fn commercial_facts(self) -> Result<super::CteCommercialFacts, ()> {
-        if self.carrier.kind != "CNPJ" { return Err(()); }
+        if self.carrier.kind != "CNPJ" {
+            return Err(());
+        }
         Ok(super::CteCommercialFacts {
             carrier_tax_id: self.carrier.value,
             carrier_name: self.carrier.name,

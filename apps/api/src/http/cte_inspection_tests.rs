@@ -37,7 +37,16 @@ async fn cte_commercial_links_authorize_before_loading_source_or_payload(admin: 
         ("POST", format!("commercial-links/{link}/unlink")),
     ] {
         assert_eq!(
-            call(&router, method, &format!("{BASE}/{id}/{suffix}"), TENANT, None, json!({})).await.0,
+            call(
+                &router,
+                method,
+                &format!("{BASE}/{id}/{suffix}"),
+                TENANT,
+                None,
+                json!({})
+            )
+            .await
+            .0,
             StatusCode::FORBIDDEN,
             "{method} {suffix} must authorize before loading an absent document or validating its command"
         );

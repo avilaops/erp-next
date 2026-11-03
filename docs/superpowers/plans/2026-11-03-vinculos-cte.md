@@ -69,3 +69,22 @@
 - [ ] Revisão independente do conjunto e correção dos achados materiais com regressões.
 - [ ] PR draft empilhado no #76, descrição do comportamento final e evidência atual em AVL-111.
 - [ ] Separar implementação/CI de publicação e homologação externa; manter escopo restante ativo.
+
+## Evidência intermediária
+
+O Actions `41675861456`, job `126057197518`, confirmou primeiro a ausência
+da rota: GET commercial-links retornou 404 em vez do 403 esperado. Os 243
+testes anteriores e sete auxiliares passaram, um Ollama foi ignorado.
+
+No commit `d779b1b`, o job Rust `126063145350` compilou e aprovou 252 testes
+da API e sete auxiliares, com um Ollama ignorado. Os nove novos casos cobrem
+autorização, precondições, rateio/replay, desfazimento/RLS, alvo/transportadora,
+concorrência, rollback, opções e mudança de empresa. O catálogo/contexto local
+aprovou 17 testes, com 211 operações API. A formatação foi aplicada do artefato
+remoto `13251656522`, ZIP SHA-256
+`5e7f52509ba1259b697d246b6ab95e6e1529467ca2569bc70e0a03b11a24e2d4`.
+
+A fixture adicional de transportadora própria passou na inspeção real Node;
+a suíte completa do motor aprovou 87 testes. Casos adicionais de transportadora
+própria, limite de vínculos ativos e revogação de leitura comercial serão
+executados no próximo Actions. Nenhuma ferramenta Rust foi executada localmente.

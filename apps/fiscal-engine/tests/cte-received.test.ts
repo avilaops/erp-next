@@ -18,9 +18,11 @@ const invalid = (error: unknown) => error instanceof CteInspectionError && error
 
 test("CT-e recebido: fixture HTTP Rust confere com a inspeção real e hash dos bytes originais", async () => {
   const base = new URL("../../api/src/http/fixtures/", import.meta.url);
-  const xml = await readFile(new URL("cte-received.xml", base), "utf8");
-  const expected = JSON.parse(await readFile(new URL("cte-received-inspection.json", base), "utf8"));
-  assert.deepEqual(await inspect(xml), { ...expected, xml });
+  for (const name of ["cte-received", "cte-own-carrier"]) {
+    const xml = await readFile(new URL(`${name}.xml`, base), "utf8");
+    const expected = JSON.parse(await readFile(new URL(`${name}-inspection.json`, base), "utf8"));
+    assert.deepEqual(await inspect(xml), { ...expected, xml });
+  }
 });
 
 test("CT-e recebido: preserva fonte e distingue transportadora, tomador, papéis e referências sem criar vínculo", async () => {

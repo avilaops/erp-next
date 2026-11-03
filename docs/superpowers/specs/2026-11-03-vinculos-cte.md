@@ -34,6 +34,9 @@ O objetivo dos seis tickets continua integral, incluindo homologação externa.
 - Leitura: `fiscal.cte.read`. Comandos: também `fiscal.cte.link`, leitura de
   pessoas e leitura da compra/venda alvo. Não conceder a nova permissão no
   onboarding automaticamente. Opções comerciais obedecem às mesmas leituras.
+  Se perder leitura do domínio comercial, conservar apenas resumo fiscal do
+  vínculo: tipo/frete/data; ocultar pedido, contraparte, valores do pedido,
+  revisão e justificativa, sem permitir desfazimento por esse usuário.
 - Usar Idempotency-Key e If-Match da revisão agregada do documento. Serializar
   comandos pelo lock de tenant existente; conferir alvo atual dentro da mesma
   transação. Resposta incerta deve permitir repetir exatamente o comando.

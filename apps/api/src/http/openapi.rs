@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 159);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 165);
         assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
         for status in ["200", "401", "403", "409", "422"] {
             assert!(

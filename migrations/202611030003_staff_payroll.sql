@@ -28,13 +28,21 @@ ALTER TABLE payables ADD CONSTRAINT payables_staff_fk FOREIGN KEY(tenant_id,staf
 ALTER TABLE payables ADD CONSTRAINT payables_one_origin CHECK(num_nonnulls(receipt_id,staff_obligation_id)=1);
 CREATE UNIQUE INDEX payables_staff_origin ON payables(tenant_id,staff_obligation_id) WHERE staff_obligation_id IS NOT NULL;
 CREATE INDEX staff_payroll_request_queue ON staff_payroll_requests(tenant_id,status,created_at DESC);
-DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['staff_payroll_profiles','staff_payroll_requests','staff_payroll_obligations'] LOOP
-  EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
-  EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('CREATE POLICY tenant_isolation ON %I USING (tenant_id=nullif(current_setting(''app.tenant_id'',true),)::uuid) WITH CHECK(tenant_id=nullif(current_setting(app.tenant_id,true),)::uuid)',t);
- END LOOP;
-END $$;
+ALTER TABLE staff_payroll_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_payroll_profiles FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON staff_payroll_profiles
+ USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+ALTER TABLE staff_payroll_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_payroll_requests FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON staff_payroll_requests
+ USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
+ALTER TABLE staff_payroll_obligations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_payroll_obligations FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON staff_payroll_obligations
+ USING (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK (tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
 INSERT INTO permissions(code,description) VALUES
  ('finance.staff.read','Consultar salários, dados de pagamento e histórico de funcionários'),
  ('finance.staff.manage','Propor salário, Pix, recorrência e pagamentos de funcionários'),

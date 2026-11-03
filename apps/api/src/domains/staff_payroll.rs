@@ -121,6 +121,7 @@ pub struct Generate {
     pub month: String,
 }
 #[derive(Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct PayrollQuery {
     pub status: Option<String>,

@@ -21,8 +21,8 @@ use axum::{
     routing::{get, post},
 };
 pub use model::{
-    CteCarrierChoice, CteCommercialLink, CteCommercialLinks, CteCommercialOptions,
-    CteCommercialOrder, CteLinkInput, CteLinkKind, CteLinkOptionsQuery, CteUnlinkInput,
+    CteCommercialLinks, CteCommercialOptions, CteLinkInput, CteLinkKind, CteLinkOptionsQuery,
+    CteUnlinkInput,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Transaction};

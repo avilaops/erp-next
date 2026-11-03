@@ -32,6 +32,9 @@ async fn call(
         .header("authorization", "Bearer editor")
         .header("x-tenant-id", tenant)
         .header("content-type", "application/json");
+    if method == "POST" {
+        request = request.header("x-actor-subject", "ZWRpdG9y");
+    }
     if let Some(revision) = revision {
         request = request.header("if-match", format!("\"{revision}\""));
     }
@@ -926,5 +929,54 @@ async fn cte_links_hide_order_details_after_domain_read_permission_is_revoked(ad
     ] {
         assert_eq!(link[field], Value::Null, "restricted {field}");
     }
+    cleanup(&admin, pool, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn cte_links_require_the_identity_that_reviewed_the_command_before_any_write(admin: PgPool) {
+    let (router, pool, auth, role) = setup(&admin).await;
+    let f = fixture(&admin).await;
+    let path = format!("{BASE}/{}/commercial-links", f.doc);
+    for actor in [None, Some("cmVhZGVy")] {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri(&path)
+            .header("authorization", "Bearer editor")
+            .header("x-tenant-id", TENANT)
+            .header("content-type", "application/json")
+            .header("if-match", "\"1\"")
+            .header("idempotency-key", Uuid::now_v7().to_string());
+        if let Some(actor) = actor {
+            request = request.header("x-actor-subject", actor);
+        }
+        let result = router
+            .clone()
+            .oneshot(request.body(Body::from(input(&f, "purchase", "15001").to_string())).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(result.status(), StatusCode::CONFLICT);
+    }
+    for sql in [
+        "SELECT count(*) FROM fiscal_cte_commercial_links",
+        "SELECT count(*) FROM domain_commands",
+        "SELECT count(*) FROM audit_log WHERE entity_type='fiscal_cte_commercial_link'",
+    ] {
+        assert_eq!(sqlx::query_scalar::<_, i64>(sql).fetch_one(&admin).await.unwrap(), 0);
+    }
+    let created = call(&router, "POST", &path, TENANT, Some(1), Some(Uuid::now_v7()), input(&f, "purchase", "15001")).await;
+    assert_eq!(created.0, StatusCode::CREATED);
+    let link = created.2["data"][0]["id"].as_str().unwrap();
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("{path}/{link}/unlink"))
+        .header("authorization", "Bearer editor")
+        .header("x-tenant-id", TENANT)
+        .header("x-actor-subject", "cmVhZGVy")
+        .header("content-type", "application/json")
+        .header("if-match", "\"2\"")
+        .header("idempotency-key", Uuid::now_v7().to_string())
+        .body(Body::from(json!({"reason":"Decisão de outra pessoa"}).to_string())).unwrap();
+    assert_eq!(router.oneshot(request).await.unwrap().status(), StatusCode::CONFLICT);
+    assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_cte_commercial_unlinks").fetch_one(&admin).await.unwrap(), 0);
     cleanup(&admin, pool, auth, &role).await;
 }

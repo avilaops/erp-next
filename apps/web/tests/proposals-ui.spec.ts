@@ -17,7 +17,7 @@ test("central de vendas consulta dados reais e preserva pedidos quando propostas
   await page.route(/\/api\/erp\/orders\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ id: record, customerName: "Cliente do pedido real", amount: "200.00", status: "draft" }] } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/vendas")
-  await expect(page.getByRole("alert")).toContainText("Sem permissão")
+  await expect(page.getByRole("alert").filter({ hasText: "Sem permissão" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Cliente do pedido real" })).toBeVisible()
   await expect(page.getByText("1 pedido(s) cadastrado(s)")).toBeVisible()
   await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveCount(0)

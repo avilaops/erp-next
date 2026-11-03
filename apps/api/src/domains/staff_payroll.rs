@@ -451,7 +451,7 @@ pub async fn review(
             }
             sqlx::query("INSERT INTO staff_payroll_profiles(tenant_id,staff_id,revision,settings) VALUES($1,$2,1,$3) ON CONFLICT(tenant_id,staff_id) DO UPDATE SET settings=$3,revision=staff_payroll_profiles.revision+1,updated_at=now()").bind(tenant).bind(staff).bind(payload).execute(&mut *tx).await.map_err(db)?;
             // Refresh only untouched future salary liabilities. Paid/part-paid history is immutable.
-            let rows=sqlx::query_as::<_,(Uuid,Date)>("SELECT p.id,o.competence FROM payables p JOIN staff_payroll_obligations o ON o.tenant_id=p.tenant_id AND o.id=p.staff_obligation_id WHERE p.tenant_id=$1 AND o.staff_id=$2 AND o.kind='salary' AND p.status='open' AND p.due_date >= CURRENT_DATE AND NOT EXISTS(SELECT 1 FROM payable_payments x WHERE x.tenant_id=p.tenant_id AND x.payable_id=p.id)").bind(tenant).bind(staff).fetch_all(&mut *tx).await.map_err(db)?;
+            let rows=sqlx::query_as::<_,(Uuid,Date)>("SELECT p.id,o.competence FROM payables p JOIN staff_payroll_obligations o ON o.tenant_id=p.tenant_id AND o.id=p.staff_obligation_id WHERE p.tenant_id=$1 AND o.staff_id=$2 AND o.kind='salary' AND p.status='open' AND p.due_date >= (now() AT TIME ZONE 'America/Sao_Paulo')::date AND NOT EXISTS(SELECT 1 FROM payable_payments x WHERE x.tenant_id=p.tenant_id AND x.payable_id=p.id)").bind(tenant).bind(staff).fetch_all(&mut *tx).await.map_err(db)?;
             for (pid, competence) in rows {
                 if s.recurring && competence >= sales::date(&s.starts_on)?.replace_day(1).unwrap() {
                     super::payables::revise_staff_title(

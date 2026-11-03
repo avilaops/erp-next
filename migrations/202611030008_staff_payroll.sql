@@ -50,6 +50,7 @@ INSERT INTO permissions(code,description) VALUES
 -- Existing administrators retain complete authority; other roles receive no payroll access.
 INSERT INTO role_permissions(role_id,permission_code)
  SELECT r.id,p.code FROM roles r CROSS JOIN permissions p WHERE r.code='administrator' AND p.code LIKE 'finance.staff.%' ON CONFLICT DO NOTHING;
+UPDATE roles SET revision=revision+1 WHERE code='administrator';
 -- Narrow background discovery: only tenant identifiers with an explicitly approved recurrence.
 -- No personal data or application mutation is exposed by this definer function.
 CREATE FUNCTION erp_staff_payroll_due_tenants() RETURNS SETOF uuid

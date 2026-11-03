@@ -25,6 +25,26 @@ const BASE: &str = "/api/v1/fiscal/cte-distribution/documents";
 const XML: &str = include_str!("fixtures/cte-received.xml");
 const FACTS: &str = include_str!("fixtures/cte-received-inspection.json");
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn cte_commercial_links_authorize_before_loading_source_or_payload(admin: PgPool) {
+    let (router, pool, auth, role) = setup(&admin).await;
+    let id = Uuid::now_v7();
+    let link = Uuid::now_v7();
+    for (method, suffix) in [
+        ("GET", "commercial-links".to_owned()),
+        ("GET", "commercial-options?kind=purchase".to_owned()),
+        ("POST", "commercial-links".to_owned()),
+        ("POST", format!("commercial-links/{link}/unlink")),
+    ] {
+        assert_eq!(
+            call(&router, method, &format!("{BASE}/{id}/{suffix}"), TENANT, None, json!({})).await.0,
+            StatusCode::FORBIDDEN,
+            "{method} {suffix} must authorize before loading an absent document or validating its command"
+        );
+    }
+    cleanup(&admin, pool, auth, &role).await;
+}
+
 async fn call(
     router: &Router,
     method: &str,

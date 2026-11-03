@@ -9,6 +9,7 @@ import { AUTHORIZATION_ACTION, CONSULT_ACTION, VOID_ACTION, authorizationEnvelop
 import { EVENT_ACTION, eventEnvelope, eventUrl, eventXml, parseEvent, processedEventXml } from "./lib/fiscal/events.ts";
 import { DISTRIBUTION_ACTION, distributionEnvelope, distributionUrl, parseDistributionResponse } from "./lib/fiscal/distribution.ts";
 import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
+import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
 import type { RecipientManifestKind } from "./lib/fiscal/recipient-manifest.ts";
 import municipalities from "./lib/fiscal/municipios.json" with { type: "json" };
 import { roundCents } from "./lib/pricing/money.ts";
@@ -242,6 +243,10 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
     const rawXml = await send(distributionUrl("homologacao"), DISTRIBUTION_ACTION, distributionEnvelope(cnpj, text(input.lastNsu, "NSU", 15), "homologacao"), credentials);
     return { ...parseDistributionResponse(rawXml), rawXml };
+  }
+  if (operation === "distribute-cte") {
+    const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
+    return queryCteDistribution({ environment: "homologation", companyTaxId: cnpj, authorState: text(input.authorState, "UF do ator", 2), lastNsu: text(input.lastNsu, "NSU", 15) }, credentials, send);
   }
   if (operation === "event" || operation === "manifest") {
     const key = validKey(input.accessKey), cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);

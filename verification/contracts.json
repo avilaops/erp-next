@@ -5,101 +5,28 @@
     "product": "erp",
     "flows": [
       {
-        "id": "warehouses",
-        "title": "depósitos",
-        "goal": "Cadastro não distribui saldos por depósito nem transfere estoque.",
+        "id": "fiscal-cte",
+        "title": "Captura CT-e em homologação",
+        "goal": "Capturar XML e eventos com cursor próprio, isolamento e recuperação; conferência individual, vínculos comerciais e aceite externo ainda pendentes.",
         "kind": "product",
         "actionGroups": [
-          "warehouses"
+          "fiscal-cte"
         ],
         "dependencies": [
-          "company_onboarding"
+          "fiscal-integrations"
         ],
-        "nextStep": "Validar jornada publicada com dados autorizados; catálogo não comprova execução.",
+        "nextStep": "Validar central de leitura em CI; integrar conferência individual e vínculos de frete; homologar com empresa/papel autorizados antes de liberar cobertura.",
         "additionalSources": [
-          "apps/api/src/domains/reference_data.rs"
+          "docs/CTE-DISTRIBUICAO-AVL-111.md",
+          "apps/api/src/domains/fiscal/cte_distribution_worker.rs"
         ]
       },
-      {
-        "id": "product-groups",
-        "title": "grupos de produtos",
-        "goal": "Cadastro não altera vínculos de produtos existentes.",
-        "kind": "product",
-        "actionGroups": [
-          "product-groups"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Validar jornada publicada com dados autorizados; catálogo não comprova execução.",
-        "additionalSources": [
-          "apps/api/src/domains/reference_data.rs"
-        ]
-      },
-      {
-        "id": "tag-groups",
-        "title": "grupos de tags",
-        "goal": "Arquivamento exige ausência de tags ativas vinculadas.",
-        "kind": "product",
-        "actionGroups": [
-          "tag-groups"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Validar jornada publicada com dados autorizados; catálogo não comprova execução.",
-        "additionalSources": [
-          "apps/api/src/domains/reference_data.rs"
-        ]
-      },
-      {
-        "id": "tags",
-        "title": "tags",
-        "goal": "Grupo deve pertencer à empresa; tag ativa exige grupo ativo.",
-        "kind": "product",
-        "actionGroups": [
-          "tags"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Validar jornada publicada com dados autorizados; catálogo não comprova execução.",
-        "additionalSources": [
-          "apps/api/src/domains/reference_data.rs"
-        ]
-      },
-      {
-        "id": "inventory-settings",
-        "title": "Configurações de estoque",
-        "goal": "Lançamentos e estornos manuais respeitam permissão e motivo mínimo; recebimentos e vendas mantêm seus próprios fluxos.",
-        "kind": "product",
-        "actionGroups": [
-          "inventory-settings"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Validar regras e gravação na versão publicada; catálogo não comprova execução.",
-        "additionalSources": [
-          "apps/api/src/domains/supply_settings.rs"
-        ]
-      },
-      {
-        "id": "purchase-settings",
-        "title": "Configurações de compras",
-        "goal": "Regras verificadas na próxima confirmação de compra; pedidos confirmados não são alterados.",
-        "kind": "product",
-        "actionGroups": [
-          "purchase-settings"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Validar regras e gravação na versão publicada; catálogo não comprova execução.",
-        "additionalSources": [
-          "apps/api/src/domains/supply_settings.rs"
-        ]
-      },
+      {"id":"warehouses","title":"depósitos","goal":"Cadastro não distribui saldos por depósito nem transfere estoque.","kind":"product","actionGroups":["warehouses"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"product-groups","title":"grupos de produtos","goal":"Cadastro não altera vínculos de produtos existentes.","kind":"product","actionGroups":["product-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"tag-groups","title":"grupos de tags","goal":"Arquivamento exige ausência de tags ativas vinculadas.","kind":"product","actionGroups":["tag-groups"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"tags","title":"tags","goal":"Grupo deve pertencer à empresa; tag ativa exige grupo ativo.","kind":"product","actionGroups":["tags"],"dependencies":["company_onboarding"],"nextStep":"Validar jornada publicada com dados autorizados; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/reference_data.rs"]},
+      {"id":"inventory-settings","title":"Configurações de estoque","goal":"Lançamentos e estornos manuais respeitam permissão e motivo mínimo; recebimentos e vendas mantêm seus próprios fluxos.","kind":"product","actionGroups":["inventory-settings"],"dependencies":["company_onboarding"],"nextStep":"Validar regras e gravação na versão publicada; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/supply_settings.rs"]},
+      {"id":"purchase-settings","title":"Configurações de compras","goal":"Regras verificadas na próxima confirmação de compra; pedidos confirmados não são alterados.","kind":"product","actionGroups":["purchase-settings"],"dependencies":["company_onboarding"],"nextStep":"Validar regras e gravação na versão publicada; catálogo não comprova execução.","additionalSources":["apps/api/src/domains/supply_settings.rs"]},
       {
         "id": "company-account",
         "title": "Conta da empresa e assinaturas",
@@ -1215,6 +1142,445 @@
     }
   ],
   "actions": [
+    {
+      "id": "get-api-v1-fiscal-cte-distribution-status",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/status"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais do tenant; isolamento RLS obrigatório."
+      ],
+      "transition": {
+        "from": "estado CT-e da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Leitura não executa escrita nem consulta externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar cursor CT-e"
+      },
+      "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/status" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
+      },
+      "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/status/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/api/src/domains/fiscal/cte_distribution.rs",
+        "apps/api/src/domains/fiscal/cte_distribution_store.rs",
+        "migrations/202611030003_cte_distribution.sql",
+        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-cte-distribution-query",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/cte-distribution/query"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read",
+        "fiscal.cte.query"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/cte_distribution.rs",
+          "type": "QueryInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais do tenant; isolamento RLS obrigatório.",
+        "Motor e cofre configurados; CNPJ/UF da empresa válidos; cursor CT-e do mesmo CNPJ; intervalo e concessão livres."
+      ],
+      "transition": {
+        "from": "cursor disponível da empresa",
+        "to": "execução persistida, concluída, rejeitada, falha ou incerta; cursor só avança com lote atômico"
+      },
+      "effects": {
+        "writes": [
+          "fiscal_cte_distribution_state",
+          "fiscal_cte_distribution_runs",
+          "fiscal_cte_distribution_documents",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [
+          "Motor fiscal privado e distribuidor CT-e de homologação com mTLS."
+        ],
+        "excludes": [
+          "Sem emissão CT-e, produção, manifestação, movimentação comercial/financeira ou aceite individual do XML."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Intenção e concessão antes do transporte; lote/cursor atômicos; replay por usuário/chave sem repetir chamada; retorno tardio exige direitos e concessão atuais."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          409,
+          412,
+          422,
+          428,
+          500
+        ],
+        "action": "Solicitar um lote CT-e em homologação"
+      },
+      "recovery": "Consultar execução e reutilizar a mesma chave para recuperar resultado; respeitar pausa persistida e nunca reutilizar cursor NF-e ou trocar CNPJ silenciosamente.",
+      "ui": {
+        "pages": [],
+        "gap": "API implementada; BFF e central visual pendentes. Catálogo não comprova publicação, execução, certificado habilitado ou homologação externa."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/cte_distribution.rs",
+        "apps/api/src/domains/fiscal/cte_distribution_store.rs",
+        "migrations/202611030003_cte_distribution.sql",
+        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-cte-distribution-documents",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/documents"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": {
+          "offset": "Inteiro não negativo",
+          "limit": "1 a 100, padrão 25"
+        }
+      },
+      "preconditions": [
+        "Associação e permissões atuais do tenant; isolamento RLS obrigatório."
+      ],
+      "transition": {
+        "from": "estado CT-e da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Leitura não executa escrita nem consulta externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar XML CT-e capturados"
+      },
+      "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
+      },
+      "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/api/src/domains/fiscal/cte_distribution.rs",
+        "apps/api/src/domains/fiscal/cte_distribution_store.rs",
+        "migrations/202611030003_cte_distribution.sql",
+        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-cte-distribution-document",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/documents/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais do tenant; isolamento RLS obrigatório."
+      ],
+      "transition": {
+        "from": "estado CT-e da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Leitura não executa escrita nem consulta externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar XML CT-e capturado"
+      },
+      "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents/[id]" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
+      },
+      "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/api/src/domains/fiscal/cte_distribution.rs",
+        "apps/api/src/domains/fiscal/cte_distribution_store.rs",
+        "migrations/202611030003_cte_distribution.sql",
+        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-cte-distribution-run",
+      "flow": "fiscal-cte",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/cte-distribution/runs/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.cte.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais do tenant; isolamento RLS obrigatório."
+      ],
+      "transition": {
+        "from": "estado CT-e da empresa",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Leitura não executa escrita nem consulta externa."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar execução CT-e"
+      },
+      "recovery": "Repetir leitura autenticada e distinguir ausência de registro de falta de permissão.",
+      "ui": {
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/runs/[id]" },
+        "gap": "Leitura de arquivos em homologação. Catálogo não comprova publicação, validade individual, consulta real ou aceite externo."
+      },
+      "sources": [
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/runs/[id]/route.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-documents.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/api/src/domains/fiscal/cte_distribution.rs",
+        "apps/api/src/domains/fiscal/cte_distribution_store.rs",
+        "migrations/202611030003_cte_distribution.sql",
+        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-api-v1-warehouses",
       "flow": "warehouses",

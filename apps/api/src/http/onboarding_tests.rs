@@ -156,6 +156,16 @@ async fn creates_company_atomically_and_retries_without_duplicate_effects(admin:
         serde_json::from_slice(&to_bytes(response.into_body(), 100_000).await.unwrap()).unwrap();
     assert_eq!(access["roles"], json!(["admin"]));
     assert!(
+        !access["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|permission| matches!(
+                permission.as_str(),
+                Some("fiscal.cte.read" | "fiscal.cte.query")
+            ))
+    );
+    assert!(
         access["permissions"]
             .as_array()
             .unwrap()

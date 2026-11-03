@@ -64,6 +64,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::emission::events::cancel, fiscal::emission::events::correction, fiscal::emission::events::void_numbers,
         fiscal::emission::events::list, fiscal::emission::events::process_order_cancellation,
         fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
+        fiscal::cte_distribution::status, fiscal::cte_distribution::documents, fiscal::cte_distribution::document,
+        fiscal::cte_distribution::query, fiscal::cte_distribution::run,
         fiscal::incoming::manifestations, fiscal::incoming::manifest, fiscal::incoming::conversion, fiscal::incoming::convert,
         fiscal::incoming::reconciliation::get, fiscal::incoming::reconciliation::reconcile,
         fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
@@ -345,7 +347,16 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 143);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 148);
+        for suffix in ["status", "documents", "documents/{id}", "runs/{id}"] {
+            let path = format!("/api/v1/fiscal/cte-distribution/{suffix}");
+            assert!(doc["paths"][&path]["get"].is_object());
+        }
+        let cte_query = &doc["paths"]["/api/v1/fiscal/cte-distribution/query"]["post"];
+        assert!(cte_query["requestBody"].is_object());
+        for status in ["200", "403", "409", "412", "428"] {
+            assert!(cte_query["responses"].get(status).is_some());
+        }
         let registration = &doc["paths"]["/api/v1/registration-settings/{section}"];
         assert!(registration["get"].is_object());
         assert!(registration["put"]["requestBody"].is_object());

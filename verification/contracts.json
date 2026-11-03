@@ -15,9 +15,10 @@
         "dependencies": [
           "company_onboarding"
         ],
-        "nextStep": "Validar API no Actions, implementar central e homologar fontes de captura antes de declarar cobertura.",
+        "nextStep": "Validar central e importação em CI/browser; integrar eventos e captura por fontes elegíveis e homologadas antes de declarar cobertura.",
         "additionalSources": [
-          "docs/superpowers/specs/2026-11-03-nfse-recebida.md"
+          "docs/superpowers/specs/2026-11-03-nfse-recebida.md",
+          "docs/superpowers/plans/2026-11-03-central-nfse-recebida.md"
         ]
       },
       {
@@ -1087,6 +1088,8 @@
           401,
           403,
           409,
+          413,
+          415,
           422,
           428,
           500,
@@ -1097,11 +1100,21 @@
       },
       "recovery": "Repetir o mesmo comando e XML; outro XML da mesma chave é conflito e preserva o original.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+        "pages": [
+          "/fiscal/nfses"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/received-nfses/import"
+        },
+        "gap": "Central de arquivos importados. Catálogo não comprova publicação, assinatura, situação atual ou homologação externa."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/received-nfses/import/route.ts",
+        "apps/web/src/features/fiscal/nfse-received-screen.tsx",
+        "apps/web/src/features/fiscal/nfse-received-documents.ts",
+        "apps/web/src/features/fiscal/nfse-received-model.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/received_nfse.rs",
         "apps/api/src/domains/fiscal/received_nfse_model.rs",
         "migrations/202611030002_received_nfse.sql",
@@ -1182,11 +1195,21 @@
       },
       "recovery": "Repetir leitura autenticada na empresa correta.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+        "pages": [
+          "/fiscal/nfses"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfses"
+        },
+        "gap": "Central de arquivos importados. Catálogo não comprova publicação, assinatura, situação atual ou homologação externa."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/received-nfses/route.ts",
+        "apps/web/src/features/fiscal/nfse-received-screen.tsx",
+        "apps/web/src/features/fiscal/nfse-received-documents.ts",
+        "apps/web/src/features/fiscal/nfse-received-model.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/received_nfse.rs",
         "apps/api/src/domains/fiscal/received_nfse_model.rs",
         "migrations/202611030002_received_nfse.sql",
@@ -1266,11 +1289,21 @@
       },
       "recovery": "Repetir leitura autenticada na empresa correta.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+        "pages": [
+          "/fiscal/nfses"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfses/[id]"
+        },
+        "gap": "Central de arquivos importados. Catálogo não comprova publicação, assinatura, situação atual ou homologação externa."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/received-nfses/[id]/route.ts",
+        "apps/web/src/features/fiscal/nfse-received-screen.tsx",
+        "apps/web/src/features/fiscal/nfse-received-documents.ts",
+        "apps/web/src/features/fiscal/nfse-received-model.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/received_nfse.rs",
         "apps/api/src/domains/fiscal/received_nfse_model.rs",
         "migrations/202611030002_received_nfse.sql",
@@ -1350,11 +1383,21 @@
       },
       "recovery": "Repetir leitura autenticada na empresa correta.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+        "pages": [
+          "/fiscal/nfses"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/received-nfses/[id]/xml"
+        },
+        "gap": "Central de arquivos importados. Catálogo não comprova publicação, assinatura, situação atual ou homologação externa."
       },
       "sources": [
+        "apps/web/src/app/api/erp/fiscal/received-nfses/[id]/xml/route.ts",
+        "apps/web/src/features/fiscal/nfse-received-screen.tsx",
+        "apps/web/src/features/fiscal/nfse-received-documents.ts",
+        "apps/web/src/features/fiscal/nfse-received-model.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
         "apps/api/src/domains/fiscal/received_nfse.rs",
         "apps/api/src/domains/fiscal/received_nfse_model.rs",
         "migrations/202611030002_received_nfse.sql",

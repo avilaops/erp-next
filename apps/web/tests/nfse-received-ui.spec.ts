@@ -20,6 +20,11 @@ let imported = false
 let corrupt = false
 let uncertain = false
 let paginated = false
+let activeTenant = tenant
+let hold: "list" | "detail" | null = null
+let release: (() => void) | undefined
+
+function releaseResponse() { release?.(); release = undefined }
 
 const upstream = createServer(async (request, response) => {
   expect(request.headers.authorization).toBe("Bearer frontend-integration-fixture")
@@ -37,11 +42,15 @@ const upstream = createServer(async (request, response) => {
     return response.end(JSON.stringify({ tenantId, data: document }))
   }
   if (url.pathname === "/api/v1/fiscal/received-nfses") {
+    if (hold === "list") { hold = null; await new Promise<void>(resolve => { release = resolve }) }
     const offset = Number(url.searchParams.get("offset") || 0)
     const data = mode === "empty" && !imported ? [] : paginated ? Array.from({ length: offset ? 1 : 25 }, (_, index) => ({ ...document, id: `${String(offset + index + 1).padStart(8, "0")}-2222-4222-8222-222222222222` })) : [document]
     return response.end(JSON.stringify({ tenantId, canImport, data, total: data.length ? paginated ? 26 : 1 : 0 }))
   }
-  if (url.pathname === `/api/v1/fiscal/received-nfses/${documentId}`) return response.end(JSON.stringify({ tenantId, data: document }))
+  if (url.pathname === `/api/v1/fiscal/received-nfses/${documentId}`) {
+    if (hold === "detail") { hold = null; await new Promise<void>(resolve => { release = resolve }) }
+    return response.end(JSON.stringify({ tenantId, data: document }))
+  }
   if (url.pathname === `/api/v1/fiscal/received-nfses/${documentId}/xml`) {
     response.setHeader("Content-Type", "application/xml; charset=utf-8")
     response.setHeader("X-Xml-Sha256", inspection.xmlSha256)
@@ -54,11 +63,12 @@ const upstream = createServer(async (request, response) => {
 test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33929, "127.0.0.1", resolve)) })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(async ({ context, page }) => {
-  mode = "ready"; canImport = true; imported = false; corrupt = false; uncertain = false; paginated = false; requests.length = 0
+  mode = "ready"; canImport = true; imported = false; corrupt = false; uncertain = false; paginated = false; activeTenant = tenant; hold = null; release = undefined; requests.length = 0
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa NFS-e sintética" }, permissions: ["fiscal.nfse.read", "fiscal.nfse.import"] } }))
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa NFS-e sintética" : "Outra empresa sintética" }, permissions: ["fiscal.nfse.read", "fiscal.nfse.import"] } }))
 })
+test.afterEach(releaseResponse)
 
 test("NFS-e BFF fixa tenant da sessão, exige origem e limita filtros e métodos", async ({ context, playwright }) => {
   const anonymous = await playwright.request.newContext({ baseURL: origin })
@@ -169,6 +179,48 @@ test("arquivo acima do limite ou sem UTF-8 válido não é enviado", async ({ pa
     await expect(page.getByRole("button", { name: "Importar XML", exact: true })).toBeDisabled()
   }
   expect(requests.filter(request => request.method === "POST")).toHaveLength(0)
+})
+
+test("troca da sessão durante lista e detalhe impede publicar a resposta antiga", async ({ page, context }) => {
+  for (const resource of ["list", "detail"] as const) {
+    activeTenant = tenant
+    await installFrontendFixture(context, origin)
+    await context.unroute("**/api/erp/**")
+    release = undefined
+    hold = resource === "list" ? "list" : null
+    await page.goto("/fiscal/nfses")
+    if (resource === "detail") {
+      await expect(page.getByRole("button", { name: "Ver dados do serviço" })).toBeEnabled()
+      hold = "detail"
+      await page.getByRole("button", { name: "Ver dados do serviço" }).click()
+    }
+    await expect.poll(() => typeof release).toBe("function")
+    activeTenant = otherTenant
+    await installFrontendFixture(context, origin, otherTenant)
+    await context.unroute("**/api/erp/**")
+    releaseResponse()
+    const files = page.getByRole("region", { name: /^Arquivos armazenados/ })
+    await expect(files.getByRole("alert")).toContainText("empresa da sessão mudou")
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+    await expect(page.getByText("Empresa NFS-e sintética", { exact: true })).toHaveCount(0)
+  }
+})
+
+test("troca observada de empresa invalida seleção mesmo se a nova lista for recusada", async ({ page, context }) => {
+  await page.goto("/fiscal/nfses")
+  await page.getByLabel("XML nacional de NFS-e", { exact: true }).setInputFiles({ name: "nfse.xml", mimeType: "application/xml", buffer: Buffer.from(xml) })
+  await expect(page.getByRole("button", { name: "Importar XML", exact: true })).toBeEnabled()
+  activeTenant = otherTenant; mode = "forbidden"
+  await installFrontendFixture(context, origin, otherTenant)
+  await context.unroute("**/api/erp/**")
+  await page.getByRole("button", { name: "Atualizar arquivos", exact: true }).click()
+  await expect(page.getByRole("region", { name: /^Arquivos armazenados/ }).getByRole("alert")).toContainText("Sem permissão")
+  activeTenant = tenant; mode = "ready"
+  await installFrontendFixture(context, origin)
+  await context.unroute("**/api/erp/**")
+  await page.getByRole("button", { name: "Atualizar arquivos", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Importar XML", exact: true })).toBeDisabled()
+  await expect(page.getByText("Arquivo selecionado: nfse.xml", { exact: true })).toHaveCount(0)
 })
 
 test("paginação e cinco tamanhos preservam ações e arquivos sem corte horizontal", async ({ page }, testInfo) => {

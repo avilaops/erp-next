@@ -139,7 +139,7 @@ test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento
   await desktop.getByRole("link", { name: "Produtos", exact: true }).click()
   await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole("button", { name: "Módulos", exact: true }).click()
+  await page.getByRole("button", { name: "Menu", exact: true }).click()
   await page.getByRole("dialog").getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
   await page.keyboard.press("Escape")

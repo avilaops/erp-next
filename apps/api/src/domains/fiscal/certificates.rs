@@ -223,7 +223,7 @@ pub async fn get(
         &headers,
         &identity,
         "fiscal.config.read",
-        "fiscal.config.manage",
+        "fiscal.certificate.manage",
         false,
     )
     .await?;
@@ -252,7 +252,7 @@ pub async fn put(
         &headers,
         &identity,
         "fiscal.config.read",
-        "fiscal.config.manage",
+        "fiscal.certificate.manage",
         true,
     )
     .await?;
@@ -310,7 +310,7 @@ pub async fn put(
         &headers,
         &identity,
         "fiscal.config.read",
-        "fiscal.config.manage",
+        "fiscal.certificate.manage",
         true,
     )
     .await?;
@@ -350,7 +350,7 @@ pub async fn remove(
         &headers,
         &identity,
         "fiscal.config.read",
-        "fiscal.config.manage",
+        "fiscal.certificate.manage",
         true,
     )
     .await?;

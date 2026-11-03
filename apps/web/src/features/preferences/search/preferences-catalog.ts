@@ -24,9 +24,16 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [
-    { title: "Configurações de cadastros", items: [unavailable("Configurações de clientes e fornecedores"), unavailable("Configurações de produtos")] },
+    { title: "Cadastros disponíveis", items: [
+      { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores", description: "Consultar, cadastrar e editar clientes e fornecedores." },
+      { label: "Produtos", href: "/cadastros/produtos", description: "Consultar, cadastrar e editar produtos." },
+      { label: "Funcionários", href: "/cadastros/funcionarios", description: "Cadastrar e manter os funcionários da empresa." },
+      { label: "Vendedores", href: "/cadastros/vendedores", description: "Cadastrar e manter os vendedores da empresa." },
+    ] },
+    { title: "Configurações de cadastros", items: [{ label: "Configurações de clientes e fornecedores", href: "/preferencias/cadastros/clientes-fornecedores" }, { label: "Configurações de produtos", href: "/preferencias/cadastros/produtos" }] },
     { title: "Tabelas e configurações adicionais", items: [
-      { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, unavailable("Gerenciar tipos de contatos"),
+      { label: "Perfis tributários", href: "/preferencias/cadastros/perfis-tributarios" },
+      { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Gerenciar tipos de contatos", href: "/preferencias/cadastros/tipos-contatos" },
     ] },
   ] },
   { id: "suprimentos", label: "Suprimentos", sections: [

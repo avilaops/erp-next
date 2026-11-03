@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { PreferencesCommand } from "@/features/preferences/search/preferences-command"
-import { MobileNavigation } from "@/components/shell/mobile-navigation"
+import { MobileMenuButton, MobileMenuProvider, MobileNavigation } from "@/components/shell/mobile-navigation"
 import { DesktopNavigation } from "@/components/shell/desktop-navigation"
 import { LogoutButton } from "@/components/shell/logout-button"
 
@@ -30,10 +30,11 @@ async function WorkspaceFrame({ children }: { children: React.ReactNode }) {
 
 function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
   return (
-    <NavigationGuardProvider><div className="min-h-screen bg-background text-foreground">
+    <NavigationGuardProvider><MobileMenuProvider><div className="min-h-screen bg-background text-foreground">
       <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
       <header className="sticky top-0 z-50 border-b border-border/80 bg-background/92 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-2 px-4 lg:px-6">
+          <MobileMenuButton />
           <Link className="mr-2 flex shrink-0 items-center gap-2" href="/">
             <span className="grid size-9 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">A</span>
             <span className="hidden leading-tight sm:block"><strong className="block text-sm">ERP Next</strong><small className="text-xs text-muted-foreground">Avila Ops</small></span>
@@ -57,7 +58,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
           <PreferencesCommand />
 
           <div className="flex items-center gap-1">
-            <Link className="icon-action accent" href="/assistente" aria-label="Abrir assistente"><Sparkles className="size-4" /></Link>
+            <Link className="icon-action accent hidden sm:grid" href="/assistente" aria-label="Abrir assistente"><Sparkles className="size-4" /></Link>
             <Link className="icon-action hidden sm:grid" href="/aplicativos" aria-label="Aplicativos"><LayoutGrid className="size-4" /></Link>
             <Link className="icon-action" href="/notificacoes" aria-label="Notificações"><Bell className="size-4" /></Link>
             <Link className="icon-action hidden sm:grid" href="/ajuda" aria-label="Ajuda"><CircleHelp className="size-4" /></Link>
@@ -74,6 +75,6 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
       <Suspense fallback={<div className="mobile-nav-bar fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background min-[1600px]:hidden" aria-hidden="true" />}>
         <MobileNavigation />
       </Suspense>
-    </div></NavigationGuardProvider>
+    </div></MobileMenuProvider></NavigationGuardProvider>
   )
 }

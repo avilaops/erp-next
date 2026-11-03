@@ -15,13 +15,14 @@ pub(super) struct Rights {
     pub sale: bool,
 }
 impl Rights {
+    pub fn read(&self, kind: CteLinkKind) -> bool {
+        match kind {
+            CteLinkKind::Purchase => self.purchase,
+            CteLinkKind::Sale => self.sale,
+        }
+    }
     pub fn can(&self, kind: CteLinkKind) -> bool {
-        self.manage
-            && self.parties
-            && match kind {
-                CteLinkKind::Purchase => self.purchase,
-                CteLinkKind::Sale => self.sale,
-            }
+        self.manage && self.parties && self.read(kind)
     }
 }
 pub(super) async fn rights(
@@ -181,23 +182,29 @@ pub(super) async fn view(
             (None, Some(id)) => (CteLinkKind::Sale, id),
             _ => return Err(access::AccessError::Internal.into()),
         };
+        let restricted = !rights.read(kind);
         data.push(CteCommercialLink {
             id: row.id,
             kind,
-            order_id,
-            carrier_party_id: row.carrier_party_id,
+            order_id: (!restricted).then_some(order_id),
+            carrier_party_id: if rights.parties { row.carrier_party_id } else { None },
             carrier_tax_id: row.carrier_tax_id,
-            carrier_name: row.carrier_name,
-            counterparty_name: row.counterparty_name,
-            order_amount_cents: row.order_amount_cents.to_string(),
-            order_revision: row.order_revision,
+            carrier_name: if rights.parties {
+                row.carrier_name
+            } else {
+                source.facts.carrier_name.clone().unwrap_or_else(|| "Transportadora do XML".to_owned())
+            },
+            counterparty_name: (!restricted).then_some(row.counterparty_name),
+            order_amount_cents: (!restricted).then(|| row.order_amount_cents.to_string()),
+            order_revision: (!restricted).then_some(row.order_revision),
             freight_cents: row.freight_cents.to_string(),
-            reason: row.reason,
+            reason: (!restricted).then_some(row.reason),
             created_at: row
                 .created_at
                 .format(&Rfc3339)
                 .map_err(|_| access::AccessError::Internal)?,
             can_unlink: rights.can(kind),
+            restricted,
         });
     }
     Ok(CteCommercialLinks {

@@ -13,7 +13,7 @@ const xml = readFileSync(resolve("../api/src/http/fixtures/cte-received.xml"), "
 const inspectionFacts = JSON.parse(readFileSync(resolve("../api/src/http/fixtures/cte-received-inspection.json"), "utf8"))
 const hash = createHash("sha256").update(xml).digest("hex")
 const document = { id: documentId, runId, environment: "homologation", companyTaxId: "04252011000110", nsu: "000000000000001", schema: "procCTe_v4.00.xsd", kind: "full", xmlSha256: hash, verification: "pending", createdAt: "2026-11-03T10:00:00Z" }
-const requests: { url: string; method: string; tenant?: string; authorization?: string; command?: string }[] = []
+const requests: { url: string; method: string; tenant?: string; authorization?: string; command?: string; revision?: string; body?: unknown }[] = []
 let mode: "ready" | "empty" | "forbidden" | "error" = "ready"
 let corrupt = false
 let paginated = false
@@ -27,16 +27,52 @@ let releaseInspection: (() => void) | null = null
 let activeTenant = tenant
 let activeSubject = "cte-actor-a"
 let canRead = true
+const carrierId = "55555555-5555-4555-8555-555555555555"
+const orderId = "66666666-6666-4666-8666-666666666666"
+const commercialLinkId = "77777777-7777-4777-8777-777777777777"
+let commercialRevision = 1
+let commercialAllowed = true
+let commercialRows: Record<string, unknown>[] = []
+function commercialView() {
+  return { tenantId: tenant, documentId, inspectionId: "44444444-4444-4444-8444-444444444444", sourceXmlSha256: hash, revision: commercialRevision, serviceCents: "15001", allocatedCents: commercialRows.length ? "15001" : "0", canLinkPurchase: commercialAllowed, canLinkSale: commercialAllowed, carrier: { partyId: carrierId, taxId: inspectionFacts.carrier.value, name: "Transportadora cadastrada", ownCompany: false, available: true }, data: commercialRows }
+}
 function releaseHeldInspection() { const release = releaseInspection; releaseInspection = null; release?.() }
 
 const upstream = createServer((request, response) => {
-  requests.push({ url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization, command: request.headers["idempotency-key"] as string })
+  const observed: (typeof requests)[number] = { url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization, command: request.headers["idempotency-key"] as string, revision: request.headers["if-match"] as string }
+  requests.push(observed)
   response.setHeader("Content-Type", "application/json")
   if (mode === "forbidden" || mode === "error") {
     response.statusCode = mode === "forbidden" ? 403 : 503
     return response.end(JSON.stringify({ title: mode === "forbidden" ? "Sem permissão para consultar CT-e" : "Leitura CT-e indisponível" }))
   }
   const url = new URL(request.url || "/", origin)
+  const commercialBase = `/api/v1/fiscal/cte-distribution/documents/${documentId}`
+  if (url.pathname === `${commercialBase}/commercial-links` && request.method === "GET") {
+    response.setHeader("ETag", `"${commercialRevision}"`)
+    return response.end(JSON.stringify(commercialView()))
+  }
+  if (url.pathname === `${commercialBase}/commercial-options` && request.method === "GET") {
+    const kind = url.searchParams.get("kind") || "purchase"
+    return response.end(JSON.stringify({ tenantId: tenant, documentId, sourceXmlSha256: hash, kind, offset: 0, limit: 25, total: 1, data: [{ id: orderId, counterpartyName: kind === "purchase" ? "Fornecedor sintético" : "Cliente sintético", counterpartyTaxId: "11222333000181", dueDate: "2026-11-10", amountCents: "50000", status: "confirmed", revision: 1 }] }))
+  }
+  if (request.method === "POST" && [
+    `${commercialBase}/commercial-links`, `${commercialBase}/commercial-links/${commercialLinkId}/unlink`,
+  ].includes(url.pathname)) {
+    void (async () => {
+      let bytes = ""
+      for await (const chunk of request) bytes += chunk.toString()
+      const input = JSON.parse(bytes)
+      observed.body = input
+      if (url.pathname.endsWith("/unlink")) commercialRows = []
+      else commercialRows = [{ id: commercialLinkId, kind: input.kind, orderId: input.orderId, carrierPartyId: input.carrierPartyId, carrierTaxId: inspectionFacts.carrier.value, carrierName: "Transportadora cadastrada", counterpartyName: input.kind === "purchase" ? "Fornecedor sintético" : "Cliente sintético", orderAmountCents: "50000", orderRevision: 1, freightCents: input.freightCents, reason: input.reason, createdAt: "2026-11-03T15:00:00Z", canUnlink: commercialAllowed, restricted: false }]
+      commercialRevision++
+      response.statusCode = url.pathname.endsWith("/unlink") ? 200 : 201
+      response.setHeader("ETag", `"${commercialRevision}"`)
+      response.end(JSON.stringify(commercialView()))
+    })().catch(() => { response.statusCode = 500; response.end(JSON.stringify({ title: "Fixture inválida" })) })
+    return
+  }
   if (url.pathname === "/api/v1/fiscal/cte-distribution/status") return response.end(JSON.stringify({ tenantId: tenant, environment: "homologation", companyTaxId: document.companyTaxId, lastNsu: document.nsu, maxNsu: document.nsu, revision: 2, nextQueryAt: "2026-11-03T12:00:00Z", lastCode, running: false, canQuery: true }))
   if (url.pathname === "/api/v1/fiscal/cte-distribution/documents") {
     const offset = Number(url.searchParams.get("offset") || 0)
@@ -68,9 +104,51 @@ test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(()
 test.beforeEach(async ({ context, page }) => {
   releaseHeldInspection()
   mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; inspectionAllowed = true; inspectionCorrupt = false; lostInspectionReply = false; holdInspection = null; activeTenant = tenant; activeSubject = "cte-actor-a"; canRead = true; requests.length = 0
+  commercialRevision = 1; commercialAllowed = true; commercialRows = []
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, identity: { subject: activeSubject }, permissions: [...(canRead ? ["fiscal.cte.read"] : []), "fiscal.cte.inspect"] } }))
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, identity: { subject: activeSubject }, permissions: [...(canRead ? ["fiscal.cte.read"] : []), "fiscal.cte.inspect", "catalog.parties.read", "purchasing.orders.read", "sales.orders.read", ...(commercialAllowed ? ["fiscal.cte.link"] : [])] } }))
+})
+
+test("vínculos CT-e BFF fixa empresa e encaminha revisão, chave e payload da conferência", async ({ context }) => {
+  const base = `/api/erp/fiscal/cte-distribution/documents/${documentId}`
+  const headers = { "X-Tenant-Id": tenant, Origin: origin, "If-Match": '"1"', "Idempotency-Key": "88888888-8888-4888-8888-888888888888" }
+  expect((await context.request.get(`${base}/commercial-links`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${base}/commercial-links`)).status()).toBe(409)
+  expect((await context.request.get(`${base}/commercial-options?kind=purchase&offset=0&limit=25`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${base}/commercial-options?kind=purchase&environment=production`, { headers })).status()).toBe(400)
+  const data = { kind: "purchase", orderId, carrierPartyId: carrierId, freightCents: "15001", reason: "Conferência explícita do pedido" }
+  expect((await context.request.post(`${base}/commercial-links`, { headers: { ...headers, Origin: "https://outside.example" }, data })).status()).toBe(403)
+  expect((await context.request.post(`${base}/commercial-links`, { headers, data })).status()).toBe(201)
+  expect((await context.request.post(`${base}/commercial-links/${commercialLinkId}/unlink`, { headers: { ...headers, "If-Match": '"2"' }, data: { reason: "Corrigir a associação" } })).status()).toBe(200)
+  expect(requests).toHaveLength(4)
+  const writes = requests.filter(value => value.method === "POST")
+  expect(writes[0].body).toEqual(data)
+  expect(writes[0].revision).toBe('"1"')
+  expect(writes[1].revision).toBe('"2"')
+  expect(writes.every(value => value.command === headers["Idempotency-Key"] && value.tenant === tenant)).toBe(true)
+})
+
+test("central CT-e associa frete a compra conferida e desfaz sem criar operação financeira", async ({ page }) => {
+  inspected = true
+  await page.goto("/fiscal/ctes")
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await page.getByRole("button", { name: "Ver vínculos comerciais" }).click()
+  const panel = page.getByRole("region", { name: "Vínculos comerciais do CT-e" })
+  await panel.getByRole("button", { name: "Selecionar compra", exact: true }).click()
+  await panel.getByRole("button", { name: /Selecionar compra.*Fornecedor sintético/ }).click()
+  await panel.getByLabel("Frete associado (R$)", { exact: true }).fill("150,01")
+  await panel.getByLabel("Motivo da conferência", { exact: true }).fill("Conferi a compra e os documentos transportados")
+  await panel.getByLabel("Conferi a transportadora e o pedido", { exact: true }).check()
+  await panel.getByRole("button", { name: "Confirmar vínculo", exact: true }).click()
+  await expect(panel.getByRole("status").filter({ hasText: "Vínculo comercial registrado" })).toBeVisible()
+  await expect(panel.getByText("Fornecedor sintético", { exact: true })).toBeVisible()
+  await panel.getByRole("button", { name: "Desfazer vínculo", exact: true }).click()
+  await panel.getByLabel("Motivo do desfazimento", { exact: true }).fill("Corrigir a compra selecionada")
+  await panel.getByRole("button", { name: "Confirmar desfazimento", exact: true }).click()
+  await expect(panel.getByRole("status").filter({ hasText: "Vínculo desfeito" })).toBeVisible()
+  await expect(panel.getByRole("button", { name: "Desfazer vínculo", exact: true })).toHaveCount(0)
+  expect(requests.filter(value => value.method === "POST").map(value => value.url)).toEqual([`/api/v1/fiscal/cte-distribution/documents/${documentId}/commercial-links`, `/api/v1/fiscal/cte-distribution/documents/${documentId}/commercial-links/${commercialLinkId}/unlink`])
 })
 
 test("conferência CT-e BFF fixa empresa e protege a escrita local por sessão e origem", async ({ context }) => {

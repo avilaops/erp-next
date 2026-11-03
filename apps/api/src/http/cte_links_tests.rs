@@ -897,7 +897,13 @@ async fn cte_links_hide_order_details_after_domain_read_permission_is_revoked(ad
     let link = &current.2["data"][0];
     assert_eq!(link["restricted"], true);
     assert_eq!(link["canUnlink"], false);
-    for field in ["orderId", "counterpartyName", "orderAmountCents", "orderRevision", "reason"] {
+    for field in [
+        "orderId",
+        "counterpartyName",
+        "orderAmountCents",
+        "orderRevision",
+        "reason",
+    ] {
         assert_eq!(link[field], Value::Null, "restricted {field}");
     }
     cleanup(&admin, pool, auth, &role).await;

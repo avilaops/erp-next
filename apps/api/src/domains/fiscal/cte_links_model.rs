@@ -71,17 +71,18 @@ pub struct CteCarrierChoice {
 pub struct CteCommercialLink {
     pub id: Uuid,
     pub kind: CteLinkKind,
-    pub order_id: Uuid,
+    pub order_id: Option<Uuid>,
     pub carrier_party_id: Option<Uuid>,
     pub carrier_tax_id: String,
     pub carrier_name: String,
-    pub counterparty_name: String,
-    pub order_amount_cents: String,
-    pub order_revision: i64,
+    pub counterparty_name: Option<String>,
+    pub order_amount_cents: Option<String>,
+    pub order_revision: Option<i64>,
     pub freight_cents: String,
-    pub reason: String,
+    pub reason: Option<String>,
     pub created_at: String,
     pub can_unlink: bool,
+    pub restricted: bool,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]

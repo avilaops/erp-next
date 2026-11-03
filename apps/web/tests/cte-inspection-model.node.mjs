@@ -13,9 +13,11 @@ test("CT-e current access rejects revoked read permission and a different actor 
   const current = { tenant: { id: tenant, legalName: "Empresa sintética" }, identity: { subject: "actor-a" }, permissions: ["fiscal.cte.read"] };
   const expected = { id: tenant, subject: "actor-a" };
   assert.equal(model.parseCteAccess(current, expected).subject, "actor-a");
+  assert.deepEqual(model.parseCteAccess(current, expected).permissions, ["fiscal.cte.read"]);
   for (const change of [
     value => { value.permissions = []; },
     value => { value.permissions = ["fiscal.cte.inspect"]; },
+    value => { value.permissions = ["fiscal.cte.read", 1]; },
     value => { value.identity.subject = "actor-b"; },
     value => { value.tenant.id = selected.id; },
     value => { delete value.identity; },

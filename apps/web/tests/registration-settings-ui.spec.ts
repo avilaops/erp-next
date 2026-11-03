@@ -16,6 +16,10 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/cadastros/perfis-tributarios")
+  await expect(
+    page.getByRole("button", { name: "Preencher os dois perfis informados pelo contador da Ludus" })
+  ).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page
     .getByRole("button", { name: "Preencher os dois perfis informados pelo contador da Ludus" })
     .click()

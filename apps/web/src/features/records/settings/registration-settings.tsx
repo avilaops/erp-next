@@ -200,6 +200,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                   <Button
                     type="button"
                     variant="outline"
+                    className="h-auto min-h-11 max-w-full whitespace-normal text-left"
                     onClick={() => setData({ ...data, profiles: ludusProfiles() })}
                   >
                     Preencher os dois perfis informados pelo contador da Ludus

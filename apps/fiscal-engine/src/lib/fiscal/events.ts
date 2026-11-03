@@ -1,5 +1,5 @@
 import { ACCESS_KEY_PATTERN, NfeError, UF_CODES } from "@/lib/fiscal/nfe";
-import { SefazError } from "@/lib/fiscal/sefaz";
+import { configuredNfeUrl, SefazError } from "@/lib/fiscal/sefaz";
 
 /**
  * The events of an authorised NF-e the company itself registers: cancellation
@@ -11,17 +11,8 @@ const NFE_NS = "http://www.portalfiscal.inf.br/nfe";
 const WSDL = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4";
 export const EVENT_ACTION = `${WSDL}/nfeRecepcaoEvento`;
 
-const EVENT_URLS: Record<string, { homologacao: string; producao: string }> = {
-  SP: {
-    homologacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
-    producao: "https://nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
-  },
-};
-
 export function eventUrl(uf: string, environment: "homologacao" | "producao"): string {
-  const urls = EVENT_URLS[uf];
-  if (!urls) throw new SefazError(`Cancelamento e carta de correção ainda não estão configurados para empresas de ${uf || "estado não informado"}: só São Paulo.`);
-  return urls[environment];
+  return configuredNfeUrl(uf, environment, "eventos");
 }
 
 /** The text the layout demands, word for word, in every correction letter. */

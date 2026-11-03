@@ -330,9 +330,29 @@ async fn cte_distribution_persists_atomically_replays_and_isolates_xml(admin: Pg
     )
     .await;
     assert_eq!(document.1["xml"], EVENT);
-    assert_eq!(sqlx::query_scalar::<_,String>("SELECT xml FROM fiscal_cte_distribution_documents WHERE nsu='000000000000001'").fetch_one(&admin).await.unwrap(), XML);
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT xml FROM fiscal_cte_distribution_documents WHERE nsu='000000000000001'"
+        )
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        XML
+    );
     sqlx::raw_sql("INSERT INTO roles(id,tenant_id,code,name) VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','22222222-2222-4222-8222-222222222222','cte-reader','CT-e Reader'); INSERT INTO tenant_memberships(id,tenant_id,identity_id,status) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','active'); INSERT INTO role_permissions(role_id,permission_code) VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','fiscal.cte.read'); INSERT INTO membership_roles(membership_id,role_id) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','dddddddd-dddd-4ddd-8ddd-dddddddddddd');").execute(&admin).await.unwrap();
-    assert_eq!(call(&router,"GET",&format!("{BASE}/documents/{id}"),OTHER_TENANT,None,None).await.0,StatusCode::NOT_FOUND);
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &format!("{BASE}/documents/{id}"),
+            OTHER_TENANT,
+            None,
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(
         call(
             &router,
@@ -545,43 +565,143 @@ async fn cte_worker_respects_the_durable_pause_and_current_permissions(admin: Pg
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn cte_distribution_recovers_an_expired_run_without_advancing_its_source(admin: PgPool) {
-    let (_,application,auth,role)=setup(&admin).await;
-    let (router,_,tasks,calls)=services(&admin,&application,"empty").await;
-    let key=Uuid::now_v7();
-    let first=call(&router,"POST",&format!("{BASE}/query"),TENANT,Some(key),Some(1)).await;
-    assert_eq!(first.0,StatusCode::OK,"{}",first.1);
-    let id=Uuid::parse_str(first.1["runId"].as_str().unwrap()).unwrap();
+    let (_, application, auth, role) = setup(&admin).await;
+    let (router, _, tasks, calls) = services(&admin, &application, "empty").await;
+    let key = Uuid::now_v7();
+    let first = call(
+        &router,
+        "POST",
+        &format!("{BASE}/query"),
+        TENANT,
+        Some(key),
+        Some(1),
+    )
+    .await;
+    assert_eq!(first.0, StatusCode::OK, "{}", first.1);
+    let id = Uuid::parse_str(first.1["runId"].as_str().unwrap()).unwrap();
     sqlx::query("UPDATE fiscal_cte_distribution_runs SET status='running',result=NULL,completed_at=NULL WHERE id=$1").bind(id).execute(&admin).await.unwrap();
     sqlx::query("UPDATE fiscal_cte_distribution_state SET lease_id=$1,lease_until=clock_timestamp()-interval '1 minute',next_query_at=clock_timestamp()-interval '1 minute'").bind(id).execute(&admin).await.unwrap();
-    let second=call(&router,"POST",&format!("{BASE}/query"),TENANT,Some(Uuid::now_v7()),Some(3)).await;
-    assert_eq!(second.0,StatusCode::OK,"{}",second.1);
-    assert_eq!(second.1["lastNsu"],"000000000000000");
-    assert_eq!(calls.load(Ordering::SeqCst),2);
-    let old=call(&router,"GET",&format!("{BASE}/runs/{id}"),TENANT,None,None).await;
-    assert_eq!(old.1["status"],"unknown");
-    let replay=call(&router,"POST",&format!("{BASE}/query"),TENANT,Some(key),Some(1)).await;
-    assert_eq!(replay.1["status"],"unknown"); assert_eq!(calls.load(Ordering::SeqCst),2);
-    sqlx::query("UPDATE tenants SET tax_id='11222333000181' WHERE id=$1::uuid").bind(TENANT).execute(&admin).await.unwrap();
-    assert_eq!(call(&router,"POST",&format!("{BASE}/query"),TENANT,Some(Uuid::now_v7()),Some(5)).await.0,StatusCode::CONFLICT);
-    assert_eq!(calls.load(Ordering::SeqCst),2);
-    for task in tasks {task.abort();} cleanup(&admin,application,auth,&role).await;
+    let second = call(
+        &router,
+        "POST",
+        &format!("{BASE}/query"),
+        TENANT,
+        Some(Uuid::now_v7()),
+        Some(3),
+    )
+    .await;
+    assert_eq!(second.0, StatusCode::OK, "{}", second.1);
+    assert_eq!(second.1["lastNsu"], "000000000000000");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    let old = call(
+        &router,
+        "GET",
+        &format!("{BASE}/runs/{id}"),
+        TENANT,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(old.1["status"], "unknown");
+    let replay = call(
+        &router,
+        "POST",
+        &format!("{BASE}/query"),
+        TENANT,
+        Some(key),
+        Some(1),
+    )
+    .await;
+    assert_eq!(replay.1["status"], "unknown");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    sqlx::query("UPDATE tenants SET tax_id='11222333000181' WHERE id=$1::uuid")
+        .bind(TENANT)
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            &format!("{BASE}/query"),
+            TENANT,
+            Some(Uuid::now_v7()),
+            Some(5)
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    for task in tasks {
+        task.abort();
+    }
+    cleanup(&admin, application, auth, &role).await;
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn cte_distribution_upgrade_preserves_forced_rls_and_append_only_runtime_grants(admin: PgPool) {
-    let (_,application,auth,role)=setup(&admin).await;
-    let bootstrap=include_str!("../../../../deploy/bootstrap.sql").lines().filter(|line| !line.starts_with('\\')).collect::<Vec<_>>().join("\n")
-        .replace(":'tenant'", "'11111111-1111-4111-8111-111111111111'").replace(":'admin_sub'", "'editor'").replace(":'admin_email'", "'editor@example.test'").replace("erp_next_app",&role);
+async fn cte_distribution_upgrade_preserves_forced_rls_and_append_only_runtime_grants(
+    admin: PgPool,
+) {
+    let (_, application, auth, role) = setup(&admin).await;
+    let bootstrap = include_str!("../../../../deploy/bootstrap.sql")
+        .lines()
+        .filter(|line| !line.starts_with('\\'))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .replace(":'tenant'", "'11111111-1111-4111-8111-111111111111'")
+        .replace(":'admin_sub'", "'editor'")
+        .replace(":'admin_email'", "'editor@example.test'")
+        .replace("erp_next_app", &role);
     sqlx::raw_sql(&bootstrap).execute(&admin).await.unwrap();
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.code='administrator' AND rp.permission_code IN ('fiscal.cte.read','fiscal.cte.query')").fetch_one(&admin).await.unwrap(),0);
-    let script=include_str!("../../../../deploy/grant-cte-distribution.sql").replace("erp_next_app",&role).replace("\\set ON_ERROR_STOP on","");
+    let script = include_str!("../../../../deploy/grant-cte-distribution.sql")
+        .replace("erp_next_app", &role)
+        .replace("\\set ON_ERROR_STOP on", "");
     sqlx::raw_sql(&script).execute(&admin).await.unwrap();
-    for table in ["fiscal_cte_distribution_state","fiscal_cte_distribution_runs","fiscal_cte_distribution_documents"] {
-        assert!(sqlx::query_scalar::<_,bool>("SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=$1::regclass").bind(table).fetch_one(&admin).await.unwrap());
-        assert!(!sqlx::query_scalar::<_,bool>("SELECT has_table_privilege($1,$2,'DELETE')").bind(&role).bind(table).fetch_one(&admin).await.unwrap());
-        assert!(sqlx::query_scalar::<_,bool>("SELECT has_table_privilege($1,$2,'INSERT')").bind(&role).bind(table).fetch_one(&admin).await.unwrap());
+    for table in [
+        "fiscal_cte_distribution_state",
+        "fiscal_cte_distribution_runs",
+        "fiscal_cte_distribution_documents",
+    ] {
+        assert!(
+            sqlx::query_scalar::<_, bool>(
+                "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=$1::regclass"
+            )
+            .bind(table)
+            .fetch_one(&admin)
+            .await
+            .unwrap()
+        );
+        assert!(
+            !sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,'DELETE')")
+                .bind(&role)
+                .bind(table)
+                .fetch_one(&admin)
+                .await
+                .unwrap()
+        );
+        assert!(
+            sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,'INSERT')")
+                .bind(&role)
+                .bind(table)
+                .fetch_one(&admin)
+                .await
+                .unwrap()
+        );
     }
-    assert!(!sqlx::query_scalar::<_,bool>("SELECT has_table_privilege($1,'fiscal_cte_distribution_documents','UPDATE')").bind(&role).fetch_one(&admin).await.unwrap());
-    assert!(include_str!("../../../../.github/workflows/production-migrate.yml").contains("-f deploy/grant-cte-distribution.sql"));
-    cleanup(&admin,application,auth,&role).await;
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT has_table_privilege($1,'fiscal_cte_distribution_documents','UPDATE')"
+        )
+        .bind(&role)
+        .fetch_one(&admin)
+        .await
+        .unwrap()
+    );
+    assert!(
+        include_str!("../../../../.github/workflows/production-migrate.yml")
+            .contains("-f deploy/grant-cte-distribution.sql")
+    );
+    cleanup(&admin, application, auth, &role).await;
 }

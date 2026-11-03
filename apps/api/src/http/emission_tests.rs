@@ -472,6 +472,8 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
     .await;
     assert_eq!(issued.2, repeated.2);
     assert_eq!(calls.lock().unwrap().len(), 2);
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='fiscal.nfe.issue'")
+        .execute(&admin).await.unwrap();
     let revision = issued.1["etag"].to_str().unwrap();
     let correction = call(
         &router,
@@ -508,6 +510,21 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
     )
     .await;
     assert_eq!(cancellation.2["status"], "registered", "{}", cancellation.2);
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='fiscal.nfe.cancel'")
+        .execute(&admin).await.unwrap();
+    let calls_before_replay = calls.lock().unwrap().len();
+    let denied_replay = call(
+        &router,
+        "POST",
+        &cancel_uri,
+        "editor",
+        Some(current.1["etag"].to_str().unwrap()),
+        Some(cancel_key),
+        json!({"text":"Cancelamento sintético solicitado pelo cliente"}),
+    )
+    .await;
+    assert_eq!(denied_replay.0, StatusCode::FORBIDDEN);
+    assert_eq!(calls.lock().unwrap().len(), calls_before_replay);
     let final_doc = call(
         &router,
         "GET",

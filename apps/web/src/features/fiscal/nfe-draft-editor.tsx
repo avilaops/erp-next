@@ -159,7 +159,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
       {!canEdit && !error && <p className="text-sm">Seu acesso permite somente consultar este rascunho.</p>}
       <form onSubmit={event => void save(event)} className="space-y-6">
         <fieldset disabled={!editable} className="space-y-6 disabled:opacity-75">
-          {tenant && <TaxProfilePicker tenant={tenant} onApply={(profile,revision)=>setDraft(previous=>applyTaxProfile(previous,profile,revision))} />}
+          {tenant && <TaxProfilePicker key={tenant} tenant={tenant} onApply={(profile,revision)=>setDraft(previous=>applyTaxProfile(previous,profile,revision))} />}
           <section className="form-section grid gap-4 sm:grid-cols-2" aria-label="Operação fiscal">
             <Field label="Natureza da operação"><Input required maxLength={60} value={draft.operationNature} onChange={event => setDraft({ ...draft, operationNature: event.target.value })} /></Field>
             <Field label="Referência da instrução fiscal"><Input required maxLength={200} value={draft.taxRuleReference} onChange={event => setDraft({ ...draft, taxRuleReference: event.target.value })} /></Field>

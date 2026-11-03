@@ -34,6 +34,14 @@ pub struct ContactTypes {
 pub struct TaxProfiles {
     pub profiles: Vec<TaxProfile>,
 }
+#[derive(Deserialize, Serialize, utoipa::ToSchema)]
+#[serde(untagged)]
+pub enum RegistrationInput {
+    Products(ProductSettings),
+    Parties(PartySettings),
+    Contacts(ContactTypes),
+    Taxes(TaxProfiles),
+}
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistrationSnapshot {
@@ -149,7 +157,7 @@ async fn transaction<'a>(
     }
     Ok((tenant, tx, can_edit))
 }
-#[utoipa::path(get,path="/api/v1/registration-settings/{section}",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=RegistrationSnapshot),(status=403,description="Sem acesso")))]
+#[utoipa::path(get,path="/api/v1/registration-settings/{section}",operation_id="get_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=RegistrationSnapshot),(status=403,description="Sem acesso")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -171,17 +179,20 @@ pub async fn get(
         },
     ))
 }
-#[utoipa::path(put,path="/api/v1/registration-settings/{section}",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=Value,responses((status=200,body=RegistrationSnapshot),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
+#[utoipa::path(put,path="/api/v1/registration-settings/{section}",operation_id="put_registration_settings",tag="Catalog",security(("bearerAuth"=[])),params(("section"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=RegistrationInput,responses((status=200,body=RegistrationSnapshot),(status=412,description="Revisão alterada"),(status=422,description="Configuração inválida")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
     headers: HeaderMap,
     Path(section): Path<String>,
-    payload: Result<Json<Value>, JsonRejection>,
+    payload: Result<Json<RegistrationInput>, JsonRejection>,
 ) -> Result<Response, DomainError> {
     let expected = revision(&headers)?;
     let Json(value) = payload.map_err(|_| DomainError::Invalid("JSON inválido"))?;
-    let data = validate(&section, value)?;
+    let data = validate(
+        &section,
+        serde_json::to_value(value).map_err(|_| access::AccessError::Internal)?,
+    )?;
     let (tenant, mut tx, can_edit) =
         transaction(&state, &headers, &identity, &section, true).await?;
     let (current, _) = load(&mut tx, tenant, &section).await?;

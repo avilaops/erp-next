@@ -156,7 +156,7 @@ test("paginação CT-e preserva filtros permitidos e cinco tamanhos não cortam 
   for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [1280, 900], [1920, 1080]]) {
     await page.setViewportSize({ width, height })
     await expect(page.getByRole("button", { name: "Baixar XML original" })).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(await page.evaluate(() => window.document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath(`cte-${width}.png`), fullPage: true })
   }
   await page.getByRole("button", { name: "Arquivos anteriores" }).click()

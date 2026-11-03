@@ -50,7 +50,7 @@ test("browser callback failure offers a clean restart without exposing authentic
   // the local transport to render the real entry page without external DNS.
   await page.goto(`${server}${destination.pathname}${destination.search}`)
   await expect(page.getByRole("main").getByRole("alert")).toContainText("outro navegador")
-  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeVisible()
   expect(response.headers()["set-cookie"]).toContain("__Host-erp_auth=;")
   expect(response.headers()["set-cookie"]).not.toContain("__Host-erp_session")
 })
@@ -69,10 +69,10 @@ test("expired flow keeps its validated destination for a new attempt", async ({ 
     await page.setViewportSize({ width, height: 900 })
     await page.goto(`${server}${destination.pathname}${destination.search}`)
     await expect(page.getByRole("main").getByRole("alert")).toBeVisible()
-    await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue("/cadastros/produtos?pagina=2")
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: "/cadastros/produtos?pagina=2" }))
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    await page.getByRole("button", { name: "Entrar", exact: true }).focus()
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeFocused()
+    await page.getByRole("link", { name: "Entrar", exact: true }).focus()
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeFocused()
     await page.screenshot({ path: testInfo.outputPath(`reiniciar-acesso-${width}.png`), fullPage: true, caret: "initial" })
   }
 })

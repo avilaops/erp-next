@@ -68,12 +68,10 @@ async function LoginForm({ searchParams }: LoginProps) {
                 <h2 id="access-title" className="text-sm font-medium">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
-                    <form action="/api/auth/login" method="get">
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <button type="submit" aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
-                        Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
-                      </button>
-                    </form>
+                    {/* OIDC starts a document navigation; form redirects to Auth are blocked by form-action 'self'. */}
+                    <a href={"/api/auth/login?" + new URLSearchParams({ returnTo })} aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
+                      Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
+                    </a>
                     <Link href={"/criar-conta?" + new URLSearchParams({ returnTo })} prefetch={false} className="flex min-h-13 items-center justify-center rounded-xl border border-primary/30 bg-background px-5 py-3 text-base font-semibold text-primary transition-colors hover:bg-accent">
                       Criar minha conta
                     </Link>

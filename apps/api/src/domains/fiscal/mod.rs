@@ -21,6 +21,8 @@ pub mod model;
 pub mod monitor;
 mod monitor_store;
 pub mod order_source;
+pub(crate) mod production_events;
+pub mod purchase_match;
 pub mod received;
 pub mod received_model;
 pub mod received_nfse;

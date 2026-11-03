@@ -68,6 +68,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::emission::events::cancel, fiscal::emission::events::correction, fiscal::emission::events::void_numbers,
         fiscal::emission::events::list, fiscal::emission::events::process_order_cancellation,
         fiscal::incoming::status, fiscal::incoming::documents, fiscal::incoming::document, fiscal::incoming::query,
+        fiscal::purchase_match::preview, fiscal::purchase_match::link,
         fiscal::cte_distribution::status, fiscal::cte_distribution::documents, fiscal::cte_distribution::document,
         fiscal::cte_distribution::query, fiscal::cte_distribution::run,
         fiscal::cte_inspection::get_inspection, fiscal::cte_inspection::inspect,
@@ -353,7 +354,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 159);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 161);
         assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
         for status in ["200", "401", "403", "409", "422"] {
             assert!(

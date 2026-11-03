@@ -49,6 +49,14 @@ pub fn routes() -> Router<AppState> {
             "/api/v1/fiscal/received-nfes/{id}/purchase",
             get(conversion).post(convert),
         )
+        .route(
+            "/api/v1/fiscal/received-nfes/{id}/purchase/preview",
+            post(super::purchase_match::preview),
+        )
+        .route(
+            "/api/v1/fiscal/received-nfes/{id}/purchase/match",
+            post(super::purchase_match::link),
+        )
 }
 
 type CursorRow = (i64, i64, i64, Option<String>, Option<String>, bool);
@@ -747,8 +755,8 @@ fn manifestation_status(reply: Option<&Value>) -> &'static str {
 #[derive(Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ItemMapping {
-    item_number: i32,
-    product_id: Uuid,
+    pub(super) item_number: i32,
+    pub(super) product_id: Uuid,
 }
 #[derive(Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -840,6 +848,15 @@ pub async fn convert(
             DomainError::Conflict("Destinatário ou ambiente não corresponde à empresa").into(),
         );
     }
+    let source_key: String = sqlx::query_scalar(
+        "SELECT access_key FROM fiscal_received_nfes WHERE tenant_id=$1 AND id=$2",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    super::production_events::ensure_operable(&mut tx, tenant, &source_key, environment).await?;
     let supplier:String=sqlx::query_scalar("SELECT tax_id FROM parties WHERE tenant_id=$1 AND id=$2 AND is_supplier AND status='active'").bind(tenant).bind(request.supplier_id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Selecione fornecedor ativo desta empresa"))?;
     if supplier != issuer {
         return Err(DomainError::Conflict("Fornecedor mapeado não corresponde ao emitente").into());

@@ -80,7 +80,7 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   sintético da sessão testa a divergência de empresa no BFF. A confirmação de
   sessão atrasada testa nova edição e bloqueio de dispensa durante o preenchimento.
 - Exportação OpenAPI e rustfmt dos arquivos alterados passaram. Contrato possui
-  144 operações; superfície web possui 332 rotas, verificada sem erros.
+  144 caminhos; superfície web possui 332 rotas, verificada sem erros.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings`, tipos e lint
   dos arquivos web alterados passaram. Build Next.js de produção passou.
 - Revisão independente encontrou troca de sessão e dispensa durante confirmação;

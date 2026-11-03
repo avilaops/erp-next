@@ -13,7 +13,7 @@ const xml = readFileSync(resolve("../api/src/http/fixtures/cte-received.xml"), "
 const inspectionFacts = JSON.parse(readFileSync(resolve("../api/src/http/fixtures/cte-received-inspection.json"), "utf8"))
 const hash = createHash("sha256").update(xml).digest("hex")
 const document = { id: documentId, runId, environment: "homologation", companyTaxId: "04252011000110", nsu: "000000000000001", schema: "procCTe_v4.00.xsd", kind: "full", xmlSha256: hash, verification: "pending", createdAt: "2026-11-03T10:00:00Z" }
-const requests: { url: string; method: string; tenant?: string; authorization?: string; command?: string; revision?: string; body?: unknown }[] = []
+const requests: { url: string; method: string; tenant?: string; authorization?: string; command?: string; revision?: string; actor?: string; body?: unknown }[] = []
 let mode: "ready" | "empty" | "forbidden" | "error" = "ready"
 let corrupt = false
 let paginated = false
@@ -39,6 +39,10 @@ let commercialMode: "ready" | "lost" | "conflict" = "ready"
 let holdCommercial: "GET" | "POST" | null = null
 let releaseCommercial: (() => void) | null = null
 let commercialRows: Record<string, unknown>[] = []
+let commercialCommands = new Set<string>()
+let swapActorOnVerification = 0
+let accessFailure: "none" | "503" | "network" = "none"
+let failAccessAfterCommercialPost: "none" | "503" | "network" = "none"
 function commercialView() {
   const data = commercialRows.map(row => !commercialPurchaseRead && row.kind === "purchase" ? { ...row, restricted: true, canUnlink: false, orderId: null, counterpartyName: null, orderAmountCents: null, orderRevision: null, reason: null } : { ...row, canUnlink: commercialAllowed })
   return { tenantId: tenant, documentId, inspectionId: "44444444-4444-4444-8444-444444444444", sourceXmlSha256: commercialCorrupt ? "0".repeat(64) : hash, revision: commercialRevision, serviceCents: "15001", allocatedCents: commercialRows.length ? "15001" : "0", canLinkPurchase: commercialAllowed && commercialPurchaseRead, canLinkSale: commercialAllowed, carrier: { partyId: commercialCarrierAvailable ? carrierId : null, taxId: inspectionFacts.carrier.value, name: "Transportadora cadastrada", ownCompany: false, available: commercialCarrierAvailable }, data }
@@ -67,7 +71,7 @@ async function prepareCommercial(page: Page) {
 function releaseHeldInspection() { const release = releaseInspection; releaseInspection = null; release?.() }
 
 const upstream = createServer((request, response) => {
-  const observed: (typeof requests)[number] = { url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization, command: request.headers["idempotency-key"] as string, revision: request.headers["if-match"] as string }
+  const observed: (typeof requests)[number] = { url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization, command: request.headers["idempotency-key"] as string, revision: request.headers["if-match"] as string, actor: request.headers["x-actor-subject"] as string }
   requests.push(observed)
   response.setHeader("Content-Type", "application/json")
   if (mode === "forbidden" || mode === "error") {
@@ -94,6 +98,14 @@ const upstream = createServer((request, response) => {
       for await (const chunk of request) bytes += chunk.toString()
       const input = JSON.parse(bytes)
       observed.body = input
+      const actualSubject = request.headers.authorization === "Bearer frontend-integration-fixture-b" ? "cte-actor-b" : "cte-actor-a"
+      if (observed.actor && observed.actor !== Buffer.from(actualSubject).toString("base64url")) {
+        response.statusCode = 409
+        response.end(JSON.stringify({ title: "O usuário que conferiu mudou; nenhum vínculo foi aplicado" }))
+        return
+      }
+      const command = `${actualSubject}:${observed.command}`
+      if (commercialCommands.has(command)) { response.end(JSON.stringify(commercialView())); return }
       if (commercialMode !== "ready") {
         response.statusCode = commercialMode === "lost" ? 503 : 412
         if (commercialMode === "conflict") commercialRevision++
@@ -103,9 +115,11 @@ const upstream = createServer((request, response) => {
       if (url.pathname.endsWith("/unlink")) commercialRows = []
       else commercialRows = [{ id: commercialLinkId, kind: input.kind, orderId: input.orderId, carrierPartyId: input.carrierPartyId, carrierTaxId: inspectionFacts.carrier.value, carrierName: "Transportadora cadastrada", counterpartyName: input.kind === "purchase" ? "Fornecedor sintético" : "Cliente sintético", orderAmountCents: "50000", orderRevision: 1, freightCents: input.freightCents, reason: input.reason, createdAt: "2026-11-03T15:00:00Z", canUnlink: commercialAllowed, restricted: false }]
       commercialRevision++
+      commercialCommands.add(command)
       response.statusCode = url.pathname.endsWith("/unlink") ? 200 : 201
       response.setHeader("ETag", `"${commercialRevision}"`)
       const snapshot = commercialView()
+      if (failAccessAfterCommercialPost !== "none") accessFailure = failAccessAfterCommercialPost
       if (holdCommercial === "POST") { releaseCommercial = () => response.end(JSON.stringify(snapshot)); return }
       response.end(JSON.stringify(snapshot))
     })().catch(() => { response.statusCode = 500; response.end(JSON.stringify({ title: "Fixture inválida" })) })
@@ -143,15 +157,25 @@ test.beforeEach(async ({ context, page }) => {
   releaseHeldInspection()
   releaseHeldCommercial()
   mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; inspectionAllowed = true; inspectionCorrupt = false; lostInspectionReply = false; holdInspection = null; activeTenant = tenant; activeSubject = "cte-actor-a"; canRead = true; requests.length = 0
-  commercialRevision = 1; commercialAllowed = true; commercialPurchaseRead = true; commercialCarrierAvailable = true; commercialCorrupt = false; commercialMode = "ready"; holdCommercial = null; commercialRows = []
+  commercialRevision = 1; commercialAllowed = true; commercialPurchaseRead = true; commercialCarrierAvailable = true; commercialCorrupt = false; commercialMode = "ready"; holdCommercial = null; commercialRows = []; commercialCommands = new Set(); swapActorOnVerification = 0; accessFailure = "none"; failAccessAfterCommercialPost = "none"
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, identity: { subject: activeSubject }, permissions: [...(canRead ? ["fiscal.cte.read"] : []), "fiscal.cte.inspect", "catalog.parties.read", ...(commercialPurchaseRead ? ["purchasing.orders.read"] : []), "sales.orders.read", ...(commercialAllowed ? ["fiscal.cte.link"] : [])] } }))
+  await page.route("**/api/erp/me", async route => {
+    if (accessFailure === "503") return route.fulfill({ status: 503, json: { title: "Acesso temporariamente indisponível" } })
+    if (accessFailure === "network") return route.abort("failed")
+    const snapshot = { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, identity: { subject: activeSubject }, permissions: [...(canRead ? ["fiscal.cte.read"] : []), "fiscal.cte.inspect", "catalog.parties.read", ...(commercialPurchaseRead ? ["purchasing.orders.read"] : []), "sales.orders.read", ...(commercialAllowed ? ["fiscal.cte.link"] : [])] }
+    if (swapActorOnVerification > 0 && --swapActorOnVerification === 0) {
+      activeSubject = "cte-actor-b"
+      await installFrontendFixture(context, origin, tenant, "frontend-integration-fixture-b")
+      await context.unroute("**/api/erp/**")
+    }
+    return route.fulfill({ json: snapshot })
+  })
 })
 
 test("vínculos CT-e BFF fixa empresa e encaminha revisão, chave e payload da conferência", async ({ context }) => {
   const base = `/api/erp/fiscal/cte-distribution/documents/${documentId}`
-  const headers = { "X-Tenant-Id": tenant, Origin: origin, "If-Match": '"1"', "Idempotency-Key": "88888888-8888-4888-8888-888888888888" }
+  const headers = { "X-Tenant-Id": tenant, Origin: origin, "If-Match": '"1"', "Idempotency-Key": "88888888-8888-4888-8888-888888888888", "X-Actor-Subject": "Y3RlLWFjdG9yLWE" }
   expect((await context.request.get(`${base}/commercial-links`, { headers })).status()).toBe(200)
   expect((await context.request.get(`${base}/commercial-links`)).status()).toBe(409)
   expect((await context.request.get(`${base}/commercial-options?kind=purchase&offset=0&limit=25`, { headers })).status()).toBe(200)
@@ -159,13 +183,14 @@ test("vínculos CT-e BFF fixa empresa e encaminha revisão, chave e payload da c
   const data = { kind: "purchase", orderId, carrierPartyId: carrierId, freightCents: "15001", reason: "Conferência explícita do pedido" }
   expect((await context.request.post(`${base}/commercial-links`, { headers: { ...headers, Origin: "https://outside.example" }, data })).status()).toBe(403)
   expect((await context.request.post(`${base}/commercial-links`, { headers, data })).status()).toBe(201)
-  expect((await context.request.post(`${base}/commercial-links/${commercialLinkId}/unlink`, { headers: { ...headers, "If-Match": '"2"' }, data: { reason: "Corrigir a associação" } })).status()).toBe(200)
+  expect((await context.request.post(`${base}/commercial-links/${commercialLinkId}/unlink`, { headers: { ...headers, "If-Match": '"2"', "Idempotency-Key": "99999999-9999-4999-8999-999999999999" }, data: { reason: "Corrigir a associação" } })).status()).toBe(200)
   expect(requests).toHaveLength(4)
   const writes = requests.filter(value => value.method === "POST")
   expect(writes[0].body).toEqual(data)
   expect(writes[0].revision).toBe('"1"')
   expect(writes[1].revision).toBe('"2"')
-  expect(writes.every(value => value.command === headers["Idempotency-Key"] && value.tenant === tenant)).toBe(true)
+  expect(writes.map(value => value.command)).toEqual([headers["Idempotency-Key"], "99999999-9999-4999-8999-999999999999"])
+  expect(writes.every(value => value.actor === "Y3RlLWFjdG9yLWE" && value.tenant === tenant)).toBe(true)
 })
 
 test("central CT-e associa frete a compra conferida e desfaz sem criar operação financeira", async ({ page }) => {
@@ -204,6 +229,41 @@ test("vínculo CT-e incerto repete exatamente chave, revisão e payload já conf
   expect(writes[1].body).toEqual(writes[0].body)
   expect(writes[1].command).toBe(writes[0].command)
   expect(writes[1].revision).toBe(writes[0].revision)
+})
+
+test("vínculo CT-e impede escrita por outro usuário entre a conferência e o BFF", async ({ page }) => {
+  inspected = true
+  const panel = await prepareCommercial(page)
+  // The second verification is the client's final preflight; return its captured A
+  // response after replacing the real encrypted session cookie with B.
+  swapActorOnVerification = 2
+  await panel.getByRole("button", { name: "Confirmar vínculo", exact: true }).click()
+  await expect(page.getByRole("alert").filter({ hasText: /usuário/ })).toBeVisible()
+  const writes = requests.filter(value => value.method === "POST")
+  expect(writes).toHaveLength(1)
+  expect(writes[0].authorization).toBe("Bearer frontend-integration-fixture-b")
+  expect(writes[0].actor).toBe("Y3RlLWFjdG9yLWE")
+  expect(commercialRows).toHaveLength(0)
+  await expect(page.getByRole("status").filter({ hasText: "Vínculo comercial registrado" })).toHaveCount(0)
+})
+
+for (const failure of ["503", "network"] as const) test(`vínculo CT-e conserva comando após falha ${failure} no acesso posterior ao POST`, async ({ page }) => {
+  inspected = true
+  const panel = await prepareCommercial(page)
+  failAccessAfterCommercialPost = failure
+  await panel.getByRole("button", { name: "Confirmar vínculo", exact: true }).click()
+  await expect(panel.getByRole("button", { name: "Repetir confirmação", exact: true })).toBeVisible()
+  await expect(page.getByText("Fornecedor sintético", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Empresa CT-e sintética", { exact: true })).toHaveCount(0)
+  accessFailure = "none"; failAccessAfterCommercialPost = "none"
+  await panel.getByRole("button", { name: "Repetir confirmação", exact: true }).click()
+  await expect(panel.getByRole("status").filter({ hasText: "Vínculo comercial registrado" })).toBeVisible()
+  const writes = requests.filter(value => value.method === "POST")
+  expect(writes).toHaveLength(2)
+  expect(writes[0].body).toEqual(writes[1].body)
+  expect(writes[0].revision).toBe(writes[1].revision)
+  expect(writes[0].command).toBe(writes[1].command)
+  expect(writes[0].actor).toBe(writes[1].actor)
 })
 
 test("conflito de vínculo CT-e preserva edição e exige nova conferência na revisão atual", async ({ page }) => {

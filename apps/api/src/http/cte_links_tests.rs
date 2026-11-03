@@ -951,7 +951,11 @@ async fn cte_links_require_the_identity_that_reviewed_the_command_before_any_wri
         }
         let result = router
             .clone()
-            .oneshot(request.body(Body::from(input(&f, "purchase", "15001").to_string())).unwrap())
+            .oneshot(
+                request
+                    .body(Body::from(input(&f, "purchase", "15001").to_string()))
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(result.status(), StatusCode::CONFLICT);
@@ -961,9 +965,24 @@ async fn cte_links_require_the_identity_that_reviewed_the_command_before_any_wri
         "SELECT count(*) FROM domain_commands",
         "SELECT count(*) FROM audit_log WHERE entity_type='fiscal_cte_commercial_link'",
     ] {
-        assert_eq!(sqlx::query_scalar::<_, i64>(sql).fetch_one(&admin).await.unwrap(), 0);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(sql)
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            0
+        );
     }
-    let created = call(&router, "POST", &path, TENANT, Some(1), Some(Uuid::now_v7()), input(&f, "purchase", "15001")).await;
+    let created = call(
+        &router,
+        "POST",
+        &path,
+        TENANT,
+        Some(1),
+        Some(Uuid::now_v7()),
+        input(&f, "purchase", "15001"),
+    )
+    .await;
     assert_eq!(created.0, StatusCode::CREATED);
     let link = created.2["data"][0]["id"].as_str().unwrap();
     let request = Request::builder()
@@ -975,8 +994,20 @@ async fn cte_links_require_the_identity_that_reviewed_the_command_before_any_wri
         .header("content-type", "application/json")
         .header("if-match", "\"2\"")
         .header("idempotency-key", Uuid::now_v7().to_string())
-        .body(Body::from(json!({"reason":"Decisão de outra pessoa"}).to_string())).unwrap();
-    assert_eq!(router.oneshot(request).await.unwrap().status(), StatusCode::CONFLICT);
-    assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_cte_commercial_unlinks").fetch_one(&admin).await.unwrap(), 0);
+        .body(Body::from(
+            json!({"reason":"Decisão de outra pessoa"}).to_string(),
+        ))
+        .unwrap();
+    assert_eq!(
+        router.oneshot(request).await.unwrap().status(),
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_cte_commercial_unlinks")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
     cleanup(&admin, pool, auth, &role).await;
 }

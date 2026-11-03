@@ -40,6 +40,12 @@ O objetivo dos seis tickets continua integral, incluindo homologação externa.
 - Usar Idempotency-Key e If-Match da revisão agregada do documento. Serializar
   comandos pelo lock de tenant existente; conferir alvo atual dentro da mesma
   transação. Resposta incerta deve permitir repetir exatamente o comando.
+- O comando envia `X-Actor-Subject` (sujeito esperado em UTF-8/base64url sem
+  padding). A API compara com a identidade autenticada antes de ler a fonte
+  ou aplicar efeito. O header restringe a operação e nunca escolhe seu autor.
+- Falha transitória ao confirmar `/me` oculta os dados e bloqueia novas ações,
+  conservando chave/revisão/payload do comando incerto até revalidar o mesmo
+  contexto. Troca/revogação comprovada descarta esse contexto.
 - Persistir vínculo/desfazimento, comando, auditoria e outbox atomicamente.
   RLS forçada, FKs compostas por tenant e registros append-only.
 - Na tela, revalidar tenant, usuário e permissões atuais antes/depois do I/O;

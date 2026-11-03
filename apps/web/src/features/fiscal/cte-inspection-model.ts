@@ -17,15 +17,20 @@ const takerRoles = ["sender", "dispatcher", "receiver", "recipient", "other"]
 const fail = () => new Error("A conferência não corresponde ao arquivo ou à empresa selecionada. Atualize os arquivos")
 
 export type CteAccess = { id: string; legalName: string; subject: string; permissions: readonly string[] }
+export class CteAccessError extends Error {
+  readonly definitive: boolean
+  constructor(message: string, definitive = false) { super(message); this.name = "CteAccessError"; this.definitive = definitive }
+}
 export function parseCteAccess(value: unknown, expected?: Pick<CteAccess, "id" | "subject"> & Partial<Pick<CteAccess, "permissions">>): CteAccess {
   if (!record(value) || !record(value.tenant) || typeof value.tenant.id !== "string" || !uuid.test(value.tenant.id) || typeof value.tenant.legalName !== "string"
-    || !record(value.identity) || typeof value.identity.subject !== "string" || !value.identity.subject.trim()) throw new Error("Entre e selecione uma empresa antes de consultar CT-e")
-  if (!Array.isArray(value.permissions) || !value.permissions.every(p => typeof p === "string") || !value.permissions.includes("fiscal.cte.read")) throw new Error("Sem permissão atual para consultar CT-e. Atualize os arquivos")
+    || !record(value.identity) || typeof value.identity.subject !== "string" || !value.identity.subject.trim()) throw new CteAccessError("Não foi possível confirmar o acesso atual. Tente novamente")
+  if (!Array.isArray(value.permissions) || !value.permissions.every(p => typeof p === "string")) throw new CteAccessError("Não foi possível confirmar o acesso atual. Tente novamente")
+  if (!value.permissions.includes("fiscal.cte.read")) throw new CteAccessError("Sem permissão atual para consultar CT-e. Atualize os arquivos", true)
   const permissions = value.permissions
-  if (expected && value.tenant.id !== expected.id) throw new Error("A empresa da sessão mudou. Atualize os arquivos antes de continuar")
-  if (expected && value.identity.subject !== expected.subject) throw new Error("O usuário da sessão mudou. Atualize os arquivos antes de continuar")
+  if (expected && value.tenant.id !== expected.id) throw new CteAccessError("A empresa da sessão mudou. Atualize os arquivos antes de continuar", true)
+  if (expected && value.identity.subject !== expected.subject) throw new CteAccessError("O usuário da sessão mudou. Atualize os arquivos antes de continuar", true)
   const relevant = ["fiscal.cte.read", "fiscal.cte.inspect", "fiscal.cte.link", "catalog.parties.read", "purchasing.orders.read", "sales.orders.read"]
-  if (expected?.permissions?.some(p => relevant.includes(p) && !permissions.includes(p))) throw new Error("O acesso atual da sessão mudou. Atualize os arquivos antes de continuar")
+  if (expected?.permissions?.some(p => relevant.includes(p) && !permissions.includes(p))) throw new CteAccessError("O acesso atual da sessão mudou. Atualize os arquivos antes de continuar", true)
   return { id: value.tenant.id, legalName: value.tenant.legalName, subject: value.identity.subject, permissions: [...permissions] }
 }
 

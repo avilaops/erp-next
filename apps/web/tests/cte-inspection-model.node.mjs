@@ -69,6 +69,12 @@ test("CT-e money formatting preserves zero and all schema digits without floatin
   for (const value of ["", "01", "-1", "1.00", "1e2", "9999999999999999", 15001, null]) assert.throws(() => formatCteMoney(value));
 });
 
+test("CT-e access distinguishes a proven context change from an unconfirmed response", () => {
+  const current = { tenant: { id: tenant, legalName: "Empresa sintética" }, identity: { subject: "actor-b" }, permissions: ["fiscal.cte.read"] };
+  assert.throws(() => model.parseCteAccess(current, { id: tenant, subject: "actor-a" }), error => { assert.equal(error.definitive, true); return true; });
+  assert.throws(() => model.parseCteAccess(null), error => { assert.equal(error.definitive, false); return true; });
+});
+
 test("CT-e inspection displays all three and four digit protocol codes allowed by the pinned TStat schema", () => {
   for (const code of ["100", "999", "1000", "9999"]) {
     const value = reply(); value.data.document.protocol.code = code;

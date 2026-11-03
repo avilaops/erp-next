@@ -15,7 +15,7 @@ type Order = CteOptions["data"][number]
 const labels = { purchase: "compra", sale: "venda" }
 const status: Record<string, string> = { confirmed: "Confirmado", completed: "Concluído", partially_received: "Recebido parcialmente", received: "Recebido", closed: "Encerrado" }
 
-export function CteLinksPanel({ inspected, verifyAccess, disabled, onBusy }: { inspected: CteInspectionView; verifyAccess: VerifyCteAccess; disabled: boolean; onBusy: (value: boolean) => void }) {
+export function CteLinksPanel({ inspected, verifyAccess, accessUnavailable, disabled, onBusy }: { inspected: CteInspectionView; verifyAccess: VerifyCteAccess; accessUnavailable: boolean; disabled: boolean; onBusy: (value: boolean) => void }) {
   const [opened, setOpened] = useState(false)
   const [view, setView] = useState<CteLinks | null>(null)
   const [options, setOptions] = useState<CteOptions | null>(null)
@@ -117,7 +117,7 @@ export function CteLinksPanel({ inspected, verifyAccess, disabled, onBusy }: { i
     {error && <p role="alert" className="break-words text-destructive">{error}</p>}
     {notice && <p role="status" className="break-words">{notice}</p>}
     {pending && <div className="space-y-3 rounded-lg bg-muted/40 p-3"><p>Uma operação ficou sem resposta confirmada. Repita para verificar o resultado.</p><Button disabled={blocked} onClick={() => { const current = command.current; if (current) void run("retry", signal => execute(current, signal)) }}>Repetir confirmação</Button></div>}
-    {view && <>
+    {view && !accessUnavailable && <>
       <dl className="grid gap-3 sm:grid-cols-3"><div><dt className="text-muted-foreground">Prestação do CT-e</dt><dd>{formatCteMoney(view.serviceCents)}</dd></div><div><dt className="text-muted-foreground">Frete associado</dt><dd>{formatCteMoney(view.allocatedCents)}</dd></div><div><dt className="text-muted-foreground">Disponível para associar</dt><dd>{formatCteMoney((BigInt(view.serviceCents) - BigInt(view.allocatedCents)).toString())}</dd></div></dl>
       <div className="min-w-0"><p className="text-muted-foreground">Transportadora da conferência</p><p className="break-words">{view.carrier.name}{view.carrier.ownCompany ? " · Própria empresa" : ""}</p><p className="break-all">CNPJ {view.carrier.taxId}</p></div>
       {!view.data.length && <p>Nenhum vínculo comercial ativo.</p>}
@@ -136,13 +136,13 @@ export function CteLinksPanel({ inspected, verifyAccess, disabled, onBusy }: { i
         {view.data.length >= 50 && <p>Este CT-e atingiu 50 vínculos ativos. Desfaça um vínculo incorreto antes de associar outro pedido.</p>}
       </>}
     </>}
-    {options && !pending && <div className="min-w-0 space-y-3 rounded-lg border p-3" aria-label="Pedidos disponíveis para conferência">
+    {options && !pending && !accessUnavailable && <div className="min-w-0 space-y-3 rounded-lg border p-3" aria-label="Pedidos disponíveis para conferência">
       <p>Confira a {labels[options.kind]} antes de selecionar.</p>
       <ul className="space-y-2">{options.data.map(row => <li key={row.id}><Button className="h-auto max-w-full whitespace-normal break-words text-left" variant="outline" disabled={blocked} onClick={() => { setSelected(row); setOptions(null); setReviewed(false) }}>Selecionar {labels[options.kind]} · {row.counterpartyName} · {formatCteMoney(row.amountCents)} · {status[row.status]} · {row.dueDate} · {row.id.slice(0, 8)}</Button></li>)}</ul>
       {!options.data.length && <p>Nenhum pedido disponível nesta página. Verifique a situação dos pedidos existentes.</p>}
       <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={blocked || options.offset === 0} onClick={() => chooseKind(options.kind, Math.max(0, options.offset - options.limit))}>Pedidos anteriores</Button><Button variant="outline" disabled={blocked || options.offset + options.limit >= options.total || options.offset + options.limit > 100000} onClick={() => chooseKind(options.kind, options.offset + options.limit)}>Próximos pedidos</Button></div>
     </div>}
-    {selected && kind && !pending && <form className="min-w-0 space-y-4 rounded-lg border p-3" onSubmit={event => { event.preventDefault(); confirm() }}>
+    {selected && kind && !pending && !accessUnavailable && <form className="min-w-0 space-y-4 rounded-lg border p-3" onSubmit={event => { event.preventDefault(); confirm() }}>
       <div className="min-w-0"><p className="font-medium">{kind === "purchase" ? "Compra selecionada" : "Venda selecionada"}</p><p className="break-words">{selected.counterpartyName} · {formatCteMoney(selected.amountCents)}</p><p className="break-all text-muted-foreground">Pedido {selected.id.slice(0, 8)} · {status[selected.status]} · Vencimento {selected.dueDate}</p></div>
       <label className="block space-y-2">Frete associado (R$)<Input inputMode="decimal" value={amount} disabled={blocked} maxLength={20} placeholder="Ex.: 150,01" onChange={event => { setAmount(event.target.value); setReviewed(false) }} /></label>
       <label className="block space-y-2">Motivo da conferência<Input value={reason} disabled={blocked} maxLength={500} onChange={event => { setReason(event.target.value); setReviewed(false) }} /></label>

@@ -1,5 +1,6 @@
 import { erpFetch } from "@/lib/api/client"
-import { parseCteLinks, parseCteOptions } from "./cte-links-model"
+import { cteActorHeader, parseCteLinks, parseCteOptions } from "./cte-links-model"
+import { CteAccessError } from "./cte-inspection-model"
 import type { CteAccess, CteInspectionView } from "./cte-inspection-model"
 import type { CteLinkInput, CteLinkKind } from "./cte-links-model"
 
@@ -16,7 +17,10 @@ const problem = (value: unknown) => value && typeof value === "object" && "title
 
 async function access(verify: VerifyCteAccess, signal: AbortSignal, inspected: CteInspectionView, expected?: CteAccess, kind?: CteLinkKind, write = false) {
   let current: CteAccess
-  try { current = await verify(signal) } catch (error) { throw new CteLinkFailure(error instanceof Error ? error.message : "Confirme o acesso atual antes de continuar", 0, true) }
+  try { current = await verify(signal) } catch (error) {
+    const definitive = error instanceof CteAccessError && error.definitive
+    throw new CteLinkFailure(error instanceof Error ? error.message : "Confirme o acesso atual antes de continuar", definitive ? 403 : 503, definitive)
+  }
   signal.throwIfAborted()
   const required = ["fiscal.cte.read", ...(kind ? ["catalog.parties.read", kind === "purchase" ? "purchasing.orders.read" : "sales.orders.read"] : []), ...(write ? ["fiscal.cte.link"] : [])]
   if (current.id !== inspected.tenantId || expected && current.subject !== expected.subject || !required.every(p => current.permissions.includes(p))) throw new CteLinkFailure("O acesso atual aos vínculos mudou. Atualize os arquivos antes de continuar", 403, true)
@@ -31,7 +35,7 @@ async function request(inspected: CteInspectionView, verify: VerifyCteAccess, si
   try {
     response = await erpFetch(`/api/erp/fiscal/cte-distribution/documents/${inspected.documentId}/${suffix}`, {
       method: command ? "POST" : "GET",
-      headers: { "X-Tenant-Id": before.id, ...(command ? { "Content-Type": "application/json", "Idempotency-Key": command.key, "If-Match": `"${command.revision}"` } : {}) },
+      headers: { "X-Tenant-Id": before.id, ...(command ? { "Content-Type": "application/json", "Idempotency-Key": command.key, "If-Match": `"${command.revision}"`, "X-Actor-Subject": cteActorHeader(command.subject) } : {}) },
       ...(command ? { body: command.body } : {}),
       signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
     })

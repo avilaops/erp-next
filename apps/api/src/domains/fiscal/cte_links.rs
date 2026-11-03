@@ -20,6 +20,7 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 pub use model::{
     CteCommercialLinks, CteCommercialOptions, CteLinkInput, CteLinkKind, CteLinkOptionsQuery,
     CteUnlinkInput,
@@ -61,6 +62,18 @@ async fn begin<'a>(
     DomainError,
 > {
     let (tenant, mut tx, _) = authorized(state, headers, identity, READ, LINK, write).await?;
+    if write {
+        let expected_actor = URL_SAFE_NO_PAD.encode(identity.subject.as_bytes());
+        if headers
+            .get("x-actor-subject")
+            .and_then(|value| value.to_str().ok())
+            != Some(expected_actor.as_str())
+        {
+            return Err(DomainError::Conflict(
+                "O usuário que conferiu mudou; atualize os arquivos antes de vincular CT-e",
+            ));
+        }
+    }
     if !write {
         // A revision and its rows must describe the same state, also on reads.
         sqlx::query("SELECT id FROM tenants WHERE id=$1 FOR SHARE")
@@ -134,7 +147,7 @@ async fn finish(
     Ok((revision, value))
 }
 
-#[utoipa::path(post,path="/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links",tag="Fiscal",operation_id="create_cte_commercial_link",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("id"=Uuid,Path),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=CteLinkInput,responses((status=201,body=CteCommercialLinks),(status=200,body=CteCommercialLinks),(status=403,description="Sem permissões de vínculo"),(status=404,description="Arquivo ou pedido ausente"),(status=409,description="Associação ou frete incompatível"),(status=412,description="Revisão desatualizada"),(status=422,description="Campos inválidos"),(status=428,description="Revisão/chave obrigatórias")))]
+#[utoipa::path(post,path="/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links",tag="Fiscal",operation_id="create_cte_commercial_link",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("id"=Uuid,Path),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header),("X-Actor-Subject"=String,Header)),request_body=CteLinkInput,responses((status=201,body=CteCommercialLinks),(status=200,body=CteCommercialLinks),(status=403,description="Sem permissões de vínculo"),(status=404,description="Arquivo ou pedido ausente"),(status=409,description="Associação ou frete incompatível"),(status=412,description="Revisão desatualizada"),(status=422,description="Campos inválidos"),(status=428,description="Revisão/chave obrigatórias")))]
 pub async fn link(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -217,7 +230,7 @@ pub async fn link(
     Ok(response(StatusCode::CREATED, Some(revision), result))
 }
 
-#[utoipa::path(post,path="/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links/{linkId}/unlink",tag="Fiscal",operation_id="unlink_cte_commercial_link",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("id"=Uuid,Path),("linkId"=Uuid,Path),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=CteUnlinkInput,responses((status=200,body=CteCommercialLinks),(status=403,description="Sem permissões de vínculo"),(status=404,description="Arquivo ou vínculo ausente"),(status=409,description="Empresa incompatível ou vínculo desfeito"),(status=412,description="Revisão desatualizada"),(status=422,description="Motivo inválido"),(status=428,description="Revisão/chave obrigatórias")))]
+#[utoipa::path(post,path="/api/v1/fiscal/cte-distribution/documents/{id}/commercial-links/{linkId}/unlink",tag="Fiscal",operation_id="unlink_cte_commercial_link",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("id"=Uuid,Path),("linkId"=Uuid,Path),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header),("X-Actor-Subject"=String,Header)),request_body=CteUnlinkInput,responses((status=200,body=CteCommercialLinks),(status=403,description="Sem permissões de vínculo"),(status=404,description="Arquivo ou vínculo ausente"),(status=409,description="Empresa incompatível ou vínculo desfeito"),(status=412,description="Revisão desatualizada"),(status=422,description="Motivo inválido"),(status=428,description="Revisão/chave obrigatórias")))]
 pub async fn unlink(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

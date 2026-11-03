@@ -1247,7 +1247,8 @@
           "Authorization",
           "X-Tenant-Id",
           "If-Match",
-          "Idempotency-Key"
+          "Idempotency-Key",
+          "X-Actor-Subject"
         ],
         "pathParameters": [
           "id"
@@ -1262,7 +1263,8 @@
         "Associação e permissões atuais; RLS forçada e tenant fixado.",
         "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos.",
         "Leitura do tipo de pedido selecionado: purchasing.orders.read ou sales.orders.read.",
-        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito."
+        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito.",
+        "X-Actor-Subject UTF-8/base64url sem padding deve coincidir com a identidade autenticada; apenas restringe o comando."
       ],
       "transition": {
         "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
@@ -1284,7 +1286,7 @@
       "concurrency": {
         "revision": true,
         "idempotency": true,
-        "rule": "If-Match da revisão agregada, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
+        "rule": "If-Match da revisão agregada, sujeito esperado, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
       },
       "response": {
         "successStatuses": [
@@ -1364,7 +1366,8 @@
           "Authorization",
           "X-Tenant-Id",
           "If-Match",
-          "Idempotency-Key"
+          "Idempotency-Key",
+          "X-Actor-Subject"
         ],
         "pathParameters": [
           "id",
@@ -1380,7 +1383,8 @@
         "Associação e permissões atuais; RLS forçada e tenant fixado.",
         "CT-e preservado/conferido em homologação, hash e CNPJ atuais correlatos.",
         "Leitura do tipo de pedido selecionado: purchasing.orders.read ou sales.orders.read.",
-        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito."
+        "Revisão e Idempotency-Key obrigatórios; criar somente com transportadora/pedido atuais e motivo explícito.",
+        "X-Actor-Subject UTF-8/base64url sem padding deve coincidir com a identidade autenticada; apenas restringe o comando."
       ],
       "transition": {
         "from": "CT-e conferido com vínculos ativos ou nenhum vínculo",
@@ -1402,7 +1406,7 @@
       "concurrency": {
         "revision": true,
         "idempotency": true,
-        "rule": "If-Match da revisão agregada, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
+        "rule": "If-Match da revisão agregada, sujeito esperado, UUID por tenant/ator/payload, lock de tenant e efeito/auditoria/outbox/comando atômicos."
       },
       "response": {
         "successStatuses": [

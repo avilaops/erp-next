@@ -5,6 +5,9 @@ export type CteLinks = Schema<"CteCommercialLinks">
 export type CteOptions = Schema<"CteCommercialOptions">
 export type CteLinkInput = Schema<"CteLinkInput">
 export type CteLinkKind = "purchase" | "sale"
+export function cteActorHeader(subject: string): string {
+  return btoa(Array.from(new TextEncoder().encode(subject), byte => String.fromCharCode(byte)).join("")).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v)
 const uuid = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 const cents = (v: unknown): v is string => typeof v === "string" && /^(0|[1-9][0-9]{0,14})$/.test(v)

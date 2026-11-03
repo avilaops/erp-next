@@ -35,3 +35,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO erp_next_
 REVOKE ALL ON TABLE _sqlx_migrations FROM erp_next_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO erp_next_app;
 COMMIT;
+
+GRANT EXECUTE ON FUNCTION erp_staff_payroll_due_tenants() TO erp_next_app;

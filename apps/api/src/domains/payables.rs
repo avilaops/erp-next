@@ -22,7 +22,8 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct Payable {
     id: Uuid,
-    receipt_id: Uuid,
+    receipt_id: Option<Uuid>,
+    staff_id: Option<Uuid>,
     supplier_name: String,
     due_date: String,
     amount: String,
@@ -51,7 +52,7 @@ pub struct PayableList {
     limit: u32,
 }
 
-const ACCOUNT_SELECT: &str = "SELECT r.id,r.receipt_id,r.supplier_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.paid::numeric/100)::numeric(16,2)::text AS paid_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.paid END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM payables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='payment' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS paid FROM payable_payments p WHERE p.tenant_id=r.tenant_id AND p.payable_id=r.id) totals";
+const ACCOUNT_SELECT: &str = "SELECT r.id,r.receipt_id,(SELECT o.staff_id FROM staff_payroll_obligations o WHERE o.tenant_id=r.tenant_id AND o.id=r.staff_obligation_id) AS staff_id,r.supplier_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.paid::numeric/100)::numeric(16,2)::text AS paid_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.paid END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM payables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='payment' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS paid FROM payable_payments p WHERE p.tenant_id=r.tenant_id AND p.payable_id=r.id) totals";
 
 async fn load(
     tx: &mut Transaction<'_, Postgres>,
@@ -225,4 +226,37 @@ pub async fn reverse(
         payload,
     )
     .await
+}
+
+/// Payroll asks the financial domain to originate a liability; it never writes its ledger.
+pub(super) async fn originate_staff(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    obligation: Uuid,
+    name: &str,
+    due: time::Date,
+    amount: i64,
+) -> Result<Uuid, DomainError> {
+    let id = Uuid::now_v7();
+    sqlx::query("INSERT INTO payables(id,tenant_id,staff_obligation_id,supplier_name,due_date,amount_cents) VALUES($1,$2,$3,$4,$5,$6)").bind(id).bind(tenant).bind(obligation).bind(name).bind(due).bind(amount).execute(&mut **tx).await.map_err(db)?;
+    Ok(id)
+}
+pub(super) async fn cancel_staff_title(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+) -> Result<(), DomainError> {
+    sqlx::query("UPDATE payables SET status='cancelled',revision=revision+1 WHERE tenant_id=$1 AND id=$2 AND staff_obligation_id IS NOT NULL AND status='open'").bind(tenant).bind(id).execute(&mut **tx).await.map_err(db)?;
+    Ok(())
+}
+
+pub(super) async fn revise_staff_title(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+    amount: i64,
+    due: time::Date,
+) -> Result<(), DomainError> {
+    sqlx::query("UPDATE payables SET amount_cents=$3,due_date=$4,revision=revision+1 WHERE tenant_id=$1 AND id=$2 AND staff_obligation_id IS NOT NULL AND status='open' AND NOT EXISTS(SELECT 1 FROM payable_payments x WHERE x.tenant_id=$1 AND x.payable_id=$2)").bind(tenant).bind(id).bind(amount).bind(due).execute(&mut **tx).await.map_err(db)?;
+    Ok(())
 }

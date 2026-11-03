@@ -7,22 +7,25 @@ import type { Schema } from "@/lib/api/types"
 import { AccessLink } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
+import Image from "next/image"
+import { StaffPayroll } from "./payroll-workspace"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-type StaffInput = Schema<"StaffInput">
-type Staff = Schema<"Staff">
+type StaffProfile = { cpf?: string | null; rg?: string | null; birthDate?: string | null; admissionDate?: string | null; documentIssuedOn?: string | null; pis?: string | null; ctps?: string | null; address?: string | null; emergencyPhone?: string | null; photo?: string | null }
+type StaffInput = Schema<"StaffInput"> & { profile?: StaffProfile }
+type Staff = Schema<"Staff"> & { profile?: StaffProfile }
 type Snapshot = Omit<Schema<"StaffSnapshot">, "data"> & { data?: Schema<"Staff"> }
 type Page = Schema<"StaffList">
-const blank = (kind: StaffKind): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: kind === "funcionarios", isSeller: kind === "vendedores", status: "active" })
+const blank = (kind: StaffKind): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: kind === "funcionarios", isSeller: kind === "vendedores", status: "active", profile: {} })
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 
 function values(staff: Staff): StaffInput {
-  return { name: staff.name, jobTitle: staff.jobTitle, code: staff.code, email: staff.email, phone: staff.phone, isEmployee: staff.isEmployee, isSeller: staff.isSeller, status: staff.status }
+  return { name: staff.name, jobTitle: staff.jobTitle, code: staff.code, email: staff.email, phone: staff.phone, isEmployee: staff.isEmployee, isSeller: staff.isSeller, status: staff.status, profile: staff.profile || {} }
 }
 function relationship(staff: StaffInput) { return staff.isEmployee && staff.isSeller ? "Funcionário e vendedor" : staff.isEmployee ? "Funcionário" : "Vendedor" }
 
@@ -50,6 +53,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
 
   return <>
     <PageHeader eyebrow="Cadastros" title={kind === "funcionarios" ? "Funcionários" : "Vendedores"} description="Cadastros da empresa ativa. Uma pessoa pode exercer as duas funções no mesmo registro." />
+    {kind === "funcionarios" && <div className="mb-5 flex flex-wrap gap-4"><Link className={linkClass} href="/cadastros/funcionarios/pagamentos">Pagamentos e aprovações da equipe</Link><Link className={linkClass} href="/preferencias/usuarios">Usuários e permissões de acesso</Link></div>}
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Equipe cadastrada</h2>{result?.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/novo`}>Novo cadastro</Link>}</div>
       <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={event => {
@@ -58,7 +62,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
       }}>
         <label className="min-w-0 space-y-2">Buscar nome ou código<Input name="q" maxLength={160} placeholder="Código ou nome" /></label>
         <label className="min-w-0 space-y-2">Função<select name="role" defaultValue={kind === "funcionarios" ? "employee" : "seller"} className={selectClass}><option value="">Todos</option><option value="employee">Funcionários</option><option value="seller">Vendedores</option></select></label>
-        <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
@@ -66,7 +70,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
         {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(staff => <li key={staff.id} className="min-w-0 rounded-xl border p-4">
           <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${staff.id}`}>Consultar {staff.name}</Link>
           <p className="mt-2 break-all text-sm">Código: {staff.code}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{relationship(staff)} · {staff.status === "active" ? "Ativo" : "Arquivado"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{relationship(staff)} · {staff.status === "active" ? "Ativo" : "Desligado"}</p>
         </li>)}</ul> : <p>Nenhum cadastro encontrado.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
       </>}
@@ -116,6 +120,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!snapshot?.canEdit || pending.current || conflict || view) return
+    if (id && draft.status === "archived" && snapshot.data?.status !== "archived" && !window.confirm("Desligar este funcionário? A recorrência será encerrada e as contas em aberto serão canceladas. Pagamentos já registrados serão preservados.")) return
     pending.current = true; setSaving(true); setSaved(false); setError("")
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body: JSON.stringify(draft) }
     try {
@@ -148,7 +153,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
   function change<K extends keyof StaffInput>(field: K, value: StaffInput[K]) { setDraft({ ...draft, [field]: value }); setSaved(false) }
 
   return <>
-    <PageHeader eyebrow="Cadastros · Funcionários e vendedores" title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Cadastro operacional da equipe. As funções não criam uma conta de acesso nem calculam comissões." />
+    <PageHeader eyebrow="Cadastros · Funcionários e vendedores" title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e funções da equipe. A conta de acesso é gerenciada em Usuários e permissões." />
     <Link className={linkClass} href={`/cadastros/${kind}`} onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
@@ -157,18 +162,26 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
         {saved && <p role="status">Cadastro salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view && snapshot.data ? <>
-          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Funções", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
+          {draft.profile?.photo && <Image src={draft.profile.photo} alt={`Foto de ${draft.name}`} width={96} height={96} unoptimized className="size-24 rounded-full object-cover" />}
+          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Funções", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Desligado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
+          <dl className="grid gap-4 sm:grid-cols-2">{([ ["cpf", "CPF"], ["rg", "RG"], ["birthDate", "Nascimento"], ["admissionDate", "Admissão"], ["documentIssuedOn", "Emissão do documento"], ["pis", "PIS/PASEP"], ["ctps", "CTPS"], ["address", "Endereço"], ["emergencyPhone", "Contato de emergência"] ] as const).map(([key,label]) => <div key={key} className="min-w-0"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="break-words font-medium">{draft.profile?.[key] || "Não informado"}</dd></div>)}</dl>
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/${id}/editar`}>Editar cadastro</Link>}
         </> : <form className="space-y-5" onSubmit={save}>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
-            <label className="min-w-0 space-y-2">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
+            <label className="min-w-0 space-y-2">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Desligado</option></select></label>
             {([ ["name", "Nome", 200], ["jobTitle", "Cargo", 120], ["code", "Código", 40], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "name" || field === "code"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "name" || field === "code" ? "" : null))} /></label>)}
             <div className="min-w-0 space-y-3"><p className="font-medium">Funções na empresa</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isEmployee} onChange={event => change("isEmployee", event.target.checked)} />Funcionário</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSeller} onChange={event => change("isSeller", event.target.checked)} />Vendedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos uma função.</p></div>
+          </fieldset>
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 border-t pt-5 sm:grid-cols-2">
+            <legend className="px-1 font-semibold">Dados pessoais e documentos</legend>
+            {([ ["cpf", "CPF", 14], ["rg", "RG", 40], ["birthDate", "Data de nascimento", 10], ["admissionDate", "Data de admissão", 10], ["documentIssuedOn", "Emissão do documento", 10], ["pis", "PIS/PASEP", 40], ["ctps", "CTPS", 40], ["address", "Endereço completo", 500], ["emergencyPhone", "Telefone de emergência", 40] ] as const).map(([key,label,max]) => <label key={key} className="min-w-0 space-y-2 text-sm">{label}<Input type={key.endsWith("Date") || key === "documentIssuedOn" ? "date" : "text"} maxLength={max} value={draft.profile?.[key] || ""} onChange={e => change("profile", { ...draft.profile, [key]: e.target.value || null })} /></label>)}
+            <label className="space-y-2 text-sm">Foto do funcionário<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {const file=e.target.files?.[0]; if(!file)return; if(file.size>200_000 || !["image/png","image/jpeg","image/webp"].includes(file.type)){setError("Selecione PNG, JPEG ou WebP de até 200 KB.");return} const reader=new FileReader();reader.onload=()=>change("profile",{...draft.profile,photo:String(reader.result)});reader.onerror=()=>setError("Não foi possível ler a foto.");reader.readAsDataURL(file)}} />{draft.profile?.photo && <div className="flex items-center gap-3"><Image src={draft.profile.photo} alt="Prévia da foto" width={72} height={72} unoptimized className="size-18 rounded-full object-cover" /><Button type="button" variant="outline" onClick={()=>change("profile",{...draft.profile,photo:null})}>Remover foto</Button></div>}</label>
           </fieldset>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro cadastro.</p>}
           <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar cadastro"}</Button>
         </form>}
       </>}
     </section>
+    {view && id && snapshot?.data?.isEmployee && <StaffPayroll id={id} />}
   </>
 }

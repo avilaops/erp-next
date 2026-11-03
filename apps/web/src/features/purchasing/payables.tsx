@@ -16,9 +16,8 @@ import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 
-type Account = Schema<"Payable">
-type Payment = Schema<"Payment">
-type Detail = Schema<"PayableSnapshot">
+type Account = Schema<"Payable"> & { staffId?: string | null }
+type Detail = Omit<Schema<"PayableSnapshot">, "data"> & { data: Account }
 type Listing = Schema<"PayableList">
 const situation = (account: Account) => account.status === "cancelled" ? "Cancelado" : account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
 
@@ -29,10 +28,10 @@ export function Payables({ id }: { id?: string }) {
 function PayableList() {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/payables?offset=${offset}&limit=25`)
-  return <><PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Obrigações geradas pelos recebimentos de compras. O registro de pagamento é manual e não envia dinheiro nem confirma liquidação bancária." />
+  return <><PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Obrigações de compras e pagamentos aprovados de funcionários. O registro de pagamento é manual e não envia dinheiro nem confirma liquidação bancária." />
     <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
       {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar originada por recebimento de compra neste módulo.</p>}
+        <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar encontrada.</p>}
         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(account => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={account.id}><Link className={`${purchaseLink} break-words`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><p>{situation(account)}</p><p>Valor: {money(account.amount)} · Saldo: {money(account.outstandingAmount)}</p><p>Vencimento: {account.dueDate}</p></li>)}</ul>
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><span>Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
       </>}
@@ -68,7 +67,7 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
     <Link className={purchaseLink} href="/financeiro/contas-pagar" onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar o registro financeiro em edição?")) event.preventDefault() }}>Voltar às contas a pagar</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       <h2 className="break-words font-semibold">{value.data.supplierName}</h2><p>Valor: {money(value.data.amount)}</p><p>Pago declarado: {money(value.data.paidAmount)}</p><p>Saldo restante: {money(value.data.outstandingAmount)}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate} · Revisão {value.data.revision}</p>
-      {!dirty && <Link className={purchaseLink} href={`/compras/recebimentos/${value.data.receiptId}`}>Consultar recebimento de origem</Link>}
+      {!dirty && (value.data.staffId ? <Link className={purchaseLink} href={`/cadastros/funcionarios/${value.data.staffId}`}>Consultar funcionário de origem</Link> : <Link className={purchaseLink} href={`/compras/recebimentos/${value.data.receiptId}`}>Consultar recebimento de origem</Link>)}
       {methodError && <p role="status">Sugestão indisponível. Confira o meio declarado antes de confirmar.</p>}
       {!value.canEdit ? <p>Somente consulta.</p> : cancelled ? <p>Título cancelado. O histórico foi preservado.</p> : (!paid || reversing) && <form className="min-w-0 space-y-4" onSubmit={async event => {
         event.preventDefault()

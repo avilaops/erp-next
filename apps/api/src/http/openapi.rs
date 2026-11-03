@@ -377,7 +377,9 @@ mod tests {
         let inspection =
             &doc["paths"]["/api/v1/fiscal/cte-distribution/documents/{id}/inspect"]["post"];
         assert!(inspection["requestBody"].is_object());
-        for status in ["200", "201", "403", "404", "409", "422", "428", "502", "503"] {
+        for status in [
+            "200", "201", "403", "404", "409", "422", "428", "502", "503",
+        ] {
             assert!(inspection["responses"].get(status).is_some());
         }
         for resource in ["inventory-settings", "purchase-settings"] {

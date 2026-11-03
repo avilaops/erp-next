@@ -54,7 +54,7 @@ sem serem promovidos a documentos conferidos por esse perfil.
 - [x] Escrever testes de XML sintético assinado, XSD/modal, papéis, protocolo,
   adulteração e falhas, observando a falha antes do código.
 - [x] Versionar schemas oficiais e implementar inspeção privada offline.
-- [ ] Integrar API com persistência de resultados, isolamento e auditoria.
+- [x] Integrar API com persistência de resultados, isolamento e auditoria.
 - [ ] Integrar central e conferência/vínculos comerciais explícitos.
 - [ ] Validar testes Node, Rust somente em GitHub Actions e UI em cinco tamanhos.
 - [ ] Revisão independente, PR draft, CI e evidência em AVL-111.
@@ -83,7 +83,7 @@ pública. O CI `41663360290`, job Rust `126013102778`, confirmou a falha esperad
 HTTP 404 em vez de 403. Os 235 testes anteriores da API passaram. Essa execução
 não comprova a integração ainda em implementação e não foi executada localmente.
 
-## Integração da API em implementação
+## Integração da API
 
 Rotas GET `documents/{id}/inspection` e POST `documents/{id}/inspect` sob
 `/api/v1/fiscal/cte-distribution`. O POST recebe apenas `{}` e exige leitura,
@@ -112,6 +112,20 @@ Os 17 testes locais de contratos/contexto passaram e a arquitetura permaneceu
 com 335 rotas web, sem erros. A formatação foi aplicada a partir do artefato
 `13244813469`, produzido por rustfmt no GitHub Actions; nenhum Rust local.
 
-Foram escritos antes da UI dois casos de navegador: fronteira BFF da conferência
-e leitura/registro dos fatos na central. A primeira execução deve demonstrar
-ausência dos handlers e do comando visual; a implementação vem em seguida.
+No commit `4b166a5`, o job Rust `126032286463` aprovou 243 testes da API,
+com um Ollama ignorado, e mais sete testes auxiliares. A etapa rustfmt apontou
+somente a quebra de linhas da lista de status OpenAPI; a alteração exata do
+log remoto foi aplicada sem executar Rust localmente. Clippy aguarda nova execução.
+
+Dois casos escritos antes da UI falharam no job de navegador `126033954998`:
+GET do BFF retornou 404 e o botão de conferência não existia. Os dez casos
+anteriores do monitor passaram. A central agora lê e registra a conferência,
+mostra transportadora/tomador/valores/referências e os limites de confiança.
+Os novos casos também cobrem resposta divergente, leitura sem capacidade de
+inspecionar, retry com a mesma chave, troca de empresa durante GET/POST e
+cinco tamanhos de tela. A validação de navegador ainda depende do Actions.
+
+Os cinco testes locais de modelos web (três novos de CT-e) e os 17 testes
+de contratos/contexto passaram. Foram mapeados os dois BFFs para `/fiscal/ctes`;
+a arquitetura tem 337 rotas e nenhum erro. Vínculos comerciais explícitos
+e homologação externa permanecem pendentes no escopo integral.

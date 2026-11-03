@@ -1095,16 +1095,22 @@
       },
       "recovery": "Atualizar leitura na empresa correta; distinguir ausência de conferência de falta de permissão.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF em implementação; leitura de fatos locais não comprova confiança, situação fiscal ou homologação."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "GET", "path": "/api/erp/fiscal/cte-distribution/documents/[id]/inspection" },
+        "gap": "Leitura de fatos locais não comprova confiança, situação fiscal ou homologação."
       },
       "sources": [
         "apps/api/src/domains/fiscal/cte_inspection.rs",
         "apps/api/src/domains/fiscal/cte_inspection_model.rs",
         "migrations/202611030003_cte_inspections.sql",
         "deploy/grant-cte-inspections.sql",
-        "docs/superpowers/plans/2026-11-03-conferencia-cte.md"
+        "docs/superpowers/plans/2026-11-03-conferencia-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/inspection/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspections.ts",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-inspection-panel.tsx"
       ]
     },
     {
@@ -1198,16 +1204,22 @@
       },
       "recovery": "Repetir a mesma chave para resultado incerto; falha mantém XML/cursor e não registra sucesso.",
       "ui": {
-        "pages": [],
-        "bff": null,
-        "gap": "Central/BFF em implementação; operação local ainda sem evidência externa ou publicação."
+        "pages": ["/fiscal/ctes"],
+        "bff": { "method": "POST", "path": "/api/erp/fiscal/cte-distribution/documents/[id]/inspect" },
+        "gap": "Operação local ainda sem evidência externa ou publicação."
       },
       "sources": [
         "apps/api/src/domains/fiscal/cte_inspection.rs",
         "apps/api/src/domains/fiscal/cte_inspection_model.rs",
         "migrations/202611030003_cte_inspections.sql",
         "deploy/grant-cte-inspections.sql",
-        "docs/superpowers/plans/2026-11-03-conferencia-cte.md"
+        "docs/superpowers/plans/2026-11-03-conferencia-cte.md",
+        "apps/web/src/app/api/erp/fiscal/cte-distribution/documents/[id]/inspect/route.ts",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "apps/web/src/features/fiscal/cte-distribution-screen.tsx",
+        "apps/web/src/features/fiscal/cte-inspections.ts",
+        "apps/web/src/features/fiscal/cte-inspection-model.ts",
+        "apps/web/src/features/fiscal/cte-inspection-panel.tsx"
       ]
     },
     {

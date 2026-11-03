@@ -13,15 +13,22 @@ const xml = readFileSync(resolve("../api/src/http/fixtures/cte-received.xml"), "
 const inspectionFacts = JSON.parse(readFileSync(resolve("../api/src/http/fixtures/cte-received-inspection.json"), "utf8"))
 const hash = createHash("sha256").update(xml).digest("hex")
 const document = { id: documentId, runId, environment: "homologation", companyTaxId: "04252011000110", nsu: "000000000000001", schema: "procCTe_v4.00.xsd", kind: "full", xmlSha256: hash, verification: "pending", createdAt: "2026-11-03T10:00:00Z" }
-const requests: { url: string; method: string; tenant?: string; authorization?: string }[] = []
+const requests: { url: string; method: string; tenant?: string; authorization?: string; command?: string }[] = []
 let mode: "ready" | "empty" | "forbidden" | "error" = "ready"
 let corrupt = false
 let paginated = false
 let lastCode = "138"
 let inspected = false
+let inspectionAllowed = true
+let inspectionCorrupt = false
+let lostInspectionReply = false
+let holdInspection: "GET" | "POST" | null = null
+let releaseInspection: (() => void) | null = null
+let activeTenant = tenant
+function releaseHeldInspection() { const release = releaseInspection; releaseInspection = null; release?.() }
 
 const upstream = createServer((request, response) => {
-  requests.push({ url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization })
+  requests.push({ url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization, command: request.headers["idempotency-key"] as string })
   response.setHeader("Content-Type", "application/json")
   if (mode === "forbidden" || mode === "error") {
     response.statusCode = mode === "forbidden" ? 403 : 503
@@ -36,11 +43,17 @@ const upstream = createServer((request, response) => {
   }
   if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}`) return response.end(JSON.stringify({ ...document, xml: corrupt ? `${xml} ` : xml }))
   const inspection = { id: "44444444-4444-4444-8444-444444444444", documentId, sourceXmlSha256: hash, inspectorVersion: "cte-received-v1", document: inspectionFacts, createdAt: "2026-11-03T15:00:00Z" }
-  const detail = () => ({ tenantId: tenant, documentId, sourceXmlSha256: hash, canInspect: true, data: inspected ? inspection : null })
-  if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}/inspection`) return response.end(JSON.stringify(detail()))
+  const detail = () => ({ tenantId: tenant, documentId, sourceXmlSha256: inspectionCorrupt ? "0".repeat(64) : hash, canInspect: inspectionAllowed, data: inspected ? inspection : null })
+  if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}/inspection`) {
+    if (holdInspection === "GET") { releaseInspection = () => response.end(JSON.stringify(detail())); return }
+    return response.end(JSON.stringify(detail()))
+  }
   if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}/inspect` && request.method === "POST") {
+    if (!inspectionAllowed) { response.statusCode = 403; return response.end(JSON.stringify({ title: "Conferência local indisponível" })) }
+    if (lostInspectionReply) { response.statusCode = 503; return response.end(JSON.stringify({ title: "Conferência não confirmada" })) }
     inspected = true
     response.statusCode = 201
+    if (holdInspection === "POST") { releaseInspection = () => response.end(JSON.stringify(detail())); return }
     return response.end(JSON.stringify(detail()))
   }
   if (url.pathname === `/api/v1/fiscal/cte-distribution/runs/${runId}`) return response.end(JSON.stringify({ runId, environment: "homologation", companyTaxId: document.companyTaxId, requestedNsu: "000000000000000", status: "completed", code: "138", documentCount: 1, completedAt: "2026-11-03T10:00:00Z" }))
@@ -51,10 +64,11 @@ const upstream = createServer((request, response) => {
 test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33929, "127.0.0.1", resolve)) })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(async ({ context, page }) => {
-  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; requests.length = 0
+  releaseHeldInspection()
+  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; inspectionAllowed = true; inspectionCorrupt = false; lostInspectionReply = false; holdInspection = null; activeTenant = tenant; requests.length = 0
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa CT-e sintética" }, permissions: ["fiscal.cte.read"] } }))
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: activeTenant, legalName: activeTenant === tenant ? "Empresa CT-e sintética" : "Empresa B sintética" }, permissions: ["fiscal.cte.read", "fiscal.cte.inspect"] } }))
 })
 
 test("conferência CT-e BFF fixa empresa e protege a escrita local por sessão e origem", async ({ context }) => {
@@ -85,6 +99,73 @@ test("central CT-e exibe conferência local e transportadora sem declarar valida
   await expect(panel.getByText("Confiança do certificado, autenticidade do protocolo e situação fiscal atual não verificadas.", { exact: true })).toBeVisible()
   expect(requests.filter(request => request.method === "POST").map(request => request.url)).toEqual([`/api/v1/fiscal/cte-distribution/documents/${documentId}/inspect`])
   expect(requests.some(request => /\/query|\/manifest|\/issue/.test(request.url))).toBe(false)
+})
+
+test("conferência CT-e respeita capacidade de leitura e recusa resposta de outro arquivo", async ({ page }) => {
+  inspectionAllowed = false
+  await page.goto("/fiscal/ctes")
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  const panel = page.getByRole("region", { name: "Conferência local do CT-e" })
+  await expect(panel.getByText("Conferência local indisponível nesta empresa. O XML original continua disponível.", { exact: true })).toBeVisible()
+  await expect(panel.getByRole("button", { name: "Conferir XML" })).toHaveCount(0)
+  inspectionCorrupt = true
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "não corresponde" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  expect(requests.every(request => request.method === "GET")).toBe(true)
+})
+
+test("conferência CT-e incerta preserva chave para repetição após atualizar a mesma empresa", async ({ page }) => {
+  lostInspectionReply = true
+  await page.goto("/fiscal/ctes")
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await page.getByRole("button", { name: "Conferir XML" }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Conferência não confirmada" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  lostInspectionReply = false
+  await page.getByRole("button", { name: "Atualizar arquivos" }).click()
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  await page.getByRole("button", { name: "Conferir XML" }).click()
+  await expect(page.getByRole("status").filter({ hasText: /^Conferência local registrada/ })).toBeVisible()
+  const writes = requests.filter(request => request.method === "POST")
+  expect(writes).toHaveLength(2)
+  expect(writes[0].command).toMatch(/^[a-f0-9-]{36}$/)
+  expect(writes[1].command).toBe(writes[0].command)
+})
+
+for (const method of ["GET", "POST"] as const) test(`conferência CT-e descarta resposta ${method} tardia após mudança real de empresa`, async ({ page, context }) => {
+  await page.goto("/fiscal/ctes")
+  if (method === "POST") {
+    await page.getByRole("button", { name: "Ver conferência" }).click()
+    holdInspection = "POST"
+    await page.getByRole("button", { name: "Conferir XML" }).click()
+  } else {
+    holdInspection = "GET"
+    await page.getByRole("button", { name: "Ver conferência" }).click()
+  }
+  try {
+    await expect.poll(() => releaseInspection !== null).toBe(true)
+    await installFrontendFixture(context, origin, documentId)
+    await context.unroute("**/api/erp/**")
+    activeTenant = documentId
+    releaseHeldInspection()
+    await expect(page.getByRole("alert").filter({ hasText: /empresa.*mudou/i })).toBeVisible()
+    await expect(page.getByText("TRANSPORTADORA FICTICIA", { exact: true })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
+  } finally { releaseHeldInspection() }
+})
+
+test("conferência CT-e em cinco tamanhos preserva fatos e ações sem corte horizontal", async ({ page }, info) => {
+  inspected = true
+  await page.goto("/fiscal/ctes")
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  const panel = page.getByRole("region", { name: "Conferência local do CT-e" })
+  await expect(panel.getByText("TRANSPORTADORA FICTICIA", { exact: true })).toBeVisible()
+  for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [1280, 900], [1920, 1080]]) {
+    await page.setViewportSize({ width, height })
+    expect(await page.evaluate(() => window.document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath(`cte-inspection-${width}.png`), fullPage: true })
+  }
 })
 
 test("CT-e BFF exige sessão e tenant fixado, limita filtros e transporta apenas leituras", async ({ context, playwright }) => {

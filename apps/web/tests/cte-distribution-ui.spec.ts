@@ -2,12 +2,15 @@ import { expect, test } from "@playwright/test"
 import { createServer } from "node:http"
 import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
 import { monitorOrigin as origin } from "../playwright.monitor.config"
 
 const documentId = "22222222-2222-4222-8222-222222222222"
 const runId = "33333333-3333-4333-8333-333333333333"
-const xml = '<?xml version="1.0"?><cteProc xmlns="http://www.portalfiscal.inf.br/cte"><!-- original: ç &amp; --></cteProc>\n'
+const xml = readFileSync(resolve("../api/src/http/fixtures/cte-received.xml"), "utf8")
+const inspectionFacts = JSON.parse(readFileSync(resolve("../api/src/http/fixtures/cte-received-inspection.json"), "utf8"))
 const hash = createHash("sha256").update(xml).digest("hex")
 const document = { id: documentId, runId, environment: "homologation", companyTaxId: "04252011000110", nsu: "000000000000001", schema: "procCTe_v4.00.xsd", kind: "full", xmlSha256: hash, verification: "pending", createdAt: "2026-11-03T10:00:00Z" }
 const requests: { url: string; method: string; tenant?: string; authorization?: string }[] = []
@@ -15,6 +18,7 @@ let mode: "ready" | "empty" | "forbidden" | "error" = "ready"
 let corrupt = false
 let paginated = false
 let lastCode = "138"
+let inspected = false
 
 const upstream = createServer((request, response) => {
   requests.push({ url: request.url || "", method: request.method || "", tenant: request.headers["x-tenant-id"] as string, authorization: request.headers.authorization })
@@ -31,6 +35,14 @@ const upstream = createServer((request, response) => {
     return response.end(JSON.stringify({ tenantId: tenant, environment: "homologation", data, total: mode === "empty" ? 0 : paginated ? 26 : 1 }))
   }
   if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}`) return response.end(JSON.stringify({ ...document, xml: corrupt ? `${xml} ` : xml }))
+  const inspection = { id: "44444444-4444-4444-8444-444444444444", documentId, sourceXmlSha256: hash, inspectorVersion: "cte-received-v1", document: inspectionFacts, createdAt: "2026-11-03T15:00:00Z" }
+  const detail = () => ({ tenantId: tenant, documentId, sourceXmlSha256: hash, canInspect: true, data: inspected ? inspection : null })
+  if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}/inspection`) return response.end(JSON.stringify(detail()))
+  if (url.pathname === `/api/v1/fiscal/cte-distribution/documents/${documentId}/inspect` && request.method === "POST") {
+    inspected = true
+    response.statusCode = 201
+    return response.end(JSON.stringify(detail()))
+  }
   if (url.pathname === `/api/v1/fiscal/cte-distribution/runs/${runId}`) return response.end(JSON.stringify({ runId, environment: "homologation", companyTaxId: document.companyTaxId, requestedNsu: "000000000000000", status: "completed", code: "138", documentCount: 1, completedAt: "2026-11-03T10:00:00Z" }))
   response.statusCode = 404
   response.end(JSON.stringify({ title: "Recurso não encontrado" }))
@@ -39,10 +51,40 @@ const upstream = createServer((request, response) => {
 test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33929, "127.0.0.1", resolve)) })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(async ({ context, page }) => {
-  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; requests.length = 0
+  mode = "ready"; corrupt = false; paginated = false; lastCode = "138"; inspected = false; requests.length = 0
   await installFrontendFixture(context, origin)
   await context.unroute("**/api/erp/**")
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa CT-e sintética" }, permissions: ["fiscal.cte.read"] } }))
+})
+
+test("conferência CT-e BFF fixa empresa e protege a escrita local por sessão e origem", async ({ context }) => {
+  const base = `/api/erp/fiscal/cte-distribution/documents/${documentId}`
+  const headers = { "X-Tenant-Id": tenant, Origin: origin, "Idempotency-Key": "55555555-5555-4555-8555-555555555555" }
+  expect((await context.request.get(`${base}/inspection`, { headers })).status()).toBe(200)
+  expect((await context.request.get(`${base}/inspection`)).status()).toBe(409)
+  expect((await context.request.get(`${base}/inspection?environment=production`, { headers })).status()).toBe(400)
+  expect((await context.request.get(base.replace(documentId, "not-a-uuid") + "/inspection", { headers })).status()).toBe(400)
+  expect((await context.request.post(`${base}/inspect`, { headers: { ...headers, Origin: "https://outside.example" }, data: {} })).status()).toBe(403)
+  expect((await context.request.post(`${base}/inspect`, { headers: { ...headers, "X-Tenant-Id": runId }, data: {} })).status()).toBe(409)
+  expect((await context.request.post(`${base}/inspect`, { headers, data: {} })).status()).toBe(201)
+  expect((await context.request.get(`${base}/inspect`, { headers })).status()).toBe(405)
+  expect(requests).toHaveLength(2)
+  expect(requests.every(request => request.tenant === tenant && request.authorization === "Bearer frontend-integration-fixture")).toBe(true)
+})
+
+test("central CT-e exibe conferência local e transportadora sem declarar validação externa", async ({ page }) => {
+  await page.goto("/fiscal/ctes")
+  await expect(page.getByRole("button", { name: "Ver conferência" })).toBeVisible({ timeout: 1000 })
+  await page.getByRole("button", { name: "Ver conferência" }).click()
+  const panel = page.getByRole("region", { name: "Conferência local do CT-e" })
+  await expect(panel.getByText("Nenhuma conferência local registrada.", { exact: true })).toBeVisible()
+  await panel.getByRole("button", { name: "Conferir XML" }).click()
+  await expect(panel.getByText("TRANSPORTADORA FICTICIA", { exact: true })).toBeVisible()
+  await expect(panel.getByText("R$ 150,01", { exact: true })).toHaveCount(2)
+  await expect(panel.getByText("35261012345678000195550010000001231482917364", { exact: true })).toBeVisible()
+  await expect(panel.getByText("Confiança do certificado, autenticidade do protocolo e situação fiscal atual não verificadas.", { exact: true })).toBeVisible()
+  expect(requests.filter(request => request.method === "POST").map(request => request.url)).toEqual([`/api/v1/fiscal/cte-distribution/documents/${documentId}/inspect`])
+  expect(requests.some(request => /\/query|\/manifest|\/issue/.test(request.url))).toBe(false)
 })
 
 test("CT-e BFF exige sessão e tenant fixado, limita filtros e transporta apenas leituras", async ({ context, playwright }) => {

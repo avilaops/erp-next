@@ -102,3 +102,16 @@ Os testes HTTP acrescentados cobrem permissões separadas, chave obrigatória,
 tenant/imutabilidade, replay e conflito de comando, metadados forjados, revogação,
 troca de CNPJ durante I/O, falha do motor e do outbox e concorrência. Compilação,
 formatação, Clippy e execução ainda dependem do novo GitHub Actions.
+
+No commit `946567a`, o job Rust `126024529701` compilou e executou os testes:
+242 aprovados, um Ollama ignorado e uma falha na expectativa histórica de
+contagem OpenAPI (153 caminhos atuais versus 151 esperados). Os novos casos
+HTTP de inspeção passaram. A expectativa foi atualizada para 153, com as duas
+operações explicitadas; os contratos do catálogo agora têm 207 operações.
+Os 17 testes locais de contratos/contexto passaram e a arquitetura permaneceu
+com 335 rotas web, sem erros. A formatação foi aplicada a partir do artefato
+`13244813469`, produzido por rustfmt no GitHub Actions; nenhum Rust local.
+
+Foram escritos antes da UI dois casos de navegador: fronteira BFF da conferência
+e leitura/registro dos fatos na central. A primeira execução deve demonstrar
+ausência dos handlers e do comando visual; a implementação vem em seguida.

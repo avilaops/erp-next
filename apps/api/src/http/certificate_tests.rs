@@ -53,6 +53,62 @@ async fn call(
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn fiscal_configuration_cannot_manage_certificates_without_explicit_permission(
+    admin: PgPool,
+) {
+    let (router, application, auth, role) = setup_with_certificates(&admin, vault()).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','fiscal.config.read'), ('99999999-9999-4999-8999-999999999999','fiscal.config.manage')")
+        .execute(&admin).await.unwrap();
+    let fixture = fixture();
+    let input = json!({"pkcs12Base64":fixture["valid"],"password":fixture["password"]});
+    let initial = call(&router, "GET", Some("editor"), TENANT, None, None).await;
+    assert_eq!(initial.0, StatusCode::OK);
+    assert_eq!(initial.2["canEdit"], false);
+    for (method, body) in [("PUT", Some(input.clone())), ("DELETE", None)] {
+        assert_eq!(
+            call(&router, method, Some("editor"), TENANT, Some("\"0\""), body)
+                .await
+                .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    sqlx::raw_sql("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='fiscal.config.manage'; INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','fiscal.certificate.manage')")
+        .execute(&admin).await.unwrap();
+    let saved = call(
+        &router,
+        "PUT",
+        Some("editor"),
+        TENANT,
+        Some("\"0\""),
+        Some(input.clone()),
+    )
+    .await;
+    assert_eq!(saved.0, StatusCode::OK, "{}", saved.2);
+    assert_eq!(saved.2["canEdit"], true);
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='fiscal.certificate.manage'")
+        .execute(&admin).await.unwrap();
+    assert_eq!(
+        call(
+            &router,
+            "DELETE",
+            Some("editor"),
+            TENANT,
+            Some("\"1\""),
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let preserved = call(&router, "GET", Some("editor"), TENANT, None, None).await;
+    assert_eq!(preserved.2["revision"], 1);
+    assert_eq!(preserved.2["canEdit"], false);
+    assert_eq!(preserved.2["data"], saved.2["data"]);
+    auth.abort();
+    cleanup(&admin, application, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn certificate_lifecycle_encrypts_secrets_enforces_concurrency_and_keeps_tenants_isolated(
     admin: PgPool,
 ) {

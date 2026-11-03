@@ -222,6 +222,129 @@ async fn call(
         serde_json::from_slice(&bytes).unwrap_or(Value::Null),
     )
 }
+#[sqlx::test(migrations = "../../migrations")]
+async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(admin: PgPool) {
+    let (router, application, auth, role) = super::company_tests::setup(&admin).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','fiscal.nfe.read'), ('99999999-9999-4999-8999-999999999999','fiscal.nfe.issue')")
+        .execute(&admin).await.unwrap();
+    let id = Uuid::now_v7();
+    let commands = [
+        (
+            format!("/api/v1/fiscal/nfe/{id}/cancel"),
+            "fiscal.nfe.cancel",
+            json!({"text":"Cancelamento sintético solicitado pelo cliente"}),
+        ),
+        (
+            format!("/api/v1/fiscal/nfe/{id}/correction"),
+            "fiscal.nfe.correction",
+            json!({"text":"Correção sintética da informação complementar"}),
+        ),
+        (
+            "/api/v1/fiscal/number-voids".to_owned(),
+            "fiscal.nfe.void",
+            json!({"year":2026,"series":1,"first":1,"last":3,"text":"Inutilização sintética de faixa não utilizada"}),
+        ),
+        (
+            format!("/api/v1/fiscal/order-cancellations/{id}/process"),
+            "fiscal.nfe.cancel",
+            json!({}),
+        ),
+    ];
+    for (uri, _, body) in &commands {
+        let result = call(
+            &router,
+            "POST",
+            uri,
+            "editor",
+            Some("\"0\""),
+            Some(Uuid::now_v7()),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::FORBIDDEN, "{uri}: {}", result.2);
+    }
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='fiscal.nfe.issue'")
+        .execute(&admin).await.unwrap();
+    for permission in [
+        "fiscal.nfe.cancel",
+        "fiscal.nfe.correction",
+        "fiscal.nfe.void",
+    ] {
+        sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999',$1)")
+            .bind(permission).execute(&admin).await.unwrap();
+        for (uri, required, body) in &commands {
+            let result = call(
+                &router,
+                "POST",
+                uri,
+                "editor",
+                Some("\"0\""),
+                Some(Uuid::now_v7()),
+                body.clone(),
+            )
+            .await;
+            if required == permission {
+                // Authorization passes; the synthetic document/profile does not exist.
+                assert!(
+                    matches!(result.0, StatusCode::NOT_FOUND | StatusCode::CONFLICT),
+                    "{uri}: {}",
+                    result.2
+                );
+            } else {
+                assert_eq!(result.0, StatusCode::FORBIDDEN, "{uri}: {}", result.2);
+            }
+        }
+        let issuance = call(
+            &router,
+            "POST",
+            &format!("/api/v1/fiscal/nfe/{id}/issue"),
+            "editor",
+            Some("\"1\""),
+            Some(Uuid::now_v7()),
+            json!({}),
+        )
+        .await;
+        assert_eq!(issuance.0, StatusCode::FORBIDDEN);
+        sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code=$1")
+            .bind(permission).execute(&admin).await.unwrap();
+    }
+    for (uri, _, body) in &commands {
+        assert_eq!(
+            call(
+                &router,
+                "POST",
+                uri,
+                "editor",
+                Some("\"1\""),
+                Some(Uuid::now_v7()),
+                body.clone()
+            )
+            .await
+            .0,
+            StatusCode::FORBIDDEN
+        );
+    }
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            "/api/v1/fiscal/issued-nfes",
+            "editor",
+            None,
+            None,
+            json!({})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM fiscal_nfe_events) + (SELECT count(*) FROM fiscal_nfe_documents)")
+        .fetch_one(&admin).await.unwrap();
+    assert_eq!(effects, 0);
+    auth.abort();
+    cleanup(&admin, application, &role).await;
+}
+
 async fn services(
     admin: &PgPool,
     application: PgPool,

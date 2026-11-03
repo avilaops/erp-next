@@ -91,7 +91,7 @@ test("preferências mantém conteúdo acessível nos breakpoints e no tema escur
   await expect(page.locator("html")).toHaveClass(/dark/)
   for (const width of [320, 390, 768, 1280, 1599, 1600, 1749]) {
     await page.setViewportSize({ width, height: 950 })
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     await expect(page.getByRole("heading", { name: "Empresa", exact: true })).toBeVisible()
     if (width === 390 || width === 1749) await page.screenshot({ path: testInfo.outputPath(`preferencias-${width}.png`), fullPage: true })
   }

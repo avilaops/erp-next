@@ -52,7 +52,11 @@ for (const scenario of [
     await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: false, productionEnabled: false, blockers: [] } }))
     await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: { id: record, revision: 1, status: "draft", input: draft, issuer: { legalName: "Empresa teste" } } } }))
     await page.route(`**/api/erp/fiscal/nfe/${record}/*`, route => {
-      if (route.request().method() !== "GET") commands.push(route.request().url())
+      if (route.request().method() !== "GET") {
+        commands.push(route.request().url())
+        expect(route.request().headers()["if-match"]).toBe('"3"')
+        expect(route.request().postDataJSON()).toEqual({ text: "Evento sintético da permissão exclusiva" })
+      }
       return route.fulfill({ headers: { ETag: '"3"' }, json: { tenantId: tenant, id: record, status: "authorized", revision: 3, number: 1, series: 1, accessKey: "35261012345678000195550010000001231482917364", protocol: "135260000000001", result: {} } })
     })
     for (const width of [320, 390, 768, 1024, 1440]) {
@@ -74,6 +78,13 @@ for (const scenario of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
     expect(commands).toEqual([])
+    if (scenario.cancel || scenario.correction) {
+      page.on("dialog", dialog => dialog.accept())
+      await page.getByLabel("Texto do evento", { exact: true }).fill("Evento sintético da permissão exclusiva")
+      await page.getByRole("button", { name: "Transmitir evento fiscal", exact: true }).click()
+      await expect(page.getByText("Resultado registrado. Confira a situação fiscal atualizada abaixo.", { exact: true })).toBeVisible()
+      expect(commands).toEqual([`${origin}/api/erp/fiscal/nfe/${record}/${scenario.cancel ? "cancel" : "correction"}`])
+    }
   })
 }
 

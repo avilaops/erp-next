@@ -63,6 +63,24 @@ fiscal e chave idempotente. Cancelar uma venda solicita cancelamento da nota
 autorizada vinculada, mas só a confirmação efetiva do autorizador muda o estado
 fiscal. Venda sem nota autorizada não necessita cancelamento fiscal.
 
+Todos os acessos a documentos de saída exigem `fiscal.nfe.read`. Comandos
+exigem também a permissão específica, conferida novamente em cada solicitação,
+inclusive quando há recibo idempotente:
+
+| Comando | Permissão adicional |
+| --- | --- |
+| Emitir/recuperar emissão ou consultar e reconciliar na SEFAZ | `fiscal.nfe.issue` |
+| Cancelar NF-e diretamente ou processar cancelamento comercial | `fiscal.nfe.cancel` |
+| Registrar CC-e | `fiscal.nfe.correction` |
+| Inutilizar numeração | `fiscal.nfe.void` |
+
+As consultas GET e o download de XML não exigem permissão de comando. A
+migration `202611030002_fiscal_permissions.sql` registra os novos códigos sem
+atribuí-los a papéis existentes. A administração deve conceder somente as
+operações necessárias; cancelamento, correção e inutilização não dependem de
+receber também permissão de emissão. A gestão A1 tem
+[permissão própria](CERTIFICADO-DIGITAL-A1.md#api-e-permissões).
+
 A numeração é reservada uma vez por documento/empresa/série/ambiente. XML
 assinado é persistido antes da transmissão e torna o rascunho imutável. Uma
 preparação bloqueada antes da assinatura pode ser corrigida mantendo o número.

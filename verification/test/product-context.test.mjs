@@ -20,12 +20,17 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 40);
-  assert.equal(context.actions.length, 196);
+  assert.equal(context.flows.length, 41);
+  assert.equal(context.actions.length, 201);
   assert.equal(context.pendingFlows.length, 35);
   assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'personal-preferences', 'production', 'products', 'purchase_payment_chain', 'sales-settings', 'users']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'implemented');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
+  const cte = context.flows.find(flow => flow.definition.id === 'fiscal-cte');
+  assert.equal(cte.actionIds.length, 5);
+  assert.equal(cte.assessment.interface.state, 'not_mapped');
+  assert.deepEqual(cte.pages, []);
+  assert.deepEqual(cte.assessment.interface.mappedActionIds, []);
 });
 
 test('operational journeys include their explicit dependencies while residual scope stays pending', async () => {

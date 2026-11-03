@@ -102,7 +102,7 @@ Os documentos entram com conferência individual pendente.
 - [ ] Adicionar worker opcional, com tenant/usuário próprios e permissões
   recarregadas a cada ciclo; desabilitado sem configuração explícita.
 - [ ] Testar isolamento, concorrência/replay, falha de persistência, retomada,
-  rejeições e revogação de permissão com PostgreSQL local isolado.
+  rejeições e revogação de permissão com PostgreSQL isolado no GitHub Actions.
 - [ ] Revisar, validar e registrar a etapa sem declarar homologação externa.
 
 Arquivos: `migrations/202611030001_cte_distribution.sql`, domínio

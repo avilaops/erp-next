@@ -18,6 +18,12 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
+        crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
+        crate::domains::supply_settings::purchase::get_purchase, crate::domains::supply_settings::purchase::put_purchase,
+        reference_data::list_warehouses, reference_data::get_warehouse, reference_data::create_warehouse, reference_data::update_warehouse,
+        reference_data::list_product_groups, reference_data::get_product_group, reference_data::create_product_group, reference_data::update_product_group,
+        reference_data::list_tag_groups, reference_data::get_tag_group, reference_data::create_tag_group, reference_data::update_tag_group,
+        reference_data::list_tags, reference_data::get_tag, reference_data::create_tag, reference_data::update_tag,
         crate::platform::subscriptions::account, crate::platform::subscriptions::checkout,
         crate::platform::subscriptions::refresh, crate::platform::subscriptions::change_plan,
         crate::platform::subscriptions::cancel, crate::platform::subscriptions::invoices,
@@ -130,6 +136,100 @@ pub async fn document() -> Json<utoipa::openapi::OpenApi> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reference_catalog_contracts_preserve_existing_response_schemas() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        // Frozen before adding supply catalogs: extending a shared response union
+        // would otherwise widen all sixteen existing operations at once.
+        let expected: serde_json::Value =
+            serde_json::from_str(include_str!("fixtures/reference_catalog_schemas.json")).unwrap();
+        for (name, schema) in expected.as_object().unwrap() {
+            assert_eq!(&doc["components"]["schemas"][name], schema, "{name}");
+        }
+        for resource in [
+            "product-categories",
+            "financial-categories",
+            "financial-accounts",
+            "payment-methods",
+        ] {
+            let path = format!("/api/v1/{resource}");
+            for (method, suffix, status, schema) in [
+                ("get", "", "200", "ReferenceList"),
+                ("post", "", "201", "ReferenceSnapshot"),
+                ("get", "/{id}", "200", "ReferenceSnapshot"),
+                ("put", "/{id}", "200", "ReferenceSnapshot"),
+            ] {
+                assert_eq!(
+                    doc["paths"][format!("{path}{suffix}")][method]["responses"][status]["content"]
+                        ["application/json"]["schema"]["$ref"],
+                    format!("#/components/schemas/{schema}")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn supply_catalog_contracts_use_typed_response_schemas() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for (resource, input, record) in [
+            ("warehouses", "WarehouseInput", "WarehouseReference"),
+            ("product-groups", "GroupInput", "GroupReference"),
+            ("tag-groups", "GroupInput", "GroupReference"),
+            ("tags", "TagInput", "TagReference"),
+        ] {
+            for (method, suffix, status, list) in [
+                ("get", "", "200", true),
+                ("post", "", "201", false),
+                ("get", "/{id}", "200", false),
+                ("put", "/{id}", "200", false),
+            ] {
+                let path = format!("/api/v1/{resource}{suffix}");
+                let schema_ref =
+                    doc["paths"][&path][method]["responses"][status]["content"]["application/json"]
+                        ["schema"]["$ref"]
+                        .as_str()
+                        .unwrap();
+                let schema = schema_ref.strip_prefix("#/components/schemas/").unwrap();
+                let envelope = if list {
+                    "SupplyList_"
+                } else {
+                    "SupplySnapshot_"
+                };
+                assert_eq!(schema, format!("{envelope}{record}"));
+                let data = &doc["components"]["schemas"][schema]["properties"]["data"];
+                let record_data = if list { &data["items"] } else { data };
+                let input_data = &doc["components"]["schemas"][input];
+                assert_eq!(record_data["type"], "object");
+                assert!(record_data.get("allOf").is_none(), "{method} {path}");
+                // Every input field plus the record identity must belong to one
+                // object, so additionalProperties cannot reject id/revision.
+                let properties = record_data["properties"].as_object().unwrap();
+                let input_properties = input_data["properties"].as_object().unwrap();
+                assert_eq!(properties.len(), input_properties.len() + 2);
+                for (name, property) in input_properties {
+                    assert_eq!(&properties[name], property, "{method} {path}: {name}");
+                }
+                assert_eq!(
+                    properties["id"],
+                    serde_json::json!({"type":"string","format":"uuid"})
+                );
+                assert_eq!(
+                    properties["revision"],
+                    serde_json::json!({"type":"integer","format":"int64"})
+                );
+                let required = record_data["required"].as_array().unwrap();
+                for field in input_data["required"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .chain([&serde_json::json!("id"), &serde_json::json!("revision")])
+                {
+                    assert!(required.contains(field), "{method} {path}: {field}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn web_consumers_have_explicit_response_schemas() {
@@ -245,7 +345,19 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 132);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 142);
+        for resource in ["inventory-settings", "purchase-settings"] {
+            let path = format!("/api/v1/{resource}");
+            assert!(doc["paths"][&path]["get"].is_object());
+            assert!(doc["paths"][&path]["put"]["requestBody"].is_object());
+            for status in ["200", "403", "412", "422", "428"] {
+                assert!(
+                    doc["paths"][&path]["put"]["responses"]
+                        .get(status)
+                        .is_some()
+                );
+            }
+        }
         assert!(doc["paths"]["/api/v1/sales-settings"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/sales-settings"]["put"].is_object());
         let required = doc["components"]["schemas"]["SalesSettingsInput"]["required"]
@@ -292,6 +404,10 @@ mod tests {
         assert!(doc["paths"]["/api/v1/legacy-history/files/{id}"]["get"].is_object());
         for resource in [
             "product-categories",
+            "warehouses",
+            "product-groups",
+            "tag-groups",
+            "tags",
             "financial-categories",
             "financial-accounts",
             "payment-methods",

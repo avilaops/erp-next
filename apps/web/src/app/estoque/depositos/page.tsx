@@ -1,4 +1,5 @@
-import { InventoryScreen } from "@/features/inventory/inventory-screen"
-export default function Page(){return <InventoryScreen kind="warehouses"/>}
-
-export const metadata = { title: "Depósitos" }
+import { ReferenceAccess } from "@/features/records/reference/reference-access"
+export const metadata = { title: "Depósitos de estoque" }
+export default function Page() {
+  return <ReferenceAccess kind="depositos" mode="list" />
+}

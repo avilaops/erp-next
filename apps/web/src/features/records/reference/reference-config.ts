@@ -1,6 +1,26 @@
 
 import type { Schema } from "@/lib/api/types"
 export const referenceConfigs = {
+  "depositos": {
+    title: "Depósitos de estoque", singular: "depósito", endpoint: "warehouses",
+    description: "Cadastre e organize os depósitos da empresa. Os saldos atuais são consolidados por produto e empresa, sem divisão por depósito.",
+    defaults: { code: "", name: "", status: "active", notes: null, location: null },
+  },
+  "grupos-produtos": {
+    title: "Grupos de produtos", singular: "grupo de produtos", endpoint: "product-groups",
+    description: "Grupos de classificação da empresa. O cadastro não altera produtos ou saldos existentes.",
+    defaults: { code: "", name: "", status: "active", notes: null },
+  },
+  "grupos-tags": {
+    title: "Grupos de tags", singular: "grupo de tags", endpoint: "tag-groups",
+    description: "Organize as tags da empresa em grupos. Para arquivar um grupo, mova ou arquive suas tags ativas.",
+    defaults: { code: "", name: "", status: "active", notes: null },
+  },
+  "tags": {
+    title: "Tags", singular: "tag", endpoint: "tags",
+    description: "Cadastre tags e organize-as por grupo. Tags ativas só podem pertencer a grupos ativos.",
+    defaults: { code: "", name: "", status: "active", notes: null, groupId: null },
+  },
   "categorias-produtos": {
     title: "Categorias de produtos", singular: "categoria de produtos", endpoint: "product-categories",
     description: "Hierarquia do catálogo da empresa. O vínculo de produtos às categorias será integrado em uma próxima etapa.",
@@ -24,6 +44,7 @@ export const referenceConfigs = {
 } as const
 
 export type ReferenceKind = keyof typeof referenceConfigs
+export const referencePath = (kind: ReferenceKind) => kind === "depositos" ? "/estoque/depositos" : `/cadastros/${kind}`
 export type ReferenceFields = Omit<Schema<"Reference">, "id" | "revision"> & Record<string, string | number | null>
 export type ReferenceRecord = Schema<"Reference"> & Record<string, string | number | null>
 export type ReferenceSnapshot = Omit<Schema<"ReferenceSnapshot">, "data"> & { data: ReferenceRecord }

@@ -16,6 +16,7 @@ pub mod returns;
 pub mod sales;
 mod settlements;
 pub mod staff;
+pub mod supply_settings;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};
 use axum::{

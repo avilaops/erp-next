@@ -2,6 +2,11 @@ import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret, server } from "../playwright.session.config"
 
+test.afterEach(async ({ page }) => {
+  // Asset requests may still be in flight when the assertions finish.
+  await page.unrouteAll({ behavior: "ignoreErrors" })
+})
+
 test.beforeEach(async ({ context, page }) => {
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
@@ -81,6 +86,49 @@ test("logout rejects an absent origin without changing either cookie", async ({ 
   const response = await context.request.post(`${server}/api/auth/logout`, { maxRedirects: 0 })
   expect(response.status()).toBe(403)
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
+})
+
+test("botão Sair encerra a sessão pela interface com no-referrer", async ({ page, context }) => {
+  await page.goto(`${origin}/preferencias`)
+  const request = page.waitForRequest(request => request.url() === `${origin}/api/auth/logout`)
+  await page.getByRole("button", { name: "Sair", exact: true }).click()
+  expect((await request).headers().origin).toBe(origin)
+  await expect(page).toHaveURL(`${origin}/entrar`)
+  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(0)
+})
+
+test("falha na saída permanece na interface e permite tentar novamente", async ({ page, context }) => {
+  await page.goto(`${origin}/preferencias`)
+  await page.route(`${origin}/api/auth/logout`, route => route.fulfill({ status: 403, json: { title: "Origem não autorizada" } }))
+  await page.getByRole("button", { name: "Sair", exact: true }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "A saída foi recusada" })).toBeVisible()
+  await expect(page).toHaveURL(`${origin}/preferencias`)
+  await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeEnabled()
+  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
+})
+
+test("falha de rede na saída preserva a tela e permite nova tentativa", async ({ page, context }) => {
+  await page.goto(`${origin}/preferencias`)
+  await page.route(`${origin}/api/auth/logout`, route => route.abort("failed"))
+  await page.getByRole("button", { name: "Sair", exact: true }).click()
+  await expect(page.getByRole("alert").filter({ hasText: "Não foi possível confirmar a saída" })).toBeVisible()
+  await expect(page).toHaveURL(`${origin}/preferencias`)
+  await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeEnabled()
+  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
+})
+
+test("a navegação POST com no-referrer perde a origem, mas fetch conserva a origem", async ({ page, context }) => {
+  await page.route(`${origin}/logout-form`, route => route.fulfill({ headers: { "Referrer-Policy": "no-referrer" }, contentType: "text/html", body: '<form method="post" action="/api/auth/logout"><button>Sair da fixture</button></form>' }))
+  await page.goto(`${origin}/logout-form`)
+  const navigation = page.waitForRequest(request => request.url() === `${origin}/api/auth/logout`)
+  await page.getByRole("button", { name: "Sair da fixture" }).click()
+  expect((await navigation).headers().origin).toBe("null")
+  await expect(page.locator("body")).toContainText("Origem não autorizada")
+  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(2)
+  await page.goto(`${origin}/logout-form`)
+  const responseType = await page.evaluate(async () => (await fetch("/api/auth/logout", { method: "POST", redirect: "manual" })).type)
+  expect(responseType).toBe("opaqueredirect")
+  expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("__Host-erp_"))).toHaveLength(0)
 })
 
 test("responses enforce the browser security policy without disclosing the framework", async ({ context }) => {

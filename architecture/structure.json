@@ -38,11 +38,12 @@
     "sales": "Pedidos e demais telas comerciais.",
     "services": "Serviços.",
     "staff": "Equipe e vendedores.",
+    "supply": "Configurações operacionais de estoque e compras por empresa.",
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 301,
-    "sha256": "7f0358fcff07563240cb46318e1535cbc64dca50158853ca6f469696a293e00c"
+    "count": 328,
+    "sha256": "8d6701ab808c1e0667e65801a791b02ee728a31665a50a023b0fa0d6727009b1"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

@@ -99,7 +99,7 @@ do item e seu IPI declarado, arredondado por item. Frete e descontos não fazem
 parte do recorte atual da preparação.
 
 O servidor resolve a tabela da empresa ao criar/atualizar o rascunho. A migração
-`202611030001_ibpt_draft_snapshots.sql` adiciona JSONB separado e anulável para
+`202611030002_ibpt_draft_snapshots.sql` adiciona JSONB separado e anulável para
 `ibptSnapshot`: empresa, UF/data, vínculo de item/NCM/EX/origem/base, metadados
 da fonte e parcelas exatas. O cliente recebe esse snapshot, mas não pode enviá-lo
 ou fornecer valores calculados na requisição. A revisão e a auditoria existentes

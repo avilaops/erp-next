@@ -169,3 +169,29 @@ confirmado. Consulta SEFAZ direta depende dos controles da AVL-71 e de homologa�
   nessa etapa.
 - Clippy de todo o workspace com avisos como erros e rustfmt dos dois arquivos
   de testes alterados passaram após a restauração.
+
+## Reconciliação com cadastros e perfis tributários
+
+Durante a verificação de `6597529`, `main` avançou para `fe1e18e` (PR #71).
+Os conflitos impediam a criação das execuções de CI do PR. A integração foi
+resolvida em worktree isolado, preservando o checkout compartilhado e as duas
+frentes: módulos/rotas/OpenAPI, seletor de perfis tributários, consultas de CEP,
+seleção e snapshot IBPT, tipos de contato e contratos de ações.
+
+A migração de cadastros de `main` usa `202611030001`; a migração IBPT ainda não
+publicada foi renumerada para `202611030002_ibpt_draft_snapshots.sql`. A suíte
+completa aplica ambas em PostgreSQL descartável: 250 testes da API e sete A1
+passaram, sem filtros e com um ignorado. Clippy e rustfmt de todo o workspace
+passaram. A revisão independente dos oito conflitos não encontrou defeito
+relevante e confirmou a preservação semântica dos dois catálogos.
+
+O inventário reconciliado tem 337 rotas web, 200 operações API, 176 BFF,
+43 fluxos e 35 grupos pendentes. Esses totais substituem os da etapa anterior;
+não comprovam publicação ou execução com dados reais.
+
+O build de produção reconciliado e a checagem de tipos passaram. As regressões
+de navegador passaram em duas rodadas: 28 testes cadastrais/IBPT e sete de
+perfis tributários, complementos cadastrais e modelos. Os três testes Node do
+modelo tributário e os 40 testes completos de contratos/contexto passaram.
+O lint web completo terminou sem erros, com nove avisos em arquivos sem
+alterações nesta integração. Não há aviso nos arquivos reconciliados.

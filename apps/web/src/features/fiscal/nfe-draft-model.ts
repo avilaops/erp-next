@@ -1,3 +1,4 @@
+import type { TaxProfile } from "./settings/tax-profile-model"
 
 import type { Schema } from "@/lib/api/types"
 export type DraftItem = Schema<"DraftItem">
@@ -108,3 +109,9 @@ export const blockerLabels: Record<string, string> = {
   fiscal_profile_missing: "Preencha a configuração fiscal do emitente",
 }
 
+
+/** Copies only accountant-declared defaults; all other fiscal decisions stay unchanged. */
+export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision: number): DraftInput {
+ const taxes = draft.taxDeclaration || blankTaxDeclaration()
+ return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate, ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode } } }
+}

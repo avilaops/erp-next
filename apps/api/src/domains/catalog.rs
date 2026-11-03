@@ -336,6 +336,14 @@ pub async fn create(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
+    let (_, settings) = super::registration_settings::load(&mut tx, tenant, "products").await?;
+    if settings["requireNcm"] == true && input.ncm.as_deref().unwrap_or("").is_empty()
+        || settings["requireCest"] == true && input.cest.as_deref().unwrap_or("").is_empty()
+    {
+        return Err(DomainError::Invalid(
+            "NCM ou CEST obrigatório conforme a configuração da empresa",
+        ));
+    }
     let id = Uuid::now_v7();
     sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status,structure_colors,upholstery_colors,photo_data_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
         .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).execute(&mut *tx).await.map_err(product_error)?;
@@ -392,6 +400,14 @@ pub async fn update(
     let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     let cents = input.validate()?;
+    let (_, settings) = super::registration_settings::load(&mut tx, tenant, "products").await?;
+    if settings["requireNcm"] == true && input.ncm.as_deref().unwrap_or("").is_empty()
+        || settings["requireCest"] == true && input.cest.as_deref().unwrap_or("").is_empty()
+    {
+        return Err(DomainError::Invalid(
+            "NCM ou CEST obrigatório conforme a configuração da empresa",
+        ));
+    }
     let previous = load(&mut tx, tenant, id).await?;
     if input.photo_data_url.is_none() {
         input

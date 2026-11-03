@@ -53,6 +53,8 @@ mod reconciliation_tests;
 #[cfg(test)]
 mod reference_tests;
 #[cfg(test)]
+mod registration_settings_tests;
+#[cfg(test)]
 mod registry_tests;
 #[cfg(test)]
 mod returns_tests;
@@ -91,6 +93,11 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/registry-lookups",
             axum::routing::post(crate::domains::registry_lookup::lookup),
+        )
+        .route(
+            "/api/v1/registration-settings/{section}",
+            get(crate::domains::registration_settings::get)
+                .put(crate::domains::registration_settings::put),
         )
         .route(
             "/api/v1/inventory-settings",

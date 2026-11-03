@@ -13,7 +13,7 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "PUT" && /^\/orders\/[a-f0-9-]{36}\/commission$|^\/production\/stages\/[a-f0-9-]{36}$/i.test(resource)
     || request.method === "POST" && /^\/commissions\/[a-f0-9-]{36}\/(?:adjustments|payments)$|^\/production\/(?:orders|stages)$|^\/production\/orders\/[a-f0-9-]{36}\/(?:stage|consumptions(?:\/[a-f0-9-]{36}\/reverse)?)$/i.test(resource)
   const auditResource = resource === "/audit"
-  const salesSettingsResource = ["/sales-settings", "/inventory-settings", "/purchase-settings"].includes(resource) && ["GET", "PUT"].includes(request.method)
+  const salesSettingsResource = /^\/registration-settings\/(products|parties|contact-types|tax-profiles)$/.test(resource) && ["GET", "PUT"].includes(request.method) || ["/sales-settings", "/inventory-settings", "/purchase-settings"].includes(resource) && ["GET", "PUT"].includes(request.method)
   const invitationResource = /^\/invitations(?:\/[a-f0-9-]{36}\/(?:resend|revoke))?$/i.test(resource)
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods|warehouses|product-groups|tag-groups|tags)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods|warehouses|product-groups|tag-groups|tags)(?:\/[a-f0-9-]{36})?$/i.test(resource)

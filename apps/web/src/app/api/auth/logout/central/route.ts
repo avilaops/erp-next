@@ -1,16 +1,26 @@
 import { cookies } from "next/headers"
 import { connection, NextResponse } from "next/server"
-import { cookieName, cookieOptions, erpConfiguration } from "@/server/auth/erp-session"
+import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, validLogoutFlow } from "@/server/auth/erp-session"
 
-/** Entra no logout RP-initiated do Auth e volta para limpar a sessão local. */
+/** Continua somente a saída iniciada pelo POST de mesma origem. */
 export async function GET() {
   await connection()
-  const config = erpConfiguration()
-  const jar = await cookies()
-  const location = new URL(`${config.issuer}/api/auth/logout`)
-  if (config.clientId) location.searchParams.set("client_id", config.clientId)
-  location.searchParams.set("post_logout_redirect_uri", `${config.origin}/api/auth/logout/central/callback`)
-  jar.set(cookieName("session"), "", cookieOptions(0))
-  jar.set(cookieName("auth"), "", cookieOptions(0))
-  return NextResponse.redirect(location, 303)
+  try {
+    const config = erpConfiguration()
+    const jar = await cookies()
+    if (!validLogoutFlow(jar.get(cookieName("logout"))?.value || "", "start") || jar.get(cookieName("session"))?.value) {
+      return Response.json({ title: "Tentativa de saída inválida ou expirada" }, { status: 403, headers: { "Cache-Control": "no-store" } })
+    }
+    const { logout } = await authEndpoints()
+    if (!logout || !config.clientId) throw new Error("Saída central não configurada")
+    const location = new URL(logout)
+    location.searchParams.set("client_id", config.clientId)
+    location.searchParams.set("post_logout_redirect_uri", `${config.origin}/api/auth/logout/central/callback`)
+    jar.set(cookieName("logout"), seal({ phase: "callback", expiresAt: Date.now() + 120_000 }, "erp-logout"), cookieOptions(120))
+    const response = NextResponse.redirect(location, 303)
+    response.headers.set("Cache-Control", "no-store")
+    return response
+  } catch {
+    return Response.json({ title: "A sessão local foi encerrada, mas não foi possível confirmar a saída do Ávila Auth" }, { status: 503, headers: { "Cache-Control": "no-store" } })
+  }
 }

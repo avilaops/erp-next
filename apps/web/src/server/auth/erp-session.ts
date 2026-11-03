@@ -40,11 +40,16 @@ export function unseal<T>(value: string, purpose: string): T | null {
   } catch { return null }
 }
 
-export function cookieName(purpose: "session" | "auth") {
+export function cookieName(purpose: "session" | "auth" | "logout") {
   return `${erpConfiguration().secure ? "__Host-" : ""}erp_${purpose}`
 }
 
 export const cookieOptions = (maxAge: number) => ({ httpOnly: true, sameSite: "lax" as const, secure: erpConfiguration().secure, path: "/", maxAge })
+
+export function validLogoutFlow(value: string, phase: "start" | "callback") {
+  const flow = unseal<{ phase: string; expiresAt: number }>(value, "erp-logout")
+  return !!flow && flow.phase === phase && Number.isFinite(flow.expiresAt) && flow.expiresAt > Date.now()
+}
 
 export type IdentitySession = { accessToken: string; tenantId: string | null; expiresAt: number }
 
@@ -73,5 +78,7 @@ export async function authEndpoints() {
   for (const field of ["authorization_endpoint", "token_endpoint"]) {
     if (typeof metadata[field] !== "string" || new URL(metadata[field]).origin !== config.issuer) throw new Error("Endpoint do Auth inválido")
   }
-  return { authorization: metadata.authorization_endpoint as string, token: metadata.token_endpoint as string }
+  const logout = metadata.end_session_endpoint
+  if (logout !== undefined && (typeof logout !== "string" || new URL(logout).origin !== config.issuer)) throw new Error("Endpoint de saída do Auth inválido")
+  return { authorization: metadata.authorization_endpoint as string, token: metadata.token_endpoint as string, logout: logout as string | undefined }
 }

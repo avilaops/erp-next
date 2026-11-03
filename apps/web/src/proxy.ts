@@ -6,7 +6,7 @@ export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   if (pathname === "/_next/image") {
     const source = request.nextUrl.searchParams.get("url") || ""
-    if (!/^\/(?!\/)[^?#'"\\\u0000-\u001f]*$/.test(source)) {
+    if (!/^\/(?!\/)[^#'"\\\u0000-\u001f]*$/.test(source)) {
       return NextResponse.json({ title: "Parâmetro de imagem inválido" }, { status: 400 })
     }
     return NextResponse.next()

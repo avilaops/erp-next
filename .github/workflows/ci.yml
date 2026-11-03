@@ -289,6 +289,10 @@ jobs:
     needs: web
     timeout-minutes: 7
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -305,19 +309,21 @@ jobs:
           name: erp-web-build-${{ github.sha }}
           path: apps/web/.next/
       - name: Verify secure session cookie removal in the browser
+        if: matrix.shard == 1
         run: timeout 90s pnpm --filter web exec playwright test --config playwright.session.config.ts
         env:
           ERP_BROWSER_CHANNEL: chrome
-      - run: timeout 240s pnpm --filter web test:danfe
+      - run: timeout 240s pnpm --filter web test:danfe --shard=${{ matrix.shard }}/2
         env:
           ERP_BROWSER_CHANNEL: chrome
       - run: timeout 60s pnpm --filter web test:monitor
+        if: matrix.shard == 1
         env:
           ERP_BROWSER_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: erp-danfe-browser-${{ github.run_id }}
+          name: erp-danfe-browser-${{ github.run_id }}-${{ matrix.shard }}
           path: artifacts/danfe-browser/
           if-no-files-found: warn
 

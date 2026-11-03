@@ -7,13 +7,13 @@ import {
   ChevronDown,
   CircleHelp,
   LayoutGrid,
-  LogOut,
   Settings,
   Sparkles,
 } from "lucide-react"
 import { PreferencesCommand } from "@/features/preferences/search/preferences-command"
 import { MobileNavigation } from "@/components/shell/mobile-navigation"
 import { DesktopNavigation } from "@/components/shell/desktop-navigation"
+import { LogoutButton } from "@/components/shell/logout-button"
 
 import { desktopMenus as menus } from "@/components/shell/navigation-catalog"
 import { DemonstrationPreview } from "@/components/feedback/demonstration-preview"
@@ -65,11 +65,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
             <Link className="ml-1 flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl p-1.5 hover:bg-muted" href="/empresas" aria-label="Suas empresas">
               <Building2 className="size-5 min-[360px]:hidden" aria-hidden="true" /><span className="hidden text-sm font-medium min-[360px]:inline">Empresas</span>
             </Link>
-            <form action="/api/auth/logout" method="post">
-              <button type="submit" className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" title="Encerrar a sessão deste ERP">
-                <LogOut className="size-4" aria-hidden="true" />Sair
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </header>

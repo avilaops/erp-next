@@ -1,5 +1,12 @@
 # Contratos fiscais recebidos — AVL-360
 
+> Contrato de desenho histórico de 28/10/2026. As fichas abaixo não substituem
+> o OpenAPI atual: importação, monitor e conversão em compra evoluíram depois
+> deste plano, inclusive nomes de rotas. Consulte o
+> [monitor canônico](MONITOR-FISCAL-CANONICO.md), a
+> [continuidade fiscal](RETORNOS-E-CONTINUIDADE-FISCAL.md) e a
+> [reconciliação AVL-69](AUDITORIA-FISCAL-AVL-69-20261103.md).
+
 Estado: desenho e plano aprovados em 28/10/2026. Este documento fecha o recorte
 vertical; não declara endpoints implementados nem libera a P0.
 Fonte normativa: [desenho](superpowers/specs/2026-10-28-fiscal-lojas-design.md).

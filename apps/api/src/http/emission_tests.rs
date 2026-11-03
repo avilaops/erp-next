@@ -273,12 +273,17 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
         sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999',$1)")
             .bind(permission).execute(&admin).await.unwrap();
         for (uri, required, body) in &commands {
+            let revision = if *required == "fiscal.nfe.void" {
+                "\"0\""
+            } else {
+                "\"1\""
+            };
             let result = call(
                 &router,
                 "POST",
                 uri,
                 "editor",
-                Some("\"0\""),
+                Some(revision),
                 Some(Uuid::now_v7()),
                 body.clone(),
             )
@@ -342,7 +347,7 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
         .fetch_one(&admin).await.unwrap();
     assert_eq!(effects, 0);
     auth.abort();
-    cleanup(&admin, application, &role).await;
+    super::company_tests::cleanup(&admin, application, &role).await;
 }
 
 async fn services(

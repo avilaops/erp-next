@@ -12,7 +12,7 @@ test("emissão conserva comando em resposta incerta e eventos usam a revisão fi
   const calls: { key: string; revision: string; body: unknown }[] = []
   let issued = false, cancelled = false
   page.on("dialog", dialog => dialog.accept())
-  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "fiscal.nfe.issue"] } }))
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "fiscal.nfe.issue", "fiscal.nfe.cancel", "fiscal.nfe.correction"] } }))
   await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: true, productionEnabled: false, blockers: [] } }))
   await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: true, data: { id: record, revision: 1, status: "draft", input: draft, issuer: { legalName: "Empresa teste" } } } }))
   await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => issued ? route.fulfill({ headers: { ETag: cancelled ? '"4"' : '"3"' }, json: { tenantId: tenant, id: record, status: cancelled ? "cancelled" : "authorized", revision: cancelled ? 4 : 3, number: 1, series: 1, accessKey: "35261012345678000195550010000001231482917364", protocol: "135260000000001", result: {} } }) : route.fulfill({ status: 404, json: { title: "Sem emissão" } }))
@@ -39,6 +39,43 @@ test("emissão conserva comando em resposta incerta e eventos usam a revisão fi
   await page.getByRole("button", { name: "Transmitir evento fiscal", exact: true }).click()
   await expect(page.getByText("Situação fiscal: Cancelada na SEFAZ", { exact: true })).toBeVisible()
 })
+
+for (const scenario of [
+  { name: "emissor", grants: ["fiscal.nfe.issue"], cancel: false, correction: false },
+  { name: "cancelador", grants: ["fiscal.nfe.cancel"], cancel: true, correction: false },
+  { name: "corretor", grants: ["fiscal.nfe.correction"], cancel: false, correction: true },
+  { name: "leitor", grants: [], cancel: false, correction: false },
+]) {
+  test(`eventos fiscais respeitam permissão exclusiva de ${scenario.name} em cinco tamanhos`, async ({ page }) => {
+    const commands: string[] = []
+    await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", ...scenario.grants] } }))
+    await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: false, productionEnabled: false, blockers: [] } }))
+    await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: { id: record, revision: 1, status: "draft", input: draft, issuer: { legalName: "Empresa teste" } } } }))
+    await page.route(`**/api/erp/fiscal/nfe/${record}/*`, route => {
+      if (route.request().method() !== "GET") commands.push(route.request().url())
+      return route.fulfill({ headers: { ETag: '"3"' }, json: { tenantId: tenant, id: record, status: "authorized", revision: 3, number: 1, series: 1, accessKey: "35261012345678000195550010000001231482917364", protocol: "135260000000001", result: {} } })
+    })
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(`/fiscal/notas-saida/${record}`)
+      await expect(page.getByText("Situação fiscal: Autorizada em homologação", { exact: true })).toBeVisible()
+      const control = page.getByRole("combobox", { name: "Evento fiscal", exact: true })
+      if (scenario.cancel || scenario.correction) {
+        await expect(control).toBeVisible()
+        await expect(control.locator('option[value="cancel"]')).toHaveCount(scenario.cancel ? 1 : 0)
+        await expect(control.locator('option[value="correction"]')).toHaveCount(scenario.correction ? 1 : 0)
+        await expect(control).toHaveValue(scenario.correction ? "correction" : "cancel")
+        const bounds = await control.boundingBox()
+        expect(bounds?.height).toBeGreaterThanOrEqual(44)
+      } else {
+        await expect(control).toHaveCount(0)
+      }
+      await expect(page.getByRole("button", { name: "Baixar XML da emissão", exact: true })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+    expect(commands).toEqual([])
+  })
+}
 
 test("BFF encaminha empresa revisão e idempotência e recusa origem ou sessão divergente", async ({ context }) => {
   const seen: { path: string; key?: string; revision?: string; tenant?: string }[] = []

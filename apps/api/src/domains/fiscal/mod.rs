@@ -16,6 +16,7 @@ pub mod monitor;
 mod monitor_store;
 pub mod order_source;
 pub mod received;
+pub mod received_nfse;
 pub mod received_model;
 pub mod sefaz_client;
 pub mod sefaz_response;
@@ -93,6 +94,7 @@ pub fn routes() -> Router<AppState> {
             axum::routing::post(received::import),
         )
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
+        .merge(received_nfse::routes())
 }
 
 pub fn service_routes() -> Router<AppState> {

@@ -5,6 +5,22 @@
     "product": "erp",
     "flows": [
       {
+        "id": "fiscal-nfse-received",
+        "title": "Importação de NFS-e nacional recebida",
+        "goal": "Armazenar XML nacional do tomador com isolamento e origem preservada; assinatura, situação atual, captura incremental e aceite externo permanecem pendentes.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-nfse-received"
+        ],
+        "dependencies": [
+          "company_onboarding"
+        ],
+        "nextStep": "Validar API no Actions, implementar central e homologar fontes de captura antes de declarar cobertura.",
+        "additionalSources": [
+          "docs/superpowers/specs/2026-11-03-nfse-recebida.md"
+        ]
+      },
+      {
         "id": "fiscal-cte",
         "title": "Captura CT-e em homologação",
         "goal": "Capturar XML e eventos com cursor próprio, isolamento e recuperação; conferência individual, vínculos comerciais e aceite externo ainda pendentes.",
@@ -1007,6 +1023,357 @@
     "action": "JavaScript fixo do PDF.js empacotado; sem sessão, documentos ou caminhos fornecidos pelo cliente."
   }],
   "actions": [
+    {
+      "id": "post-api-v1-fiscal-received-nfses-import",
+      "flow": "fiscal-nfse-received",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/received-nfses/import"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfse.read",
+        "fiscal.nfse.import"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/received_nfse.rs",
+          "type": "ImportReceivedNfseInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais da empresa; RLS obrigatório.",
+        "CNPJ numérico válido, XML nacional de até 1 MiB, motor privado configurado e resposta correlacionada ao arquivo."
+      ],
+      "transition": {
+        "from": "XML ainda não importado ou comando repetido",
+        "to": "Documento preservado ou recusa sem efeitos parciais"
+      },
+      "effects": {
+        "writes": [
+          "fiscal_received_nfses",
+          "domain_commands",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [
+          "Inspeção offline no motor fiscal privado, sem acesso à autoridade."
+        ],
+        "excludes": [
+          "Emissão, transmissão, A1, consulta de situação e validação criptográfica.",
+          "Escrita contábil/comercial, captura incremental e alterações no XML."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Comando por tenant/ator/chave e hash/CNPJ; bloqueio da empresa e reautorização após inspeção; unicidade por fonte/ambiente/chave nacional."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          409,
+          422,
+          428,
+          500,
+          502,
+          503
+        ],
+        "action": "Importar XML nacional de NFS-e recebida"
+      },
+      "recovery": "Repetir o mesmo comando e XML; outro XML da mesma chave é conflito e preserva o original.",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received_nfse.rs",
+        "apps/api/src/domains/fiscal/received_nfse_model.rs",
+        "migrations/202611030002_received_nfse.sql",
+        "deploy/grant-received-nfse.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-received-nfses",
+      "flow": "fiscal-nfse-received",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfses"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfse.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": [
+          "offset",
+          "limit"
+        ]
+      },
+      "preconditions": [
+        "Associação e permissões atuais da empresa; RLS obrigatório.",
+        "Documento e consulta limitados à empresa selecionada."
+      ],
+      "transition": {
+        "from": "Arquivo imutável já armazenado",
+        "to": "Arquivo e metadados consultados sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Emissão, transmissão, A1, consulta de situação e validação criptográfica.",
+          "Escrita contábil/comercial, captura incremental e alterações no XML."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura imutável com autorização atual e filtro de tenant."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Listar NFS-e recebidas"
+      },
+      "recovery": "Repetir leitura autenticada na empresa correta.",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received_nfse.rs",
+        "apps/api/src/domains/fiscal/received_nfse_model.rs",
+        "migrations/202611030002_received_nfse.sql",
+        "deploy/grant-received-nfse.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-received-nfses-id",
+      "flow": "fiscal-nfse-received",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfses/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfse.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais da empresa; RLS obrigatório.",
+        "Documento e consulta limitados à empresa selecionada."
+      ],
+      "transition": {
+        "from": "Arquivo imutável já armazenado",
+        "to": "Arquivo e metadados consultados sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Emissão, transmissão, A1, consulta de situação e validação criptográfica.",
+          "Escrita contábil/comercial, captura incremental e alterações no XML."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura imutável com autorização atual e filtro de tenant."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Consultar NFS-e recebida"
+      },
+      "recovery": "Repetir leitura autenticada na empresa correta.",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received_nfse.rs",
+        "apps/api/src/domains/fiscal/received_nfse_model.rs",
+        "migrations/202611030002_received_nfse.sql",
+        "deploy/grant-received-nfse.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-received-nfses-id-xml",
+      "flow": "fiscal-nfse-received",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/received-nfses/{id}/xml"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfse.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões atuais da empresa; RLS obrigatório.",
+        "Documento e consulta limitados à empresa selecionada."
+      ],
+      "transition": {
+        "from": "Arquivo imutável já armazenado",
+        "to": "Arquivo e metadados consultados sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Emissão, transmissão, A1, consulta de situação e validação criptográfica.",
+          "Escrita contábil/comercial, captura incremental e alterações no XML."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura imutável com autorização atual e filtro de tenant."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500
+        ],
+        "action": "Baixar XML original de NFS-e"
+      },
+      "recovery": "Repetir leitura autenticada na empresa correta.",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Central e BFF pendentes. Catálogo não comprova publicação, assinatura ou aceite externo."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/received_nfse.rs",
+        "apps/api/src/domains/fiscal/received_nfse_model.rs",
+        "migrations/202611030002_received_nfse.sql",
+        "deploy/grant-received-nfse.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-api-v1-fiscal-cte-distribution-status",
       "flow": "fiscal-cte",

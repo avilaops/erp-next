@@ -1,0 +1,38 @@
+{
+  "source": "nfse_nacional",
+  "schemaVersion": "1.01",
+  "accessKey": "35503081211222333000181000000000000126110000000010",
+  "environment": "homologation",
+  "number": "1",
+  "municipalityCode": "3550308",
+  "issuedAt": "2026-11-03T10:00:00-03:00",
+  "processedAt": "2026-11-03T10:00:01-03:00",
+  "processingCode": "100",
+  "issuer": {
+    "kind": "CNPJ",
+    "value": "11222333000181",
+    "name": "Serviços & Companhia"
+  },
+  "provider": {
+    "kind": "CNPJ",
+    "value": "11222333000181",
+    "name": "Prestador sintético"
+  },
+  "recipient": {
+    "kind": "CNPJ",
+    "value": "04252011000110",
+    "name": "Tomador sintético"
+  },
+  "serviceCode": "010101",
+  "description": "Inspeção offline — sem transmissão.",
+  "serviceCents": "12345",
+  "netCents": "12300",
+  "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<NFSe xmlns=\"http://www.sped.fazenda.gov.br/nfse\" versao=\"1.01\">\n  <infNFSe Id=\"NFS35503081211222333000181000000000000126110000000010\">\n    <xLocEmi>São Paulo</xLocEmi><xLocPrestacao>São Paulo</xLocPrestacao>\n    <nNFSe>1</nNFSe><xTribNac>Serviço sintético de teste</xTribNac>\n    <verAplic>fixture-1</verAplic><ambGer>1</ambGer><tpEmis>1</tpEmis>\n    <cStat>100</cStat><dhProc>2026-11-03T10:00:01-03:00</dhProc><nDFSe>1</nDFSe>\n    <emit><CNPJ>11222333000181</CNPJ><xNome>Serviços &amp; Companhia</xNome>\n      <enderNac><xLgr>Rua de teste</xLgr><nro>1</nro><xBairro>Centro</xBairro><cMun>3550308</cMun><UF>SP</UF><CEP>01001000</CEP></enderNac>\n    </emit>\n    <valores><vLiq>123.00</vLiq></valores>\n    <DPS versao=\"1.01\"><infDPS Id=\"DPS355030821122233300018100001000000000000001\">\n      <tpAmb>2</tpAmb><dhEmi>2026-11-03T10:00:00-03:00</dhEmi><verAplic>fixture-1</verAplic>\n      <serie>1</serie><nDPS>1</nDPS><dCompet>2026-11-03</dCompet><tpEmit>1</tpEmit><cLocEmi>3550308</cLocEmi>\n      <prest><CNPJ>11222333000181</CNPJ><xNome>Prestador sintético</xNome><regTrib><opSimpNac>1</opSimpNac><regEspTrib>0</regEspTrib></regTrib></prest>\n      <toma><CNPJ>04252011000110</CNPJ><xNome>Tomador sintético</xNome></toma>\n      <serv><locPrest><cLocPrestacao>3550308</cLocPrestacao></locPrest><cServ><cTribNac>010101</cTribNac><xDescServ>Inspeção offline — sem transmissão.</xDescServ></cServ></serv>\n      <valores><vServPrest><vServ>123.45</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><totTrib><indTotTrib>0</indTotTrib></totTrib></trib></valores>\n    </infDPS></DPS>\n  </infNFSe>\n  <Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo>\n    <CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"/>\n    <SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256\"/>\n    <Reference URI=\"#NFS35503081211222333000181000000000000126110000000010\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"/><DigestValue>AA==</DigestValue></Reference>\n  </SignedInfo><SignatureValue>AA==</SignatureValue><KeyInfo><X509Data><X509Certificate>AA==</X509Certificate></X509Data></KeyInfo></Signature>\n</NFSe>\n",
+  "xmlSha256": "29c79c29aa393ac5da8891a55fdb91eeb6d52707ad8c1f93e6e25e5e4646e774",
+  "verification": {
+    "layout": "local_profile_valid",
+    "correction": "nfse-1.01-dps-series-regex-v1",
+    "signature": "not_verified",
+    "currentStatus": "not_queried"
+  }
+}

@@ -222,6 +222,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: scripts/contracts/consumer
       - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
+      - name: Verify fiscal integration examples against the generated OpenAPI
+        run: node scripts/fiscal/check-contract.mjs artifacts/contracts/candidate.json
       - name: Check fixed company consumer
         working-directory: scripts/contracts/consumer
         run: |

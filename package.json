@@ -19,7 +19,14 @@
     "lint:web": "pnpm --filter web lint",
     "test:company": "node scripts/verify-company.mjs",
     "test:access": "node scripts/verify-company.mjs",
-    "generate:api": "node scripts/contracts/generate-web.mjs"
+    "generate:api": "node scripts/contracts/generate-web.mjs",
+    "test:fiscal-integrations": "node --test scripts/fiscal/test/*.test.mjs",
+    "fiscal:example": "node scripts/fiscal/example.mjs",
+    "fiscal:mcp": "node scripts/fiscal/mcp.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "ajv": "8.20.0"

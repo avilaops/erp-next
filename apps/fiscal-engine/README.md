@@ -30,7 +30,7 @@ no PostgreSQL; nunca é enviada em respostas públicas.
 
 ## Contrato
 
-`POST /v1/{prepare,authorize,consult,event,void,distribute,manifest}` exige
+`POST /v1/{prepare,authorize,consult,event,void,distribute,distribute-cte,manifest}` exige
 Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
 `pkcs12Base64` e `password`, abertos exclusivamente no servidor.
 
@@ -42,6 +42,14 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
   retornam o resultado efetivamente recebido. Nenhum timeout confirma evento.
 - `distribute`: consulta lote sequencial, limita descompressão e retorna NSUs e
   documentos. O cursor somente é confirmado pela transação da API Rust.
+- `distribute-cte`: consulta o distribuidor nacional CT-e em homologação, com
+  `issuerTaxId`, `authorState` e `lastNsu`. Valida pedido e retorno com o pacote
+  oficial `PL_CTeDistDFe_100`, além de ambiente, ordem/intervalo dos NSUs e
+  limites de XML/descompressão. `nextNsu: null` proíbe confirmar cursor em
+  rejeições. `minimumWaitSeconds` é um mínimo a persistir pela API; o motor
+  não agenda nem repete consultas. Esta operação ainda não está integrada à
+  API Rust, ao worker ou à central. Consulte
+  [o contrato e as limitações CT-e](../../docs/CTE-DISTRIBUICAO-AVL-111.md).
 
 Emissão cobre NF-e 55/SP em homologação e os seguintes recortes explícitos:
 

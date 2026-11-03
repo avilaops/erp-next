@@ -1,0 +1,17 @@
+{
+  "release": "PL_CTeDistDFe_100",
+  "sourceUrl": "https://www.cte.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=l6I2ehbBicE%3D",
+  "sourceCheckedAt": "2026-11-03",
+  "archiveSha256": "f546a5792e2b70af28a825a944a34e0e91a78722d014be021d86318217f3b7b6",
+  "normalization": "UTF-8 without BOM; CRLF normalized to LF",
+  "entries": {
+    "request": "distDFeInt_v1.00.xsd",
+    "response": "retDistDFeInt_v1.00.xsd"
+  },
+  "files": [
+    { "name": "distDFeInt_v1.00.xsd", "sha256": "31a3f1ab0aebde53f2b74cd2611c646fce0eb717235b1dd8fb7022ef8acd217f" },
+    { "name": "retDistDFeInt_v1.00.xsd", "sha256": "e237020136391af4abaea2258a3a6d285ca346622229e20c32a6fdd3e4e7d16a" },
+    { "name": "tiposDistDFe_v1.00.xsd", "sha256": "9cdc15e0c37fcb502d446e4c21269f32306b6ef8fdf76d2936e04ec1861fc319" },
+    { "name": "xmldsig-core-schema_v1.01.xsd", "sha256": "66ca2c4e385fd6e7b5fc86165eee1524cea811e21811df5899ffb4a227825035" }
+  ]
+}

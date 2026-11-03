@@ -9,6 +9,9 @@ e validação autenticada em produção são etapas separadas.
 ## Contrato de entrega
 
 - Listagem paginada, busca por cliente/número e filtro por situação.
+- Central `/vendas` com contagens e registros recentes consultados das APIs reais
+  de propostas e pedidos, atalhos de criação conforme permissão e estados de erro
+  independentes. Indicadores e pedidos demonstrativos não são exibidos nessa rota.
 - Criação e edição de rascunho com cliente e produtos reais, quantidade, cores,
   preço comercial, validade, condições de pagamento, entrega e observações.
 - Valores calculados no servidor com inteiros de precisão fixa; nenhuma condição

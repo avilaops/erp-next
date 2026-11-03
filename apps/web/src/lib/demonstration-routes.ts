@@ -62,7 +62,6 @@ export const demonstrationRoutes = [
   "/servicos/notas",
   "/servicos/ordens",
   "/servicos/relatorios",
-  "/vendas",
   "/vendas/anuncios",
   "/vendas/anuncios/novo",
   "/vendas/anuncios/[id]",

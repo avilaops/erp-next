@@ -1244,6 +1244,7 @@
       "recovery": "Repetir leitura sem tratar indisponibilidade como lista vazia.",
       "ui": {
         "pages": [
+          "/vendas",
           "/vendas/propostas",
           "/vendas/propostas/novo",
           "/vendas/propostas/[id]",

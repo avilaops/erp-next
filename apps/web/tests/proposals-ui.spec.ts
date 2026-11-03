@@ -12,6 +12,24 @@ test.beforeEach(async ({ context, page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa de teste" }, permissions: ["sales.proposals.read", "sales.proposals.manage"] } }))
 })
 
+test("central de vendas consulta dados reais e preserva pedidos quando propostas não são autorizadas", async ({ page }) => {
+  await page.route(/\/api\/erp\/proposals\?limit=5$/, route => route.fulfill({ status: 403, json: { title: "Sem permissão para consultar propostas" } }))
+  await page.route(/\/api\/erp\/orders\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ id: record, customerName: "Cliente do pedido real", amount: "200.00", status: "draft" }] } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/vendas")
+  await expect(page.getByRole("alert")).toContainText("Sem permissão")
+  await expect(page.getByRole("link", { name: "Cliente do pedido real" })).toBeVisible()
+  await expect(page.getByText("1 pedido(s) cadastrado(s)")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Prévia de interface" })).toHaveCount(0)
+  await expect(page.getByText("Vendas no mês", { exact: true })).toHaveCount(0)
+  await page.route(/\/api\/erp\/proposals\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 0, data: [] } }))
+  await page.getByRole("button", { name: "Tentar consultar propostas novamente" }).click()
+  await expect(page.getByText("Nenhuma proposta cadastrada nesta empresa.")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Novo orçamento" })).toHaveAttribute("href", "/vendas/propostas/novo")
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
 test("criação exige condições explícitas e envia cliente e produtos reais com chave idempotente", async ({ page }) => {
   let saved: Record<string, unknown> | undefined
   await page.route(/\/api\/erp\/proposals(?:\?.*)?$/, route => {

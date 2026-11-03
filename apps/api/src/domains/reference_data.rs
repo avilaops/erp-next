@@ -61,9 +61,20 @@ pub struct PaymentMethodInput {
     pub modality: String,
     pub settlement_days: i32,
 }
+// The internal row adapter also serves supply catalogs. It must not widen the
+// established ReferenceInput response contract of the original four catalogs.
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(untagged)]
 pub enum ReferenceInput {
+    ProductCategory(ProductCategoryInput),
+    FinancialCategory(FinancialCategoryInput),
+    FinancialAccount(FinancialAccountInput),
+    PaymentMethod(PaymentMethodInput),
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+enum CatalogInput {
     ProductCategory(ProductCategoryInput),
     FinancialCategory(FinancialCategoryInput),
     FinancialAccount(FinancialAccountInput),
@@ -193,7 +204,7 @@ fn optional(value: &mut Option<String>, max: usize) -> Result<(), DomainError> {
     }
     Ok(())
 }
-impl ReferenceInput {
+impl CatalogInput {
     fn common(&self) -> (&str, &str, &str, &Option<String>) {
         match self {
             Self::ProductCategory(v) => (&v.code, &v.name, &v.status, &v.notes),
@@ -289,7 +300,8 @@ pub struct Reference {
     revision: i64,
     #[serde(flatten)]
     #[sqlx(json)]
-    data: ReferenceInput,
+    #[schema(value_type = ReferenceInput)]
+    data: CatalogInput,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -304,6 +316,33 @@ pub struct ReferenceList {
     tenant_id: Uuid,
     can_edit: bool,
     data: Vec<Reference>,
+    total: i64,
+    offset: u32,
+    limit: u32,
+}
+
+// New catalog responses have concrete fields instead of extending the legacy
+// response union. These DTOs mirror the serialized Reference envelopes above.
+#[derive(Serialize, ToSchema)]
+pub struct SupplyReference<T> {
+    id: Uuid,
+    revision: i64,
+    #[serde(flatten)]
+    data: T,
+}
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplySnapshot<T> {
+    tenant_id: Uuid,
+    can_edit: bool,
+    data: SupplyReference<T>,
+}
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplyList<T> {
+    tenant_id: Uuid,
+    can_edit: bool,
+    data: Vec<SupplyReference<T>>,
     total: i64,
     offset: u32,
     limit: u32,
@@ -404,11 +443,11 @@ async fn hierarchy(
     tenant: Uuid,
     kind: Kind,
     id: Uuid,
-    input: &ReferenceInput,
+    input: &CatalogInput,
 ) -> Result<(), DomainError> {
     let (parent, direction) = match input {
-        ReferenceInput::ProductCategory(v) => (v.parent_id, None),
-        ReferenceInput::FinancialCategory(v) => (v.parent_id, Some(v.direction.as_str())),
+        CatalogInput::ProductCategory(v) => (v.parent_id, None),
+        CatalogInput::FinancialCategory(v) => (v.parent_id, Some(v.direction.as_str())),
         _ => return Ok(()),
     };
     let status = input.common().2;
@@ -425,7 +464,7 @@ async fn hierarchy(
                 "Categoria ativa exige categoria superior ativa",
             ));
         }
-        if let ReferenceInput::FinancialCategory(v) = ancestor.data
+        if let CatalogInput::FinancialCategory(v) = ancestor.data
             && Some(v.direction.as_str()) != direction
         {
             return Err(DomainError::Conflict(
@@ -470,12 +509,12 @@ async fn tag_group_relation(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
     id: Uuid,
-    input: &ReferenceInput,
+    input: &CatalogInput,
 ) -> Result<(), DomainError> {
     // authorized() holds the tenant write lock across validation and storage.
     // This also serializes group archival against creation/reactivation of tags.
     match input {
-        ReferenceInput::Tag(tag) => {
+        CatalogInput::Tag(tag) => {
             if let Some(group_id) = tag.group_id {
                 let group = load(tx, tenant, Kind::TagGroup, group_id)
                     .await
@@ -490,7 +529,7 @@ async fn tag_group_relation(
                 }
             }
         }
-        ReferenceInput::TagGroup(group) if group.status == "archived" => {
+        CatalogInput::TagGroup(group) if group.status == "archived" => {
             let active: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM tags WHERE tenant_id=$1 AND group_id=$2 AND status='active')")
                 .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)?;
             if active {
@@ -509,27 +548,27 @@ async fn store(
     kind: Kind,
     id: Uuid,
     next: i64,
-    input: &ReferenceInput,
+    input: &CatalogInput,
     updating: bool,
 ) -> Result<(), DomainError> {
     let (columns, values, changes) = match input {
-        ReferenceInput::Warehouse(_) => ("location", "$8", "location=$8"),
-        ReferenceInput::Tag(_) => ("group_id", "$8", "group_id=$8"),
-        ReferenceInput::ProductGroup(_) | ReferenceInput::TagGroup(_) => ("", "", ""),
-        ReferenceInput::ProductCategory(_) => (
+        CatalogInput::Warehouse(_) => ("location", "$8", "location=$8"),
+        CatalogInput::Tag(_) => ("group_id", "$8", "group_id=$8"),
+        CatalogInput::ProductGroup(_) | CatalogInput::TagGroup(_) => ("", "", ""),
+        CatalogInput::ProductCategory(_) => (
             "parent_id,sort_order",
             "$8,$9",
             "parent_id=$8,sort_order=$9",
         ),
-        ReferenceInput::FinancialCategory(_) => {
+        CatalogInput::FinancialCategory(_) => {
             ("parent_id,direction", "$8,$9", "parent_id=$8,direction=$9")
         }
-        ReferenceInput::FinancialAccount(_) => (
+        CatalogInput::FinancialAccount(_) => (
             "account_type,bank,branch,account_number",
             "$8,$9,$10,$11",
             "account_type=$8,bank=$9,branch=$10,account_number=$11",
         ),
-        ReferenceInput::PaymentMethod(_) => (
+        CatalogInput::PaymentMethod(_) => (
             "modality,settlement_days",
             "$8,$9",
             "modality=$8,settlement_days=$9",
@@ -571,17 +610,17 @@ async fn store(
         .bind(notes)
         .bind(next);
     let query = match input {
-        ReferenceInput::ProductCategory(v) => query.bind(v.parent_id).bind(v.sort_order),
-        ReferenceInput::FinancialCategory(v) => query.bind(v.parent_id).bind(&v.direction),
-        ReferenceInput::FinancialAccount(v) => query
+        CatalogInput::ProductCategory(v) => query.bind(v.parent_id).bind(v.sort_order),
+        CatalogInput::FinancialCategory(v) => query.bind(v.parent_id).bind(&v.direction),
+        CatalogInput::FinancialAccount(v) => query
             .bind(&v.account_type)
             .bind(&v.bank)
             .bind(&v.branch)
             .bind(&v.account_number),
-        ReferenceInput::PaymentMethod(v) => query.bind(&v.modality).bind(v.settlement_days),
-        ReferenceInput::Warehouse(v) => query.bind(&v.location),
-        ReferenceInput::Tag(v) => query.bind(v.group_id),
-        ReferenceInput::ProductGroup(_) | ReferenceInput::TagGroup(_) => query,
+        CatalogInput::PaymentMethod(v) => query.bind(&v.modality).bind(v.settlement_days),
+        CatalogInput::Warehouse(v) => query.bind(&v.location),
+        CatalogInput::Tag(v) => query.bind(v.group_id),
+        CatalogInput::ProductGroup(_) | CatalogInput::TagGroup(_) => query,
     };
     let result = query.execute(&mut **tx).await.map_err(|e| {
         if e.as_database_error()
@@ -603,7 +642,7 @@ async fn write_record(
     headers: HeaderMap,
     id: Option<Uuid>,
     kind: Kind,
-    payload: Result<ReferenceInput, JsonRejection>,
+    payload: Result<CatalogInput, JsonRejection>,
 ) -> Result<Response, DomainError> {
     let key = command_key(&headers)?;
     let expected = if id.is_some() {
@@ -674,14 +713,17 @@ async fn write_record(
 // Concrete handlers keep each HTTP request schema and permission boundary explicit.
 macro_rules! endpoints {
     ($list:ident,$get:ident,$create:ident,$update:ident,$path:literal,$item:literal,$variant:ident,$input:ty) => {
-        #[utoipa::path(get,path=$path,tag="Reference data",security(("bearerAuth"=[])),params(super::catalog::ProductQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ReferenceList),(status=403,description="Sem permissão"),(status=422,description="Filtro inválido")))]
+        endpoints!($list,$get,$create,$update,$path,$item,$variant,$input,ReferenceSnapshot,ReferenceList);
+    };
+    ($list:ident,$get:ident,$create:ident,$update:ident,$path:literal,$item:literal,$variant:ident,$input:ty,$snapshot:ty,$collection:ty) => {
+        #[utoipa::path(get,path=$path,tag="Reference data",security(("bearerAuth"=[])),params(super::catalog::ProductQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=$collection),(status=403,description="Sem permissão"),(status=422,description="Filtro inválido")))]
         pub async fn $list(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,query:Result<Query<super::catalog::ProductQuery>,QueryRejection>)->Result<Response,DomainError>{list_records(state,identity,headers,query,Kind::$variant).await}
-        #[utoipa::path(get,path=$item,tag="Reference data",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente")))]
+        #[utoipa::path(get,path=$item,tag="Reference data",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=$snapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente")))]
         pub async fn $get(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>)->Result<Response,DomainError>{get_record(state,identity,headers,id,Kind::$variant).await}
-        #[utoipa::path(post,path=$path,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=409,description="Vínculo ou código em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
-        pub async fn $create(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,None,Kind::$variant,payload.map(|Json(v)|ReferenceInput::$variant(v))).await}
-        #[utoipa::path(put,path=$item,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=ReferenceSnapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente"),(status=409,description="Vínculo ou código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão e chave obrigatórias")))]
-        pub async fn $update(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,Some(id),Kind::$variant,payload.map(|Json(v)|ReferenceInput::$variant(v))).await}
+        #[utoipa::path(post,path=$path,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),responses((status=201,body=$snapshot),(status=403,description="Sem permissão"),(status=409,description="Vínculo ou código em conflito"),(status=422,description="Cadastro inválido"),(status=428,description="Chave obrigatória")))]
+        pub async fn $create(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,None,Kind::$variant,payload.map(|Json(v)|CatalogInput::$variant(v))).await}
+        #[utoipa::path(put,path=$item,tag="Reference data",request_body=$input,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),responses((status=200,body=$snapshot),(status=403,description="Sem permissão"),(status=404,description="Registro inexistente"),(status=409,description="Vínculo ou código em conflito"),(status=412,description="Revisão divergente"),(status=422,description="Cadastro inválido"),(status=428,description="Revisão e chave obrigatórias")))]
+        pub async fn $update(State(state):State<AppState>,Extension(identity):Extension<AuthenticatedIdentity>,headers:HeaderMap,Path(id):Path<Uuid>,payload:Result<Json<$input>,JsonRejection>)->Result<Response,DomainError>{write_record(state,identity,headers,Some(id),Kind::$variant,payload.map(|Json(v)|CatalogInput::$variant(v))).await}
     }
 }
 endpoints!(
@@ -733,7 +775,9 @@ endpoints!(
     "/api/v1/warehouses",
     "/api/v1/warehouses/{id}",
     Warehouse,
-    WarehouseInput
+    WarehouseInput,
+    SupplySnapshot<WarehouseInput>,
+    SupplyList<WarehouseInput>
 );
 endpoints!(
     list_product_groups,
@@ -743,7 +787,9 @@ endpoints!(
     "/api/v1/product-groups",
     "/api/v1/product-groups/{id}",
     ProductGroup,
-    GroupInput
+    GroupInput,
+    SupplySnapshot<GroupInput>,
+    SupplyList<GroupInput>
 );
 endpoints!(
     list_tag_groups,
@@ -753,7 +799,9 @@ endpoints!(
     "/api/v1/tag-groups",
     "/api/v1/tag-groups/{id}",
     TagGroup,
-    GroupInput
+    GroupInput,
+    SupplySnapshot<GroupInput>,
+    SupplyList<GroupInput>
 );
 endpoints!(
     list_tags,
@@ -763,7 +811,9 @@ endpoints!(
     "/api/v1/tags",
     "/api/v1/tags/{id}",
     Tag,
-    TagInput
+    TagInput,
+    SupplySnapshot<TagInput>,
+    SupplyList<TagInput>
 );
 
 pub fn routes() -> Router<AppState> {

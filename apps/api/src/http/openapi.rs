@@ -138,6 +138,86 @@ mod tests {
     use super::*;
 
     #[test]
+    fn reference_catalog_contracts_preserve_existing_response_schemas() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        // Frozen before adding supply catalogs: extending a shared response union
+        // would otherwise widen all sixteen existing operations at once.
+        let expected: serde_json::Value =
+            serde_json::from_str(include_str!("fixtures/reference_catalog_schemas.json")).unwrap();
+        for (name, schema) in expected.as_object().unwrap() {
+            assert_eq!(&doc["components"]["schemas"][name], schema, "{name}");
+        }
+        for resource in [
+            "product-categories",
+            "financial-categories",
+            "financial-accounts",
+            "payment-methods",
+        ] {
+            let path = format!("/api/v1/{resource}");
+            for (method, suffix, status, schema) in [
+                ("get", "", "200", "ReferenceList"),
+                ("post", "", "201", "ReferenceSnapshot"),
+                ("get", "/{id}", "200", "ReferenceSnapshot"),
+                ("put", "/{id}", "200", "ReferenceSnapshot"),
+            ] {
+                assert_eq!(
+                    doc["paths"][format!("{path}{suffix}")][method]["responses"][status]["content"]
+                        ["application/json"]["schema"]["$ref"],
+                    format!("#/components/schemas/{schema}")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn supply_catalog_contracts_use_typed_response_schemas() {
+        let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for (resource, input) in [
+            ("warehouses", "WarehouseInput"),
+            ("product-groups", "GroupInput"),
+            ("tag-groups", "GroupInput"),
+            ("tags", "TagInput"),
+        ] {
+            for (method, suffix, status, list) in [
+                ("get", "", "200", true),
+                ("post", "", "201", false),
+                ("get", "/{id}", "200", false),
+                ("put", "/{id}", "200", false),
+            ] {
+                let path = format!("/api/v1/{resource}{suffix}");
+                let schema_ref =
+                    doc["paths"][&path][method]["responses"][status]["content"]["application/json"]
+                        ["schema"]["$ref"]
+                        .as_str()
+                        .unwrap();
+                let schema = schema_ref.strip_prefix("#/components/schemas/").unwrap();
+                assert!(schema.starts_with(if list {
+                    "SupplyList_"
+                } else {
+                    "SupplySnapshot_"
+                }));
+                let data = &doc["components"]["schemas"][schema]["properties"]["data"];
+                let record_ref = if list {
+                    &data["items"]["$ref"]
+                } else {
+                    &data["$ref"]
+                };
+                let record_schema = record_ref
+                    .as_str()
+                    .unwrap()
+                    .strip_prefix("#/components/schemas/")
+                    .unwrap();
+                assert!(record_schema.starts_with("SupplyReference_"));
+                assert_eq!(
+                    doc["components"]["schemas"][record_schema]["allOf"][0]["$ref"],
+                    format!("#/components/schemas/{input}"),
+                    "{method} {path} must describe only its own catalog data"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn web_consumers_have_explicit_response_schemas() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
         for path in [

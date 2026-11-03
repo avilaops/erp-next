@@ -1,0 +1,260 @@
+{
+  "ProductCategoryInput": {
+    "type": "object",
+    "required": [
+      "code",
+      "name",
+      "status",
+      "sortOrder"
+    ],
+    "properties": {
+      "code": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "notes": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "parentId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "sortOrder": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "status": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "FinancialCategoryInput": {
+    "type": "object",
+    "required": [
+      "code",
+      "name",
+      "status",
+      "direction"
+    ],
+    "properties": {
+      "code": {
+        "type": "string"
+      },
+      "direction": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "notes": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "parentId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "FinancialAccountInput": {
+    "type": "object",
+    "required": [
+      "code",
+      "name",
+      "status",
+      "accountType"
+    ],
+    "properties": {
+      "accountNumber": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "accountType": {
+        "type": "string"
+      },
+      "bank": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "branch": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "code": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "notes": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "status": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "PaymentMethodInput": {
+    "type": "object",
+    "required": [
+      "code",
+      "name",
+      "status",
+      "modality",
+      "settlementDays"
+    ],
+    "properties": {
+      "code": {
+        "type": "string"
+      },
+      "modality": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "notes": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "settlementDays": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "status": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  },
+  "ReferenceInput": {
+    "oneOf": [
+      {
+        "$ref": "#/components/schemas/ProductCategoryInput"
+      },
+      {
+        "$ref": "#/components/schemas/FinancialCategoryInput"
+      },
+      {
+        "$ref": "#/components/schemas/FinancialAccountInput"
+      },
+      {
+        "$ref": "#/components/schemas/PaymentMethodInput"
+      }
+    ]
+  },
+  "Reference": {
+    "allOf": [
+      {
+        "$ref": "#/components/schemas/ReferenceInput"
+      },
+      {
+        "type": "object",
+        "required": [
+          "id",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    ]
+  },
+  "ReferenceSnapshot": {
+    "type": "object",
+    "required": [
+      "tenantId",
+      "canEdit",
+      "data"
+    ],
+    "properties": {
+      "canEdit": {
+        "type": "boolean"
+      },
+      "data": {
+        "$ref": "#/components/schemas/Reference"
+      },
+      "tenantId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  },
+  "ReferenceList": {
+    "type": "object",
+    "required": [
+      "tenantId",
+      "canEdit",
+      "data",
+      "total",
+      "offset",
+      "limit"
+    ],
+    "properties": {
+      "canEdit": {
+        "type": "boolean"
+      },
+      "data": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Reference"
+        }
+      },
+      "limit": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 0
+      },
+      "offset": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 0
+      },
+      "tenantId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "total": {
+        "type": "integer",
+        "format": "int64"
+      }
+    }
+  }
+}

@@ -92,7 +92,8 @@ fn party(node: Node<'_, '_>) -> Result<NfseParty, ()> {
     let value = field(node, kind)?;
     let person = if kind == "CNPJ" { "juridica" } else { "fisica" };
     if matches!(kind, "CNPJ" | "CPF")
-        && (!digits(&value, if kind == "CNPJ" { 14 } else { 11 }) || !valid_document(&value, person))
+        && (!digits(&value, if kind == "CNPJ" { 14 } else { 11 })
+            || !valid_document(&value, person))
     {
         return Err(());
     }

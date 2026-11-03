@@ -67,16 +67,23 @@ Contrato: POST `/api/v1/fiscal/received-nfses/import`, GET coleção, detalhe e
 Permissões próprias `fiscal.nfse.read` e `fiscal.nfse.import`, sem concessão
 automática no cadastro/bootstrap. Nenhuma emissão, consulta remota ou A1.
 
-- [ ] Teste HTTP de autorização antes da rota; confirmar falha no Actions.
-- [ ] Migração com documento imutável, unicidade tenant/fonte/ambiente/chave,
+- [x] Teste HTTP de autorização antes da rota; falha confirmada no Actions
+  41641675403: 404 em vez de 403 esperado, demais 227 testes API aprovados.
+- [x] Migração com documento imutável, unicidade tenant/fonte/ambiente/chave,
   CNPJ do tomador congelado, SHA-256, metadados e RLS obrigatório.
-- [ ] Autorizar e conferir CNPJ antes da inspeção privada, encerrar transação
+- [x] Autorizar e conferir CNPJ antes da inspeção privada, encerrar transação
   antes de I/O e autorizar novamente sob bloqueio de escrita antes de salvar.
-- [ ] Correlacionar resultado com XML/hash, identidade, ambiente e perfil;
+- [x] Correlacionar resultado com XML/hash, identidade, ambiente e perfil;
   manter assinatura e situação atual explicitamente não verificadas.
-- [ ] Inserção, comando idempotente, auditoria e outbox em uma transação.
+- [x] Inserção, comando idempotente, auditoria e outbox em uma transação.
   Mesmo XML retorna documento existente; mesma chave com outro XML dá conflito.
 - [ ] Testar isolamento/RLS, duplicatas, falhas atômicas, mudança de empresa e
   revogação durante inspeção, resposta incompatível e grants restritos.
-- [ ] Registrar OpenAPI, catálogo de ações e grants de implantação preparados.
+- [x] Registrar OpenAPI, catálogo de ações e grants de implantação preparados.
 - [ ] Revisar diff e validar Rust exclusivamente no GitHub Actions.
+
+Foram escritos oito testes HTTP/PostgreSQL, incluindo o teste inicial de
+autorização, e uma fixture sintética conferida pelo motor Node. Motor: 72/72
+aprovados. Revisão por leitura corrigiu o parâmetro de tipo de pessoa no
+validador; restante sem achado concreto. Rustfmt aplicado a partir do artefato
+do Actions, sem execução local. Testes PostgreSQL e CI final ainda pendentes.

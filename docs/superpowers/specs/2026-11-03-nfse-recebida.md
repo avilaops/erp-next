@@ -55,9 +55,38 @@ SHA-256 do XSD simples 1.01 normalizado original:
 SHA-256 do perfil derivado:
 `8f3bad64e97b490bebd9d4e094ff1eca24f30e6eea67caf3d1124288b2b5bec6`.
 
+## Importação manual na API
+
+`POST /api/v1/fiscal/received-nfses/import` recebe somente `{ "xml": "..." }`;
+exige `X-Tenant-Id`, autenticação e `Idempotency-Key` UUID. Documento até 1 MiB,
+corpo JSON até 2 MiB. Permissões `fiscal.nfse.read` e `fiscal.nfse.import` são
+atribuídas explicitamente; não entram nos grants automáticos de cadastro.
+
+Antes da inspeção, conferir o CNPJ numérico completo da empresa. Encerrar a
+transação antes da chamada ao motor. Após a resposta, conferir XML/hash,
+chave/ambiente, atores, valores, versão e perfil; reautorizar sob bloqueio da
+empresa e recusar mudança do CNPJ. O XML original nunca é substituído pelo
+retorno do motor.
+
+Documento imutável em `fiscal_received_nfses`, com RLS forçada e unicidade por
+tenant/fonte/ambiente/chave nacional. Mesmo XML pode retornar o registro existente;
+mesma chave com XML diferente retorna 409. Comando idempotente inclui hash e
+CNPJ, por ator e tenant. Documento, comando, auditoria e outbox são atômicos.
+Sem lançamentos comerciais ou evento fiscal externo.
+
+GET coleção, `/{id}` e `/{id}/xml` exigem a permissão de leitura. Coleção tem
+paginação limitada a 100 registros; detalhes não incluem XML. Download entrega
+os bytes originais com SHA-256, attachment, no-store e nosniff. Não há PDF ou
+consulta de situação nesta etapa. Grants preparados permitem somente SELECT e
+INSERT na tabela de documentos; não foram aplicados em produção.
+
+Teste vermelho confirmado no Actions 41641675403. Suíte do motor aprovada com
+72 testes, incluindo correspondência exata da fixture do contrato HTTP Rust.
+A execução da nova suíte PostgreSQL continua pendente no CI até aprovação.
+
 ## Continuação obrigatória da AVL-112
 
-- Importação manual com isolamento, deduplicação por fonte/ambiente/chave,
+- Aprovação do CI e aceite da importação manual com isolamento, deduplicação,
   XML imutável, auditoria e permissões explícitas na API Rust.
 - Central para XML e eventos; conferência individual antes de vínculos.
 - Captura incremental por fonte e identidade, com recuperação e limites.

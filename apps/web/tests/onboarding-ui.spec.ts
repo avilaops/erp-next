@@ -63,11 +63,26 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
 test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0 })
 
+test("entry login reaches Auth under the same-origin form policy and preserves its return path", async ({ page, context }) => {
+  const destination = "/cadastros/produtos?status=active&offset=25"
+  const entry = await page.goto("/entrar?" + new URLSearchParams({ returnTo: destination }))
+  expect(entry!.headers()["content-security-policy"]).toContain("form-action 'self'")
+  await page.getByText("Entrar", { exact: true }).click()
+  await expect(page).toHaveURL(url => url.origin === issuer && url.pathname === "/authorize")
+  const authorization = new URL(page.url())
+  expect(authorization.searchParams.get("code_challenge_method")).toBe("S256")
+  expect(authorization.searchParams.get("redirect_uri")).toBe(`${origin}/api/auth/callback`)
+  const callback = await context.request.get(`${origin}/api/auth/callback?` + new URLSearchParams({ code: "fixture", state: authorization.searchParams.get("state")! }), { maxRedirects: 0 })
+  expect(callback.status()).toBe(307)
+  expect(new URL(callback.headers().location).pathname).toBe("/cadastro/empresa")
+  expect(new URL(callback.headers().location).searchParams.get("returnTo")).toBe(destination)
+})
+
 test("entry keeps access visible and its single preview supports keyboard reading and closing", async ({ page }) => {
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 900 })
     await page.goto("/entrar?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
 
     const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
@@ -130,11 +145,11 @@ test("entry recovery keeps the error and access controls together in the first p
       await expect(page.getByRole("heading", { name: "Retome o acesso", exact: true })).toBeVisible()
       const alert = page.locator("main").getByRole("alert")
       await expect(alert).toBeInViewport({ ratio: 1 })
-      const login = page.getByRole("button", { name: "Entrar", exact: true })
+      const login = page.getByRole("link", { name: "Entrar", exact: true })
       await expect(login).toBeInViewport({ ratio: 1 })
       await expect(login).toHaveAttribute("aria-describedby", "access-error")
       await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
-      await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+      await expect(login).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
     }
   }
 })
@@ -143,7 +158,7 @@ test("entry preview shows complete product data with margins in landscape and ad
   for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport)
     await page.goto("/entrar")
-    await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
     await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
     const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
@@ -186,7 +201,7 @@ test("entry preview announces loading and recovers from a failed image without l
   await page.goto("/entrar", { waitUntil: "domcontentloaded" })
   const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
   await expect(trigger.getByRole("status")).toHaveText("Carregando prévia…")
-  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeEnabled()
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeEnabled()
   await trigger.click()
   const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
   await expect(dialog.getByRole("status")).toHaveText("Carregando prévia…")
@@ -274,7 +289,7 @@ test("cadastros distinguish a signed-out user from an authenticated user without
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
   await expect(page.getByRole("heading", { name: "Sua operação, sob controle.", exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
   await context.addCookies([cookie()])
   for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
@@ -323,7 +338,7 @@ test("expired access preserves the internal path and filters through the login f
   const destination = "/cadastros/produtos?status=archived&offset=25"
   await page.goto(destination)
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
-  await expect(page.locator('form[action="/api/auth/login"] input[name="returnTo"]')).toHaveValue(destination)
+  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
 })
 
 test("expired company selection retains the original destination during recovery", async ({ page, context }) => {

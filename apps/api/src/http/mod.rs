@@ -51,6 +51,8 @@ mod preferences_tests;
 #[cfg(test)]
 mod production_tests;
 #[cfg(test)]
+mod proposal_tests;
+#[cfg(test)]
 mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
@@ -223,6 +225,26 @@ pub fn router(state: AppState) -> Router {
         .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
+        .route(
+            "/api/v1/proposals",
+            get(sales::proposals::list).post(sales::proposals::create),
+        )
+        .route(
+            "/api/v1/proposals/{id}",
+            get(sales::proposals::get).put(sales::proposals::update),
+        )
+        .route(
+            "/api/v1/proposals/{id}/revise",
+            axum::routing::post(sales::proposals::revise),
+        )
+        .route(
+            "/api/v1/proposals/{id}/convert",
+            axum::routing::post(sales::proposals::convert),
+        )
+        .route(
+            "/api/v1/proposals/{id}/{action}",
+            axum::routing::post(sales::proposals::decide),
+        )
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
         .route(
             "/api/v1/orders/{id}/confirm",

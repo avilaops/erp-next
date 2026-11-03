@@ -49,6 +49,10 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         reference_data::list_payment_methods, reference_data::get_payment_method,
         reference_data::create_payment_method, reference_data::update_payment_method,
         sales::list, sales::get, sales::create, sales::update, sales::confirm, sales::cancel, sales::complete,
+        sales::proposals::list, sales::proposals::get, sales::proposals::create,
+        sales::proposals::decide,
+        sales::proposals::revise, sales::proposals::convert,
+        sales::proposals::update,
         finance::list, finance::get, finance::pay, finance::reverse,
         commissions::get_order, commissions::configure_order, commissions::list,
         commissions::get_seller, commissions::adjust, commissions::pay,
@@ -112,6 +116,7 @@ impl Modify for Security {
                         || path.starts_with("/api/v1/staff-payroll")
                         || (path.starts_with("/api/v1/staff/") && path.contains("/payroll"))
                         || path.starts_with("/api/v1/production")
+                        || path.starts_with("/api/v1/proposals")
                         || path.ends_with("/commission")
                         || path.starts_with("/api/v1/invitations"))
                     {
@@ -356,7 +361,18 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 169);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 174);
+        for (path, method) in [
+            ("/api/v1/proposals", "get"),
+            ("/api/v1/proposals", "post"),
+            ("/api/v1/proposals/{id}", "get"),
+            ("/api/v1/proposals/{id}", "put"),
+            ("/api/v1/proposals/{id}/{action}", "post"),
+            ("/api/v1/proposals/{id}/revise", "post"),
+            ("/api/v1/proposals/{id}/convert", "post"),
+        ] {
+            assert!(doc["paths"][path][method].is_object());
+        }
         assert!(doc["paths"]["/api/v1/registry-lookups"]["post"]["requestBody"].is_object());
         for status in ["200", "401", "403", "409", "422"] {
             assert!(

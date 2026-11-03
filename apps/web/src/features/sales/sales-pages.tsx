@@ -99,42 +99,6 @@ const configs: Record<string, PageConfig> = {
       "Cancelado",
     ],
   },
-  propostas: {
-    title: "Propostas comerciais",
-    description: "Gerencie orçamentos, versões e aprovações dos clientes.",
-    action: "Nova proposta",
-    icon: BadgeCheck,
-    filters: ["Todas", "Rascunho", "Enviada", "Aceita", "Expirada"],
-    rows: [
-      {
-        id: "PC-382",
-        title: "Arena Performance",
-        subtitle: "Versão 3 · validade de 10 dias",
-        value: "R$ 42.900,00",
-        status: "Enviada",
-        tone: "neutral",
-        date: "Hoje, 08:30",
-      },
-      {
-        id: "PC-381",
-        title: "Academia Vital",
-        subtitle: "Versão 1 · validade de 7 dias",
-        value: "R$ 16.700,00",
-        status: "Aceita",
-        tone: "success",
-        date: "Ontem, 14:10",
-      },
-      {
-        id: "PC-379",
-        title: "Espaço Movimento",
-        subtitle: "Versão 2",
-        value: "R$ 9.850,00",
-        status: "Expirada",
-        tone: "warning",
-        date: "20 out",
-      },
-    ],
-  },
   anuncios: {
     title: "Gestão de anúncios",
     description:
@@ -357,7 +321,6 @@ export function SalesList({ kind }: { kind: keyof typeof configs }) {
   );
   const createLinks: Partial<Record<keyof typeof configs, string>> = {
     pedidos: "/vendas/pedidos/novo",
-    propostas: "/vendas/propostas/novo",
     anuncios: "/vendas/anuncios/novo",
     garantias: "/vendas/garantias/novo",
   };

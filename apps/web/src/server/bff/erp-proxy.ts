@@ -15,6 +15,11 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "PUT" && /^\/orders\/[a-f0-9-]{36}\/commission$|^\/production\/stages\/[a-f0-9-]{36}$/i.test(resource)
     || request.method === "POST" && /^\/commissions\/[a-f0-9-]{36}\/(?:adjustments|payments)$|^\/production\/(?:orders|stages)$|^\/production\/orders\/[a-f0-9-]{36}\/(?:stage|consumptions(?:\/[a-f0-9-]{36}\/reverse)?)$/i.test(resource)
   const auditResource = resource === "/audit"
+  const proposalCollection = resource === "/proposals"
+  const proposalDetail = /^\/proposals\/[a-f0-9-]{36}$/i.test(resource)
+  const proposalAction = /^\/proposals\/[a-f0-9-]{36}\/(?:send|accept|reject|cancel|revise|convert)$/i.test(resource)
+  const proposalResource = proposalCollection || proposalDetail || proposalAction
+  if (proposalResource && !(proposalCollection ? ["GET", "POST"] : proposalDetail ? ["GET", "PUT"] : ["POST"]).includes(request.method)) return Response.json({ title: "Método inválido" }, { status: 405 })
   const salesSettingsResource = /^\/registration-settings\/(products|parties|contact-types|tax-profiles)$/.test(resource) && ["GET", "PUT"].includes(request.method) || ["/sales-settings", "/inventory-settings", "/purchase-settings"].includes(resource) && ["GET", "PUT"].includes(request.method)
   const invitationResource = /^\/invitations(?:\/[a-f0-9-]{36}\/(?:resend|revoke))?$/i.test(resource)
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods|warehouses|product-groups|tag-groups|tags)$/i.test(resource)
@@ -24,7 +29,7 @@ export async function forwardErp(request: Request, resource: string) {
   if (returnResource && (resource.endsWith("/cancellations") || resource.endsWith("/reversals") ? request.method !== "GET" : request.method !== "POST")) return Response.json({ title: "Método inválido" }, { status: 405 })
   const purchaseCollection = /^\/(?:purchase-orders|payables|financial-payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables|financial-payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/(?:payables|financial-payables)\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !returnResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !returnResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = resource === "/companies" ? await currentIdentitySession() : await currentSession()
@@ -54,6 +59,14 @@ export async function forwardErp(request: Request, resource: string) {
     const commandKey = request.headers.get("idempotency-key")
     if (commandKey) headers.set("Idempotency-Key", commandKey)
     const upstream = new URL(`${config.api}/api/v1${resource}`)
+    if (proposalResource) {
+      const query = new URL(request.url).searchParams
+      const allowed = request.method !== "GET" ? [] : proposalCollection ? ["q", "status", "offset", "limit"] : proposalDetail ? ["version"] : []
+      for (const [key, value] of query) {
+        if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
+        upstream.searchParams.set(key, value)
+      }
+    }
     if (accountResource) {
       const query = new URL(request.url).searchParams
       for (const [key, value] of query) {

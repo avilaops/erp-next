@@ -987,7 +987,7 @@ async fn payroll_migration_and_discovery_work_with_a_force_rls_owner(admin: PgPo
     sqlx::raw_sql(&format!("CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; CREATE ROLE {runtime} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"))
         .execute(&mut *tx).await.unwrap();
     let migrator = sqlx::migrate!("../../migrations");
-    for migration in migrator.iter().filter(|m| m.version < 202611030008) {
+    for migration in migrator.iter().filter(|m| m.version < 202611030009) {
         sqlx::raw_sql(&migration.sql)
             .execute(&mut *tx)
             .await
@@ -1020,7 +1020,7 @@ async fn payroll_migration_and_discovery_work_with_a_force_rls_owner(admin: PgPo
         .await
         .unwrap();
     sqlx::raw_sql(include_str!(
-        "../../../../migrations/202611030008_staff_payroll.sql"
+        "../../../../migrations/202611030009_staff_payroll.sql"
     ))
     .execute(&mut *tx)
     .await

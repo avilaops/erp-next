@@ -20,15 +20,14 @@ import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
 
-type Item = Schema<"OrderLine">
 type Detail = Schema<"OrderSnapshot">
 type Listing = Schema<"OrderList">
-type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
+export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
 type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 
-function ColorChoice({ label, options = [], value, onChange }: { label: string; options?: string[]; value: string; onChange: (value: string) => void }) {
+export function ColorChoice({ label, options = [], value, onChange }: { label: string; options?: string[]; value: string; onChange: (value: string) => void }) {
   const id = useId()
   return <div className="grid min-w-0 gap-2 text-sm">
     <label htmlFor={id}>{label}</label>
@@ -40,7 +39,7 @@ function ColorChoice({ label, options = [], value, onChange }: { label: string; 
   </div>
 }
 
-function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void }) {
+export function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "10", status: "active" })
   if (endpoint === "parties") params.set("role", "customer")

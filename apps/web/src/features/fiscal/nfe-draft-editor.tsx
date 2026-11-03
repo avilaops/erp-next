@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TaxProfilePicker } from "./settings/tax-profile-picker"
 import { EmissionActions } from "./emission-actions"
-import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, blockerLabels, invoiceTotal, itemTotal, productsTotal, submission, type DraftInput, type DraftItem, type FiscalReadiness, type NfeDraft, type TaxDeclaration } from "./nfe-draft-model"
+import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, blockerLabels, invoiceTotal, itemTotal, productsTotal, submission, type DraftInput, type DraftItem, type FiscalReadiness, type TaxDeclaration } from "./nfe-draft-model"
 
 type Product = { id: string; sku: string; name: string; unit: string; ncm: string | null; basePrice: string }
 type Snapshot = Schema<"DraftSnapshot">
@@ -29,6 +29,8 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
   const [etag, setEtag] = useState("")
   const [canEdit, setCanEdit] = useState(false)
   const [canIssue, setCanIssue] = useState(false)
+  const [canCancel, setCanCancel] = useState(false)
+  const [canCorrect, setCanCorrect] = useState(false)
   const [fiscalLocked, setFiscalLocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,8 +69,10 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
         setTenant(me.tenant.id); setReadiness(ready); setCanEdit(me.permissions.includes("fiscal.nfe.manage") && (!current || current.canEdit))
         setCanSearch(me.permissions.includes("catalog.products.read")); setEtag(id ? responses[2].headers.get("etag") || "" : "")
         setCanIssue(me.permissions.includes("fiscal.nfe.issue"))
+        setCanCancel(me.permissions.includes("fiscal.nfe.cancel"))
+        setCanCorrect(me.permissions.includes("fiscal.nfe.correction"))
         setBlocked(false); setError(""); setProducts([]); command.current = null
-      } catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : "Falha ao abrir o rascunho"); setCanEdit(false) } }
+      } catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : "Falha ao abrir o rascunho"); setCanEdit(false); setCanIssue(false); setCanCancel(false); setCanCorrect(false) } }
       finally { if (!controller.signal.aborted) setLoading(false) }
     }
     void read()
@@ -213,7 +217,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
         <section className="form-section space-y-4"><p className="font-medium">Total bruto dos produtos: {total}</p>{draft.taxDeclaration && <p className="font-medium">Total da NF-e com IPI declarado: {(() => { try { return `R$ ${invoiceTotal(draft).replace(".", ",")}` } catch { return "Confira as alíquotas e os valores" } })()}</p>}<p className="text-sm text-muted-foreground">No recorte disponível, o total da NF-e soma produtos e IPI declarado, arredondado por item. Os pagamentos devem somar esse total. Frete e descontos não são suportados nesta operação.</p><div className="flex flex-wrap gap-3">{canEdit && <Button type="submit" disabled={loading || saving || blocked || !profileReady || !!id && (!etag || uncertain) || !uncertain && !dirty}>{saving ? "Confirmando gravação…" : uncertain && !id ? "Confirmar mesma solicitação" : "Salvar rascunho"}</Button>}<Button type="button" variant="outline" disabled={saving || loading} onClick={refresh}>Recarregar dados do servidor</Button></div>{uncertain && <p role="alert" className="text-sm">A gravação pode ter ocorrido. {id ? "Recarregue e confira a revisão antes de editar novamente." : "Confirme a mesma solicitação para consultar o resultado sem criar duplicatas."}</p>}</section>
       </form>
       {readiness && !readiness.canTransmit && <section className="form-section space-y-2"><h2 className="font-semibold">Pendências para emitir</h2>{readiness.blockers.map(blocker => <p key={blocker} className="text-sm">{blockerLabels[blocker] || "Confira a configuração fiscal para esta operação"}</p>)}</section>}
-      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} dirty={dirty || saving || uncertain} onLocked={setFiscalLocked} />}
+      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
     </>}
   </main>
 }

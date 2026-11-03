@@ -3,7 +3,8 @@
 ## Objetivo e base
 
 Iniciar AVL-71, AVL-80, AVL-81, AVL-85, AVL-87 e AVL-89 no ERP-Next.
-Base: `396826c`. API Rust/Axum/SQLx, PostgreSQL com RLS, web Next.js
+Base inicial: `396826c`; continuidade sincronizada com `997b59c` da main.
+API Rust/Axum/SQLx, PostgreSQL com RLS, web Next.js
 e motor fiscal privado existentes. Referências `src/lib/db/` nas issues
 pertencem ao legado; a matriz AVL-69 identifica os serviços atuais.
 
@@ -41,10 +42,10 @@ criptográfica, antes de gravar.
 
 - [x] Conferir seis issues, dependências AVL-69/75 e código atual.
 - [x] Isolar checkout e preservar alterações preexistentes da main.
-- [ ] Reproduzir acesso indevido com testes HTTP de permissões.
-- [ ] Separar comandos fiscais e gestão A1; migration aditiva sem grants.
-- [ ] Refletir cancelamento e CC-e na interface, inclusive quando não há emissão.
-- [ ] Testar concessão exclusiva, revogação, repetição e ausência de efeitos.
+- [x] Reproduzir acesso indevido com testes HTTP de permissões.
+- [x] Separar comandos fiscais e gestão A1; migration aditiva sem grants.
+- [x] Refletir cancelamento e CC-e na interface, inclusive quando não há emissão.
+- [x] Adicionar regressões de concessão exclusiva, revogação e ausência de efeitos.
 - [ ] Validar Rust, lint, tipos e navegador; registrar resultados reais.
 - [ ] Entregar incremento revisável e atualizar o Linear sem encerrar aceites.
 
@@ -68,6 +69,14 @@ criptográfica, antes de gravar.
 - Troca de empresa ou revogação durante validação A1 não pode gravar o cofre.
 
 ## Limites de aceite
+
+Reprodução RED confirmada no commit `bf2020e`,
+[CI 41617338114](https://github.com/avilaops/erp-next/actions/runs/41617338114):
+218 testes Rust aprovados, três falhas esperadas e um ignorado. Falharam o
+`canEdit` do certificado, CC-e sem permissão de emissão e cancelamento com
+permissão apenas de emissão. A correção acrescenta a migration
+`202611030002_fiscal_permissions.sql`; as verificações GREEN são registradas
+no [PR #67](https://github.com/avilaops/erp-next/pull/67) por SHA.
 
 Iniciar a frente não conclui os seis tickets. Nenhuma operação fiscal externa,
 envio de e-mail, mudança de papéis reais ou migration de produção integra este

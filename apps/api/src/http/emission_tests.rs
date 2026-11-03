@@ -223,6 +223,36 @@ async fn call(
     )
 }
 #[sqlx::test(migrations = "../../migrations")]
+async fn fiscal_permission_upgrade_preserves_existing_role_grants(admin: PgPool) {
+    let (_, application, auth, role) = setup(&admin).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','fiscal.config.manage'), ('99999999-9999-4999-8999-999999999999','fiscal.nfe.issue'); DELETE FROM permissions WHERE code IN ('fiscal.nfe.cancel','fiscal.nfe.correction','fiscal.nfe.void','fiscal.certificate.manage')")
+        .execute(&admin).await.unwrap();
+    let before: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT role_id,permission_code FROM role_permissions ORDER BY role_id,permission_code",
+    )
+    .fetch_all(&admin)
+    .await
+    .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../../migrations/202611030002_fiscal_permissions.sql"
+    ))
+    .execute(&admin)
+    .await
+    .unwrap();
+    let registered: i64 = sqlx::query_scalar("SELECT count(*) FROM permissions WHERE code IN ('fiscal.nfe.cancel','fiscal.nfe.correction','fiscal.nfe.void','fiscal.certificate.manage')")
+        .fetch_one(&admin).await.unwrap();
+    assert_eq!(registered, 4);
+    let after: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT role_id,permission_code FROM role_permissions ORDER BY role_id,permission_code",
+    )
+    .fetch_all(&admin)
+    .await
+    .unwrap();
+    assert_eq!(before, after);
+    cleanup(&admin, application, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(admin: PgPool) {
     let (router, application, auth, role) = super::company_tests::setup(&admin).await;
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) VALUES ('99999999-9999-4999-8999-999999999999','fiscal.nfe.read'), ('99999999-9999-4999-8999-999999999999','fiscal.nfe.issue')")
@@ -242,7 +272,7 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
         (
             "/api/v1/fiscal/number-voids".to_owned(),
             "fiscal.nfe.void",
-            json!({"year":2026,"series":1,"first":1,"last":3,"text":"Inutilização sintética de faixa não utilizada"}),
+            json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":3,"text":"Inutilização sintética de faixa não utilizada"}),
         ),
         (
             format!("/api/v1/fiscal/order-cancellations/{id}/process"),
@@ -250,13 +280,18 @@ async fn fiscal_event_permissions_are_independent_from_issuance_and_revocable(ad
             json!({}),
         ),
     ];
-    for (uri, _, body) in &commands {
+    for (uri, permission, body) in &commands {
+        let revision = if *permission == "fiscal.nfe.void" {
+            "\"0\""
+        } else {
+            "\"1\""
+        };
         let result = call(
             &router,
             "POST",
             uri,
             "editor",
-            Some("\"0\""),
+            Some(revision),
             Some(Uuid::now_v7()),
             body.clone(),
         )

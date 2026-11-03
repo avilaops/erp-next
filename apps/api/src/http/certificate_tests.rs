@@ -112,7 +112,7 @@ async fn certificate_lifecycle_encrypts_secrets_enforces_concurrency_and_keeps_t
     admin: PgPool,
 ) {
     let (router, application, auth, role) = setup_with_certificates(&admin, vault()).await;
-    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('fiscal.config.read','fiscal.config.manage'); INSERT INTO role_permissions(role_id,permission_code) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fiscal.config.read');").execute(&admin).await.unwrap();
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('fiscal.config.read','fiscal.certificate.manage'); INSERT INTO role_permissions(role_id,permission_code) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fiscal.config.read');").execute(&admin).await.unwrap();
     let fixture = fixture();
     let input = json!({"pkcs12Base64":fixture["valid"],"password":fixture["password"]});
     let initial = call(&router, "GET", Some("editor"), TENANT, None, None).await;

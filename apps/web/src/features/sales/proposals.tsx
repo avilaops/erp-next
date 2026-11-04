@@ -102,12 +102,11 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
   return <><PageHeader eyebrow="Vendas / Propostas" title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina o escopo e as condições comerciais. O rascunho fica salvo na empresa ativa." />
     <section className="form-section min-w-0 space-y-5">
       <Link className={linkClass} href={initial ? `/vendas/propostas/${initial.data.id}` : "/vendas/propostas"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações desta proposta?")) event.preventDefault() }}>Voltar às propostas</Link>
-      <div className="grid gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" disabled={frozen || items.length >= 100} choose={value => {
+      <div className="grid items-start gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
         if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade do item existente."); return }
         const saved = initial?.items.find(item => item.productId === value.id)
         setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
       }} /></div>
-      <p>Cliente selecionado: {customer?.legalName || "Nenhum"}</p>
       <form className="space-y-5" onSubmit={async event => {
         event.preventDefault(); setError("")
         if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeDecimal(item.basePrice || "", 2))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }

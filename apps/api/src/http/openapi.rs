@@ -362,7 +362,11 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 174);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 175);
+        let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
+        for status in ["204", "400", "401", "403", "500", "503"] {
+            assert!(selection["responses"].get(status).is_some());
+        }
         for (path, method) in [
             ("/api/v1/proposals", "get"),
             ("/api/v1/proposals", "post"),

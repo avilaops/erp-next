@@ -191,6 +191,10 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )
+        .route(
+            "/api/v1/company-selection",
+            post(onboarding::select_company),
+        )
         .route("/api/v1/financial-payables", get(payables::list_all))
         .route("/api/v1/financial-payables/{id}", get(payables::get_all))
         .route(

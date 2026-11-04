@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     if (Buffer.byteLength(body) > 1024) return Response.json({ title: "Pedido muito grande" }, { status: 413, headers: output })
     const { tenantId } = JSON.parse(body)
     if (typeof tenantId !== "string" || !uuidPattern.test(tenantId)) return Response.json({ title: "Empresa inválida" }, { status: 400, headers: output })
-    const access = await fetch(`${config.api}/api/v1/me`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": tenantId } })
+    const access = await fetch(`${config.api}/api/v1/company-selection`, { method: "POST", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": tenantId } })
     if (!access.ok) return Response.json({ title: "Não foi possível selecionar esta empresa" }, { status: [401, 403].includes(access.status) ? access.status : 503, headers: output })
     const remaining = Math.floor((session.expiresAt - Date.now()) / 1000)
     if (remaining <= 0) return Response.json({ title: "Entre novamente" }, { status: 401, headers: output })

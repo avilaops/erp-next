@@ -10,7 +10,7 @@ import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
@@ -66,19 +66,31 @@ export function ColorChoice({ label, options = [], value, onChange, catalog }: {
 export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, selectedName }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void; searchOnly?: boolean; selectedName?: string }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
   const [showResults, setShowResults] = useState(!searchOnly)
+  const section = useRef<HTMLElement>(null)
+  const resultsId = useId()
+  useEffect(() => {
+    if (!searchOnly) return
+    function dismiss(event: PointerEvent) {
+      if (event.target instanceof Node && !section.current?.contains(event.target)) setShowResults(false)
+    }
+    document.addEventListener("pointerdown", dismiss)
+    return () => document.removeEventListener("pointerdown", dismiss)
+  }, [searchOnly])
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "10", status: "active" })
   if (endpoint === "parties") params.set("role", "customer")
   const result = useResource<{ data: Choice[]; total: number; tenantId: string }>(`/api/erp/${endpoint}?${params}`)
-  return <section className={searchOnly ? "min-w-0 space-y-3 self-start" : "min-w-0 space-y-3 rounded-xl border p-4"} aria-label={`Seleção de ${label}`}>
+  return <section ref={section} className={searchOnly ? "relative min-w-0 self-start" : "min-w-0 space-y-3 rounded-xl border p-4"} aria-label={`Seleção de ${label}`}
+    onBlur={event => { if (searchOnly && !event.currentTarget.contains(event.relatedTarget)) setShowResults(false) }}
+    onKeyDown={event => { if (searchOnly && event.key === "Escape") { setShowResults(false); section.current?.querySelector("input")?.focus() } }}>
     <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }); setShowResults(true); result.reload() }}>
-      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<SearchInput onSearch={q => { setQuery({ q, offset: 0 }); setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} onKeyDown={event => { if (event.key === "Escape" && searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
+      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<SearchInput aria-expanded={searchOnly ? showResults : undefined} aria-controls={searchOnly && showResults ? resultsId : undefined} onSearch={q => { setQuery({ q, offset: 0 }); if (!searchOnly || section.current?.contains(document.activeElement)) setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
-    {selectedName && <p role="status" className="break-words text-sm font-medium text-primary">Cliente selecionado: {selectedName}</p>}
-    {showResults && (result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
-      <ul className={searchOnly ? "max-h-64 space-y-2 overflow-y-auto" : "space-y-2"}>{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto max-w-full gap-3 break-all whitespace-normal text-left" variant="outline" aria-label={`Selecionar ${value.legalName || value.name}${value.sku ? ` · ${value.sku}` : ""}`} disabled={disabled} onClick={() => { choose(value); if (searchOnly) setShowResults(false) }}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">{value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
+    {selectedName && <p role="status" className="mt-3 break-words text-sm font-medium text-primary">Cliente selecionado: {selectedName}</p>}
+    {showResults && <div id={resultsId} aria-label={`Resultados de ${label}`} className={searchOnly ? "absolute inset-x-0 top-full z-40 mt-2 max-h-[min(20rem,40dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl" : "space-y-3"}>{result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
+      <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal text-left" variant="outline" aria-label={`Selecionar ${value.legalName || value.name}${value.sku ? ` · ${value.sku}` : ""}`} disabled={disabled} onClick={() => { choose(value); if (searchOnly) setShowResults(false) }}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">{value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum resultado encontrado.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Anterior {label}</Button><Button variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximo {label}</Button></div>
-    </>)}
+    </>}</div>}
   </section>
 }
 

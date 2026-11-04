@@ -30,12 +30,17 @@ assert.equal(sql(`EXECUTE list_system_files('${tenant}',0);`).length, 1);
 assert.equal(sql(`EXECUTE list_system_files('${tenant}',10000);`).length, 100);
 assert.equal(sql(`EXECUTE list_system_files('${tenant}',25);`, '').length, 0);
 const first = sql(`EXECUTE list_system_files('${tenant}',25);`).map(line => line.split('|')[0]);
+for (const mode of ['force_generic_plan', 'force_custom_plan']) {
+  const planned = sql(`SET LOCAL plan_cache_mode=${mode}; EXECUTE list_system_files('${tenant}',25);`).map(line => line.split('|')[0]);
+  assert.deepEqual(planned, first);
+}
 const second = sql(`EXECUTE list_system_files_after('${tenant}','2026-01-01T00:00:00Z','${first.at(-1)}',25);`).map(line => line.split('|')[0]);
 assert.equal(new Set([...first, ...second]).size, 50);
 assert.ok(first.every(id => id > second[0]));
 assert.equal(sql(`EXECUTE list_report_definitions('${tenant}',NULL);`).length, 2);
 assert.equal(sql(`EXECUTE list_report_definitions('${tenant}',NULL);`, 'evolution-peer').length, 1);
 assert.equal(sql(`EXECUTE list_report_definitions('${tenant}',NULL);`, '').length, 0);
+assert.equal(sql(`EXECUTE list_report_definitions_after('${tenant}','Private','20000000-0000-4000-8000-000000000001',25);`).length, 1);
 assert.equal(sql(`EXECUTE get_product_custom_fields('${tenant}',md5('ludus:products:1')::uuid,NULL);`).length, 1);
 assert.equal(sql(`EXECUTE get_product_custom_fields('${tenant}','00000000-0000-4000-8000-000000000099',NULL);`).length, 0);
 console.log('Legacy reconciliation, no replay, query pagination and authenticated visibility passed.');

@@ -22,7 +22,7 @@ estão vinculadas ao Ávila Experiments e são verificadas no CI.
 2. Execute `docker compose up -d postgres`.
 3. Com a conta de migração em `DATABASE_URL`, execute `cargo run -p erp-next-api -- migrate`.
 4. Com a conta de aplicação em `DATABASE_URL`, execute `cargo run -p erp-next-api`.
-5. Em outro terminal, execute `pnpm --filter web dev`.
+5. Em outro terminal, execute `pnpm --filter web dev` (ou `pnpm dev:web` na raiz). O ERP Next abre em `http://localhost:3002`, sua porta padrão de desenvolvimento.
 
 A API não executa DDL ao iniciar o servidor HTTP. Em produção, a conta da
 aplicação deve ter `NOSUPERUSER NOBYPASSRLS` e permissões apenas sobre as

@@ -76,7 +76,8 @@ export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, 
     document.addEventListener("pointerdown", dismiss)
     return () => document.removeEventListener("pointerdown", dismiss)
   }, [searchOnly])
-  const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "10", status: "active" })
+  const search = query.q.trim() === "%%" ? "" : query.q
+  const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: "10", status: "active" })
   if (endpoint === "parties") params.set("role", "customer")
   const result = useResource<{ data: Choice[]; total: number; tenantId: string }>(`/api/erp/${endpoint}?${params}`)
   return <section ref={section} className={searchOnly ? "relative min-w-0 self-start" : "min-w-0 space-y-3 rounded-xl border p-4"} aria-label={`Seleção de ${label}`}
@@ -90,6 +91,7 @@ export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, 
       <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal text-left" variant="outline" aria-label={`Selecionar ${value.legalName || value.name}${value.sku ? ` · ${value.sku}` : ""}`} disabled={disabled} onClick={() => { choose(value); if (searchOnly) setShowResults(false) }}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">{value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum resultado encontrado.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Anterior {label}</Button><Button variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximo {label}</Button></div>
+      <Link className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4" href={endpoint === "parties" ? "/cadastros/clientes-fornecedores/novo" : "/cadastros/produtos/novo"} target="_blank" rel="noopener noreferrer">Cadastrar {endpoint === "parties" ? "cliente" : "produto"}</Link>
     </>}</div>}
   </section>
 }

@@ -282,6 +282,13 @@ async fn proposals_persist_authorize_replay_and_preserve_sent_content(admin: PgP
         .0,
         StatusCode::CONFLICT
     );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT number FROM sales_orders")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        1
+    );
     let order: (i64, String) = sqlx::query_as("SELECT amount_cents,status FROM sales_orders")
         .fetch_one(&admin)
         .await

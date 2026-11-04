@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { accountTypes, modalities, referenceConfigs, referencePath, type ReferenceKind, type ReferenceFields, type ReferenceList, type ReferenceSnapshot } from "./reference-config"
@@ -40,7 +41,7 @@ function List({ kind }: { kind: ReferenceKind }) {
         {result.value?.canEdit && <Link className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover" href={`${referencePath(kind)}/novo`}>Novo cadastro</Link>}
       </div>
       <form className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-4" onSubmit={event => { event.preventDefault(); setQuery({ ...filters, q: filters.q.trim(), offset: 0 }) }}>
-        <label className="min-w-0 flex-[1_1_220px] space-y-2 text-sm">Buscar nome ou código<Input name="q" placeholder="Digite um nome ou código" maxLength={160} value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} /></label>
+        <label className="min-w-0 flex-[1_1_220px] space-y-2 text-sm">Buscar nome ou código<SearchInput onSearch={q => setQuery({ ...filters, q: q.trim(), offset: 0 })} name="q" placeholder="Digite um nome ou código" maxLength={160} value={filters.q} onChange={event => setFilters({ ...filters, q: event.target.value })} /></label>
         <label className="min-w-[130px] space-y-2 text-sm">Situação<select name="status" className={selectClass} value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button type="submit" className="min-h-11" disabled={result.loading}>Buscar</Button>
         {(filtered || filters.q || filters.status) && <Button type="button" variant="outline" className="min-h-11" disabled={result.loading} onClick={() => { setFilters({ q: "", status: "" }); setQuery({ q: "", status: "", offset: 0 }) }}>Limpar filtros</Button>}
@@ -104,7 +105,7 @@ function ParentPicker({ kind, id, selected, disabled, choose }: { kind: Referenc
   const result = useResource<ReferenceList>(`/api/erp/${referenceConfigs[kind].endpoint}?${params}`)
   return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label="Seleção de categoria superior">
     <p>Categoria superior: {selected ? <ParentName kind={kind} id={selected} /> : "Nenhuma"}</p><Button type="button" variant="outline" disabled={disabled || !selected} onClick={() => choose(null)}>Sem categoria superior</Button>
-    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}><label className="min-w-0 flex-1 space-y-2">Buscar categoria superior<Input name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar categoria</Button></form>
+    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}><label className="min-w-0 flex-1 space-y-2">Buscar categoria superior<SearchInput onSearch={q => setQuery({ q, offset: 0 })} name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar categoria</Button></form>
     {result.loading ? <p role="status">Consultando categorias…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
       <ul className="space-y-2">{result.value?.data.filter(item => item.id !== id).map(item => <li key={item.id}><Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal break-words text-left" disabled={disabled} onClick={() => choose(item.id)}>Usar {item.name} · {item.code}</Button></li>)}</ul>
       {!result.value?.data.filter(item => item.id !== id).length && <p>Nenhuma categoria disponível nesta página.</p>}
@@ -121,7 +122,7 @@ function TagGroupPicker({ selected, disabled, choose }: { selected: string | nul
     <p>Grupo de tags: {selected ? <ParentName kind="grupos-tags" id={selected} /> : "Sem grupo"}</p>
     <Button type="button" variant="outline" disabled={disabled || !selected} onClick={() => choose(null)}>Remover grupo</Button>
     <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}>
-      <label className="min-w-0 flex-1 space-y-2">Buscar grupo de tags<Input name="q" maxLength={160} disabled={disabled} /></label>
+      <label className="min-w-0 flex-1 space-y-2">Buscar grupo de tags<SearchInput onSearch={q => setQuery({ q, offset: 0 })} name="q" maxLength={160} disabled={disabled} /></label>
       <Button type="submit" disabled={disabled || result.loading}>Pesquisar grupo</Button>
     </form>
     {result.loading ? <p role="status">Carregando grupos…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button type="button" onClick={result.reload}>Tentar novamente</Button></div> : <>

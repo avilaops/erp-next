@@ -87,6 +87,8 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON commercial_contracts TO erp_next_app; GRANT SELECT, INSERT ON commercial_contract_files, commercial_contract_webhooks TO erp_next_app'
       - name: Grant versioned proposal storage to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-proposals.sql
+      - name: Grant commercial order numbering to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-order-numbers.sql
       - name: Grant private template storage to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON commercial_template_drafts, commercial_template_versions TO erp_next_app'

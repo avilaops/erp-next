@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
-import { normalizeDecimal } from "@/lib/decimal-input"
+import { commercialMoney, commercialMoneyInput, normalizeCommercialMoney } from "./order-presentation"
 import { quantity, useCommand, useResource } from "@/hooks/use-operation"
 import { ColorChoice, Lookup, type Choice } from "./orders"
 import "./proposals-print.css"
@@ -20,7 +21,7 @@ type Selected = Choice & { quantity: string; structureColor: string; upholsteryC
 const labels: Record<string, string> = { draft: "Rascunho", sent: "Enviada", accepted: "Aceita", rejected: "Rejeitada", cancelled: "Cancelada", expired: "Expirada", superseded: "Substituída" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const textareaClass = "min-h-24 w-full rounded-lg border border-input bg-background p-3"
-const money = (value: string) => `R$ ${value.replace(".", ",")}`
+const money = commercialMoney
 
 function CommercialText({ label, ...props }: ComponentProps<"textarea"> & { label: string }) {
   const id = useId()
@@ -41,7 +42,7 @@ function ProposalList() {
     <section className="form-section min-w-0 space-y-5">
       {result.value?.canEdit && <Link className={linkClass} href="/vendas/propostas/novo">Nova proposta</Link>}
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
-        <label className="min-w-0 flex-1 space-y-2">Cliente ou número<Input name="q" maxLength={160} /></label>
+        <label className="min-w-0 flex-1 space-y-2">Cliente ou número<SearchInput onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
         <label className="grid gap-2">Situação<select name="status" className="min-h-10 rounded-lg border bg-background px-3"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
         <Button type="submit">Pesquisar propostas</Button>
       </form>
@@ -73,7 +74,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
   const access = useResource<{ tenant: { id: string; legalName: string }; permissions: string[] }>("/api/erp/me")
   const canNegotiate = access.value?.tenant.id === tenantId && access.value.permissions.includes("sales.proposals.negotiate")
   const [customer, setCustomer] = useState<Choice | null>(initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null)
-  const [items, setItems] = useState<Selected[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
+  const [items, setItems] = useState<Selected[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: commercialMoneyInput(item.unitPrice), quantity: item.quantity, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
   const [validUntil, setValidUntil] = useState(initial?.data.validUntil || "")
   const [paymentTerms, setPaymentTerms] = useState(initial?.data.paymentTerms || "")
   const [deliveryTerms, setDeliveryTerms] = useState(initial?.data.deliveryTerms || "")
@@ -105,12 +106,12 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
       <div className="grid items-start gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
         if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade do item existente."); return }
         const saved = initial?.items.find(item => item.productId === value.id)
-        setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
+        setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), basePrice: commercialMoneyInput(saved?.unitPrice || value.basePrice || ""), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
       }} /></div>
       <form className="space-y-5" onSubmit={async event => {
         event.preventDefault(); setError("")
-        if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeDecimal(item.basePrice || "", 2))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
-        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeDecimal(item.basePrice || "", 2), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
+        if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeCommercialMoney(item.basePrice || ""))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
+        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
         if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
       }}>
         <fieldset disabled={frozen} className="min-w-0 space-y-4" onChange={() => setDirty(true)}>
@@ -120,10 +121,10 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
           <CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} />
           {items.map(item => <section className="min-w-0 space-y-3 rounded-xl border p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
             <h2 className="break-words font-medium">{item.name} · {item.sku}</h2>
-            <label className="grid gap-2">Preço unitário de {item.name}<Input inputMode="decimal" required readOnly={!canNegotiate} value={item.basePrice || ""} onChange={event => changeItem(item.id, { basePrice: event.target.value })} /></label>
+            <label className="grid gap-2">Preço unitário de {item.name}<span className="flex items-center gap-2"><span aria-hidden="true">R$</span><Input aria-label={`Preço unitário de ${item.name}`} className="min-w-0" inputMode="decimal" required readOnly={!canNegotiate} value={item.basePrice || ""} onChange={event => changeItem(item.id, { basePrice: event.target.value })} onBlur={() => { const formatted = commercialMoneyInput(item.basePrice || ""); if (canNegotiate && formatted !== item.basePrice) changeItem(item.id, { basePrice: formatted }) }} /></span></label>
             {!canNegotiate && <p className="text-sm text-muted-foreground">Alterar preços exige permissão de negociação comercial.</p>}
             <label className="grid gap-2">Quantidade de {item.name}<Input inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
-            <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Estofado de ${item.name}`} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} /></div>
+            <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} /></div>
             <Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>
           </section>)}
         </fieldset>

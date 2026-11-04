@@ -43,7 +43,7 @@ export function LogoutButton({ label = "Sair", className = "flex min-h-11 items-
   }
 
   return <div className="relative">
-    <button type="button" onClick={logout} disabled={busy} aria-busy={busy} aria-describedby={error ? errorId : undefined}
+    <button type="button" onClick={logout} disabled={busy} aria-label={label || "Sair"} aria-busy={busy} aria-describedby={error ? errorId : undefined}
       className={className} title="Encerrar a sessão no ERP e no Ávila Auth">
       <LogOut className="size-4" aria-hidden="true" />{busy ? "Saindo…" : label}
     </button>

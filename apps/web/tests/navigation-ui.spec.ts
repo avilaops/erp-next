@@ -4,6 +4,84 @@ import { origin, secret } from "../playwright.danfe.config"
 import { preferenceCategories } from "../src/features/preferences/search/preferences-catalog"
 import { existsSync } from "node:fs"
 import path from "node:path"
+import { desktopMenus } from "../src/components/shell/navigation-catalog"
+
+test("busca global encontra rótulos e grupos sem acentos e mostra estado vazio", async ({ page }) => {
+  await page.goto("/preferencias")
+  await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  const input = dialog.getByRole("combobox")
+  await input.fill("  ANUNCIOS  ")
+  await expect(dialog.getByRole("option")).toHaveCount(1)
+  await expect(dialog.getByRole("option")).toContainText("Vendas / Canais e importação")
+  await input.fill("documentos fiscais")
+  await expect(dialog.getByRole("option")).toHaveCount(3)
+  await input.fill("funcionalidade inexistente xyz")
+  await expect(dialog.getByText("Nenhum destino encontrado.")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("button", { name: "Buscar no ERP", exact: true })).toBeFocused()
+})
+
+test("navegação responsiva preserva espaço, rota ativa e foco em pedidos", async ({ page }, info) => {
+  const errors: string[] = []
+  page.on("pageerror", error => errors.push(error.message))
+  await page.route(/\/api\/erp\/me$/, route => route.fulfill({ json: {
+    tenant: { id: "11111111-1111-4111-8111-111111111111", legalName: "Ávila Operações" }, permissions: [],
+  } }))
+  await page.route(/\/api\/erp\/orders\?/, route => route.fulfill({ json: {
+    tenantId: "11111111-1111-4111-8111-111111111111", canEdit: false, total: 1,
+    data: [{ id: "22222222-2222-4222-8222-222222222222", number: "17", customerName: "Cliente de teste", customerTaxId: "", dueDate: "2026-12-30", amount: "1250.00", status: "draft" }],
+  } }))
+  await page.goto("/vendas/pedidos")
+  await expect(page.getByRole("table", { name: "Pedidos de venda" })).toBeVisible()
+  // 720 x 450 also covers the layout space of a 1440 x 900 window at 200% zoom.
+  for (const [width, height] of [[1440, 900], [930, 1000], [768, 1024], [390, 844], [720, 450]]) {
+    await page.setViewportSize({ width, height })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    if (width >= 900) {
+      const sidebar = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
+      await expect(sidebar).toHaveCSS("width", width >= 1200 ? "232px" : "216px")
+      await page.screenshot({ animations: "disabled", path: info.outputPath(`orders-${width}.png`) })
+      const sales = sidebar.getByRole("button", { name: "Vendas", exact: true })
+      await expect(sales).toHaveAttribute("data-active", "true")
+      await expect(sales.locator(".erp-module-copy small")).toHaveText("Pedidos de venda")
+      await expect(page.getByRole("link", { name: "Suas empresas", exact: true })).toContainText("Ávila Operações")
+      await sales.focus()
+      await page.keyboard.press("Tab")
+      await page.keyboard.press("Shift+Tab")
+      await expect(sales.locator(".erp-module-copy")).toBeVisible()
+      await page.keyboard.press("Enter")
+      const panel = page.locator("#erp-module-panel")
+      await expect(panel.getByRole("link", { name: "Pedidos de venda", exact: true })).toHaveAttribute("aria-current", "page")
+      await expect(page.locator('[data-slot="tooltip-content"]')).toHaveCount(0)
+      const bounds = await panel.boundingBox()
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+      await page.screenshot({ animations: "disabled", path: info.outputPath(`sales-panel-${width}.png`) })
+      await page.keyboard.press("Escape")
+      await expect(sales).toBeFocused()
+    } else {
+      const trigger = page.getByRole("button", { name: "Abrir menu", exact: true })
+      await trigger.click()
+      const drawer = page.getByRole("dialog")
+      await expect(page.locator("body")).toHaveCSS("overflow", "hidden")
+      await expect(drawer).toHaveCSS("opacity", "1")
+      await page.screenshot({ animations: "disabled", path: info.outputPath(`mobile-modules-${width}.png`) })
+      await drawer.getByRole("button", { name: "Vendas", exact: true }).click()
+      await expect(drawer.getByRole("heading", { name: "Vendas", exact: true })).toBeFocused()
+      await expect(drawer.getByRole("link", { name: "Pedidos de venda", exact: true })).toHaveAttribute("aria-current", "page")
+      for (let step = 0; step < 18; step++) {
+        await page.keyboard.press("Tab")
+        await expect.poll(() => drawer.evaluate(element => element.contains(document.activeElement))).toBe(true)
+      }
+      await drawer.getByRole("button", { name: "Voltar aos módulos" }).focus()
+      await page.screenshot({ animations: "disabled", path: info.outputPath(`mobile-sales-${width}.png`) })
+      await page.keyboard.press("Escape")
+      await expect(drawer).toBeHidden()
+      await expect(trigger).toBeFocused()
+    }
+  }
+  expect(errors).toEqual([])
+})
 
 test.beforeEach(async ({ context }) => {
   const iv = randomBytes(12)
@@ -18,19 +96,29 @@ test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", as
   await page.goto("/preferencias")
   const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
   await expect(desktop).toBeVisible()
-  await expect(desktop.locator('a[href="/cadastros/funcionarios"]')).toHaveCount(1)
-  const destinations = await desktop.locator("a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!))
-  expect(destinations).toContain("/cadastros/funcionarios")
+  const destinations: string[] = []
+  for (const menu of desktopMenus) {
+    await desktop.getByRole("button", { name: menu.label, exact: true }).click()
+    destinations.push(...await desktop.locator("#erp-module-panel a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!)))
+  }
   await page.setViewportSize({ width: 390, height: 844 })
   const trigger = page.getByRole("button", { name: "Abrir menu", exact: true })
   await trigger.click()
-  const menu = page.getByRole("dialog", { name: "Menu do ERP", exact: true })
-  for (const href of new Set(destinations)) await expect(menu.locator(`a[href="${href}"]`).first()).toHaveCount(1)
+  const menu = page.getByRole("dialog")
+  await expect(menu.getByRole("heading", { name: "Menu do ERP", exact: true })).toBeVisible()
+  const mobileDestinations: string[] = []
+  for (const category of desktopMenus) {
+    await menu.getByRole("button", { name: category.label, exact: true }).click()
+    mobileDestinations.push(...await menu.locator("a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!)))
+    await menu.getByRole("button", { name: "Voltar aos módulos" }).click()
+    await expect(menu.getByRole("button", { name: category.label, exact: true })).toBeFocused()
+  }
+  expect(mobileDestinations.sort()).toEqual(destinations.sort())
   await page.keyboard.press("Escape")
   await expect(menu).toBeHidden()
   await expect(trigger).toBeFocused()
   await trigger.click()
-  await menu.locator("summary").filter({ hasText: "Cadastros" }).click()
+  await menu.getByRole("button", { name: "Cadastros", exact: true }).click()
   await page.screenshot({ path: testInfo.outputPath("menu-celular-cadastros.png") })
   await menu.getByRole("link", { name: "Funcionários", exact: true }).click()
   await expect(page).toHaveURL(origin + "/cadastros/funcionarios")
@@ -73,7 +161,7 @@ test("todas as categorias das referências mostram opções e destinos existente
     "Empresa", "Sistema", "Cadastros", "Suprimentos", "Vendas", "Notas Fiscais", "Certificado Digital", "Finanças", "Serviços", "Integrações", "Logística", "Contabilidade", "Importações de Dados", "Backup e Exportação de Dados",
   ])
   for (const category of preferenceCategories) {
-    const button = page.getByRole("button", { name: category.label, exact: true })
+    const button = page.getByRole("navigation", { name: "Categorias de preferências" }).getByRole("button", { name: category.label, exact: true })
     await expect(button).toBeEnabled()
     await button.focus()
     await page.keyboard.press("Enter")
@@ -123,13 +211,14 @@ test("pesquisa do índice de preferências ignora acentos e permite limpar resul
 test("navegação móvel, módulos e busca global abrem o índice de preferências", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
-  await page.getByRole("navigation", { name: "Navegação móvel", exact: true }).getByRole("link", { name: "Preferências", exact: true }).click()
+  await page.locator("header").getByRole("link", { name: "Preferências", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias")
-  await page.getByRole("button", { name: "Menu", exact: true }).click()
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Índice completo", exact: true }).click()
   await page.getByRole("dialog").getByRole("link", { name: "Preferências", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias")
   await expect(page.getByRole("dialog")).toHaveCount(0)
-  await page.getByRole("button", { name: "Buscar", exact: true }).click()
+  await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await page.getByRole("dialog").getByRole("combobox").fill("Preferências")
   await page.getByRole("option").filter({ has: page.getByText("Preferências", { exact: true }) }).click()
   await expect(page).toHaveURL(origin + "/preferencias")
@@ -159,40 +248,46 @@ test("menu desktop é exclusivo, fecha fora e com Escape e mantém os painéis n
   await page.goto("/")
   const navigation = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
   for (const name of ["Meu Negócio", "Cadastros", "Vendas", "Estoque", "Financeiro", "Operações", "Relatórios"]) {
-    await navigation.locator("summary").filter({ hasText: name }).click()
-    await expect(navigation.locator("details[open]")).toHaveCount(1)
-    const panel = await navigation.locator("details[open] > div").boundingBox()
+    await navigation.getByRole("button", { name, exact: true }).click()
+    await expect(navigation.locator("#erp-module-panel")).toHaveCount(1)
+    const panel = await navigation.locator("#erp-module-panel").boundingBox()
     expect(panel).not.toBeNull()
     expect(panel!.x).toBeGreaterThanOrEqual(0)
     expect(panel!.x + panel!.width).toBeLessThanOrEqual(1749)
   }
   await page.keyboard.press("Escape")
-  await expect(navigation.locator("details[open]")).toHaveCount(0)
-  await expect(navigation.locator("summary").filter({ hasText: "Relatórios" })).toBeFocused()
-  await navigation.locator("summary").filter({ hasText: "Cadastros" }).click()
-  await page.getByRole("heading", { name: "Visão geral", exact: true }).click({ position: { x: 4, y: 4 } })
-  await expect(navigation.locator("details[open]")).toHaveCount(0)
-  await navigation.locator("summary").filter({ hasText: "Cadastros" }).click()
+  await expect(navigation.locator("#erp-module-panel")).toHaveCount(0)
+  await expect(navigation.getByRole("button", { name: "Relatórios", exact: true })).toBeFocused()
+  await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
+  await page.locator("main").click({ position: { x: 1100, y: 10 } })
+  await expect(navigation.locator("#erp-module-panel")).toHaveCount(0)
+  await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
   await navigation.getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
-  await expect(navigation.locator("details[open]")).toHaveCount(0)
+  await expect(navigation.locator("#erp-module-panel")).toHaveCount(0)
+  await expect(navigation.getByRole("button", { name: "Cadastros", exact: true })).toHaveAttribute("data-active", "true")
+  await page.reload()
+  await expect(navigation.getByRole("button", { name: "Cadastros", exact: true })).toHaveAttribute("data-active", "true")
 })
 
 test("cabeçalho cabe na janela e navegação compacta oferece os módulos em telas menores", async ({ page }) => {
   await page.goto("/")
-  for (const width of [320, 390, 1280, 1440, 1599, 1600, 1749]) {
+  for (const width of [320, 390, 768, 930, 1280, 1440, 1599, 1600, 1749]) {
     await page.setViewportSize({ width, height: 950 })
     await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible()
     const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
-    const compact = page.getByRole("navigation", { name: "Navegação móvel", exact: true })
-    if (width < 1600) { await expect(desktop).toBeHidden(); await expect(compact).toBeVisible() }
+    const compact = page.getByRole("button", { name: "Abrir menu", exact: true })
+    if (width < 900) { await expect(desktop).toBeHidden(); await expect(compact).toBeVisible() }
     else { await expect(desktop).toBeVisible(); await expect(compact).toBeHidden() }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
   }
   await page.setViewportSize({ width: 1440, height: 950 })
-  await page.getByRole("button", { name: "Menu", exact: true }).click()
-  const modules = page.getByRole("dialog")
-  await modules.locator("summary").filter({ hasText: "Cadastros" }).click()
+  await page.getByRole("button", { name: "Recolher navegação", exact: true }).click()
+  await expect(page.locator(".erp-sidebar")).toHaveCSS("width", "72px")
+  await page.getByRole("button", { name: "Expandir navegação", exact: true }).click()
+  await expect(page.locator(".erp-sidebar")).toHaveCSS("width", "232px")
+  await page.getByRole("button", { name: "Cadastros", exact: true }).click()
+  const modules = page.locator("#erp-module-panel")
   await expect(modules.getByRole("link", { name: "Produtos", exact: true })).toBeVisible()
   await modules.getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)

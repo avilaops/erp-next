@@ -1,8 +1,9 @@
 # Recebimento e conciliação de NF-e — AVL-91, AVL-94 e AVL-97
 
 Complemento do monitor canônico e da conversão fiscal existentes.
-Implementação preparada para publicação autorizada pelo usuário em 03/11/2026.
-O aceite externo fiscal continua separado do deploy da aplicação.
+Em 04/11/2026, o escopo autorizado é resolver e integrar os PRs, sem deploy.
+A publicação fica para uma etapa posterior, junto às demais alterações locais.
+O aceite externo fiscal continua separado da integração e do deploy da aplicação.
 
 ## Distribuição e manifestação
 

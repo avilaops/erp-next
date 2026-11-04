@@ -30,8 +30,9 @@ de compras, recebimentos, estoque e contas a pagar. Nenhum produto/fornecedor
 - Preservar a restrição existente de uma NF-e por compra nesta entrega.
   Múltiplas NF-e por pedido e segunda ocorrência do mesmo tipo de manifestação
   exigem evolução específica do esquema; não ficam implicitamente habilitadas.
-- O usuário autorizou o deploy em 03/11/2026. Publicar somente após os gates
-  de validação da revisão exata. Consulta real e transmissão de manifestações
+- A autorização de deploy de 03/11/2026 foi substituída em 04/11/2026 pela
+  instrução de resolver e integrar os PRs sem publicar no servidor. O deploy
+  fica para uma etapa posterior. Consulta real e transmissão de manifestações
   continuam dependentes de comandos explícitos do operador.
 
 ## Plano e verificação

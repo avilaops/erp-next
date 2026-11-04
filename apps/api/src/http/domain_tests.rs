@@ -71,6 +71,83 @@ fn movement(id: &str, direction: &str, quantity: &str) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn product_categories_are_tenant_scoped_filterable_and_preserved_on_legacy_updates(
+    admin: PgPool,
+) {
+    let (router, app, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    let category = Uuid::now_v7();
+    let foreign = Uuid::now_v7();
+    for (tenant, id) in [
+        (TENANT, category),
+        ("22222222-2222-4222-8222-222222222222", foreign),
+    ] {
+        sqlx::query("INSERT INTO product_categories(tenant_id,id,code,name,status,revision,sort_order) VALUES($1,$2,'CORE','Core','active',1,0)")
+            .bind(Uuid::parse_str(tenant).unwrap()).bind(id).execute(&admin).await.unwrap();
+    }
+    for invalid in [
+        foreign.to_string(),
+        Uuid::now_v7().to_string(),
+        "not-a-uuid".to_owned(),
+    ] {
+        let mut input = product();
+        input["categoryId"] = json!(invalid);
+        let result = call(
+            &router,
+            "POST",
+            "/api/v1/products",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            input,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::UNPROCESSABLE_ENTITY, "{}", result.2);
+    }
+    let mut input = product();
+    input["categoryId"] = json!(category);
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/products",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        input,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let uri = format!("/api/v1/products/{id}");
+    let etag = created.1.get("etag").unwrap().to_str().unwrap();
+    let preserved = call(&router, "PUT", &uri, "editor", Some(etag), None, product()).await;
+    assert_eq!(preserved.0, StatusCode::OK, "{}", preserved.2);
+    assert_eq!(preserved.2["data"]["categoryId"], category.to_string());
+    for (filter, total) in [(category, 1), (foreign, 0)] {
+        let result = call(
+            &router,
+            "GET",
+            &format!("/api/v1/products?category_id={filter}"),
+            "reader",
+            None,
+            None,
+            Value::Null,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::OK);
+        assert_eq!(result.2["total"], total);
+        assert_eq!(result.2["data"].as_array().unwrap().len(), total as usize);
+    }
+    let mut input = product();
+    input["categoryId"] = json!("");
+    let etag = preserved.1.get("etag").unwrap().to_str().unwrap();
+    let cleared = call(&router, "PUT", &uri, "editor", Some(etag), None, input).await;
+    assert_eq!(cleared.0, StatusCode::OK, "{}", cleared.2);
+    assert!(cleared.2["data"].get("categoryId").is_none());
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn products_persist_paginate_and_enforce_permissions_revisions_and_command_idempotency(
     admin: PgPool,
 ) {

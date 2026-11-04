@@ -126,3 +126,6 @@ jobs:
       - name: Import and reconcile the complete legacy database
         if: ${{ !inputs.schema_only }}
         run: python3 scripts/import-legacy.py
+      - name: Grant product media registry access
+        # Product media is immutable and tenant isolated; no delete/update grant.
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-media.sql

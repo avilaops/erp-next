@@ -1,4 +1,4 @@
-export type CatalogQuery = { q: string; status: string; offset: number }
+export type CatalogQuery = { q: string; status: string; offset: number; categoryId?: string }
 export const catalogMaxOffset = 100_000
 
 export function parseCatalogQuery(params: Pick<URLSearchParams, "get">, pageSize = 25): CatalogQuery {
@@ -9,13 +9,15 @@ export function parseCatalogQuery(params: Pick<URLSearchParams, "get">, pageSize
   const number = /^\d{1,7}$/.test(rawOffset) ? Number(rawOffset) : 0
   const size = [10, 25, 50, 100].includes(pageSize) ? pageSize : 25
   const offset = number <= catalogMaxOffset ? Math.floor(number / size) * size : 0
-  return { q, status, offset }
+  const categoryId = params.get("category_id") || ""
+  return { q, status, offset, ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId) ? { categoryId } : {}) }
 }
 
 export function catalogQueryString(query: CatalogQuery) {
   const params = new URLSearchParams()
   if (query.q) params.set("q", query.q)
   if (query.status) params.set("status", query.status)
+  if (query.categoryId) params.set("category_id", query.categoryId)
   if (query.offset) params.set("offset", String(query.offset))
   return params.toString()
 }

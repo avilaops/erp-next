@@ -21,6 +21,9 @@ use uuid::Uuid;
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ProductInput {
+    /// UUID da categoria; vazio remove o vínculo, omitido preserva na edição.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub photo_data_url: Option<String>,
     pub sku: String,
@@ -37,6 +40,12 @@ pub struct ProductInput {
 }
 impl ProductInput {
     fn validate(&mut self) -> Result<i64, DomainError> {
+        if let Some(category) = &mut self.category_id {
+            *category = category.trim().to_owned();
+            if !category.is_empty() && Uuid::parse_str(category).is_err() {
+                return Err(DomainError::Invalid("Categoria inválida"));
+            }
+        }
         if let Some(photo) = self
             .photo_data_url
             .as_deref()
@@ -136,6 +145,7 @@ pub struct Product {
 }
 #[derive(FromRow)]
 struct ProductRow {
+    category_id: Option<Uuid>,
     has_photo: bool,
     photo_data_url: Option<String>,
     id: Uuid,
@@ -157,6 +167,7 @@ impl From<ProductRow> for Product {
             revision: r.revision,
             has_photo: r.has_photo,
             data: ProductInput {
+                category_id: r.category_id.map(|id| id.to_string()),
                 photo_data_url: r.photo_data_url,
                 sku: r.sku,
                 name: r.name,
@@ -192,6 +203,7 @@ pub struct ProductList {
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct ProductQuery {
+    pub category_id: Option<Uuid>,
     pub q: Option<String>,
     pub status: Option<String>,
     pub offset: Option<u32>,
@@ -220,7 +232,7 @@ pub async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Product, DomainError> {
-    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,category_id,structure_colors,upholstery_colors,photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.map(Into::into).ok_or(DomainError::NotFound)
 }
 fn product_error(error: sqlx::Error) -> DomainError {
@@ -232,6 +244,30 @@ fn product_error(error: sqlx::Error) -> DomainError {
     } else {
         db(error)
     }
+}
+
+fn category_uuid(input: &ProductInput) -> Option<Uuid> {
+    input
+        .category_id
+        .as_deref()
+        .and_then(|id| Uuid::parse_str(id).ok())
+}
+
+async fn validate_category(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    category: Option<Uuid>,
+) -> Result<(), DomainError> {
+    if let Some(id) = category {
+        let available = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM product_categories WHERE tenant_id=$1 AND id=$2 AND status='active')")
+            .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)?;
+        if !available {
+            return Err(DomainError::Invalid(
+                "Selecione uma categoria ativa desta empresa",
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[utoipa::path(get,path="/api/v1/products",tag="Catalog",security(("bearerAuth"=[])),params(ProductQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=ProductList),(status=401,description="Credencial inválida"),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
@@ -254,10 +290,10 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,structure_colors,upholstery_colors,NULL::text AS photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) ORDER BY name,id LIMIT $4 OFFSET $5")
-        .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
-    let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0)")
-        .bind(tenant).bind(&query.status).bind(&q).fetch_one(&mut *tx).await.map_err(db)?;
+    let rows=sqlx::query_as::<_,ProductRow>("SELECT id,sku,name,unit,ncm,cest,price_cents,status,revision,category_id,structure_colors,upholstery_colors,NULL::text AS photo_data_url,COALESCE(photo_data_url,'')<>'' AS has_photo FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) AND ($6::uuid IS NULL OR category_id=$6) ORDER BY name,id LIMIT $4 OFFSET $5")
+        .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).bind(query.category_id).fetch_all(&mut *tx).await.map_err(db)?;
+    let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) AND ($4::uuid IS NULL OR category_id=$4)")
+        .bind(tenant).bind(&query.status).bind(&q).bind(query.category_id).fetch_one(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
@@ -345,8 +381,10 @@ pub async fn create(
         ));
     }
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status,structure_colors,upholstery_colors,photo_data_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
-        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).execute(&mut *tx).await.map_err(product_error)?;
+    let category = category_uuid(&input);
+    validate_category(&mut tx, tenant, category).await?;
+    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status,structure_colors,upholstery_colors,photo_data_url,category_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)")
+        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).bind(category).execute(&mut *tx).await.map_err(product_error)?;
     let result = serde_json::to_value(ProductSnapshot {
         tenant_id: tenant,
         can_edit: true,
@@ -409,6 +447,13 @@ pub async fn update(
         ));
     }
     let previous = load(&mut tx, tenant, id).await?;
+    if input.category_id.is_none() {
+        input.category_id.clone_from(&previous.data.category_id);
+    }
+    let category = category_uuid(&input);
+    if category != category_uuid(&previous.data) {
+        validate_category(&mut tx, tenant, category).await?;
+    }
     if input.photo_data_url.is_none() {
         input
             .photo_data_url
@@ -445,8 +490,8 @@ pub async fn update(
     let next = expected
         .checked_add(1)
         .ok_or(crate::platform::access::AccessError::Internal)?;
-    sqlx::query("UPDATE products SET sku=$3,name=$4,unit=$5,ncm=$6,cest=$7,price_cents=$8,status=$9,revision=$10,structure_colors=$11,upholstery_colors=$12,photo_data_url=$13,updated_at=now() WHERE tenant_id=$1 AND id=$2")
-        .bind(tenant).bind(id).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(next).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).execute(&mut *tx).await.map_err(product_error)?;
+    sqlx::query("UPDATE products SET sku=$3,name=$4,unit=$5,ncm=$6,cest=$7,price_cents=$8,status=$9,revision=$10,structure_colors=$11,upholstery_colors=$12,photo_data_url=$13,category_id=$14,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+        .bind(tenant).bind(id).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(next).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).bind(category).execute(&mut *tx).await.map_err(product_error)?;
     record(
         &mut tx,
         tenant,

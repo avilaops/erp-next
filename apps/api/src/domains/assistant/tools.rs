@@ -308,6 +308,7 @@ pub(super) async fn execute(
         );
     }
     let query = Ok(Query(catalog::ProductQuery {
+        category_id: None,
         q: Some(args.q),
         status: None,
         offset: Some(0),

@@ -17893,7 +17893,7 @@
       ],
       "transition": {
         "from": "identidade autenticada",
-        "to": "empresas ativas do próprio usuário listadas"
+        "to": "empresas com vínculo ativo listadas; administrador explícito da plataforma vê todos os tenants e seus estados"
       },
       "effects": {
         "writes": [],
@@ -17919,7 +17919,7 @@
           500,
           503
         ],
-        "action": "Exibir somente empresas com vínculo ativo"
+        "action": "Exibir vínculos ativos ou diretório administrativo autorizado; bloquear seleção de empresas inativas"
       },
       "recovery": "Refazer login ou tentar novamente sem expor outras empresas",
       "ui": {
@@ -17949,6 +17949,58 @@
           "failure",
           "response"
         ]
+      }
+    },
+    {
+      "id": "post-api-v1-company-selection",
+      "flow": "company_onboarding",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/company-selection"
+      },
+      "actor": "authenticated_identity",
+      "permissions": [],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"],
+        "pathParameters": [],
+        "body": null,
+        "query": []
+      },
+      "preconditions": [
+        "Identidade confirmada no userinfo do Auth",
+        "Tenant ativo e membership ativo ou concessão explícita de administrador da plataforma"
+      ],
+      "transition": {
+        "from": "identidade autenticada com empresa solicitada",
+        "to": "acesso verificado e seleção auditada antes da troca do cookie BFF"
+      },
+      "effects": {
+        "writes": ["audit_log: platform.tenant.selected com identidade real e indicador administrativo"],
+        "external": ["Auth userinfo"],
+        "excludes": ["Sem criação de memberships ou concessão de privilégio", "Sem alteração de dados comerciais"]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Validação e auditoria na mesma transação; cada seleção bem-sucedida registra um evento"
+      },
+      "response": {
+        "successStatuses": [204],
+        "errorStatuses": [400, 401, 403, 500, 503],
+        "action": "Trocar o tenant da sessão somente depois do sucesso"
+      },
+      "recovery": "Manter sessão anterior em falha; refazer login se expirado ou escolher empresa autorizada",
+      "ui": {"pages": ["/empresas"]},
+      "sources": [
+        "apps/api/src/platform/onboarding.rs",
+        "apps/api/src/platform/administrators.rs",
+        "apps/web/src/app/api/auth/company/route.ts",
+        "migrations/202611040005_platform_administrators.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]
       }
     },
     {

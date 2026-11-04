@@ -76,6 +76,12 @@ jobs:
           PY
       - name: Apply destination migrations
         run: docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$SOURCE_REF" migrate
+      - name: Reconcile preserved legacy records without business effects
+        if: ${{ inputs.schema_only }}
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
+      - name: Grant read-only access to evolved structures
+        if: ${{ inputs.schema_only }}
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-legacy-evolution.sql
       - name: Provision initial membership
         if: ${{ !inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql

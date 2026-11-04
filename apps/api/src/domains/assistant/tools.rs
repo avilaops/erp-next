@@ -212,9 +212,10 @@ pub(super) async fn execute(
                 State(state.clone()),
                 Extension(identity.clone()),
                 headers.clone(),
-                Ok(Query(sales::OrderQuery {
+                Ok(Query(sales::SalesOrderQuery {
                     offset: Some(0),
                     limit: Some(5),
+                    q: None,
                 })),
             )
             .await?;

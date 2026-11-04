@@ -4,7 +4,8 @@ import { RequestError } from "@/components/feedback/session-recovery"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/search-input"
+
 import { useResource } from "@/hooks/use-operation"
 
 export type PurchaseChoice = { id: string; legalName?: string; name?: string; sku?: string; unit?: string }
@@ -16,7 +17,7 @@ export function PurchaseLookup({ supplier = false, disabled, choose }: { supplie
   const result = useResource<{ data: PurchaseChoice[]; total: number }>(`/api/erp/${supplier ? "parties" : "products"}?${params}`)
   return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label={`Seleção de ${label}`}>
     <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}>
-      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<Input name="q" maxLength={160} disabled={disabled} /></label>
+      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<SearchInput onSearch={q => setQuery({ q, offset: 0 })} name="q" maxLength={160} disabled={disabled} /></label>
       <Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
     {result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>

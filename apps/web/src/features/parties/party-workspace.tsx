@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 
 import { PartyComplements } from "./party-complements"
@@ -57,7 +58,7 @@ export function PartyList() {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
         setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome ou documento<Input name="q" maxLength={160} placeholder="Documento sem máscara" /></label>
+        <label className="min-w-0 space-y-2">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Documento sem máscara" /></label>
         <label className="min-w-0 space-y-2">Relacionamento<select name="role" className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
         <label className="min-w-0 space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>

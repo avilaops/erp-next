@@ -43,6 +43,7 @@ pub struct OrderInput {
 #[serde(rename_all = "camelCase")]
 pub struct OrderSummary {
     pub id: Uuid,
+    pub number: String,
     pub customer_id: Uuid,
     pub customer_name: String,
     pub customer_tax_id: String,
@@ -181,7 +182,7 @@ async fn load(
     id: Uuid,
     can_edit: bool,
 ) -> Result<OrderSnapshot, DomainError> {
-    let data=sqlx::query_as::<_,OrderSummary>("SELECT id,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
+    let data=sqlx::query_as::<_,OrderSummary>("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
@@ -227,13 +228,21 @@ pub async fn list(
         false,
     )
     .await?;
-    let filter = "WHERE tenant_id=$1 AND ($2='' OR strpos(lower(customer_name),lower($2))>0 OR strpos(id::text,lower($2))>0 OR ($3<>'' AND strpos(customer_tax_id,$3)>0))";
-    let data=sqlx::query_as::<_,OrderSummary>(&format!("SELECT id,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders {filter} ORDER BY created_at DESC,id DESC LIMIT $4 OFFSET $5"))
-        .bind(tenant).bind(search).bind(&tax_id).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let normalized = search.to_ascii_uppercase();
+    let number = normalized
+        .strip_prefix("PV-")
+        .unwrap_or(&normalized)
+        .parse::<i64>()
+        .ok()
+        .filter(|number| *number > 0);
+    let filter = "WHERE tenant_id=$1 AND ($2='' OR strpos(lower(customer_name),lower($2))>0 OR strpos(id::text,lower($2))>0 OR ($3<>'' AND strpos(customer_tax_id,$3)>0) OR number=$4)";
+    let data=sqlx::query_as::<_,OrderSummary>(&format!("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders {filter} ORDER BY created_at DESC,id DESC LIMIT $5 OFFSET $6"))
+        .bind(tenant).bind(search).bind(&tax_id).bind(number).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar(&format!("SELECT count(*) FROM sales_orders {filter}"))
         .bind(tenant)
         .bind(search)
         .bind(tax_id)
+        .bind(number)
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;

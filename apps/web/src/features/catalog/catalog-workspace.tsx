@@ -71,8 +71,8 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
         event.preventDefault(); const form = new FormData(event.currentTarget)
         navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || "") })))
       }}>
-        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={q => navigate({ ...query, q, offset: 0 })} name="q" maxLength={160} defaultValue={q} /></label>
-        <label className="space-y-2">Situação<select name="status" value={status} onChange={event => navigate({ ...query, status: event.target.value as CatalogQuery["status"], offset: 0 })} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status })))} name="q" maxLength={160} defaultValue={q} /></label>
+        <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>

@@ -20,7 +20,7 @@ modulos. Existencia de tabela nao comprova funcionamento da funcionalidade.
 
 ## Entrega preparada
 
-A migracao 202611040001_system_configuration.sql cria somente o schema
+A migracao 202611040002_system_configuration.sql cria somente o schema
 system_config e nove tabelas:
 
 | Tabela | Finalidade |

@@ -18,7 +18,7 @@ CREATE TABLE system_config.files (
     UNIQUE (tenant_id, storage_key),
     FOREIGN KEY (tenant_id, created_by) REFERENCES public.tenant_memberships(tenant_id, identity_id)
 );
-CREATE INDEX system_files_created_idx ON system_config.files(tenant_id, created_at DESC, id);
+CREATE INDEX system_files_created_idx ON system_config.files(tenant_id, created_at DESC, id DESC);
 
 CREATE TABLE system_config.file_versions (
     tenant_id uuid NOT NULL,

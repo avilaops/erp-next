@@ -3,8 +3,10 @@ on:
   pull_request:
     paths:
       - 'migrations/**'
-      - 'queries/system-configuration.sql'
-      - 'verification/sql/system-configuration.sql'
+      - 'queries/**'
+      - 'verification/sql/**'
+      - 'verification/test/legacy-evolution-db.mjs'
+      - 'deploy/reconcile-legacy-evolution.sql'
       - '.github/workflows/system-schema.yml'
   workflow_dispatch:
 permissions:
@@ -45,4 +47,16 @@ jobs:
       - name: Validate tenant isolation and invariants
         run: psql -X -v ON_ERROR_STOP=1 -f verification/sql/system-configuration.sql
       - name: Compile parameterized queries
-        run: psql -X -v ON_ERROR_STOP=1 -f queries/system-configuration.sql
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f queries/system-configuration.sql
+          psql -X -v ON_ERROR_STOP=1 -f queries/legacy-evolution.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Reconcile historical fixtures twice without replaying business effects
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f verification/sql/legacy-evolution-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
+          psql -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
+          node verification/test/legacy-evolution-db.mjs
+          psql -X -v ON_ERROR_STOP=1 -f verification/sql/legacy-evolution-invariants.sql

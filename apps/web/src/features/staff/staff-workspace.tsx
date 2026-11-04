@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 
 type StaffProfile = { cpf?: string | null; rg?: string | null; birthDate?: string | null; admissionDate?: string | null; documentIssuedOn?: string | null; pis?: string | null; ctps?: string | null; address?: string | null; emergencyPhone?: string | null; photo?: string | null }
@@ -60,7 +61,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
         setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome ou código<Input name="q" maxLength={160} placeholder="Código ou nome" /></label>
+        <label className="min-w-0 space-y-2">Buscar nome ou código<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Código ou nome" /></label>
         <label className="min-w-0 space-y-2">Função<select name="role" defaultValue={kind === "funcionarios" ? "employee" : "seller"} className={selectClass}><option value="">Todos</option><option value="employee">Funcionários</option><option value="seller">Vendedores</option></select></label>
         <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>

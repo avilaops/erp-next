@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
@@ -121,7 +122,7 @@ export function StockWorkspace() {
         event.preventDefault(); setLoading(true)
         setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 flex-1 space-y-2">Buscar produto ou SKU<Input name="q" maxLength={160} /></label>
+        <label className="min-w-0 flex-1 space-y-2">Buscar produto ou SKU<SearchInput onSearch={q => { setLoading(true); setQuery({ q, offset: 0 }) }} name="q" maxLength={160} /></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>

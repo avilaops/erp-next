@@ -4,6 +4,7 @@ import type { Schema } from "@/lib/api/types"
 
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
@@ -44,7 +45,7 @@ export function SecurityAudit() {
     <section className="form-section space-y-5" aria-labelledby="audit-title">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="audit-title" className="text-lg font-semibold">Histórico de atividades</h2><p className="mt-1 text-sm text-muted-foreground">As atividades mais recentes aparecem primeiro. Datas e horários em UTC, 3 horas à frente de Brasília.</p></div><Button variant="outline" disabled={resource.loading} onClick={() => { setCursors([]); resource.reload() }}>Atualizar histórico</Button></div>
       <form onSubmit={apply} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="grid gap-1 text-sm">Responsável<Input maxLength={120} placeholder="Pesquisar pelo nome" value={draft.q} onChange={event => setDraft(previous => ({ ...previous, q: event.target.value }))} /></label>
+        <label className="grid gap-1 text-sm">Responsável<SearchInput onSearch={q => { if (draft.startDate && draft.endDate && draft.startDate > draft.endDate) { setValidation("Data final deve ser igual ou posterior à inicial."); return }; setValidation(""); setCursors([]); setFilters({ ...draft, q }) }} maxLength={120} placeholder="Pesquisar pelo nome" value={draft.q} onChange={event => setDraft(previous => ({ ...previous, q: event.target.value }))} /></label>
         {([['action', 'Atividade', auditActions], ['entity', 'Área do sistema', auditAreas]] as const).map(([key, label, options]) => <label key={key} className="field">{label}<select value={draft[key]} onChange={event => setDraft(previous => ({ ...previous, [key]: event.target.value }))}><option value="">{key === "action" ? "Todas as atividades" : "Todas as áreas"}</option>{sortedOptions(options).map(([code, text]) => <option key={code} value={code}>{text}</option>)}</select></label>)}
         {([['startDate', 'Data inicial'], ['endDate', 'Data final']] as const).map(([key, label]) => <label key={key} className="grid gap-1 text-sm">{label}<Input type="date" value={draft[key]} onChange={event => setDraft(previous => ({ ...previous, [key]: event.target.value }))} /></label>)}
         <div className="flex flex-wrap items-end gap-2"><Button type="submit" disabled={resource.loading}>Aplicar filtros</Button><Button type="button" variant="outline" disabled={resource.loading} onClick={clear}>Limpar filtros</Button></div>

@@ -10,6 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
+import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -154,7 +155,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
     <Link className={linkClass} href="/cadastros/clientes-fornecedores" onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
-        <p className="break-all text-sm text-muted-foreground">Empresa {snapshot.tenantId}{snapshot.data ? ` · Revisão ${snapshot.data.revision}` : ""}</p>
+        <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar clientes e fornecedores.</p>}
         {saved && <p role="status">Pessoa salva no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}

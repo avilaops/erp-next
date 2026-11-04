@@ -10,50 +10,87 @@ import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { quantity, useCommand, useResource } from "../../hooks/use-operation"
 import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
+import { commercialMoney, commercialQuantity, orderNumber } from "./order-presentation"
 
-type Item = Schema<"OrderLine">
 type Detail = Schema<"OrderSnapshot">
 type Listing = Schema<"OrderList">
-type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
+export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
 type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 
-function ColorChoice({ label, options = [], value, onChange }: { label: string; options?: string[]; value: string; onChange: (value: string) => void }) {
+export function ColorChoice({ label, options = [], value, onChange, catalog }: { label: string; options?: string[]; value: string; onChange: (value: string) => void; catalog?: { productId: string; tenantId: string; field: "structureColors" | "upholsteryColors" } }) {
   const id = useId()
+  const [refreshed, setRefreshed] = useState<string[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const choices = refreshed ?? options
+  async function refresh() {
+    if (!catalog || loading) return
+    setLoading(true); setError("")
+    try {
+      const response = await erpFetch(`/api/erp/products/${catalog.productId}`, { cache: "no-store" })
+      const product = await response.json()
+      if (!response.ok || product.tenantId !== catalog.tenantId) throw new Error("Não foi possível atualizar as opções deste produto.")
+      const colors = product.data[catalog.field] || []
+      setRefreshed(colors)
+      if (!colors.length) setError("Ainda não há opções cadastradas. Salve as cores no produto e atualize novamente.")
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao consultar opções.") }
+    finally { setLoading(false) }
+  }
   return <div className="grid min-w-0 gap-2 text-sm">
     <label htmlFor={id}>{label}</label>
-    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={options.length > 0} disabled={!options.length && !value} onChange={event => onChange(event.target.value)}>
-      <option value="">{options.length ? "Escolha uma cor" : "Sem opções cadastradas"}</option>
-      {value && !options.includes(value) && <option value={value}>{value} · seleção registrada</option>}
-      {options.map(color => <option key={color} value={color}>{color}</option>)}
+    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={choices.length > 0} disabled={loading || !choices.length && !value} onChange={event => onChange(event.target.value)}>
+      <option value="">{choices.length ? "Escolha uma cor" : "Sem opções cadastradas"}</option>
+      {value && !choices.includes(value) && <option value={value}>{value} · seleção registrada</option>}
+      {choices.map(color => <option key={color} value={color}>{color}</option>)}
     </select>
+    {catalog && !choices.length && <div className="flex flex-wrap items-center gap-3">
+      <Link className={linkClass} href={`/cadastros/produtos/${catalog.productId}/editar#product-colors`} target="_blank" rel="noopener noreferrer" aria-label={`Cadastrar opções de ${label} (nova aba)`}>Cadastrar opções</Link>
+      <Button type="button" variant="outline" disabled={loading} aria-label={`Atualizar opções de ${label}`} onClick={() => void refresh()}>{loading ? "Atualizando…" : "Atualizar opções"}</Button>
+    </div>}
+    {error && <p role="alert">{error}</p>}
   </div>
 }
 
-function Lookup({ endpoint, label, disabled, choose }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void }) {
+export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, selectedName }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void; searchOnly?: boolean; selectedName?: string }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
+  const [showResults, setShowResults] = useState(!searchOnly)
+  const section = useRef<HTMLElement>(null)
+  const resultsId = useId()
+  useEffect(() => {
+    if (!searchOnly) return
+    function dismiss(event: PointerEvent) {
+      if (event.target instanceof Node && !section.current?.contains(event.target)) setShowResults(false)
+    }
+    document.addEventListener("pointerdown", dismiss)
+    return () => document.removeEventListener("pointerdown", dismiss)
+  }, [searchOnly])
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "10", status: "active" })
   if (endpoint === "parties") params.set("role", "customer")
   const result = useResource<{ data: Choice[]; total: number; tenantId: string }>(`/api/erp/${endpoint}?${params}`)
-  return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label={`Seleção de ${label}`}>
-    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }) }}>
-      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<Input name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
+  return <section ref={section} className={searchOnly ? "relative min-w-0 self-start" : "min-w-0 space-y-3 rounded-xl border p-4"} aria-label={`Seleção de ${label}`}
+    onBlur={event => { if (searchOnly && !event.currentTarget.contains(event.relatedTarget)) setShowResults(false) }}
+    onKeyDown={event => { if (searchOnly && event.key === "Escape") { setShowResults(false); section.current?.querySelector("input")?.focus() } }}>
+    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }); setShowResults(true); result.reload() }}>
+      <label className="min-w-0 flex-1 space-y-2">Buscar {label}<SearchInput aria-expanded={searchOnly ? showResults : undefined} aria-controls={searchOnly && showResults ? resultsId : undefined} onSearch={q => { setQuery({ q, offset: 0 }); if (!searchOnly || section.current?.contains(document.activeElement)) setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
-    {result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
-      <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto max-w-full gap-3 break-all whitespace-normal text-left" variant="outline" disabled={disabled} onClick={() => choose(value)}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">Selecionar {value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
+    {selectedName && <p role="status" className="mt-3 break-words text-sm font-medium text-primary">Cliente selecionado: {selectedName}</p>}
+    {showResults && <div id={resultsId} aria-label={`Resultados de ${label}`} className={searchOnly ? "absolute inset-x-0 top-full z-40 mt-2 max-h-[min(20rem,40dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl" : "space-y-3"}>{result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
+      <ul className="space-y-2">{result.value?.data.map(value => <li className="min-w-0" key={value.id}><Button className="h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal text-left" variant="outline" aria-label={`Selecionar ${value.legalName || value.name}${value.sku ? ` · ${value.sku}` : ""}`} disabled={disabled} onClick={() => { choose(value); if (searchOnly) setShowResults(false) }}>{endpoint === "products" && <ProductThumbnail id={value.id} name={value.name || value.sku || "Produto"} tenantId={result.value!.tenantId} hasPhoto={value.hasPhoto} decorative />}<span className="min-w-0">{value.legalName || value.name}{value.sku ? ` · ${value.sku}` : ""}</span></Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum resultado encontrado.</p>}
       <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" disabled={disabled || !query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 10) })}>Anterior {label}</Button><Button variant="outline" disabled={disabled || query.offset + 10 >= (result.value?.total || 0)} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximo {label}</Button></div>
-    </>}
+    </>}</div>}
   </section>
 }
 
@@ -64,15 +101,42 @@ export function Orders({ id, create = false, edit = false }: { id?: string; crea
 }
 
 function OrderList() {
-  const [offset, setOffset] = useState(0)
-  const result = useResource<Listing>(`/api/erp/orders?offset=${offset}&limit=25`)
+  const [search, setSearch] = useState("")
+  const [query, setQuery] = useState({ q: "", offset: 0 })
+  const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
+  if (query.q) params.set("q", query.q)
+  const result = useResource<Listing>(`/api/erp/orders?${params}`)
   return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
     <section className="form-section min-w-0 space-y-4">
-      {result.value?.canEdit && <Link className={linkClass} href="/vendas/pedidos/novo">Novo pedido</Link>}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
+          event.preventDefault()
+          const q = search.trim()
+          if (q === query.q && query.offset === 0) result.reload()
+          else setQuery({ q, offset: 0 })
+        }}>
+          <label className="grid min-w-0 flex-1 basis-full gap-2 sm:basis-0">Buscar pedidos<SearchInput onSearch={q => setQuery({ q: q.trim(), offset: 0 })} type="search" name="q" maxLength={160} placeholder="Número do pedido, cliente ou CPF/CNPJ" value={search} onChange={event => setSearch(event.target.value)} /></label>
+          <Button type="submit" disabled={result.loading}>Pesquisar</Button>
+          {(search || query.q) && <Button type="button" variant="outline" onClick={() => { setSearch(""); setQuery({ q: "", offset: 0 }) }}>Limpar</Button>}
+        </form>
+        {result.value?.canEdit && <Link className={`${linkClass} py-2`} href="/vendas/pedidos/novo">Novo pedido</Link>}
+      </div>
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} pedido(s)</p>
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(order => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={order.id}><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>Pedido de {order.customerName}</Link><p>{labels[order.status]} · R$ {order.amount.replace(".", ",")}</p><p className="break-all text-xs text-muted-foreground">{order.id}</p></li>)}</ul>
-        <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
+        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de pedidos" tabIndex={0}>
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Pedidos de venda</caption>
+            <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Pedido</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3">Vencimento</th><th scope="col" className="p-3 text-right">Valor</th></tr></thead>
+            <tbody>{result.value.data.map(order => <tr className="border-t hover:bg-muted/30" key={order.id}>
+              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
+              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="block text-xs text-muted-foreground">{order.customerTaxId}</span></td>
+              <td className="whitespace-nowrap p-3">{labels[order.status] || order.status}</td>
+              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "—"}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(order.amount)}</td>
+            </tr>)}</tbody>
+          </table>
+        </div> : <p>{query.q ? "Nenhum pedido encontrado para esta pesquisa." : "Nenhum pedido cadastrado."}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: Math.max(0, value.offset - 25) }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={query.offset >= 100000 || query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
       </>}
     </section>
   </>
@@ -135,8 +199,8 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: R$ {item.basePrice?.replace(".", ",")}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
-              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor do estofado de ${item.name}`} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} /></div>
+            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "—"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
+              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor do estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} /></div>
               <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
@@ -166,13 +230,13 @@ function OrderDetail({ id }: { id: string }) {
     <section className="form-section mt-5 min-w-0 space-y-4">
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
-        <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Situação: {labels[value.data.status]}</p><p>Total comercial: R$ {value.data.amount.replace(".", ",")}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Pedido {id} · Revisão {value.data.revision}</p>
+        <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
         {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
         {access.value?.permissions.includes("finance.commissions.read") && <OrderCommissionTerms orderId={id} onSaved={result.reload} />}
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
-        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="text-xs text-muted-foreground">Foto de referência do cadastro atual.</p>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {item.quantity} {item.unit}</p><p className="break-words text-sm">Unitário: R$ {item.unitPrice.replace(".", ",")}</p><p className="break-words text-sm">Total do item: R$ {item.amount.replace(".", ",")}</p></li>)}</ul>
+        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {commercialQuantity(item.quantity)} {item.unit}</p><p className="break-words text-sm">Unitário: {commercialMoney(item.unitPrice)}</p><p className="break-words text-sm">Total do item: {commercialMoney(item.amount)}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}

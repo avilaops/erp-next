@@ -17,6 +17,8 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+mod proposal_rules;
+pub mod proposals;
 pub mod settings;
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -41,6 +43,7 @@ pub struct OrderInput {
 #[serde(rename_all = "camelCase")]
 pub struct OrderSummary {
     pub id: Uuid,
+    pub number: String,
     pub customer_id: Uuid,
     pub customer_name: String,
     pub customer_tax_id: String,
@@ -78,6 +81,15 @@ pub struct OrderSnapshot {
 pub struct OrderQuery {
     pub offset: Option<u32>,
     pub limit: Option<u32>,
+}
+#[derive(Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+#[serde(deny_unknown_fields)]
+pub struct SalesOrderQuery {
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
+    /// Busca por nome do cliente, CPF/CNPJ ou identificação do pedido.
+    pub q: Option<String>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -170,7 +182,7 @@ async fn load(
     id: Uuid,
     can_edit: bool,
 ) -> Result<OrderSnapshot, DomainError> {
-    let data=sqlx::query_as::<_,OrderSummary>("SELECT id,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
+    let data=sqlx::query_as::<_,OrderSummary>("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
@@ -182,18 +194,31 @@ async fn load(
     })
 }
 
-#[utoipa::path(get,path="/api/v1/orders",tag="Sales",security(("bearerAuth"=[])),params(OrderQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=OrderList),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
+#[utoipa::path(get,path="/api/v1/orders",tag="Sales",security(("bearerAuth"=[])),params(SalesOrderQuery,("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=OrderList),(status=403,description="Sem permissão"),(status=422,description="Filtros inválidos")))]
 pub async fn list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
     headers: HeaderMap,
-    query: Result<Query<OrderQuery>, QueryRejection>,
+    query: Result<Query<SalesOrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
-    let (offset, limit) = page(
-        query
-            .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
-            .0,
-    )?;
+    let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros inválidos"))?;
+    let (offset, limit) = page(OrderQuery {
+        offset: query.offset,
+        limit: query.limit,
+    })?;
+    let search = query.q.unwrap_or_default();
+    let search = search.trim();
+    if search.chars().count() > 160 || search.chars().any(char::is_control) {
+        return Err(DomainError::Invalid("Pesquisa inválida"));
+    }
+    let tax_id: String = if search
+        .chars()
+        .all(|c| c.is_ascii_digit() || ".-/ ".contains(c))
+    {
+        search.chars().filter(char::is_ascii_digit).collect()
+    } else {
+        String::new()
+    };
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -203,10 +228,21 @@ pub async fn list(
         false,
     )
     .await?;
-    let data=sqlx::query_as::<_,OrderSummary>("SELECT id,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3")
-        .bind(tenant).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
-    let total = sqlx::query_scalar("SELECT count(*) FROM sales_orders WHERE tenant_id=$1")
+    let normalized = search.to_ascii_uppercase();
+    let number = normalized
+        .strip_prefix("PV-")
+        .unwrap_or(&normalized)
+        .parse::<i64>()
+        .ok()
+        .filter(|number| *number > 0);
+    let filter = "WHERE tenant_id=$1 AND ($2='' OR strpos(lower(customer_name),lower($2))>0 OR strpos(id::text,lower($2))>0 OR ($3<>'' AND strpos(customer_tax_id,$3)>0) OR number=$4)";
+    let data=sqlx::query_as::<_,OrderSummary>(&format!("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders {filter} ORDER BY created_at DESC,id DESC LIMIT $5 OFFSET $6"))
+        .bind(tenant).bind(search).bind(&tax_id).bind(number).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let total = sqlx::query_scalar(&format!("SELECT count(*) FROM sales_orders {filter}"))
         .bind(tenant)
+        .bind(search)
+        .bind(tax_id)
+        .bind(number)
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;

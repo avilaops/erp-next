@@ -12,7 +12,9 @@ import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navi
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
+import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { readProductDraft, writeProductDraft, type ProductInput, type ProductCommand, type ProductDraft } from "./product-draft"
 import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
@@ -36,7 +38,7 @@ export function CatalogList() {
   const size = preferences.value?.data.productPageSize ?? 25
   const query = parseCatalogQuery(params, size)
   if (preferences.loading) return <p role="status">Carregando preferências do catálogo…</p>
-  return <>{preferences.error && <p role="status" className="mb-4 text-sm text-muted-foreground">Preferência pessoal indisponível. O catálogo usa 25 produtos por página.</p>}<CatalogResults key={`${catalogQueryString(query)}:${size}`} query={query} pageSize={size} /></>
+  return <>{preferences.error && <p role="status" className="mb-4 text-sm text-muted-foreground">Preferência pessoal indisponível. O catálogo usa 25 produtos por página.</p>}<CatalogResults key={size} query={query} pageSize={size} /></>
 }
 
 function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
@@ -60,7 +62,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
   function navigate(next: CatalogQuery) {
     const search = catalogQueryString(next)
     if (search === catalogQueryString(query)) { setLoading(true); setRetry(value => value + 1); return }
-    window.history.pushState(null, "", `/cadastros/produtos${search ? `?${search}` : ""}`)
+    setLoading(true); window.history.pushState(null, "", `/cadastros/produtos${search ? `?${search}` : ""}`)
   }
   return <div>
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
@@ -70,8 +72,8 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
         event.preventDefault(); const form = new FormData(event.currentTarget)
         navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || "") })))
       }}>
-        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<Input name="q" maxLength={160} defaultValue={q} /></label>
-        <label className="space-y-2">Situação<select name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status })))} name="q" maxLength={160} defaultValue={q} /></label>
+        <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
@@ -178,7 +180,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     <Link className={catalogLink} href="/cadastros/produtos">Voltar ao catálogo</Link>
     <section className="form-section mt-5 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button onClick={reload}>Tentar novamente</Button></> : <>
-        <p className="text-sm text-muted-foreground">Empresa {snapshot.tenantId}{id ? ` · Revisão ${snapshot.data.revision}` : ""}</p>
+        <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar produtos.</p>}
         {recovered && <p role="status">Rascunho recuperado nesta aba. Confira os dados antes de salvar.</p>}
         {storageError && <p role="alert">{storageError}</p>}
@@ -187,7 +189,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={draft.photoDataUrl ?? undefined} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
+          <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
             <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
             <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
             <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores do estofado"]] as const).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "structureColors" ? "Uma cor de pintura por linha" : "Uma cor de revestimento por linha"} /></label>)}</div>

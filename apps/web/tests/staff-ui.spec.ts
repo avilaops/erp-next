@@ -17,6 +17,7 @@ const upstream = createServer(async (request, response) => {
   expect(request.headers.authorization).toBe("Bearer staff-fixture-token")
   expect(request.headers["x-tenant-id"]).toBe(tenant)
   const url = new URL(request.url!, "http://fixture.invalid")
+  if (url.pathname.endsWith("/payroll")) {response.writeHead(403);response.end(JSON.stringify({title:"Sem acesso financeiro"}));return}
   if (request.method === "POST" || request.method === "PUT") {
     let body = ""; for await (const chunk of request) body += chunk
     const input = JSON.parse(body)
@@ -72,6 +73,7 @@ test("staff and sellers use one persisted record, preserve rejected edits and di
   await page.getByRole("button", { name: "Recarregar cadastro", exact: true }).click()
   await expect(page.getByLabel("Nome", { exact: true })).toHaveValue("Maria")
   await page.getByLabel("Situação do cadastro", { exact: true }).selectOption("archived")
+  page.once("dialog", dialog => dialog.accept())
   await page.getByRole("button", { name: "Salvar cadastro", exact: true }).click()
   await expect(page.getByRole("status").filter({ hasText: "Cadastro salvo" })).toBeVisible()
   expect(data!.status).toBe("archived")

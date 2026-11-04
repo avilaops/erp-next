@@ -10,6 +10,266 @@ use tower::ServiceExt;
 use uuid::Uuid;
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 
+#[sqlx::test(migrations = false)]
+async fn order_number_migration_backfills_each_tenant_with_a_force_rls_owner(admin: PgPool) {
+    let owner = format!("order_owner_{}", Uuid::new_v4().simple());
+    let runtime = format!("order_app_{}", Uuid::new_v4().simple());
+    let mut tx = admin.begin().await.unwrap();
+    sqlx::raw_sql(&format!("CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; CREATE ROLE {runtime} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"))
+        .execute(&mut *tx).await.unwrap();
+    let migrator = sqlx::migrate!("../../migrations");
+    for migration in migrator.iter().filter(|m| m.version < 202611040001) {
+        sqlx::raw_sql(&migration.sql)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    let tenants = [Uuid::new_v4(), Uuid::new_v4()];
+    for tenant in tenants {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO tenants(id,legal_name,tax_id) VALUES($1,'Fixture',$1::text)")
+            .bind(tenant)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES($1,$1,'fisica','Cliente','52998224725',true,false,'active')").bind(tenant).execute(&mut *tx).await.unwrap();
+        for (day, status) in [(2, "completed"), (1, "cancelled")] {
+            sqlx::query("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status,created_at) VALUES($1,$2,$2,'Cliente','52998224725','2026-12-30',249725,$3,'2026-01-01'::timestamptz + $4::integer * interval '1 day')")
+                .bind(Uuid::new_v4()).bind(tenant).bind(status).bind(day).execute(&mut *tx).await.unwrap();
+        }
+    }
+    sqlx::query("SELECT set_config('app.tenant_id','',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../../migrations/202611040001_sales_order_numbers.sql"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    sqlx::raw_sql(&format!("GRANT USAGE ON SCHEMA public TO {runtime}; GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO {runtime}; SET LOCAL ROLE {runtime};"))
+        .execute(&mut *tx).await.unwrap();
+    for tenant in tenants {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let rows: Vec<(i64, String, i64)> =
+            sqlx::query_as("SELECT number,status,amount_cents FROM sales_orders ORDER BY number")
+                .fetch_all(&mut *tx)
+                .await
+                .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                (1, "cancelled".into(), 249725),
+                (2, "completed".into(), 249725)
+            ]
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sales_order_counters")
+                .fetch_one(&mut *tx)
+                .await
+                .unwrap(),
+            1
+        );
+        let number: i64 = sqlx::query_scalar("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) VALUES($1,$2,$2,'Cliente','52998224725','2026-12-30',249725,'draft') RETURNING number")
+            .bind(Uuid::new_v4()).bind(tenant).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(number, 3);
+        sqlx::query("SAVEPOINT immutable_number")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        assert!(
+            sqlx::query("UPDATE sales_orders SET number=999 WHERE number=1")
+                .execute(&mut *tx)
+                .await
+                .is_err()
+        );
+        sqlx::query("ROLLBACK TO SAVEPOINT immutable_number")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pg_policies WHERE policyname='order_number_migration_scan'"
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap(),
+        0
+    );
+    tx.rollback().await.unwrap();
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_numbers_survive_concurrency_idempotency_and_cancellation(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    let (customer, product) = seed(&router, &admin).await;
+    let key = Uuid::now_v7();
+    let (first, second) = tokio::join!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/orders",
+            "editor",
+            None,
+            Some(key),
+            order(&customer, &product, "1.000000")
+        ),
+        call(
+            &router,
+            "POST",
+            "/api/v1/orders",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            order(&customer, &product, "1.000000")
+        )
+    );
+    assert_eq!(first.0, StatusCode::CREATED, "{}", first.2);
+    assert_eq!(second.0, StatusCode::CREATED, "{}", second.2);
+    let mut numbers = vec![
+        first.2["data"]["number"].as_str().unwrap(),
+        second.2["data"]["number"].as_str().unwrap(),
+    ];
+    numbers.sort();
+    assert_eq!(numbers, vec!["1", "2"]);
+    let repeated = call(
+        &router,
+        "POST",
+        "/api/v1/orders",
+        "editor",
+        None,
+        Some(key),
+        order(&customer, &product, "1.000000"),
+    )
+    .await;
+    assert_eq!(repeated.2, first.2);
+    let cancelled = action(
+        &router,
+        first.2["data"]["id"].as_str().unwrap(),
+        "cancel",
+        "\"1\"",
+        Uuid::now_v7(),
+    )
+    .await;
+    assert_eq!(cancelled.0, StatusCode::OK);
+    assert_eq!(cancelled.2["data"]["number"], first.2["data"]["number"]);
+    let third = create(&router, &customer, &product, "1.000000").await;
+    let searched = call(
+        &router,
+        "GET",
+        "/api/v1/orders?q=pv-000003",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(searched.0, StatusCode::OK);
+    assert_eq!(searched.2["total"], 1);
+    assert_eq!(searched.2["data"][0]["id"], third);
+    assert_eq!(searched.2["data"][0]["number"], "3");
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_search_filters_before_pagination_and_keeps_literal_terms(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    let (customer, product) = seed(&router, &admin).await;
+    let first = create(&router, &customer, &product, "1.000000").await;
+    let second = create(&router, &customer, &product, "1.000000").await;
+    let third = create(&router, &customer, &product, "1.000000").await;
+    sqlx::query("UPDATE sales_orders SET customer_name='Cliente operacional 100%' WHERE id=$1")
+        .bind(Uuid::parse_str(&first).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE sales_orders SET customer_name='Outro comprador' WHERE id=$1")
+        .bind(Uuid::parse_str(&third).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    for (query, total, expected_id) in [
+        ("q=OPERACIONAL&limit=1".to_owned(), 2, Some(second)),
+        (
+            "q=operacional&limit=1&offset=1".to_owned(),
+            2,
+            Some(first.clone()),
+        ),
+        (format!("q={first}"), 1, Some(first.clone())),
+        ("q=%25".to_owned(), 1, Some(first)),
+        ("q=_".to_owned(), 0, None),
+        ("q=inexistente".to_owned(), 0, None),
+        ("q=%20%20".to_owned(), 3, None),
+    ] {
+        let result = call(
+            &router,
+            "GET",
+            &format!("/api/v1/orders?{query}"),
+            "reader",
+            None,
+            None,
+            Value::Null,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::OK, "{}", result.2);
+        assert_eq!(result.2["total"], total, "{query}");
+        assert_eq!(result.2["canEdit"], false);
+        if let Some(id) = expected_id {
+            assert_eq!(result.2["data"].as_array().unwrap().len(), 1);
+            assert_eq!(result.2["data"][0]["id"], id);
+        }
+    }
+    let document: String = sqlx::query_scalar("SELECT tax_id FROM parties WHERE id=$1")
+        .bind(Uuid::parse_str(&customer).unwrap())
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    let formatted = format!("{}.{}", &document[..3], &document[3..]);
+    let result = call(
+        &router,
+        "GET",
+        &format!("/api/v1/orders?q={formatted}"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::OK);
+    assert_eq!(result.2["total"], 3);
+    for query in [
+        format!("q={}", "a".repeat(161)),
+        "q=%00".to_owned(),
+        "q=x&q=y".to_owned(),
+    ] {
+        assert_eq!(
+            call(
+                &router,
+                "GET",
+                &format!("/api/v1/orders?{query}"),
+                "reader",
+                None,
+                None,
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    cleanup(&admin, app, server, &role).await;
+}
+
 async fn completed_account(router: &Router, customer: &str, product: &str) -> String {
     let id = create(router, customer, product, "3.000000").await;
     assert_eq!(
@@ -849,6 +1109,19 @@ async fn existing_foreign_orders_receivables_and_payments_are_not_visible_or_wri
          INSERT INTO receivable_payments(id,tenant_id,receivable_id,kind,amount_cents,method,reference,occurred_on) VALUES('{payment}','{other}','{receivable}','receipt',33,'cash','Fixture de outro tenant','2026-10-27');
          UPDATE receivables SET status='paid',payment_id='{payment}' WHERE id='{receivable}';"
     )).execute(&admin).await.unwrap();
+    let searched = call(
+        &router,
+        "GET",
+        "/api/v1/orders?q=Pessoa%20externa",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(searched.0, StatusCode::OK);
+    assert_eq!(searched.2["total"], 0);
+    assert!(searched.2["data"].as_array().unwrap().is_empty());
     for uri in [
         format!("/api/v1/orders/{order}"),
         format!("/api/v1/receivables/{receivable}"),

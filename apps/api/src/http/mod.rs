@@ -51,6 +51,8 @@ mod preferences_tests;
 #[cfg(test)]
 mod production_tests;
 #[cfg(test)]
+mod proposal_tests;
+#[cfg(test)]
 mod purchase_chain_tests;
 #[cfg(test)]
 mod received_nfe_tests;
@@ -79,7 +81,10 @@ mod supply_settings_tests;
 #[cfg(test)]
 mod template_draft_tests;
 
-use axum::{Router, middleware, routing::get};
+use axum::{
+    Router, middleware,
+    routing::{get, post},
+};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
@@ -87,7 +92,7 @@ use tower_http::{
 
 use crate::domains::{
     catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff,
+    staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -186,12 +191,64 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )
+        .route(
+            "/api/v1/company-selection",
+            post(onboarding::select_company),
+        )
+        .route("/api/v1/financial-payables", get(payables::list_all))
+        .route("/api/v1/financial-payables/{id}", get(payables::get_all))
+        .route(
+            "/api/v1/financial-payables/{id}/payments",
+            post(payables::pay_all),
+        )
+        .route(
+            "/api/v1/financial-payables/{id}/reverse-payment",
+            post(payables::reverse_all),
+        )
+        .route("/api/v1/staff-payroll", get(staff_payroll::list))
+        .route(
+            "/api/v1/staff-payroll/salaries",
+            post(staff_payroll::salaries),
+        )
+        .route(
+            "/api/v1/staff-payroll/generate",
+            post(staff_payroll::generate),
+        )
+        .route(
+            "/api/v1/staff-payroll/requests/{id}/review",
+            post(staff_payroll::review),
+        )
+        .route("/api/v1/staff/{id}/payroll", get(staff_payroll::get))
+        .route(
+            "/api/v1/staff/{id}/payroll/requests",
+            post(staff_payroll::propose),
+        )
         .route("/api/v1/staff", get(staff::list).post(staff::create))
         .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))
         .merge(fiscal::routes())
         .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
+        .route(
+            "/api/v1/proposals",
+            get(sales::proposals::list).post(sales::proposals::create),
+        )
+        .route(
+            "/api/v1/proposals/{id}",
+            get(sales::proposals::get).put(sales::proposals::update),
+        )
+        .route(
+            "/api/v1/proposals/{id}/revise",
+            axum::routing::post(sales::proposals::revise),
+        )
+        .route(
+            "/api/v1/proposals/{id}/convert",
+            axum::routing::post(sales::proposals::convert),
+        )
+        .route(
+            "/api/v1/proposals/{id}/{action}",
+            axum::routing::post(sales::proposals::decide),
+        )
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
         .route(
             "/api/v1/orders/{id}/confirm",

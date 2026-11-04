@@ -37,7 +37,7 @@ test("configuração financeira persiste, trata conflito e preenche as baixas se
   await expect(page.getByRole("link", { name: "Abrir contas financeiras", exact: true })).toBeVisible()
   const id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
   // Only account details are fixtures; the saved financial setting is read from the real Rust API.
-  for (const resource of ["receivables", "payables"]) await page.route(`**/api/erp/${resource}/${id}`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { id, orderId: id, receiptId: id, customerName: "Cliente isolado", supplierName: "Fornecedor isolado", dueDate: "2026-10-31", amount: "100.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "100.00", status: "open", revision: 1, paymentId: null }, payments: [] } }))
+  for (const resource of ["receivables", "payables"]) await page.route(`**/api/erp/${resource === "payables" ? "financial-payables" : resource}/${id}`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { id, orderId: id, receiptId: id, customerName: "Cliente isolado", supplierName: "Fornecedor isolado", dueDate: "2026-10-31", amount: "100.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "100.00", status: "open", revision: 1, paymentId: null }, payments: [] } }))
   for (const path of ["contas-receber", "contas-pagar"]) {
     await page.goto(`/financeiro/${path}/${id}`)
     const method = page.getByRole("combobox", { name: "Meio declarado", exact: true })

@@ -212,9 +212,10 @@ pub(super) async fn execute(
                 State(state.clone()),
                 Extension(identity.clone()),
                 headers.clone(),
-                Ok(Query(sales::OrderQuery {
+                Ok(Query(sales::SalesOrderQuery {
                     offset: Some(0),
                     limit: Some(5),
+                    q: None,
                 })),
             )
             .await?;
@@ -375,8 +376,11 @@ fn record_id(record: &Value) -> Result<Uuid, super::ChatError> {
 
 fn order_record(record: &Value) -> Result<Value, super::ChatError> {
     let id = record_id(record)?;
+    let number = record["number"]
+        .as_str()
+        .ok_or_else(|| super::ChatError::unavailable("Número do pedido indisponível."))?;
     Ok(
-        json!({"title":format!("Pedido {id}"),"id":id,"customerName":record["customerName"],
+        json!({"title":format!("PV-{number:0>6}"),"id":id,"number":number,"customerName":record["customerName"],
         "amount":record["amount"],"dueDate":record["dueDate"],"status":record["status"],
         "href":format!("/vendas/pedidos/{id}")}),
     )
@@ -424,7 +428,8 @@ mod navigation_tests {
             panic!("Expected order lookup")
         };
         assert_eq!(id.to_string(), "dddddddd-dddd-4ddd-8ddd-dddddddddddd");
-        let source = order_record(&json!({"id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","customerName":"Aurora","customerTaxId":"PRIVATE_DOCUMENT","email":"PRIVATE_EMAIL","amount":"12.34","status":"draft","dueDate":"2026-11-01"})).unwrap();
+        let source = order_record(&json!({"id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","number":"17","customerName":"Aurora","customerTaxId":"PRIVATE_DOCUMENT","email":"PRIVATE_EMAIL","amount":"12.34","status":"draft","dueDate":"2026-11-01"})).unwrap();
+        assert_eq!(source["title"], "PV-000017");
         assert!(!source.to_string().contains("PRIVATE_"));
         assert_eq!(source["amount"], "12.34");
     }

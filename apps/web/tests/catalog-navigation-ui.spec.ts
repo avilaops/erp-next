@@ -23,6 +23,26 @@ test.beforeEach(async ({ context, page }) => {
   })
 })
 
+test("cadastro identifica a empresa pelo nome e não mistura empresas em respostas divergentes", async ({ page }) => {
+  for (const scenario of ["same", "different", "unavailable"]) {
+    let consulted = false
+    await page.route("**/api/erp/me", route => {
+      consulted = true
+      return route.fulfill(scenario === "unavailable"
+        ? { status: 503, json: { title: "Consulta indisponível" } }
+        : { json: { tenant: { id: scenario === "same" ? tenant : productId, legalName: "Empresa identificada pelo nome" } } })
+    })
+    await page.goto(`/cadastros/produtos/${productId}/editar`)
+    await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue(product.name)
+    await expect.poll(() => consulted).toBe(true)
+    if (scenario === "same") await expect(page.getByText("Empresa: Empresa identificada pelo nome", { exact: true })).toBeVisible()
+    else await expect(page.getByText("Empresa: Empresa identificada pelo nome", { exact: true })).toHaveCount(0)
+    await expect(page.locator("main")).not.toContainText(tenant)
+    await expect(page.locator("main")).not.toContainText("Revisão 1")
+    await page.unroute("**/api/erp/me")
+  }
+})
+
 test("ações finais do catálogo ficam acima da navegação compacta", async ({ page }, testInfo) => {
   for (const width of [320, 390, 768, 1280, 1599]) {
     await page.setViewportSize({ width, height: 844 })

@@ -88,7 +88,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
 
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-muted-foreground">Empresa: {snapshot.data.tradeName || snapshot.data.legalName} · Revisão {snapshot.revision}</p>
+      <p className="break-words text-sm text-muted-foreground">Empresa: {snapshot.data.tradeName || snapshot.data.legalName}</p>
       <LogoutButton label="Sair desta sessão" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-4 text-sm disabled:opacity-60" />
     </div>
     {!snapshot.canEdit && <p role="status">Você tem acesso de consulta. Solicite permissão para alterar o cadastro.</p>}

@@ -91,3 +91,57 @@ async fn legacy_history_requires_permission_and_isolates_files(admin: PgPool) {
     );
     cleanup(&admin, app, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn legacy_history_cursor_preserves_order_and_rejects_ambiguous_paging(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    sqlx::raw_sql(
+        "INSERT INTO role_permissions VALUES ('99999999-9999-4999-8999-999999999999','platform.legacy.read');
+         INSERT INTO legacy_history(tenant_id,id,collection,title,details)
+         SELECT '11111111-1111-4111-8111-111111111111',
+           ('00000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid,
+           'orders','Historical record','{}' FROM generate_series(1,27) n;
+         INSERT INTO legacy_history(tenant_id,id,collection,title,details) VALUES
+           ('22222222-2222-4222-8222-222222222222','00000000-0000-4000-8000-000000000028','orders','Other tenant','{}');",
+    )
+    .execute(&admin)
+    .await
+    .unwrap();
+    let tenant = "11111111-1111-4111-8111-111111111111";
+    let (status, first) = request(&router, "/api/v1/legacy-history", "editor", tenant).await;
+    assert_eq!(status, StatusCode::OK);
+    let first: Value = serde_json::from_slice(&first).unwrap();
+    assert_eq!(first["total"], 27);
+    assert_eq!(first["data"].as_array().unwrap().len(), 25);
+    let cursor = first["nextCursor"]["id"].as_str().unwrap();
+    let path = format!("/api/v1/legacy-history?after_collection=orders&after_id={cursor}");
+    let (status, next) = request(&router, &path, "editor", tenant).await;
+    assert_eq!(status, StatusCode::OK);
+    let next: Value = serde_json::from_slice(&next).unwrap();
+    assert_eq!(next["data"].as_array().unwrap().len(), 2);
+    assert!(next["nextCursor"].is_null());
+    assert_eq!(
+        next["data"][0]["id"],
+        "00000000-0000-4000-8000-000000000026"
+    );
+    for invalid in [
+        format!("/api/v1/legacy-history?after_id={cursor}"),
+        format!("{path}&offset=25"),
+        format!("{path}&collection=products"),
+    ] {
+        assert_eq!(
+            request(&router, &invalid, "editor", tenant).await.0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    let (_, offset_page) = request(
+        &router,
+        "/api/v1/legacy-history?offset=25",
+        "editor",
+        tenant,
+    )
+    .await;
+    let offset_page: Value = serde_json::from_slice(&offset_page).unwrap();
+    assert_eq!(offset_page["data"], next["data"]);
+    cleanup(&admin, app, server, &role).await;
+}

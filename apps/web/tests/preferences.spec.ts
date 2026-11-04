@@ -199,7 +199,6 @@ test("compras e estoque navegam para seus fluxos operacionais", async ({ page })
 
 test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   const flows = [
-    ["/vendas/propostas", "/vendas/propostas/novo", "/vendas/propostas/pc-382"],
     ["/vendas/anuncios", "/vendas/anuncios/novo", "/vendas/anuncios/an-210"],
     ["/vendas/garantias", "/vendas/garantias/novo", "/vendas/garantias/gar-091"],
   ] as const
@@ -212,7 +211,7 @@ test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   await page.goto("/vendas/pdv")
   await expect(page.locator('a[href="/vendas/pdv/fechamento"]')).toBeVisible()
   await expect(page.locator('a[href="/vendas/pdv/historico"]')).toBeVisible()
-  for (const route of ["/vendas/pedidos", "/vendas/pedidos/novo", "/financeiro/contas-receber"]) {
+  for (const route of ["/vendas/propostas", "/vendas/propostas/novo", "/vendas/pedidos", "/vendas/pedidos/novo", "/financeiro/contas-receber"]) {
     await page.goto(route)
     await expect(page.getByRole("status")).toContainText("O login do ERP ainda não foi configurado")
   }

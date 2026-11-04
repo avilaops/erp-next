@@ -62,7 +62,6 @@ export const demonstrationRoutes = [
   "/servicos/notas",
   "/servicos/ordens",
   "/servicos/relatorios",
-  "/vendas",
   "/vendas/anuncios",
   "/vendas/anuncios/novo",
   "/vendas/anuncios/[id]",
@@ -74,10 +73,6 @@ export const demonstrationRoutes = [
   "/vendas/pdv",
   "/vendas/pdv/fechamento",
   "/vendas/pdv/historico",
-  "/vendas/propostas",
-  "/vendas/propostas/novo",
-  "/vendas/propostas/[id]",
-  "/vendas/propostas/[id]/editar",
   "/vendas/relatorios"
 ] as const
 

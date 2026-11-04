@@ -77,6 +77,141 @@ fn company() -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn platform_administrator_directory_selection_revocation_and_isolation(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    sqlx::query("INSERT INTO platform_administrators(auth_subject,granted_by,reason) VALUES ('reader','test-operator','Authorized platform administration')")
+        .execute(&admin).await.unwrap();
+    let (status, body) = call(&router, "GET", "reader", None, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["platformAdministrator"], true);
+    assert_eq!(body["data"].as_array().unwrap().len(), 2);
+    // Same email as reader, different verified subject: no platform authority.
+    let (_, outsider) = call(&router, "GET", "new-owner", None, Value::Null).await;
+    assert_eq!(outsider["platformAdministrator"], false);
+    assert_eq!(outsider["data"], json!([]));
+
+    let other = "22222222-2222-4222-8222-222222222222";
+    let selection = |subject: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/api/v1/company-selection")
+            .header("authorization", format!("Bearer {subject}"))
+            .header("x-tenant-id", other)
+            .body(Body::empty())
+            .unwrap()
+    };
+    assert_eq!(
+        router
+            .clone()
+            .oneshot(selection("editor"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        router
+            .clone()
+            .oneshot(selection("reader"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+    let audits: i64 = sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE tenant_id=$1::uuid AND action='platform.tenant.selected' AND identity_id='44444444-4444-4444-8444-444444444444' AND details->>'platformAdministrator'='true'")
+        .bind(other).fetch_one(&admin).await.unwrap();
+    assert_eq!(audits, 1);
+
+    // Even the platform administrator's data transaction sees only its selected tenant.
+    let mut tx = application.begin().await.unwrap();
+    sqlx::query(
+        "SELECT set_config('app.auth_subject','reader',true),set_config('app.tenant_id',$1,true)",
+    )
+    .bind(other)
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    let visible: Vec<uuid::Uuid> = sqlx::query_scalar("SELECT id FROM tenants")
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
+    assert_eq!(visible, vec![uuid::Uuid::parse_str(other).unwrap()]);
+    let memberships: i64 = sqlx::query_scalar("SELECT count(*) FROM tenant_memberships")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert_eq!(memberships, 0);
+    tx.rollback().await.unwrap();
+
+    // The test runtime has table DML grants, but cannot create a platform grant.
+    let mut tx = application.begin().await.unwrap();
+    sqlx::query("SELECT set_config('app.auth_subject','editor',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let denied = sqlx::query("INSERT INTO platform_administrators(auth_subject,granted_by,reason) VALUES ('editor','self','escalation')")
+        .execute(&mut *tx).await.unwrap_err();
+    assert_eq!(
+        denied.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    tx.rollback().await.unwrap();
+
+    sqlx::query("UPDATE tenants SET status='suspended' WHERE id=$1::uuid")
+        .bind(other)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let (_, directory) = call(&router, "GET", "reader", None, Value::Null).await;
+    assert_eq!(directory["data"].as_array().unwrap().len(), 2);
+    assert!(
+        directory["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["status"] == "suspended")
+    );
+    assert_eq!(
+        router
+            .clone()
+            .oneshot(selection("reader"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE tenants SET status='active' WHERE id=$1::uuid")
+        .bind(other)
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE platform_administrators SET active=false WHERE auth_subject='reader'")
+        .execute(&admin)
+        .await
+        .unwrap();
+    let (_, revoked) = call(&router, "GET", "reader", None, Value::Null).await;
+    assert_eq!(revoked["platformAdministrator"], false);
+    assert_eq!(revoked["data"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        router
+            .clone()
+            .oneshot(selection("reader"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let audits_after: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM audit_log WHERE action='platform.tenant.selected'",
+    )
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(audits_after, 1);
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn creates_company_atomically_and_retries_without_duplicate_effects(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
     let (status, initial) = call(&router, "GET", "new-owner", None, Value::Null).await;

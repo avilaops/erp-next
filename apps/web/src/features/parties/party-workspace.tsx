@@ -10,7 +10,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
+import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 
 import { PartyComplements } from "./party-complements"
@@ -57,7 +59,7 @@ export function PartyList() {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
         setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome ou documento<Input name="q" maxLength={160} placeholder="Documento sem máscara" /></label>
+        <label className="min-w-0 space-y-2">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Documento sem máscara" /></label>
         <label className="min-w-0 space-y-2">Relacionamento<select name="role" className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
         <label className="min-w-0 space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
@@ -153,7 +155,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
     <Link className={linkClass} href="/cadastros/clientes-fornecedores" onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
-        <p className="break-all text-sm text-muted-foreground">Empresa {snapshot.tenantId}{snapshot.data ? ` · Revisão ${snapshot.data.revision}` : ""}</p>
+        <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar clientes e fornecedores.</p>}
         {saved && <p role="status">Pessoa salva no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}

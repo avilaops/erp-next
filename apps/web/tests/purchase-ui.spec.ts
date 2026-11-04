@@ -64,8 +64,8 @@ const upstream = createServer(async (request, response) => {
     if (url.pathname === `/api/v1/purchase-orders/${orderId}/receipts`) { response.end(JSON.stringify({ tenantId: tenant, total: receipts.length, data: receipts.map(item => item.data) })); return }
     if (url.pathname === `/api/v1/purchase-orders/${orderId}` && order) { response.setHeader("ETag", `"${order.data.revision}"`); response.end(JSON.stringify({ ...order, canEdit })); return }
     if (url.pathname === `/api/v1/purchase-receipts/${receiptId}` && receipts[0]) { response.end(JSON.stringify(receipts[0])); return }
-    if (url.pathname === "/api/v1/payables") { response.end(JSON.stringify({ tenantId: tenant, canEdit, total: payable ? 1 : 0, data: payable ? [payable.data] : [] })); return }
-    if (url.pathname === `/api/v1/payables/${payableId}` && payable) { response.setHeader("ETag", `"${payable.data.revision}"`); response.end(JSON.stringify({ ...payable, canEdit })); return }
+    if (url.pathname === "/api/v1/financial-payables") { response.end(JSON.stringify({ tenantId: tenant, canEdit, total: payable ? 1 : 0, data: payable ? [payable.data] : [] })); return }
+    if (url.pathname === `/api/v1/financial-payables/${payableId}` && payable) { response.setHeader("ETag", `"${payable.data.revision}"`); response.end(JSON.stringify({ ...payable, canEdit })); return }
     response.statusCode = 404; response.end(JSON.stringify({ title: "Registro não encontrado" }))
   } catch (error) { failures.push(String(error)); response.statusCode = 500; response.end(JSON.stringify({ title: "Contrato fixture divergente" })) }
 })
@@ -136,7 +136,7 @@ test("browser creates and edits a purchase, receives a partial delivery and reco
   await page.getByLabel("Referência do pagamento", { exact: true }).filter({ visible: true }).fill("PAG-001")
   const payment: Payment = { id: paymentId, kind: "payment", amount: "3.00", method: "bank_transfer", reference: "PAG-001", occurredOn: "2026-10-28", reversesId: null }
   const partial: Payable = { ...initialPayable(), data: { ...initialPayable().data, paidAmount: "3.00", outstandingAmount: "1.00", revision: 2 }, payments: [payment] }
-  plans.push({ method: "POST", path: `/api/v1/payables/${payableId}/payments`, status: 200, response: partial, revision: 2, apply: () => { payable = partial } })
+  plans.push({ method: "POST", path: `/api/v1/financial-payables/${payableId}/payments`, status: 200, response: partial, revision: 2, apply: () => { payable = partial } })
   await page.getByRole("button", { name: "Confirmar pagamento declarado", exact: true }).click()
   await expect(page.getByText("Saldo restante: R$ 1,00", { exact: true })).toBeVisible()
   await page.setViewportSize({ width: 375, height: 844 })
@@ -146,7 +146,7 @@ test("browser creates and edits a purchase, receives a partial delivery and reco
   await page.getByLabel("Motivo do estorno", { exact: true }).filter({ visible: true }).fill("Correção do registro")
   await page.getByLabel("Data do estorno", { exact: true }).filter({ visible: true }).fill("2026-10-28")
   const reversed = { ...initialPayable(), data: { ...initialPayable().data, revision: 3 }, payments: [payment, { ...payment, id: "88888888-8888-4888-8888-888888888888", kind: "reversal", reference: "Correção do registro", reversesId: paymentId }] }
-  plans.push({ method: "POST", path: `/api/v1/payables/${payableId}/reverse-payment`, status: 200, response: reversed, revision: 3, apply: () => { payable = reversed } })
+  plans.push({ method: "POST", path: `/api/v1/financial-payables/${payableId}/reverse-payment`, status: 200, response: reversed, revision: 3, apply: () => { payable = reversed } })
   await page.getByRole("button", { name: "Confirmar estorno do pagamento", exact: true }).click()
   await expect(page.getByText("Saldo restante: R$ 4,00", { exact: true })).toBeVisible()
   await expect(page.getByText("Estorno vinculado ao pagamento original.", { exact: true })).toBeVisible()

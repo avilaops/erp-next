@@ -236,6 +236,16 @@ pub(crate) async fn load_access(
     tenant_id: Uuid,
     auth_subject: &str,
 ) -> Result<AccessRow, AccessError> {
+    if super::administrators::authorized(transaction, auth_subject).await? {
+        return sqlx::query_as::<_, AccessRow>(
+            "SELECT id AS tenant_id, legal_name, trade_name, ARRAY['platform_administrator']::text[] AS roles, ARRAY(SELECT code FROM permissions WHERE code NOT IN ('fiscal.cte.read','fiscal.cte.query','fiscal.cte.inspect','fiscal.cte.link','fiscal.nfse.read','fiscal.nfse.import') ORDER BY code) AS permissions FROM tenants WHERE id=$1 AND status='active'",
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(database_error)?
+        .ok_or(AccessError::Forbidden);
+    }
     sqlx::query_as::<_, AccessRow>(
         r#"
         SELECT

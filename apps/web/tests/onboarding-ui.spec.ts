@@ -10,6 +10,8 @@ const origin = "http://127.0.0.1:33118"
 const secret = "danfe-browser-fixture-not-a-real-service-secret"
 const tenant = "11111111-1111-4111-8111-111111111111"
 let companyCount = 0
+let platformAdministrator = false
+let suspendedCompany = false
 let denied = false
 let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
@@ -26,7 +28,11 @@ const upstream = createServer(async (request, response) => {
       if (commands.length === 1) { response.writeHead(503); response.end(JSON.stringify({ title: "Falha temporária" })); return }
       response.writeHead(201); response.end(JSON.stringify({ tenantId: tenant, revision: 1 })); return
     }
-    response.end(JSON.stringify({ data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}` })) })); return
+    response.end(JSON.stringify({ platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
+  }
+  if (request.url === "/api/v1/company-selection") {
+    expect(request.method).toBe("POST")
+    response.writeHead(denied ? 403 : 204); response.end(); return
   }
   if (request.url === "/api/v1/me") {
     response.writeHead(denied ? 403 : 200)
@@ -69,7 +75,29 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; denied = false; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+
+for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
+  companyCount = 1; platformAdministrator = true; redirectAuthorization = true
+  const destination = "/preferencias?categoria=vendas"
+  await page.goto("/api/auth/login?" + new URLSearchParams({ returnTo: destination, tenant: requestedTenant }))
+  await expect(page).toHaveURL(url => url.pathname === "/empresas")
+  await expect(page.getByText("Administração da plataforma", { exact: false })).toBeVisible()
+  const initial = (await context.cookies()).find(item => item.name === "erp_session")!
+  expect(session(initial.value).tenantId).toBeNull()
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await expect(page).toHaveURL(origin + destination)
+  const selected = (await context.cookies()).find(item => item.name === "erp_session")!
+  expect(session(selected.value).tenantId).toBe(tenant)
+})
+
+test("platform directory shows but disables suspended companies", async ({ page, context }) => {
+  companyCount = 2; platformAdministrator = true; suspendedCompany = true
+  await context.addCookies([cookie()])
+  await page.goto("/empresas")
+  await expect(page.getByRole("button", { name: /Empresa 2/ })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeEnabled()
+})
 
 for (const error of ["", "restart"]) test(`entry login reaches Auth from ${error || "normal access"} under the same-origin form policy and preserves its return path`, async ({ page, context }) => {
   const destination = "/cadastros/produtos?status=active&offset=25"

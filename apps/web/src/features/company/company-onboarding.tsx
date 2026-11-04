@@ -12,7 +12,8 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 export function CompanyPicker() {
   const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
-  const [companies, setCompanies] = useState<Schema<"CompanySummary">[]>([])
+  const [companies, setCompanies] = useState<(Schema<"CompanySummary"> & { status?: string })[]>([])
+  const [platformAdministrator, setPlatformAdministrator] = useState(false)
   const [status, setStatus] = useState("Carregando suas empresas…")
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -20,7 +21,7 @@ export function CompanyPicker() {
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error(response.status === 401 ? "Entre novamente para continuar" : "Não foi possível consultar suas empresas")
       const body = await response.json()
-      if (active) { setCompanies(body.data); setStatus(body.data.length ? "Selecione a empresa que deseja acessar" : "Você ainda não possui empresas cadastradas") }
+      if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setStatus(body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas") }
     }).catch(error => { if (active) setStatus(error.message) })
     return () => { active = false }
   }, [])
@@ -34,8 +35,9 @@ export function CompanyPicker() {
     } catch (error) { setStatus(error instanceof Error ? error.message : "Tente novamente"); setBusy(false) }
   }
   return <section className="form-section space-y-4">
+    {platformAdministrator && <p className="font-medium">Administração da plataforma — todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
     <p role="status">{status}</p>
-    {companies.map(company => <button disabled={busy} type="button" className="block rounded-xl border px-4 py-3" key={company.id} onClick={() => select(company.id)}>{company.legalName}</button>)}
+    {companies.map(company => <button disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => select(company.id)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
     <AccessLink className="ml-4 inline-block underline" />
   </section>

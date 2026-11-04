@@ -16,11 +16,43 @@ pub struct CompanySummary {
     id: Uuid,
     legal_name: String,
     trade_name: Option<String>,
+    status: String,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CompaniesResponse {
     data: Vec<CompanySummary>,
+    platform_administrator: bool,
+}
+
+#[utoipa::path(post, path = "/api/v1/company-selection", tag = "Platform",
+    security(("bearerAuth" = [])), params(("X-Tenant-Id" = Uuid, Header)),
+    responses((status = 204, description = "Empresa selecionada com auditoria"),
+        (status = 400, description = "Empresa invalida"),
+        (status = 401, description = "Credencial invalida"),
+        (status = 403, description = "Sem acesso a empresa"),
+        (status = 500, description = "Erro interno"),
+        (status = 503, description = "Auth indisponivel")))]
+pub async fn select_company(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: axum::http::HeaderMap,
+) -> Result<Response, access::AccessError> {
+    let tenant_id = access::tenant_id(&headers)?;
+    let mut tx = access::tenant_transaction(&state, tenant_id).await?;
+    access::load_access(&mut tx, tenant_id, &identity.subject).await?;
+    let administrator = super::administrators::authorized(&mut tx, &identity.subject).await?;
+    let details = serde_json::json!({"platformAdministrator": administrator});
+    sqlx::query("INSERT INTO audit_log (tenant_id, identity_id, action, entity_type, entity_id, details) VALUES ($1, (SELECT id FROM identities WHERE auth_subject=$2), 'platform.tenant.selected', 'company', $1::text, $3)")
+        .bind(tenant_id).bind(&identity.subject).bind(details)
+        .execute(&mut *tx).await.map_err(access::database_error)?;
+    tx.commit().await.map_err(access::database_error)?;
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(header::CACHE_CONTROL, "no-store")],
+    )
+        .into_response())
 }
 
 #[utoipa::path(get, path = "/api/v1/companies", tag = "Platform",
@@ -48,10 +80,13 @@ pub async fn list(
     .execute(&mut *transaction)
     .await
     .map_err(access::database_error)?;
+    let platform_administrator =
+        super::administrators::authorized(&mut transaction, &identity.subject).await?;
     let data = sqlx::query_as::<_, CompanySummary>(
-        "SELECT t.id, t.legal_name, t.trade_name FROM tenants t WHERE t.status = 'active' AND EXISTS (SELECT 1 FROM tenant_memberships m JOIN identities i ON i.id = m.identity_id WHERE m.tenant_id = t.id AND m.status = 'active' AND i.auth_subject = $1) ORDER BY t.legal_name, t.id",
+        "SELECT t.id, t.legal_name, t.trade_name, t.status FROM tenants t WHERE $2 OR (t.status = 'active' AND EXISTS (SELECT 1 FROM tenant_memberships m JOIN identities i ON i.id = m.identity_id WHERE m.tenant_id = t.id AND m.status = 'active' AND i.auth_subject = $1)) ORDER BY t.legal_name, t.id",
     )
     .bind(&identity.subject)
+    .bind(platform_administrator)
     .fetch_all(&mut *transaction)
     .await
     .map_err(access::database_error)?;
@@ -59,7 +94,10 @@ pub async fn list(
     Ok((
         StatusCode::OK,
         [(header::CACHE_CONTROL, "no-store")],
-        Json(CompaniesResponse { data }),
+        Json(CompaniesResponse {
+            data,
+            platform_administrator,
+        }),
     )
         .into_response())
 }

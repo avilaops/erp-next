@@ -39,13 +39,15 @@ export async function GET(request: Request) {
     // The API verifies Auth userinfo; company discovery never trusts browser claims.
     let tenantId = flow.tenantId
     let destination = safeReturnTo(flow.returnTo)
-    const access = await fetch(`${config.api}/api/v1/${tenantId ? "me" : "companies"}`, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${token.access_token}`, ...(tenantId ? { "X-Tenant-Id": tenantId } : {}) } })
+    const access = await fetch(`${config.api}/api/v1/companies`, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${token.access_token}` } })
     if (!access.ok) return callbackFailure(request, origin, access.status === 401 || access.status === 403 ? "denied" : "unavailable", access.status === 401 || access.status === 403 ? access.status : 503, returnTo)
+    const companies = await access.json()
+    if (!Array.isArray(companies.data) || companies.data.some((item: { id?: unknown }) => typeof item?.id !== "string" || !uuidPattern.test(item.id))) throw new Error("Lista de empresas inválida")
+    if (companies.platformAdministrator === true) tenantId = null
+    else if (tenantId && !companies.data.some((item: { id: string }) => item.id === tenantId)) return callbackFailure(request, origin, "denied", 403, returnTo)
     if (!tenantId) {
-      const companies = await access.json()
-      if (!Array.isArray(companies.data) || companies.data.some((item: { id?: unknown }) => typeof item?.id !== "string" || !uuidPattern.test(item.id))) throw new Error("Lista de empresas inválida")
-      if (companies.data.length === 1) tenantId = companies.data[0].id
-      else destination = companies.data.length === 0 ? "/cadastro/empresa?" + new URLSearchParams({ returnTo: destination }) : accessHref("/empresas", destination)
+      if (companies.data.length === 1 && companies.platformAdministrator !== true) tenantId = companies.data[0].id
+      else destination = companies.data.length === 0 && companies.platformAdministrator !== true ? "/cadastro/empresa?" + new URLSearchParams({ returnTo: destination }) : accessHref("/empresas", destination)
     }
     const maxAge = Math.min(3600, Math.floor(token.expires_in))
     const session = seal({ accessToken: token.access_token, tenantId, expiresAt: Date.now() + maxAge * 1000 }, "erp-session")

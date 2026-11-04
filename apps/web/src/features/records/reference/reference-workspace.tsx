@@ -6,6 +6,7 @@ import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navi
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
+import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -91,7 +92,7 @@ function Detail({ kind, value }: { kind: ReferenceKind; value: ReferenceSnapshot
   if (kind === "contas-financeiras") values.push(["Tipo de conta", accountTypes[data.accountType as keyof typeof accountTypes]], ["Banco", String(data.bank || "Não informado")], ["Agência", String(data.branch || "Não informada")], ["Número da conta", String(data.accountNumber || "Não informado")])
   if (kind === "formas-pagamento") values.push(["Modalidade", modalities[data.modality as keyof typeof modalities]], ["Prazo de referência (dias)", String(data.settlementDays)])
   return <><PageHeader eyebrow={`Cadastros · ${config.title}`} title={data.name} description={config.description} /><Link className={linkClass} href={`${referencePath(kind)}`}>Voltar à listagem</Link><section className="form-section mt-5 min-w-0 space-y-5">
-    <p className="break-all text-xs text-muted-foreground">Empresa {value.tenantId} · Revisão {data.revision}</p>
+    <RecordCompany key={value.tenantId} tenantId={value.tenantId} />
     <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{values.map(([label, text]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words">{text}</dd></div>)}
       {(kind === "categorias-produtos" || kind === "categorias-financeiras") && <div><dt className="text-sm text-muted-foreground">Categoria superior</dt><dd className="mt-1">{data.parentId ? <Link className={linkClass} href={`${referencePath(kind)}/${data.parentId}`}><ParentName kind={kind} id={String(data.parentId)} /></Link> : "Nenhuma"}</dd></div>}
       {kind === "tags" && <div><dt className="text-sm text-muted-foreground">Grupo de tags</dt><dd>{data.groupId ? <ParentName kind="grupos-tags" id={String(data.groupId)} /> : "Sem grupo"}</dd></div>}

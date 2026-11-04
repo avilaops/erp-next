@@ -1,0 +1,48 @@
+name: System schema validation
+on:
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'queries/system-configuration.sql'
+      - 'verification/sql/system-configuration.sql'
+      - '.github/workflows/system-schema.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  system-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: system_schema_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: schema_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U postgres -d system_schema_test'
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: system_schema_test
+      PGUSER: postgres
+      PGPASSWORD: schema_ci_only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply complete migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+          for migration in migrations/*.sql; do
+            psql -X -v ON_ERROR_STOP=1 --single-transaction -f "$migration"
+          done
+      - name: Validate tenant isolation and invariants
+        run: psql -X -v ON_ERROR_STOP=1 -f verification/sql/system-configuration.sql
+      - name: Compile parameterized queries
+        run: psql -X -v ON_ERROR_STOP=1 -f queries/system-configuration.sql

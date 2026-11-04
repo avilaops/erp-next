@@ -63,15 +63,41 @@ export function Orders({ id, create = false, edit = false }: { id?: string; crea
 }
 
 function OrderList() {
-  const [offset, setOffset] = useState(0)
-  const result = useResource<Listing>(`/api/erp/orders?offset=${offset}&limit=25`)
+  const [search, setSearch] = useState("")
+  const [query, setQuery] = useState({ q: "", offset: 0 })
+  const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
+  if (query.q) params.set("q", query.q)
+  const result = useResource<Listing>(`/api/erp/orders?${params}`)
   return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
     <section className="form-section min-w-0 space-y-4">
-      {result.value?.canEdit && <Link className={linkClass} href="/vendas/pedidos/novo">Novo pedido</Link>}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
+          event.preventDefault()
+          const q = search.trim()
+          if (q === query.q && query.offset === 0) result.reload()
+          else setQuery({ q, offset: 0 })
+        }}>
+          <label className="grid min-w-0 flex-1 basis-full gap-2 sm:basis-0">Buscar pedidos<Input type="search" name="q" maxLength={160} placeholder="Cliente, CPF/CNPJ ou identificação" value={search} onChange={event => setSearch(event.target.value)} /></label>
+          <Button type="submit" disabled={result.loading}>Pesquisar</Button>
+          {(search || query.q) && <Button type="button" variant="outline" onClick={() => { setSearch(""); setQuery({ q: "", offset: 0 }) }}>Limpar</Button>}
+        </form>
+        {result.value?.canEdit && <Link className={`${linkClass} py-2`} href="/vendas/pedidos/novo">Novo pedido</Link>}
+      </div>
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} pedido(s)</p>
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(order => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={order.id}><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>Pedido de {order.customerName}</Link><p>{labels[order.status]} · R$ {order.amount.replace(".", ",")}</p><p className="break-all text-xs text-muted-foreground">{order.id}</p></li>)}</ul>
-        <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
+        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de pedidos" tabIndex={0}>
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Pedidos de venda</caption>
+            <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3">Vencimento</th><th scope="col" className="p-3 text-right">Valor</th></tr></thead>
+            <tbody>{result.value.data.map(order => <tr className="border-t hover:bg-muted/30" key={order.id}>
+              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="block text-xs text-muted-foreground">{order.customerTaxId}</span></td>
+              <td className="whitespace-nowrap p-3">{labels[order.status] || order.status}</td>
+              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "—"}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{Number(order.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
+            </tr>)}</tbody>
+          </table>
+        </div> : <p>{query.q ? "Nenhum pedido encontrado para esta pesquisa." : "Nenhum pedido cadastrado."}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: Math.max(0, value.offset - 25) }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={query.offset >= 100000 || query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
       </>}
     </section>
   </>

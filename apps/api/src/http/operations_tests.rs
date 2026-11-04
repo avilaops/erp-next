@@ -10,6 +10,95 @@ use tower::ServiceExt;
 use uuid::Uuid;
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_search_filters_before_pagination_and_keeps_literal_terms(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    let (customer, product) = seed(&router, &admin).await;
+    let first = create(&router, &customer, &product, "1.000000").await;
+    let second = create(&router, &customer, &product, "1.000000").await;
+    let third = create(&router, &customer, &product, "1.000000").await;
+    sqlx::query("UPDATE sales_orders SET customer_name='Cliente operacional 100%' WHERE id=$1")
+        .bind(Uuid::parse_str(&first).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE sales_orders SET customer_name='Outro comprador' WHERE id=$1")
+        .bind(Uuid::parse_str(&third).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    for (query, total, expected_id) in [
+        ("q=OPERACIONAL&limit=1".to_owned(), 2, Some(second)),
+        (
+            "q=operacional&limit=1&offset=1".to_owned(),
+            2,
+            Some(first.clone()),
+        ),
+        (format!("q={first}"), 1, Some(first.clone())),
+        ("q=%25".to_owned(), 1, Some(first)),
+        ("q=_".to_owned(), 0, None),
+        ("q=inexistente".to_owned(), 0, None),
+        ("q=%20%20".to_owned(), 3, None),
+    ] {
+        let result = call(
+            &router,
+            "GET",
+            &format!("/api/v1/orders?{query}"),
+            "reader",
+            None,
+            None,
+            Value::Null,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::OK, "{}", result.2);
+        assert_eq!(result.2["total"], total, "{query}");
+        assert_eq!(result.2["canEdit"], false);
+        if let Some(id) = expected_id {
+            assert_eq!(result.2["data"].as_array().unwrap().len(), 1);
+            assert_eq!(result.2["data"][0]["id"], id);
+        }
+    }
+    let document: String = sqlx::query_scalar("SELECT tax_id FROM parties WHERE id=$1")
+        .bind(Uuid::parse_str(&customer).unwrap())
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    let formatted = format!("{}.{}", &document[..3], &document[3..]);
+    let result = call(
+        &router,
+        "GET",
+        &format!("/api/v1/orders?q={formatted}"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::OK);
+    assert_eq!(result.2["total"], 3);
+    for query in [
+        format!("q={}", "a".repeat(161)),
+        "q=%00".to_owned(),
+        "q=x&q=y".to_owned(),
+    ] {
+        assert_eq!(
+            call(
+                &router,
+                "GET",
+                &format!("/api/v1/orders?{query}"),
+                "reader",
+                None,
+                None,
+                Value::Null
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    cleanup(&admin, app, server, &role).await;
+}
+
 async fn completed_account(router: &Router, customer: &str, product: &str) -> String {
     let id = create(router, customer, product, "3.000000").await;
     assert_eq!(
@@ -849,6 +938,19 @@ async fn existing_foreign_orders_receivables_and_payments_are_not_visible_or_wri
          INSERT INTO receivable_payments(id,tenant_id,receivable_id,kind,amount_cents,method,reference,occurred_on) VALUES('{payment}','{other}','{receivable}','receipt',33,'cash','Fixture de outro tenant','2026-10-27');
          UPDATE receivables SET status='paid',payment_id='{payment}' WHERE id='{receivable}';"
     )).execute(&admin).await.unwrap();
+    let searched = call(
+        &router,
+        "GET",
+        "/api/v1/orders?q=Pessoa%20externa",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(searched.0, StatusCode::OK);
+    assert_eq!(searched.2["total"], 0);
+    assert!(searched.2["data"].as_array().unwrap().is_empty());
     for uri in [
         format!("/api/v1/orders/{order}"),
         format!("/api/v1/receivables/{receivable}"),

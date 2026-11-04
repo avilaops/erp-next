@@ -32,7 +32,7 @@ export async function forwardFiscal(request: Request, resource: string) {
   const nfseRead = resource === "/received-nfses" || /^\/received-nfses\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const nfseImport = resource === "/received-nfses/import"
   const operationRead = /^\/nfe\/[a-f0-9-]{36}\/(?:emission|events)$|^\/distribution\/(?:status|documents(?:\/[0-9]{15})?)$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/manifestations\/[a-f0-9-]{36}$/i.test(resource)
-  const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource) || cteInspect
+  const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase(?:\/(?:preview|match))?$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource) || cteInspect
   const valid = request.method === "GET"
     ? ["/config", "/readiness", "/received-nfes", "/certificate", "/nfe", "/issued-nfes", "/manifestations", "/monitor"].includes(resource) || operationRead || document || draft || preparation || cteRead || cteCommercialRead || nfseRead || !!download
     : request.method === "PUT" && (["/config", "/certificate"].includes(resource) || draft) || request.method === "DELETE" && resource === "/certificate" || request.method === "POST" && (["/received-nfes/import", "/nfe", "/manifestations", "/number-voids", "/monitor/sync", "/ibpt/quote"].includes(resource) || operationWrite || cteCommercialWrite || manifestation || nfseImport)

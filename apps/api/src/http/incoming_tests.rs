@@ -71,6 +71,185 @@ fn mapping() -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn existing_purchase_match_previews_differences_then_links_without_receiving(admin: PgPool) {
+    let (router, app, auth, role) = setup(&admin).await;
+    let id = seed(&admin, &router).await;
+    let order = call(&router,"POST","/api/v1/purchase-orders",Some(Uuid::now_v7()),None,
+        json!({"supplierId":SUPPLIER,"dueDate":"2026-11-30","items":[{"productId":PRODUCT,"quantity":"2.000000","unitCost":"10.00"}]})).await;
+    assert_eq!(order.0, StatusCode::CREATED, "{}", order.1);
+    let order_id = order.1["data"]["id"].as_str().unwrap();
+    let confirmed = call(
+        &router,
+        "POST",
+        &format!("/api/v1/purchase-orders/{order_id}/confirm"),
+        Some(Uuid::now_v7()),
+        Some(1),
+        json!({}),
+    )
+    .await;
+    assert_eq!(confirmed.0, StatusCode::OK, "{}", confirmed.1);
+    let request = json!({"purchaseOrderId":order_id,"purchaseRevision":2,"items":[{"itemNumber":1,"productId":PRODUCT}]});
+    let preview_path = format!("/api/v1/fiscal/received-nfes/{id}/purchase/preview");
+    let match_path = format!("/api/v1/fiscal/received-nfes/{id}/purchase/match");
+    let preview = call(&router, "POST", &preview_path, None, None, request.clone()).await;
+    assert_eq!(preview.0, StatusCode::OK, "{}", preview.1);
+    assert_eq!(preview.1["canConfirm"], true);
+    assert_eq!(preview.1["items"][0]["remainingQuantityMicros"], 2_000_000);
+    assert_eq!(preview.1["items"][0]["invoiceQuantityMicros"], 1_000_000);
+    assert_eq!(preview.1["invoiceTotalCents"], 1000);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_received_purchase_links")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
+    sqlx::query("UPDATE purchase_order_lines SET cost_cents=999 WHERE order_id=$1::uuid")
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let mismatch = call(&router, "POST", &preview_path, None, None, request.clone()).await;
+    assert_eq!(mismatch.1["canConfirm"], false, "{}", mismatch.1);
+    assert!(
+        mismatch.1["differences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "unit_cost_mismatch")
+    );
+    let rejected = call(
+        &router,
+        "POST",
+        &match_path,
+        Some(Uuid::now_v7()),
+        Some(1),
+        request.clone(),
+    )
+    .await;
+    assert_eq!(rejected.0, StatusCode::CONFLICT, "{}", rejected.1);
+    sqlx::query("UPDATE purchase_order_lines SET cost_cents=1000 WHERE order_id=$1::uuid")
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let command = Uuid::now_v7();
+    sqlx::raw_sql("CREATE FUNCTION reject_match_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='fiscal.received.purchase_linked' THEN RAISE EXCEPTION 'synthetic link failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_match_audit BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION reject_match_audit();").execute(&admin).await.unwrap();
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            &match_path,
+            Some(command),
+            Some(1),
+            request.clone()
+        )
+        .await
+        .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    for table in [
+        "fiscal_received_purchase_links",
+        "fiscal_received_item_costs",
+    ] {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT revision FROM purchase_orders WHERE id=$1::uuid")
+            .bind(order_id)
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        2
+    );
+    sqlx::query("DROP TRIGGER reject_match_audit ON audit_log")
+        .execute(&admin)
+        .await
+        .unwrap();
+    let (linked, replayed) = tokio::join!(
+        call(
+            &router,
+            "POST",
+            &match_path,
+            Some(command),
+            Some(1),
+            request.clone()
+        ),
+        call(
+            &router,
+            "POST",
+            &match_path,
+            Some(command),
+            Some(1),
+            request.clone()
+        )
+    );
+    assert_eq!(linked.0, StatusCode::CREATED, "{}", linked.1);
+    assert_eq!(linked.1, replayed.1);
+    assert_eq!(linked.1["purchaseOrderId"], order_id);
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='99999999-9999-4999-8999-999999999999' AND permission_code='purchasing.orders.manage'").execute(&admin).await.unwrap();
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            &match_path,
+            Some(command),
+            Some(1),
+            request.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT revision FROM purchase_orders WHERE id=$1::uuid")
+            .bind(order_id)
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        3
+    );
+    for table in ["purchase_receipts", "stock_movements", "payables"] {
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(&format!("SELECT count(*) FROM {table}"))
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+    sqlx::query("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('purchasing.receipts.create','inventory.stock.manage','finance.payables.originate') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let receipt_path = format!("/api/v1/purchase-orders/{order_id}/receipts");
+    let excess=call(&router,"POST",&receipt_path,Some(Uuid::now_v7()),Some(3),json!({"reference":"Quantidade excedente","occurredOn":"2026-11-03","items":[{"productId":PRODUCT,"quantity":"1.000001"}]})).await;
+    assert_eq!(excess.0, StatusCode::CONFLICT, "{}", excess.1);
+    for (index, quantity) in ["0.400000", "0.600000"].into_iter().enumerate() {
+        let receipt=call(&router,"POST",&receipt_path,Some(Uuid::now_v7()),Some(3+index as i64),json!({"reference":format!("Conferência parcial {index}"),"occurredOn":"2026-11-03","items":[{"productId":PRODUCT,"quantity":quantity}]})).await;
+        assert_eq!(receipt.0, StatusCode::CREATED, "{}", receipt.1);
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT sum(amount_cents)::bigint FROM payables")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        1000
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT sum(quantity_micros)::bigint FROM stock_movements")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        1_000_000
+    );
+    cleanup(&admin, app, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn incoming_conversion_is_atomic_replayed_and_concurrent(admin: PgPool) {
     let (router, app, auth, role) = setup(&admin).await;
     let id = seed(&admin, &router).await;

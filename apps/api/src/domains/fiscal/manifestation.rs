@@ -239,16 +239,35 @@ pub async fn manifest(
     };
     let (key,kind,situation): (Option<String>,String,Option<String>) = sqlx::query_as("SELECT access_key,kind,situation FROM fiscal_monitor_documents WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    if kind != "summary" || situation.as_deref() != Some("1") {
+    if !["summary", "nfe"].contains(&kind.as_str()) || situation.as_deref() != Some("1") {
         return Err(DomainError::Conflict(
-            "Manifestação exige resumo autorizado recebido pela empresa",
+            "Manifestação exige resumo autorizado ou XML completo recebido pela empresa",
         )
         .into());
     }
     let key = key.ok_or(DomainError::Conflict("Documento sem chave de acesso"))?;
-    let already: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_monitor_manifestations WHERE tenant_id=$1 AND access_key=$2 AND event_type=$3)")
+    super::production_events::ensure_operable(&mut tx, tenant, &key, 1).await?;
+    let uncertain: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_monitor_manifestations WHERE tenant_id=$1 AND access_key=$2 AND outcome='unknown')")
+        .bind(tenant).bind(&key).fetch_one(&mut *tx).await.map_err(db)?;
+    if uncertain {
+        return Err(DomainError::Conflict("Há manifestação sem resultado confirmado; aguarde evidência distribuída antes de enviar outro evento").into());
+    }
+    if input.event_type == "210210" {
+        let concluded: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_monitor_manifestations WHERE tenant_id=$1 AND access_key=$2 AND event_type<>'210210' AND outcome='accepted' UNION ALL SELECT 1 FROM fiscal_monitor_documents WHERE tenant_id=$1 AND access_key=$2 AND situation LIKE 'event:210%:%' AND situation NOT LIKE 'event:210210:%')")
+            .bind(tenant).bind(&key).fetch_one(&mut *tx).await.map_err(db)?;
+        if concluded || super::production_events::has_event(&mut tx, tenant, &key, None).await? {
+            return Err(DomainError::Conflict(
+                "Ciência da emissão não é permitida após manifestação conclusiva",
+            )
+            .into());
+        }
+    }
+    let already: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM fiscal_monitor_manifestations WHERE tenant_id=$1 AND access_key=$2 AND event_type=$3 UNION ALL SELECT 1 FROM fiscal_monitor_documents WHERE tenant_id=$1 AND access_key=$2 AND situation='event:' || $3 || ':1')")
         .bind(tenant).bind(&key).bind(&input.event_type).fetch_one(&mut *tx).await.map_err(db)?;
-    if already {
+    if already
+        || super::production_events::has_event(&mut tx, tenant, &key, Some(&input.event_type))
+            .await?
+    {
         return Err(DomainError::Conflict(
             "Este evento já tem uma solicitação; confira o resultado registrado",
         )
@@ -307,21 +326,13 @@ pub async fn manifest(
     let (outcome, status, protocol) = outcome
         .map(|result| (result.outcome, Some(result.status), result.protocol))
         .unwrap_or(("unknown", None, None));
-    sqlx::query("UPDATE fiscal_monitor_manifestations SET outcome=$3,status=$4,protocol=$5,response_xml=$6,completed_at=clock_timestamp() WHERE tenant_id=$1 AND id=$2")
+    sqlx::query("UPDATE fiscal_monitor_manifestations SET outcome=$3,status=$4,protocol=$5,response_xml=$6,completed_at=clock_timestamp() WHERE tenant_id=$1 AND id=$2 AND outcome='unknown' AND completed_at IS NULL")
         .bind(tenant).bind(record_id).bind(outcome).bind(&status).bind(&protocol).bind(raw.ok()).execute(&mut *tx).await.map_err(db)?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange {kind:"fiscal_manifestation",id:record_id,event:"fiscal.manifestation.result",details:serde_json::json!({"eventType":input.event_type,"outcome":outcome,"status":status,"protocol":protocol})}).await?;
+    let current = sqlx::query_as::<_, ManifestSnapshot>("SELECT id,event_type,outcome,status,protocol FROM fiscal_monitor_manifestations WHERE tenant_id=$1 AND id=$2")
+        .bind(tenant).bind(record_id).fetch_one(&mut *tx).await.map_err(db)?;
+    record(&mut tx,tenant,&identity,&headers,DomainChange {kind:"fiscal_manifestation",id:record_id,event:"fiscal.manifestation.result",details:serde_json::json!({"eventType":current.event_type,"outcome":current.outcome,"status":current.status,"protocol":current.protocol})}).await?;
     tx.commit().await.map_err(db)?;
-    Ok(response(
-        StatusCode::ACCEPTED,
-        None,
-        ManifestSnapshot {
-            id: record_id,
-            event_type: input.event_type,
-            outcome: outcome.into(),
-            status,
-            protocol,
-        },
-    ))
+    Ok(response(StatusCode::ACCEPTED, None, current))
 }
 
 #[cfg(test)]

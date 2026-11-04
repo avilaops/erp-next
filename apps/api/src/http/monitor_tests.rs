@@ -529,6 +529,217 @@ async fn recipient_events_are_explicit_correlated_persistent_and_never_resent_af
     cleanup(&admin, app, auth, &role).await;
 }
 
+fn distributed_event(event_type: &str, author: &str) -> String {
+    format!(
+        "<procEventoNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"1.00\"><evento versao=\"1.00\"><infEvento Id=\"ID{event_type}{KEY}01\"><tpAmb>1</tpAmb><CNPJ>{author}</CNPJ><chNFe>{KEY}</chNFe><tpEvento>{event_type}</tpEvento><nSeqEvento>1</nSeqEvento></infEvento></evento><retEvento versao=\"1.00\"><infEvento><tpAmb>1</tpAmb><cStat>135</cStat><chNFe>{KEY}</chNFe><tpEvento>{event_type}</tpEvento><nSeqEvento>1</nSeqEvento><nProt>135260000000001</nProt></infEvento></retEvento></procEventoNFe>"
+    )
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn legacy_event_xml_blocks_new_actions_without_rewriting_immutable_documents(admin: PgPool) {
+    let (service, feed, server) = feed(Vec::new(), None).await;
+    let (router, app, auth, role) = setup_with_monitor(&admin, service).await;
+    grant(&admin).await;
+    let run = Uuid::now_v7();
+    sqlx::query("INSERT INTO fiscal_monitor_state(tenant_id,tax_id) VALUES($1::uuid,$2)")
+        .bind(TENANT)
+        .bind(CNPJ)
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO fiscal_monitor_runs(id,tenant_id,command_key,auth_subject,cursor_before,outcome) VALUES($1,$2::uuid,$3,'editor',$4,'applied')").bind(run).bind(TENANT).bind(Uuid::now_v7()).bind(ZERO).execute(&admin).await.unwrap();
+    let document: i64=sqlx::query_scalar("INSERT INTO fiscal_monitor_documents(tenant_id,run_id,nsu,schema,kind,access_key,situation,xml,xml_sha256) VALUES($1::uuid,$2,$3,'resNFe_v1.01.xsd','summary',$4,'1',$5,repeat('0',64)) RETURNING id")
+        .bind(TENANT).bind(run).bind(ONE).bind(KEY).bind(summary()).fetch_one(&admin).await.unwrap();
+    for (nsu, kind, requested) in [
+        ("000000000000002", "210200", "210210"),
+        ("000000000000003", "110111", "210220"),
+    ] {
+        sqlx::query("INSERT INTO fiscal_monitor_documents(tenant_id,run_id,nsu,schema,kind,xml,xml_sha256) VALUES($1::uuid,$2,$3,'procEventoNFe_v1.00.xsd','event',$4,repeat('0',64))")
+            .bind(TENANT).bind(run).bind(nsu).bind(distributed_event(kind,CNPJ)).execute(&admin).await.unwrap();
+        let result = manifest(&router, document, requested, Uuid::now_v7(), "editor").await;
+        assert_eq!(result.0, StatusCode::CONFLICT, "{}", result.1);
+    }
+    assert_eq!(feed.calls.load(Ordering::SeqCst), 0);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM fiscal_monitor_documents WHERE kind='event' AND access_key IS NULL AND situation IS NULL").fetch_one(&admin).await.unwrap(),2);
+    server.abort();
+    cleanup(&admin, app, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn late_transport_reply_preserves_reconciled_snapshot_and_audit(admin: PgPool) {
+    let gate = Arc::new(Notify::new());
+    let (service, feed, server) = feed(
+        vec![
+            reply(
+                "138",
+                ONE,
+                ONE,
+                &zipped(&production_xml(), ONE, "procNFe_v4.00.xsd"),
+            ),
+            "<broken-response/>".into(),
+        ],
+        Some(gate.clone()),
+    )
+    .await;
+    let (router, app, auth, role) = setup_with_monitor(&admin, service).await;
+    grant(&admin).await;
+    seed_certificate(&admin).await;
+    let cloned = router.clone();
+    let collected = tokio::spawn(async move {
+        call(
+            &cloned,
+            "POST",
+            "/api/v1/fiscal/monitor/sync",
+            "editor",
+            Some(Uuid::now_v7()),
+        )
+        .await
+    });
+    feed.started.notified().await;
+    gate.notify_one();
+    assert_eq!(collected.await.unwrap().1["outcome"], "applied");
+    let document: i64 = sqlx::query_scalar("SELECT id FROM fiscal_monitor_documents")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    let cloned = router.clone();
+    let pending = tokio::spawn(async move {
+        manifest(&cloned, document, "210200", Uuid::now_v7(), "editor").await
+    });
+    feed.started.notified().await;
+    // The distributed evidence committed while the original transport awaited its reply.
+    sqlx::query("UPDATE fiscal_monitor_manifestations SET outcome='accepted',status='135',protocol='135260000000001',response_xml=$1,completed_at=clock_timestamp()")
+        .bind(distributed_event("210200",CNPJ)).execute(&admin).await.unwrap();
+    gate.notify_one();
+    let result = pending.await.unwrap();
+    assert_eq!(result.1["outcome"], "accepted", "{}", result.1);
+    assert_eq!(result.1["protocol"], "135260000000001");
+    let logged: Value = sqlx::query_scalar(
+        "SELECT details FROM audit_log WHERE action='fiscal.manifestation.result'",
+    )
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(logged["outcome"], "accepted");
+    server.abort();
+    cleanup(&admin, app, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn distributed_proof_reconciles_unknown_manifestation_and_cancellation_blocks_new_events(
+    admin: PgPool,
+) {
+    let (service, feed, server) = feed(
+        vec![
+            reply(
+                "138",
+                ONE,
+                ONE,
+                &zipped(&production_xml(), ONE, "procNFe_v4.00.xsd"),
+            ),
+            "<broken-response/>".into(),
+            reply(
+                "138",
+                "000000000000002",
+                "000000000000002",
+                &zipped(
+                    &distributed_event("210200", CNPJ),
+                    "000000000000002",
+                    "procEventoNFe_v1.00.xsd",
+                ),
+            ),
+            reply(
+                "138",
+                "000000000000003",
+                "000000000000003",
+                &zipped(
+                    &distributed_event("110111", CNPJ),
+                    "000000000000003",
+                    "procEventoNFe_v1.00.xsd",
+                ),
+            ),
+        ],
+        None,
+    )
+    .await;
+    let (router, app, auth, role) = setup_with_monitor(&admin, service).await;
+    grant(&admin).await;
+    seed_certificate(&admin).await;
+    let collected = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/monitor/sync",
+        "editor",
+        Some(Uuid::now_v7()),
+    )
+    .await;
+    assert_eq!(collected.1["outcome"], "applied", "{}", collected.1);
+    let document: i64 = sqlx::query_scalar("SELECT id FROM fiscal_monitor_documents")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    let command = Uuid::now_v7();
+    let unknown = manifest(&router, document, "210200", command, "editor").await;
+    assert_eq!(unknown.0, StatusCode::ACCEPTED, "{}", unknown.1);
+    assert_eq!(unknown.1["outcome"], "unknown");
+    for expected in ["000000000000002", "000000000000003"] {
+        sqlx::query(
+            "UPDATE fiscal_monitor_state SET next_query_at=clock_timestamp()-interval '1 second'",
+        )
+        .execute(&admin)
+        .await
+        .unwrap();
+        let applied = call(
+            &router,
+            "POST",
+            "/api/v1/fiscal/monitor/sync",
+            "editor",
+            Some(Uuid::now_v7()),
+        )
+        .await;
+        assert_eq!(applied.1["outcome"], "applied", "{}", applied.1);
+        let state = call(&router, "GET", "/api/v1/fiscal/monitor", "editor", None).await;
+        assert_eq!(state.1["lastNsu"], expected);
+    }
+    let replay = manifest(&router, document, "210200", command, "editor").await;
+    assert_eq!(replay.1["outcome"], "accepted");
+    assert_eq!(replay.1["protocol"], "135260000000001");
+    assert_eq!(
+        manifest(&router, document, "210210", Uuid::now_v7(), "editor")
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        manifest(&router, document, "210220", Uuid::now_v7(), "editor")
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(feed.calls.load(Ordering::SeqCst), 4);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM audit_log WHERE action='fiscal.manifestation.reconciled'"
+        )
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM fiscal_monitor_documents WHERE kind='event' AND access_key=$1"
+        )
+        .bind(KEY)
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        2
+    );
+    server.abort();
+    cleanup(&admin, app, auth, &role).await;
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn revocation_during_collection_prevents_document_application(admin: PgPool) {
     let gate = Arc::new(Notify::new());

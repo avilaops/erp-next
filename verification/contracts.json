@@ -243,7 +243,9 @@
               "post-api-v1-fiscal-distribution-query",
               "post-api-v1-fiscal-manifestations",
               "post-api-v1-fiscal-manifestations-id-reconcile",
-              "post-api-v1-fiscal-received-nfes-id-purchase"
+              "post-api-v1-fiscal-received-nfes-id-purchase",
+              "post-api-v1-fiscal-received-nfes-id-purchase-preview",
+              "post-api-v1-fiscal-received-nfes-id-purchase-match"
             ],
             "authRefs": [],
             "externalSystems": [
@@ -1103,6 +1105,11 @@
     "response"
   ],
   "dispatches": [
+    {
+      "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
+      "method": "POST",
+      "actions": ["preview", "match"]
+    },
     {
       "path": "/api/erp/proposals/[id]/[action]",
       "method": "POST",
@@ -5478,6 +5485,138 @@
           "failure",
           "response"
         ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-received-nfes-id-purchase-preview",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/received-nfes/{id}/purchase/preview"
+      },
+      "actor": "active_tenant_member",
+      "permissions": ["fiscal.received_nfe.manage", "purchasing.orders.read"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"],
+        "pathParameters": ["id"],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/purchase_match.rs",
+          "type": "MatchInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões fiscais/de compras da empresa atual; isolamento RLS.",
+        "NF-e completa destinada à empresa, em ambiente 1 ou 2, sem cancelamento/denegação conhecidos no ambiente de produção.",
+        "purchaseRevision no corpo precisa corresponder à compra; mapear todos os itens fiscais, até 100 produtos distintos e conhecidos."
+      ],
+      "transition": {
+        "from": "NF-e e compra existentes na empresa",
+        "to": "sem alteração de estado; prévia de divergências e canConfirm"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": ["Não vincula documentos, recebe mercadoria, movimenta estoque/financeiro, altera cadastros, deduz crédito ou consulta a SEFAZ."]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Prévia sem If-Match ou chave de comando; revisão da compra é conferida pelo purchaseRevision do corpo."
+      },
+      "response": {
+        "successStatuses": [200],
+        "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 500],
+        "action": "Conferir fornecedor, vínculo, unidade, saldo, custo e NCM antes da conciliação"
+      },
+      "recovery": "Compra alterada exige reler sua revisão e refazer a prévia; divergências impeditivas mantêm canConfirm falso.",
+      "ui": {
+        "pages": ["/fiscal/monitor/[id]"],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
+          "action": "preview"
+        },
+        "gap": "Catálogo não comprova publicação nem aceite com documento real."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/purchase_match.rs",
+        "apps/api/src/domains/fiscal/production_events.rs",
+        "apps/web/src/features/fiscal/purchase-match.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-received-nfes-id-purchase-match",
+      "flow": "fiscal-incoming",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/received-nfes/{id}/purchase/match"
+      },
+      "actor": "active_tenant_member",
+      "permissions": ["fiscal.received_nfe.manage", "purchasing.orders.read", "purchasing.orders.manage"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"],
+        "pathParameters": ["id"],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/purchase_match.rs",
+          "type": "MatchInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Associação e permissões fiscais/de compras atuais, inclusive no replay; isolamento RLS.",
+        "If-Match da nota sem vínculo igual a 1; purchaseRevision deve corresponder à compra durante a transação.",
+        "Idempotency-Key UUID obrigatório; repetir com o mesmo ator e intenção recupera o vínculo persistido.",
+        "NF-e destinada à empresa e operável no seu ambiente; compra confirmada sem recebimentos e sem outro vínculo fiscal.",
+        "Todos os itens mapeados sem repetição; fornecedor ativo, produto ativo, unidade, saldo e custo compatíveis; divergências impeditivas recusam o vínculo."
+      ],
+      "transition": {
+        "from": "NF-e sem vínculo e compra confirmada elegível",
+        "to": "vínculo documental revisão 2; revisão da compra incrementada"
+      },
+      "effects": {
+        "writes": ["Vínculo único NF-e/compra, custos fiscais por item, revisão da compra, auditoria e resultado idempotente na mesma transação."],
+        "external": [],
+        "excludes": ["Não cria compra, recebe mercadoria, movimenta estoque/financeiro, altera tributos ou transmite manifestação; recebimento físico exige comando próprio."]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Revalidar revisões da nota e da compra e unicidade do vínculo; resposta perdida exige a mesma chave e corpo, sem criar nova intenção."
+      },
+      "response": {
+        "successStatuses": [201],
+        "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500],
+        "action": "Confirmar vínculo documental com compra existente após conferência explícita"
+      },
+      "recovery": "Resultado incerto: repetir chave e intenção originais; revisão antiga exige reler a compra e conferir novamente. Vínculos e recebimentos anteriores são preservados.",
+      "ui": {
+        "pages": ["/fiscal/monitor/[id]"],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
+          "action": "match"
+        },
+        "gap": "Catálogo não comprova publicação, conferência com NF-e real ou recebimento físico."
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/purchase_match.rs",
+        "apps/api/src/domains/purchasing.rs",
+        "migrations/202611010003_fiscal_incoming.sql",
+        "apps/web/src/features/fiscal/purchase-match.tsx",
+        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]
       }
     },
     {

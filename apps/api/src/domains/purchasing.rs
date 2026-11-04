@@ -633,6 +633,12 @@ async fn command(
         ));
     }
     if matches!(action, Action::Confirm) {
+        let fiscal_origin: Option<(String,i16)> = sqlx::query_as("SELECT n.access_key,n.environment FROM fiscal_received_purchase_links l JOIN fiscal_received_nfes n ON n.tenant_id=l.tenant_id AND n.id=l.received_nfe_id WHERE l.tenant_id=$1 AND l.purchase_order_id=$2")
+            .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+        if let Some((key, environment)) = fiscal_origin {
+            super::fiscal::production_events::ensure_operable(&mut tx, tenant, &key, environment)
+                .await?;
+        }
         super::supply_settings::validate_purchase_confirmation(
             &mut tx,
             tenant,
@@ -851,6 +857,17 @@ pub async fn receive(
     if duplicate {
         return Err(DomainError::Conflict("Referência já recebida neste pedido"));
     }
+    let fiscal_origin: Option<(String,i16)> = sqlx::query_as("SELECT n.access_key,n.environment FROM fiscal_received_purchase_links l JOIN fiscal_received_nfes n ON n.tenant_id=l.tenant_id AND n.id=l.received_nfe_id WHERE l.tenant_id=$1 AND l.purchase_order_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+    if let Some((access_key, environment)) = &fiscal_origin {
+        super::fiscal::production_events::ensure_operable(
+            &mut tx,
+            tenant,
+            access_key,
+            *environment,
+        )
+        .await?;
+    }
     let mut prepared = Vec::new();
     let mut total = 0_i64;
     for line in &input.items {
@@ -866,6 +883,15 @@ pub async fn receive(
             .checked_add(quantity)
             .filter(|v| *v <= ordered)
             .ok_or(DomainError::Conflict("Quantidade excede o saldo pendente"))?;
+        if fiscal_origin.is_some() {
+            let fiscal_quantity: Option<i64> = sqlx::query_scalar("SELECT quantity_micros FROM fiscal_received_item_costs WHERE tenant_id=$1 AND purchase_order_id=$2 AND product_id=$3")
+                .bind(tenant).bind(id).bind(line.product_id).fetch_optional(&mut *tx).await.map_err(db)?;
+            if !fiscal_quantity.is_some_and(|limit| cumulative <= limit) {
+                return Err(DomainError::Conflict(
+                    "Recebimento excede a quantidade fiscal ou contém produto ausente da NF-e vinculada",
+                ));
+            }
+        }
         let cost = fixed(&saved.unit_cost, 2)?;
         let delta = amount(cumulative, cost)?
             .checked_sub(amount(received, cost)?)

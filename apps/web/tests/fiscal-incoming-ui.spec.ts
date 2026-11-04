@@ -108,3 +108,38 @@ test("manifestação incerta consulta o histórico e bloqueia um segundo envio d
   expect(calls).toBe(1)
   await expect(page.getByRole("button", { name: "Criar rascunho com custos da nota", exact: true })).toHaveCount(0)
 })
+
+for (const viewport of [{ width: 320, height: 720 }, { width: 390, height: 844 }, { width: 568, height: 320 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
+  test(`conciliação exige prévia e preserva o comando em ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await details(page)
+    await page.setViewportSize(viewport)
+    await page.route("**/api/erp/purchase-orders?**", route => route.fulfill({ json: { data: [{ id: purchase, supplierName: "Fornecedor da nota", amount: "20.00", status: "confirmed", revision: 2 }], total: 1 } }))
+    let linked = false
+    const calls: Command[] = []
+    await page.route("**/api/erp/fiscal/received-nfes/11/purchase", route => route.fulfill({ headers: { ETag: linked ? '"2"' : '"1"' }, json: { receivedNfeId: 11, revision: linked ? 2 : 1, purchaseOrderId: linked ? purchase : null, canConvert: true, items: [{ ...item, ncm: "95069100" }], costs: [] } }))
+    await page.route("**/api/erp/fiscal/received-nfes/11/purchase/preview", route => route.fulfill({ headers: { ETag: '"1"' }, json: { receivedNfeId: 11, purchaseOrderId: purchase, purchaseRevision: 2, canConfirm: true, invoiceTotalCents: 1000, differences: [{ code: "ncm_missing", blocking: false, itemNumber: 1, message: "O produto não tem NCM cadastrado. Confira a classificação fiscal." }], items: [{ itemNumber: 1, productId: product, name: item.name, unit: "UN", ncm: "95069100", invoiceQuantityMicros: 1_000_000, remainingQuantityMicros: 2_000_000, invoiceUnitCostCents: 1000, purchaseUnitCostCents: 1000, landedCents: 1000, components: {} }] } }))
+    await page.route("**/api/erp/fiscal/received-nfes/11/purchase/match", route => {
+      calls.push({ key: route.request().headers()["idempotency-key"], revision: route.request().headers()["if-match"], body: route.request().postDataJSON() })
+      if (calls.length === 1) return route.abort("failed")
+      linked = true
+      return route.fulfill({ status: 201, headers: { ETag: '"2"' }, json: { receivedNfeId: 11, purchaseOrderId: purchase } })
+    })
+    await page.goto("/fiscal/monitor/11")
+    await expect(page.getByRole("button", { name: "Conciliar com compra existente", exact: true })).toBeVisible({ timeout: 5000 })
+    await page.getByRole("button", { name: "Conciliar com compra existente", exact: true }).click()
+    await page.getByRole("button", { name: /Selecionar compra de Fornecedor da nota/ }).click()
+    await page.getByRole("button", { name: "Selecionar Produto do catálogo · CAT-001", exact: true }).click()
+    await expect(page.getByRole("button", { name: "Confirmar vínculo documental", exact: true })).toHaveCount(0)
+    await page.getByRole("button", { name: "Conferir divergências", exact: true }).click()
+    await expect(page.getByText("O produto não tem NCM cadastrado. Confira a classificação fiscal.", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "Confirmar vínculo documental", exact: true }).click()
+    await expect(page.getByRole("button", { name: /Selecionar compra de Fornecedor da nota/ })).toBeDisabled()
+    await expect(page.getByRole("button", { name: "Voltar à criação de compra", exact: true })).toBeDisabled()
+    await page.getByRole("button", { name: "Conferir vínculo enviado", exact: true }).click()
+    await expect(page.getByRole("link", { name: "Abrir compra vinculada", exact: true })).toHaveAttribute("href", `/compras/pedidos/${purchase}`)
+    expect(calls).toHaveLength(2)
+    expect(calls[0]).toEqual(calls[1])
+    expect(calls[0].body).toEqual({ purchaseOrderId: purchase, purchaseRevision: 2, items: [{ itemNumber: 1, productId: product }] })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}

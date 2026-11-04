@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { PurchaseLookup, type PurchaseChoice } from "@/features/purchasing/purchase-lookup"
 import type { ReceivedNote } from "./received-documents"
+import { PurchaseMatch } from "./purchase-match"
 
 type DistributionStatus = { tenantId: string; revision: number; lastNsu: string; maxNsu: string; nextQueryAt: string | null; lastCode: string | null; running: boolean }
 type DistributionResult = DistributionStatus & { status: "completed" | "failed" | "unknown" | "running" }
@@ -62,6 +63,7 @@ export function ReceivedActions({ note, tenantId }: { note: ReceivedNote; tenant
 }
 
 function PurchaseConversion({ note, tenantId }: { note: ReceivedNote; tenantId: string }) {
+  const [mode, setMode] = useState<"create" | "match">("create")
   const url = `/api/erp/fiscal/received-nfes/${note.id}/purchase`
   const snapshot = useResource<Conversion>(url)
   const command = useCommand()
@@ -81,8 +83,12 @@ function PurchaseConversion({ note, tenantId }: { note: ReceivedNote; tenantId: 
     const result = await command.send<{ purchaseOrderId: string }>(url, tenantId, { supplierId: supplier.id, dueDate, items: items.map(item => ({ itemNumber: item.number, productId: mapping[item.number].id })) }, snapshot.etag)
     if (result) { setCreated(result.purchaseOrderId); snapshot.reload() }
   }
+  if (mode === "match" && !purchaseId) return <section className="form-section min-w-0 space-y-4" aria-label="Conciliação da NF-e com compra">
+    <PurchaseMatch noteId={note.id} tenantId={tenantId} items={items} onBack={() => setMode("create")} onLinked={id => { setCreated(id); snapshot.reload() }} />
+  </section>
   return <section className="form-section min-w-0 space-y-4" aria-labelledby="conversion-title">
     <h2 id="conversion-title" className="text-lg font-semibold">Criar compra a partir da nota</h2>
+    {snapshot.value?.canConvert && !purchaseId && <Button variant="outline" disabled={frozen} onClick={() => setMode("match")}>Conciliar com compra existente</Button>}
     <p className="text-sm font-medium">{note.environment === 1 ? "NF-e de produção: o rascunho será uma compra operacional da empresa." : "NF-e de homologação — sem valor fiscal: o rascunho será registrado no módulo de compras da empresa. Use apenas para testes controlados."}</p>
     <p className="text-sm text-muted-foreground">Selecione o fornecedor correspondente a {note.issuerName} e vincule cada item ao seu catálogo. O rascunho conserva os custos fiscais; o recebimento físico e a conta a pagar são registrados depois, no fluxo de compras.</p>
     {snapshot.loading && !created ? <p role="status">Conferindo itens e vínculo da compra…</p> : snapshot.error ? <><p role="alert">{snapshot.error}</p><Button variant="outline" onClick={snapshot.reload}>Recarregar vínculo da compra</Button></> : purchaseId ? <div className="space-y-3"><p role="status">Esta nota está vinculada a uma compra.</p><Link className="text-primary underline" href={`/compras/pedidos/${purchaseId}`}>Abrir compra vinculada</Link></div> : !snapshot.value?.canConvert ? <p>Solicite permissão para criar pedidos de compra nesta empresa.</p> : <>

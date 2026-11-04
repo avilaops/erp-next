@@ -20,6 +20,7 @@ import { readProductDraft, writeProductDraft, type ProductInput, type ProductCom
 import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
 import { ProductPhoto } from "./product-photo"
+import { ProductCategory } from "./product-category"
 import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
 import type { PersonalPreferences } from "@/features/preferences/system/system-preferences"
@@ -42,7 +43,7 @@ export function CatalogList() {
 }
 
 function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
-  const { q, status, offset } = query
+  const { q, status, offset, categoryId } = query
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -51,6 +52,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
     const controller = new AbortController()
     const params = new URLSearchParams({ q, offset: String(offset), limit: String(pageSize) })
     if (status) params.set("status", status)
+    if (categoryId) params.set("category_id", categoryId)
     erpFetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Catálogo indisponível")
@@ -58,7 +60,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [q, status, offset, retry, pageSize])
+  }, [q, status, offset, retry, pageSize, categoryId])
   function navigate(next: CatalogQuery) {
     const search = catalogQueryString(next)
     if (search === catalogQueryString(query)) { setLoading(true); setRetry(value => value + 1); return }
@@ -70,9 +72,10 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget)
-        navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || "") })))
+        navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || ""), category_id: categoryId || "" })))
       }}>
-        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status })))} name="q" maxLength={160} defaultValue={q} /></label>
+        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status, category_id: categoryId || "" })))} name="q" maxLength={160} defaultValue={q} /></label>
+        <ProductCategory all value={categoryId || ""} onChange={categoryId => navigate({ ...query, categoryId, offset: 0 })} />
         <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
@@ -116,7 +119,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], photoDataUrl: value.data.photoDataUrl || "" } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -189,6 +192,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={draft.photoDataUrl ?? undefined} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
+          <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
             <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
             <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
@@ -200,6 +204,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
         {view && <ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly />}
+        {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
         {view && <section className="space-y-3 rounded-xl border p-4" aria-label="Cores disponíveis do equipamento"><h2 className="font-semibold">Cores disponíveis</h2>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</section>}
       </>}
     </section>

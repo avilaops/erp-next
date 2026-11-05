@@ -19,6 +19,10 @@ mod cte_inspection_tests;
 #[cfg(test)]
 mod cte_links_tests;
 #[cfg(test)]
+mod custom_fields_tests;
+#[cfg(test)]
+mod custom_reports_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -35,6 +39,8 @@ mod health_tests;
 mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
+#[cfg(test)]
+mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
@@ -167,6 +173,32 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route(
+            "/api/v1/system/custom-fields",
+            get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),
+        )
+        .route(
+            "/api/v1/system/custom-fields/{id}",
+            axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route(
+            "/api/v1/system/custom-reports",
+            get(crate::platform::custom_reports::list)
+                .post(crate::platform::custom_reports::create),
+        )
+        .route(
+            "/api/v1/system/custom-reports/{id}",
+            axum::routing::put(crate::platform::custom_reports::update),
+        )
+        .route(
+            "/api/v1/system/label-templates",
+            get(crate::platform::label_templates::list)
+                .post(crate::platform::label_templates::create),
+        )
+        .route(
+            "/api/v1/system/label-templates/{id}",
+            axum::routing::put(crate::platform::label_templates::update),
+        )
         .merge(crate::domains::returns::routes())
         .route(
             "/api/v1/preferences",

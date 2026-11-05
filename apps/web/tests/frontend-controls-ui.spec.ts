@@ -97,6 +97,15 @@ test("preferências mantém conteúdo acessível nos breakpoints e no tema escur
   }
 })
 
+test("tema Avila pode ser escolhido e persiste neste navegador", async ({ page }) => {
+  await page.goto("/preferencias/sistema")
+  await page.getByRole("radio", { name: "Avila" }).check()
+  await expect(page.locator("html")).toHaveClass(/avila-theme/)
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe("#0759f8")
+  await page.reload()
+  await expect(page.getByRole("radio", { name: "Avila" })).toBeChecked()
+})
+
 test("painel mobile fecha após navegar para uma configuração", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/empresa")

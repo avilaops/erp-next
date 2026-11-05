@@ -56,7 +56,38 @@
   box-shadow: 0 20px 60px #103f3b18;
 }
 .erp-entry-showcase figcaption { position: relative; }
+.avila-theme .erp-entry-showcase {
+  background: #17202c;
+  background-image: radial-gradient(ellipse at 100% 0%, #263343, transparent 65%);
+  box-shadow: 0 20px 60px #17202c18;
+}
 .erp-entry-showcase figcaption h2 { max-width: none; font-size: clamp(1.65rem, 2.8vw, 2.5rem); letter-spacing: -0.045em; }
+.erp-preview-frame { container-type: inline-size; }
+.erp-preview-brand {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  width: 15cqw;
+  height: 5.8cqw;
+  padding-left: 2cqw;
+  background: #fff;
+  color: #171717;
+  font-size: 1.35cqw;
+  line-height: 1.15;
+}
+.erp-preview-brand img { width: 3.5cqw; height: 3.5cqw; flex: none; }
+.erp-preview-brand strong, .erp-preview-brand small { display: block; white-space: nowrap; }
+.erp-preview-brand small { margin-top: 0.3cqw; font-size: 1.15cqw; color: #57534e; }
+@media (max-width: 639px) {
+  .erp-preview-brand { width: 16cqw; height: 16.7cqw; padding: 0; justify-content: center; }
+  .erp-preview-brand img { width: 9cqw; height: 9cqw; }
+  .erp-preview-brand > span { display: none; }
+}
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 959px) {
+  .erp-preview-brand { display: none; }
+}
 @media (max-width: 639px) {
   .erp-entry-header { padding-block: 1rem; }
   .erp-entry-access { padding: 1rem; }

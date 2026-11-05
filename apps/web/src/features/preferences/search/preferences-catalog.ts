@@ -16,11 +16,11 @@ export const preferenceCategories: PreferenceCategory[] = [
   { id: "sistema", label: "Sistema", sections: [
     { title: "Configurações do sistema", items: [{ label: "Interface", href: "/preferencias/sistema", description: "Aparência e quantidade de produtos por página." }] },
     { title: "Tabelas e configurações adicionais", items: [
-      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, unavailable("Gerenciador de arquivos"), unavailable("Relatórios customizados"), unavailable("Etiquetas customizadas"),
+      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, unavailable("Gerenciador de arquivos"), { label: "Relatórios customizados", href: "/preferencias/sistema/relatorios-customizados" }, { label: "Etiquetas customizadas", href: "/preferencias/sistema/etiquetas-customizadas" },
       { label: "Registro de atividades", href: "/preferencias/seguranca" },
       { label: "Usuários", href: "/preferencias/usuarios" },
       { label: "Papéis e horários", href: "/preferencias/papeis" },
-      unavailable("Gerenciador de transições"), unavailable("Campos customizados"),
+      unavailable("Gerenciador de transições"), { label: "Campos customizados", href: "/preferencias/sistema/campos-customizados" },
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [

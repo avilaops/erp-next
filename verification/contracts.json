@@ -503,6 +503,36 @@
         ]
       },
       {
+        "id": "custom-fields",
+        "title": "Campos customizados",
+        "goal": "Definir campos adicionais por empresa sem alterar a estrutura ou os valores existentes de forma incompatível.",
+        "kind": "product",
+        "actionGroups": [
+          "custom-fields"
+        ],
+        "dependencies": [
+          "company_onboarding"
+        ],
+        "nextStep": "Conferir criação, arquivamento, revisão e uso nos cadastros autorizados.",
+        "additionalSources": [
+          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "migrations/202611040002_system_configuration.sql"
+        ],
+        "journey": [
+          {
+            "id": "configure",
+            "title": "Consultar, criar e arquivar campos",
+            "actionIds": [
+              "get-system-custom-fields",
+              "post-system-custom-fields",
+              "put-system-custom-fields-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
         "id": "audit",
         "title": "Segurança e auditoria",
         "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.",
@@ -10493,6 +10523,60 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-system-custom-fields",
+      "flow": "custom-fields",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/system/custom-fields" },
+      "actor": "active_tenant_member",
+      "permissions": ["system.custom_fields.read"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; permissão de leitura; RLS na transação."],
+      "transition": { "from": "definições persistidas", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não retorna valores preenchidos nos cadastros."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Consulta ordenada por situação, nome e identificador." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "get-system-custom-fields" },
+      "recovery": "Corrigir acesso ou recarregar a consulta.",
+      "ui": { "pages": ["/preferencias/sistema/campos-customizados"], "bff": { "method": "GET", "path": "/api/erp/system/custom-fields" }, "gap": null },
+      "sources": ["apps/api/src/platform/custom_fields.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/custom-fields.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "post-system-custom-fields",
+      "flow": "custom-fields",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/system/custom-fields" },
+      "actor": "company_manager",
+      "permissions": ["system.custom_fields.read","system.custom_fields.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": { "source": "apps/api/src/platform/custom_fields.rs", "type": "CustomFieldInput" }, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; permissão de gestão; código único por entidade; tipo e opções válidos."],
+      "transition": { "from": "campo ausente", "to": "definição ativa ou arquivada na revisão 1" },
+      "effects": { "writes": ["system_config.custom_fields","audit_log","outbox_events"], "external": [], "excludes": ["Não preenche valores e não altera cadastros existentes."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Unicidade por empresa, entidade e código; escrita e auditoria na mesma transação." },
+      "response": { "successStatuses": [201], "errorStatuses": [400,401,403,409,422,500,503], "action": "post-system-custom-fields" },
+      "recovery": "Corrigir os dados ou recarregar a lista após resposta incerta antes de repetir.",
+      "ui": { "pages": ["/preferencias/sistema/campos-customizados"], "bff": { "method": "POST", "path": "/api/erp/system/custom-fields" }, "gap": null },
+      "sources": ["apps/api/src/platform/custom_fields.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/custom-fields.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "put-system-custom-fields-id",
+      "flow": "custom-fields",
+      "status": "implemented",
+      "operation": { "method": "PUT", "path": "/api/v1/system/custom-fields/{id}" },
+      "actor": "company_manager",
+      "permissions": ["system.custom_fields.read","system.custom_fields.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": ["id"], "body": { "source": "apps/api/src/platform/custom_fields.rs", "type": "CustomFieldInput" }, "query": null },
+      "preconditions": ["Empresa, vínculo e campo pertencem ao tenant; permissão de gestão; revisão atual; estrutura imutável."],
+      "transition": { "from": "definição na revisão atual", "to": "nome, obrigatoriedade ou situação na próxima revisão" },
+      "effects": { "writes": ["system_config.custom_fields","audit_log","outbox_events"], "external": [], "excludes": ["Arquivamento preserva definições e valores existentes."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match exige revisão atual; estrutura e opções devem permanecer idênticas." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,412,422,428,500,503], "action": "put-system-custom-fields-id" },
+      "recovery": "Preservar edição e recarregar após conflito ou confirmação incerta.",
+      "ui": { "pages": ["/preferencias/sistema/campos-customizados"], "bff": { "method": "PUT", "path": "/api/erp/system/custom-fields/{id}" }, "gap": null },
+      "sources": ["apps/api/src/platform/custom_fields.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/custom-fields.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
       "id": "get-company-audit",

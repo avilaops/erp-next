@@ -19,6 +19,8 @@ mod cte_inspection_tests;
 #[cfg(test)]
 mod cte_links_tests;
 #[cfg(test)]
+mod custom_fields_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -143,6 +145,14 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route(
+            "/api/v1/system/custom-fields",
+            get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),
+        )
+        .route(
+            "/api/v1/system/custom-fields/{id}",
+            axum::routing::put(crate::platform::custom_fields::update),
+        )
         .merge(crate::domains::returns::routes())
         .route(
             "/api/v1/preferences",

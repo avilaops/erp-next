@@ -20,7 +20,7 @@ export const preferenceCategories: PreferenceCategory[] = [
       { label: "Registro de atividades", href: "/preferencias/seguranca" },
       { label: "Usuários", href: "/preferencias/usuarios" },
       { label: "Papéis e horários", href: "/preferencias/papeis" },
-      unavailable("Gerenciador de transições"), unavailable("Campos customizados"),
+      unavailable("Gerenciador de transições"), { label: "Campos customizados", href: "/preferencias/sistema/campos-customizados" },
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [

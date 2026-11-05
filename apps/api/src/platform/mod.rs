@@ -7,6 +7,7 @@ pub mod commercial_settings;
 pub mod commercial_settings_model;
 pub mod company;
 mod company_data;
+pub mod custom_fields;
 pub mod invitations;
 pub mod onboarding;
 pub mod preferences;

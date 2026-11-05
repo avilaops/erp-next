@@ -15,6 +15,7 @@ pub mod onboarding;
 pub mod preferences;
 pub mod price_tables;
 pub mod product_costs;
+pub mod workflows;
 pub(crate) use company_data::{CompanyData, valid_document};
 pub mod langfuse;
 pub mod service_auth;

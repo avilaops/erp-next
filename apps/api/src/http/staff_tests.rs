@@ -1084,15 +1084,20 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
     let owner = format!("staff_permissions_owner_{}", Uuid::new_v4().simple());
     let mut tx = admin.begin().await.unwrap();
     sqlx::raw_sql(&format!(
-        "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"
+        "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; DO $grant$ BEGIN EXECUTE format('GRANT CREATE ON DATABASE %I TO %I', current_database(), '{owner}'); END $grant$; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"
     ))
     .execute(&mut *tx)
     .await
     .unwrap();
 
     let migrator = sqlx::migrate!("../../migrations");
-    for migration in migrator.iter().filter(|m| m.version < 202611050003) {
+    for migration in migrator.iter().filter(|m| m.version < 202611051711) {
         sqlx::raw_sql(&migration.sql)
+            .execute(&mut *tx)
+            .await
+            .unwrap_or_else(|error| panic!("migration {} failed: {error}", migration.version));
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(Uuid::nil().to_string())
             .execute(&mut *tx)
             .await
             .unwrap();
@@ -1125,7 +1130,7 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
         .await
         .unwrap();
     sqlx::raw_sql(include_str!(
-        "../../../../migrations/202611050003_staff_permissions.sql"
+        "../../../../migrations/202611051711_staff_permissions.sql"
     ))
     .execute(&mut *tx)
     .await

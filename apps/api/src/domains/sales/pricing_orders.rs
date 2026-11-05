@@ -69,7 +69,7 @@ pub async fn create(
         due_date: input.due_date.clone(),
         items: vec![super::OrderItemInput {
             product_id: input.quote.product_id,
-            quantity: input.quote.quantity.to_string(),
+            quantity: format!("{}.000000", input.quote.quantity),
             structure_color: input.structure_color,
             upholstery_color: input.upholstery_color,
         }],

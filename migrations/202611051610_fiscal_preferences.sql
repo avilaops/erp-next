@@ -1,4 +1,4 @@
--- User-declared fiscal preferences. No default taxpayer data or fiscal effects.
+-- User-declared fiscal preferences, independently versioned from the catalog.
 CREATE TABLE fiscal_preferences (
     tenant_id uuid NOT NULL REFERENCES tenants(id),
     section text NOT NULL CHECK (section IN ('nfce', 'operation-natures')),

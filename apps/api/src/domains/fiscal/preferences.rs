@@ -107,9 +107,9 @@ impl OperationNatures {
                 ));
             }
             let prefixes = if item.direction == "incoming" {
-                [b'1', b'2', b'3']
+                *b"123"
             } else {
-                [b'5', b'6', b'7']
+                *b"567"
             };
             for (cfop, prefix) in [
                 &item.internal_cfop,
@@ -145,15 +145,14 @@ fn nfce_data(value: &mut NfceSettings) -> Result<Value, DomainError> {
             "Informe ambiente, UF, série, próxima numeração e identificador do CSC válidos",
         ));
     }
-    if let Some(csc) = &value.csc {
-        if csc.len() < 16
+    if let Some(csc) = &value.csc
+        && (csc.len() < 16
             || csc.len() > 36
-            || !csc.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-        {
-            return Err(DomainError::Invalid(
-                "CSC inválido; informe o código fornecido pela SEFAZ",
-            ));
-        }
+            || !csc.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
+    {
+        return Err(DomainError::Invalid(
+            "CSC inválido; informe o código fornecido pela SEFAZ",
+        ));
     }
     Ok(
         json!({"environment":value.environment,"state":value.state,"series":value.series,"nextNumber":value.next_number,"cscId":value.csc_id,"cscConfigured":true}),

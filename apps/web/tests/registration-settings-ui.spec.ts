@@ -56,7 +56,7 @@ test("naturezas persistem e conflito preserva a edição sem repetir gravação"
   await expect(nature.getByLabel("CFOP interno")).toHaveValue("5101")
   await nature.getByLabel("Descrição da natureza").fill("Venda revisada")
   await page.getByRole("button",{name:"Salvar configuração",exact:true}).click()
-  await expect(page.getByRole("alert")).toHaveText("Naturezas alteradas por outra pessoa")
+  await expect(page.getByRole("alert").filter({hasText:"Naturezas alteradas por outra pessoa"})).toHaveText("Naturezas alteradas por outra pessoa")
   await expect(nature.getByLabel("Descrição da natureza")).toHaveValue("Venda revisada")
   await expect(page.getByRole("button",{name:"Salvar configuração",exact:true})).toBeDisabled()
   expect(writes).toBe(2)
@@ -76,7 +76,7 @@ test("consultas fiscais mostram eventos reais e falha não aparece como lista va
   await expect(page.getByText("Sem confirmação",{exact:true})).toBeVisible()
   fail=true
   await page.getByRole("button",{name:"Atualizar consulta"}).click()
-  await expect(page.getByRole("alert")).toHaveText("Consulta fiscal indisponível")
+  await expect(page.getByRole("alert").filter({hasText:"Consulta fiscal indisponível"})).toHaveText("Consulta fiscal indisponível")
   await expect(page.getByText("Faixa: 3 a 5")).toHaveCount(0)
   await expect(page.getByText("Nenhum evento desta categoria registrado nesta empresa.")).toHaveCount(0)
   fail=false

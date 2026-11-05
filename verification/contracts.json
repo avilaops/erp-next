@@ -25474,7 +25474,7 @@
         "apps/api/src/domains/fiscal/preferences.rs",
         "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611050001_fiscal_preferences.sql"
+        "migrations/202611051610_fiscal_preferences.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -25575,7 +25575,7 @@
         "apps/api/src/domains/fiscal/preferences.rs",
         "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611050001_fiscal_preferences.sql"
+        "migrations/202611051610_fiscal_preferences.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -25665,7 +25665,7 @@
         "apps/api/src/domains/fiscal/preferences.rs",
         "apps/web/src/features/fiscal/settings/fiscal-events.tsx",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611050001_fiscal_preferences.sql"
+        "migrations/202611051610_fiscal_preferences.sql"
       ],
       "verification": {
         "status": "not_verified_by_catalog",

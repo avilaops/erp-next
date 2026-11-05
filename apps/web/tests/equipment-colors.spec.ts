@@ -14,7 +14,6 @@ async function session(context: BrowserContext, reader = false) {
 }
 
 test("cores do equipamento são escolhidas, persistidas e preservadas após alteração do catálogo", async ({ page, context }, info) => {
-  test.slow()
   await session(context)
   const name = `Equipamento com acabamentos ${randomUUID().slice(0, 8)}`
   const sku = `COR-${randomUUID().slice(0, 8)}`.toUpperCase()
@@ -27,9 +26,7 @@ test("cores do equipamento são escolhidas, persistidas e preservadas após alte
   await page.getByLabel("Cores da estrutura", { exact: true }).fill("Preto fosco\nBranco")
   await page.getByLabel("Cores do estofado", { exact: true }).fill("Preto\nVermelho")
   await page.getByLabel("Cores dos anilheiros", { exact: true }).fill("Preto\nAzul")
-  const plateHolderTypes = page.getByPlaceholder("Olímpico\nStandard", { exact: true })
-  await expect(plateHolderTypes).toHaveAccessibleName("Tipo de anilheiro")
-  await expect(plateHolderTypes).toHaveValue("Olímpico\nStandard")
+  await page.getByLabel("Tipo de anilheiro", { exact: true }).fill("Olímpico\nStandard")
   await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos\/[a-f0-9-]{36}$/)
   const productId = new URL(page.url()).pathname.split("/").at(-1)!

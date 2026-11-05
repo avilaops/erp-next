@@ -429,9 +429,8 @@ pub async fn create(
     let id = Uuid::now_v7();
     let category = category_uuid(&input);
     validate_category(&mut tx, tenant, category).await?;
-    let default_plate_holder_types = ["Olímpico".to_owned(), "Standard".to_owned()];
     sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,ncm,cest,price_cents,status,structure_colors,upholstery_colors,plate_holder_colors,plate_holder_types,photo_data_url,category_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$14,$15,$12,$13)")
-        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).bind(category).bind(input.plate_holder_colors.as_deref().unwrap_or_default()).bind(input.plate_holder_types.as_deref().unwrap_or(&default_plate_holder_types)).execute(&mut *tx).await.map_err(product_error)?;
+        .bind(id).bind(tenant).bind(&input.sku).bind(&input.name).bind(&input.unit).bind(&input.ncm).bind(&input.cest).bind(cents).bind(&input.status).bind(input.structure_colors.as_deref().unwrap_or_default()).bind(input.upholstery_colors.as_deref().unwrap_or_default()).bind(&input.photo_data_url).bind(category).bind(input.plate_holder_colors.as_deref().unwrap_or_default()).bind(input.plate_holder_types.as_deref().unwrap_or_default()).execute(&mut *tx).await.map_err(product_error)?;
     let result = serde_json::to_value(ProductSnapshot {
         tenant_id: tenant,
         can_edit: true,

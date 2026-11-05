@@ -29,7 +29,7 @@ import type { PersonalPreferences } from "@/features/preferences/system/system-p
 
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderColors: [], plateHolderTypes: ["Olímpico", "Standard"] }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderColors: [], plateHolderTypes: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal

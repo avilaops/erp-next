@@ -2,7 +2,7 @@
 ALTER TABLE products
     ADD COLUMN plate_holder_colors text[] NOT NULL DEFAULT '{}'
         CHECK (cardinality(plate_holder_colors) <= 32),
-    ADD COLUMN plate_holder_types text[] NOT NULL DEFAULT ARRAY['Olímpico', 'Standard']::text[]
+    ADD COLUMN plate_holder_types text[] NOT NULL DEFAULT '{}'
         CHECK (
             cardinality(plate_holder_types) <= 2
             AND plate_holder_types <@ ARRAY['Olímpico', 'Standard']::text[]

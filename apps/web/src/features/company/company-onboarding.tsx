@@ -93,7 +93,7 @@ export function CompanySignup() {
   }
   const fields = [["legalName", "Nome empresarial"], ["tradeName", "Nome fantasia"], ["taxId", "CPF ou CNPJ"], ["postalCode", "CEP"], ["city", "Cidade"], ["street", "Rua"], ["number", "Número"], ["district", "Bairro"], ["email", "E-mail da empresa"]]
   return <form onSubmit={submit} className="form-section space-y-4">
-    <p>Cadastre sua empresa com sua conta Ávila Ops. Você será o administrador desta empresa.</p>
+    <p>Cadastre sua empresa com sua conta Avila Ops. Você será o administrador desta empresa.</p>
     <fieldset disabled={!hydrated || busy || Boolean(created)} className="grid gap-4 sm:grid-cols-2">
       {fields.map(([name, label]) => <label className="field" key={name}>{label}<input name={name} maxLength={300} type={name === "email" ? "email" : "text"} required={!["tradeName", "email"].includes(name)} /></label>)}
       <label className="field">Tipo de pessoa<select name="personType" defaultValue="juridica"><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>

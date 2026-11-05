@@ -26,7 +26,7 @@ export function IntegrationsCatalog() {
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">Simular estado<select className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={screenState} onChange={(event) => setScreenState(event.target.value as ScreenState)}><option value="ready">Conteúdo</option><option value="loading">Carregamento</option><option value="error">Erro</option><option value="forbidden">Sem permissão</option></select></label>
     </header>
     <section className="mt-6 rounded-2xl border border-border bg-card p-5">
-      <p className="text-xs text-muted-foreground">Fiscal</p><h2 className="mt-1 font-semibold">Lojas Ávila Ops</h2>
+      <p className="text-xs text-muted-foreground">Fiscal</p><h2 className="mt-1 font-semibold">Lojas Avila Ops</h2>
       <p className="mt-2 text-sm text-muted-foreground">Crie e revogue chaves de serviço da empresa. A configuração no Lojas é feita separadamente.</p>
       <Link className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary" href="/preferencias/integracoes/lojas">Gerenciar chaves<ArrowRight className="size-4" /></Link>
     </section>

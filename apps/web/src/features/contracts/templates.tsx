@@ -24,7 +24,7 @@ const sources = { empresa_nome: "Nome da empresa", empresa_documento: "Documento
 export function Templates({ id }: { id?: string }) {
   const listing = useResource<Listing>("/api/erp/contract-template-drafts")
   return <>
-    <PageHeader eyebrow="Ávila Ops · Contratos" title={id ? "Editor de modelo" : "Modelos de contrato"} description="Prepare o PDF, os participantes e os campos do modelo da empresa." />
+    <PageHeader eyebrow="Avila Ops · Contratos" title={id ? "Editor de modelo" : "Modelos de contrato"} description="Prepare o PDF, os participantes e os campos do modelo da empresa." />
     <p className="mb-4"><Link className={linkClass} href={id ? "/servicos/contratos/modelos" : "/servicos/contratos"}>Voltar aos {id ? "modelos" : "contratos"}</Link></p>
     {listing.loading ? <p role="status">Carregando modelos…</p> : listing.error || !listing.value ? <RequestError message={listing.error} status={listing.status} /> : id === "novo" ?
       <Editor tenant={listing.value.tenantId} canEdit={listing.value.canEdit} /> : id ? <Existing id={id} /> : <section className="form-section space-y-4">

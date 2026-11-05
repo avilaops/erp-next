@@ -62,6 +62,21 @@ test("ações finais do catálogo ficam acima da navegação compacta", async ({
   }
 })
 
+test("catálogo troca a tabela comprimida por cartões legíveis quando a área útil fica estreita", async ({ page }) => {
+  await page.setViewportSize({ width: 915, height: 844 })
+  await page.goto("/cadastros/produtos")
+  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeHidden()
+  const list = page.getByLabel("Lista de produtos")
+  await expect(list).toBeVisible()
+  await expect(list.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
+  await expect(list.getByText("SKU TEST-001 · UN", { exact: true }).first()).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+  await page.setViewportSize({ width: 1440, height: 950 })
+  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeVisible()
+  await expect(page.getByLabel("Lista de produtos")).toBeHidden()
+})
+
 test("Início pede confirmação e cancelar preserva a edição", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/cadastros/produtos/novo")

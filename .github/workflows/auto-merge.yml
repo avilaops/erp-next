@@ -21,13 +21,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          protected=$(gh api "repos/$GH_REPO/branches/main" --jq '.protected')
+          if ! protected=$(gh api "repos/$GH_REPO/branches/main" --jq '.protected' 2>/dev/null); then
+            echo '::notice::Automatic merge disabled: workflow token cannot inspect main branch protection. Review and merge only after CI succeeds.'
+            exit 0
+          fi
           if [ "$protected" != 'true' ]; then
             echo '::notice::Automatic merge disabled: main has no branch protection. Review and merge only after CI succeeds.'
             exit 0
           fi
-          # Missing access or an unrecognized ruleset fails closed.
-          gh api "repos/$GH_REPO/branches/main/protection" > protection.json
+          # Missing access or an unrecognized ruleset disables auto-merge without failing CI.
+          if ! gh api "repos/$GH_REPO/branches/main/protection" > protection.json 2>/dev/null; then
+            echo '::notice::Automatic merge disabled: workflow token cannot inspect required checks. Review and merge only after CI succeeds.'
+            exit 0
+          fi
           if ! jq -e '.required_status_checks as $checks | (($checks.contexts // []) + [($checks.checks // [])[] | .context]) | index("gate") != null' protection.json; then
             echo '::notice::Automatic merge disabled: the complete CI gate is not required by branch protection.'
             exit 0

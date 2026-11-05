@@ -138,7 +138,7 @@ retorno a locais retirados e domínios sem responsabilidade registrada. Imports
 construídos dinamicamente não são resolvidos por essa inspeção; o build Next.js
 e o marcador `server-only` complementam a verificação.
 
-A superfície registrada contém 389 arquivos de página, layout e endpoint.
+A superfície registrada contém 393 arquivos de página, layout e endpoint.
 Alterações legítimas de URLs exigem revisão explícita e atualização de
 `routeSurface` com a saída de `node scripts/architecture/check.mjs --print-routes`.
 O hash verifica caminhos, não o funcionamento das rotas nem seus métodos HTTP.

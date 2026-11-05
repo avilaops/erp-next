@@ -20,6 +20,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
         crate::platform::custom_reports::list, crate::platform::custom_reports::create, crate::platform::custom_reports::update,
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
+        crate::platform::workflows::list, crate::platform::workflows::create, crate::platform::workflows::update, crate::platform::workflows::publish, crate::platform::workflows::archive,
         crate::domains::registry_lookup::lookup,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,

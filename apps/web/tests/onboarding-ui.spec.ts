@@ -343,7 +343,7 @@ test("entry preview announces loading and recovers from a failed image without l
   await expect(dialog).toBeHidden()
   await expect(trigger).toBeFocused()
   await expect(trigger.getByRole("alert")).toHaveCount(0)
-  await expect.poll(() => trigger.locator("img").evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
+  await expect.poll(() => trigger.locator("picture img").evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
 })
 
 test("a loaded preview reports a failed source after rotation and recovers when rotated back", async ({ page }) => {

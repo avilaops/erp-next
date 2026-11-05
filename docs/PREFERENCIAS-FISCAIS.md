@@ -15,6 +15,9 @@ autenticados vinculam o segredo à empresa, CNPJ, ambiente, identificador e
 revisão. Nenhuma consulta ou auditoria retorna o CSC. O formulário o limpa
 após confirmação de gravação. Um chaveiro ausente bloqueia a gravação segura.
 O próximo número é uma configuração; salvar não reserva nem consome números.
+O formato do CSC segue o validador de QR Code já existente no motor (16 a 36
+caracteres; identificador com até seis dígitos), compatível com o
+[manual publicado pela SEFAZ-SP](https://portal.fazenda.sp.gov.br/servicos/nfce/Downloads/Manual%20de%20Especificacoes%20Tecnicas%20do%20DANFE%20NFC-e%20QR%20Code%20%20-%20Versao%204.1.pdf).
 
 Essa entrega configura o modelo 65. A emissão NFC-e tem integração própria e
 não se torna operacional apenas por existir uma configuração persistida.

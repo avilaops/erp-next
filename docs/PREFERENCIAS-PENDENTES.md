@@ -13,7 +13,7 @@ validada. Cada etapa deve registrar código, testes, versão publicada e limites
 | Cadastros | Configurações de pessoas/produtos e tipos de contatos | Regras consumidas pelo cadastro real, com revisão e isolamento por empresa |
 | Suprimentos | Estoque, compras, grupos de tags, tags, grupos de produtos e depósitos demonstrativos | Estoque por depósito e transferências conservando quantidades; integração com compras |
 | Vendas | Parâmetros dos pedidos, propostas e frente de caixa | Primeira etapa: mínimo, prazo e contato na confirmação; propostas/PDV exigem persistência e reconciliação próprias |
-| Fiscal | NFC-e, consulta consolidada de inutilizações/correções e naturezas de operação | Separar consulta dos eventos existentes de nova emissão; validar integrações fiscais com evidência própria |
+| Fiscal | Emissão NFC-e modelo 65 e liberação de produção NF-e | Configuração NFC-e, naturezas e consultas consolidadas implementadas em `PREFERENCIAS-FISCAIS.md`; validar emissão e integrações com evidência própria |
 | Finanças | Conta digital, Pix, taxas, importação, caixa e integrações de pagamento | Definir provedor e credenciais; conciliar eventos idempotentes e preservar lançamentos |
 | Serviços | NFS-e, ordens de serviço, cobranças e CT-e | Definir documento/provedor e ciclo da ordem; preservar modelos e contratos operacionais existentes |
 | Logística | Configurações e integrações logísticas | Contratos com provedores, estados de envio e rastreio sem marcar entrega por inferência |

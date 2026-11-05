@@ -94,6 +94,9 @@ pub async fn snapshot(
             'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
             'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
+            'proposal',(SELECT jsonb_build_object('id',sp.id,'number',sp.number::text,'version',v.version,'paymentTerms',v.payment_terms,'deliveryTerms',v.delivery_terms,'notes',v.notes)
+                FROM sales_proposals sp JOIN sales_proposal_versions v ON v.tenant_id=sp.tenant_id AND v.proposal_id=sp.id AND v.version=sp.current_version
+                WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
                 || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color))
@@ -183,6 +186,9 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         ("cliente_email", &snapshot["customer"]["email"]),
         ("pedido_total", &snapshot["order"]["amount"]),
         ("vencimento", &snapshot["order"]["dueDate"]),
+        ("condicoes", &snapshot["proposal"]["paymentTerms"]),
+        ("entrega", &snapshot["proposal"]["deliveryTerms"]),
+        ("observacoes", &snapshot["proposal"]["notes"]),
     ] {
         result.insert(key.into(), value.as_str().unwrap_or("").into());
     }

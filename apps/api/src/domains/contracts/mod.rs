@@ -486,6 +486,8 @@ pub async fn send(
         || current["order"]["amount"] != contract.snapshot["order"]["amount"]
         || current["order"]["dueDate"] != contract.snapshot["order"]["dueDate"]
         || current["items"] != contract.snapshot["items"]
+        || (contract.snapshot.get("proposal").is_some()
+            && current["proposal"] != contract.snapshot["proposal"])
     {
         return Err(DomainError::Conflict(
             "O pedido mudou após a geração do contrato. Gere e revise uma nova prévia antes de enviar",

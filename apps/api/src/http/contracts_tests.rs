@@ -79,8 +79,69 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
     assert_eq!(customer.0, StatusCode::CREATED, "{}", customer.1);
     let product = call(&seed_router,"POST","/api/v1/products","editor",1,Uuid::now_v7(),json!({"sku":"CONTRACT-1","name":"Produto","unit":"UN","basePrice":"10.00","ncm":null,"cest":null,"status":"active"})).await;
     assert_eq!(product.0, StatusCode::CREATED, "{}", product.1);
-    let order = call(&seed_router,"POST","/api/v1/orders","editor",1,Uuid::now_v7(),json!({"customerId":customer.1["data"]["id"],"dueDate":"2026-12-01","items":[{"productId":product.1["data"]["id"],"quantity":"1.000000"}]})).await;
-    assert_eq!(order.0, StatusCode::CREATED, "{}", order.1);
+    let direct_order = call(&seed_router,"POST","/api/v1/orders","editor",1,Uuid::now_v7(),json!({"customerId":customer.1["data"]["id"],"dueDate":"2026-12-01","items":[{"productId":product.1["data"]["id"],"quantity":"1.000000"}]})).await;
+    assert_eq!(direct_order.0, StatusCode::CREATED, "{}", direct_order.1);
+    let direct_options = call(
+        &seed_router,
+        "GET",
+        &format!(
+            "/api/v1/commercial-contracts/options/{}",
+            direct_order.1["data"]["id"].as_str().unwrap()
+        ),
+        "editor",
+        1,
+        Uuid::now_v7(),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(direct_options.0, StatusCode::OK, "{}", direct_options.1);
+    assert!(direct_options.1["snapshot"]["proposal"].is_null());
+    assert_eq!(direct_options.1["defaults"]["condicoes"], "");
+
+    let proposal = call(&seed_router,"POST","/api/v1/proposals","editor",1,Uuid::now_v7(),json!({"customerId":customer.1["data"]["id"],"validUntil":"2100-01-01","paymentTerms":"Entrada de 30%, saldo na entrega","deliveryTerms":"Entrega em 60 dias","notes":"Conferir acesso ao local","items":[{"productId":product.1["data"]["id"],"quantity":"1.000000"}]})).await;
+    assert_eq!(proposal.0, StatusCode::CREATED, "{}", proposal.1);
+    let proposal_path = format!(
+        "/api/v1/proposals/{}",
+        proposal.1["data"]["id"].as_str().unwrap()
+    );
+    for (action, revision) in [("send", 1), ("accept", 2)] {
+        let result = call(
+            &seed_router,
+            "POST",
+            &format!("{proposal_path}/{action}"),
+            "editor",
+            revision,
+            Uuid::now_v7(),
+            json!({}),
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::OK, "{}", result.1);
+    }
+    let converted = call(
+        &seed_router,
+        "POST",
+        &format!("{proposal_path}/convert"),
+        "editor",
+        3,
+        Uuid::now_v7(),
+        json!({"dueDate":"2026-12-01"}),
+    )
+    .await;
+    assert_eq!(converted.0, StatusCode::OK, "{}", converted.1);
+    let order = call(
+        &seed_router,
+        "GET",
+        &format!(
+            "/api/v1/orders/{}",
+            converted.1["data"]["orderId"].as_str().unwrap()
+        ),
+        "editor",
+        1,
+        Uuid::now_v7(),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(order.0, StatusCode::OK, "{}", order.1);
 
     let fixture = ProviderFixture::default();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -172,6 +233,31 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
         "Cliente de validação"
     );
     assert_eq!(generated.1["data"]["progress"][0]["sendConfirmed"], false);
+    assert_eq!(
+        generated.1["data"]["snapshot"]["proposal"]["id"],
+        proposal.1["data"]["id"]
+    );
+    assert_eq!(generated.1["data"]["snapshot"]["proposal"]["version"], 1);
+    assert_eq!(
+        generated.1["data"]["fields"]["condicoes"],
+        "Entrada de 30%, saldo na entrega"
+    );
+    assert!(
+        generated.1["data"]["fields"]["entrega"].is_null(),
+        "The PDF template has no delivery field; the email must still carry it"
+    );
+    assert!(
+        generated.1["email"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Entrega em 60 dias")
+    );
+    assert!(
+        generated.1["email"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Conferir acesso ao local")
+    );
     assert_eq!(
         generated.1["data"]["snapshot"]["order"]["number"],
         order.1["data"]["number"]
@@ -321,6 +407,31 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
         .execute(&admin)
         .await
         .unwrap();
+    // A changed source must not silently remove the accepted conditions.
+    let proposal_id: Uuid = proposal.1["data"]["id"].as_str().unwrap().parse().unwrap();
+    sqlx::query("UPDATE sales_proposals SET order_id=NULL WHERE id=$1")
+        .bind(proposal_id)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let source_changed = call(
+        &router,
+        "POST",
+        &format!("{path}/send"),
+        "editor",
+        send_revision,
+        Uuid::now_v7(),
+        json!({}),
+    )
+    .await;
+    assert_eq!(source_changed.0, StatusCode::CONFLICT);
+    assert_eq!(fixture.sends.load(Ordering::SeqCst), 0);
+    sqlx::query("UPDATE sales_proposals SET order_id=$2 WHERE id=$1")
+        .bind(proposal_id)
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
     let sent = call(
         &router,
         "POST",
@@ -358,7 +469,10 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
     let mail_body = invitation["message"]["body"].as_str().unwrap();
     assert!(mail_body.contains("CONTRACT\\-1"));
     assert!(mail_body.contains("R$ 10,00"));
-    assert!(mail_body.contains("Apenas validação"));
+    assert!(mail_body.contains("Entrada de 30%, saldo na entrega"));
+    assert!(mail_body.contains("Entrega em 60 dias"));
+    assert!(mail_body.contains("Conferir acesso ao local"));
+    assert!(!mail_body.contains("Apenas validação"));
     assert_eq!(mail_body.matches("{submitter.link}").count(), 1);
     assert!(sent.1["email"].is_null());
 

@@ -92,6 +92,18 @@ pub struct ContractContext {
     pub company: ContractCompanyContext,
     pub customer: ContractCustomerContext,
     pub items: Vec<ContractContextItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<ContractProposalContext>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractProposalContext {
+    pub id: Uuid,
+    pub number: String,
+    pub version: i32,
+    pub payment_terms: String,
+    pub delivery_terms: String,
+    pub notes: String,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

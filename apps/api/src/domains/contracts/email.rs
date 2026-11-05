@@ -104,13 +104,21 @@ fn contents(snapshot: &Value, fields: &Value, escape: bool) -> String {
         text(&decimal(&snapshot["order"]["amount"], true))
     ));
     sections.push(format!("Vencimento: {}", text(&due_date(snapshot))));
-    for (key, label) in [
-        ("condicoes", "Condições comerciais"),
-        ("entrega", "Condições de entrega"),
+    for (key, source, label) in [
+        ("condicoes", "paymentTerms", "Condições comerciais"),
+        ("entrega", "deliveryTerms", "Condições de entrega"),
+        ("observacoes", "notes", "Observações comerciais"),
     ] {
-        if let Some(value) = fields[key]
+        // The accepted proposal is authoritative even when the PDF model does
+        // not declare a corresponding field. Historical snapshots keep theirs.
+        if let Some(value) = snapshot["proposal"][source]
             .as_str()
             .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                fields[key]
+                    .as_str()
+                    .filter(|value| !value.trim().is_empty())
+            })
         {
             sections.push(format!("{label}: {}", text(value)));
         }
@@ -186,5 +194,36 @@ mod tests {
         assert_eq!(model::order_number(&snapshot), "historical-id");
         assert_eq!(decimal(&json!("1234567.89"), true), "R$ 1.234.567,89");
         assert_eq!(decimal(&json!("1000.250000"), false), "1.000,25");
+    }
+
+    #[test]
+    fn accepted_proposal_terms_are_used_even_without_pdf_fields_and_escaped() {
+        let snapshot = json!({"proposal":{"paymentTerms":"Entrada {submitter.link}","deliveryTerms":"Entrega <b>combinada</b>","notes":"Conferir [acesso](https://invalid.test)"}});
+        let email = invitation(
+            &snapshot,
+            &json!({"condicoes":"Do not replace accepted terms"}),
+        );
+        let body = email["message"]["body"].as_str().unwrap();
+        assert_eq!(body.matches("{submitter.link}").count(), 1);
+        assert!(body.contains("Entrada &#123;submitter.link&#125;"));
+        assert!(body.contains("Entrega &lt;b&gt;combinada&lt;/b&gt;"));
+        assert!(!body.contains("[acesso](https://invalid.test)"));
+        assert!(!body.contains("Do not replace"));
+        let historical = invitation(
+            &json!({}),
+            &json!({"condicoes":"Manual historical terms","observacoes":"Historical notes"}),
+        );
+        assert!(
+            historical["message"]["body"]
+                .as_str()
+                .unwrap()
+                .contains("Manual historical terms")
+        );
+        assert!(
+            historical["message"]["body"]
+                .as_str()
+                .unwrap()
+                .contains("Historical notes")
+        );
     }
 }

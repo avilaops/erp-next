@@ -37,6 +37,30 @@ A confirmação de transmissão e a assinatura continuam sendo acompanhadas no
 ERP. O funcionamento da mensagem foi verificado no contrato da API do serviço;
 testes com adaptador isolado não comprovam entrega na caixa de entrada.
 
+### Condições da proposta de origem
+
+Quando o pedido resulta de uma proposta aceita, o snapshot do contrato conserva
+o identificador, número, versão, pagamento, entrega e observações dessa proposta.
+Os campos `condicoes`, `entrega` e `observacoes` recebem os valores existentes
+no servidor e não podem ser substituídos no comando de geração. Campos sem um
+valor na origem continuam disponíveis para preenchimento explícito no modelo.
+
+O convite usa essas condições mesmo quando o PDF não declara os respectivos
+campos. A conferência mostra a versão de origem e as condições que acompanham
+o envio. O editor oferece a associação de observações comerciais, e a geração
+agrupa todos os campos por empresa, cliente, pedido, condições e complementos.
+Campos adicionais do modelo são preservados no grupo de complementos.
+
+Pedidos sem proposta não recebem condições inventadas. Contratos históricos
+sem essa origem continuam usando seus campos preservados; não incorporam dados
+da proposta retroativamente. O primeiro envio de novos contratos também confere
+se a origem continua igual à que foi preservada. Essa consulta usa somente
+proposta/pedido da mesma empresa e a versão aceita vinculada ao pedido.
+
+A negociação estruturada do novo simulador é uma integração posterior: esta
+etapa usa as propostas já existentes, sem depender das alterações em andamento
+na frente AVL-432. Não há migração ou envio real neste incremento.
+
 - Pedido: `/vendas/pedidos/{id}/contratos`.
 - Geração: `/vendas/pedidos/{id}/contratos/novo`.
 - Contrato: `/servicos/contratos/{id}`.

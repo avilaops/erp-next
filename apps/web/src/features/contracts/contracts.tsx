@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
+import { contractFieldLabels as fieldLabels, contractFieldGroups, contractFieldGroup } from "./contract-fields"
 
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">
@@ -21,7 +22,15 @@ type Options = Schema<"ContractOptions">
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"
 const labels: Record<string, string> = { creation_requested: "Geração em conferência", created: "Pronto para revisão", reviewed: "Revisado", send_requested: "Envio solicitado", sent: "Transmissão confirmada pelo serviço", opened: "Aberto pelo destinatário", completed: "Assinatura concluída", declined: "Assinatura recusada", expired: "Prazo expirado" }
-const fieldLabels: Record<string, string> = { empresa_nome: "Nome da empresa", empresa_documento: "Documento da empresa", empresa_endereco: "Endereço da empresa", cliente_nome: "Nome do cliente", cliente_documento: "Documento do cliente", cliente_email: "E-mail do cliente", cliente_endereco: "Endereço do cliente", pedido_numero: "Número do pedido", pedido_total: "Total do pedido", vencimento: "Vencimento", itens: "Itens, quantidades e valores", condicoes: "Condições comerciais", entrega: "Condições e prazo de entrega" }
+
+function ProposalTerms({ proposal }: { proposal: Schema<"ContractContext">["proposal"] }) {
+  if (!proposal) return null
+  return <section className="form-section min-w-0 space-y-3" aria-label="Condições herdadas da proposta">
+    <h2 className="font-semibold">Condições herdadas da proposta</h2>
+    <p className="text-sm">Proposta {proposal.number} · versão {proposal.version}. Os dados desta versão acompanham o contrato e o e-mail.</p>
+    <dl className="space-y-3">{[["Pagamento", proposal.paymentTerms], ["Entrega", proposal.deliveryTerms], ["Observações", proposal.notes]].filter(([, value]) => value).map(([label, value]) => <div key={label}><dt className="text-sm font-medium">{label}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value}</dd></div>)}</dl>
+  </section>
+}
 
 export function ContractsList({ orderId, customerId }: { orderId?: string; customerId?: string }) {
   const [offset, setOffset] = useState(0)
@@ -91,12 +100,20 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
         <p>Total comercial: R$ {options.snapshot.order.amount.replace(".", ",")} · Vencimento: {options.snapshot.order.dueDate}</p>
         <p className="text-sm text-muted-foreground">Os dados serão preservados nesta geração. Mudanças posteriores no pedido não alteram o contrato.</p>
       </section>
+      <ProposalTerms proposal={options.snapshot.proposal} />
       <section className="form-section space-y-4"><h2 className="font-semibold">Campos do documento</h2>
+        <p className="text-sm text-muted-foreground">Os campos preenchidos pelo pedido ou pela proposta ficam protegidos. Complete os demais campos do modelo abaixo.</p>
         {missing.length > 0 && <p role="status">Faltam {missing.length} campos obrigatórios: {missing.map(field => fieldLabels[field.name] || field.name).join(", ")}.</p>}
-        {template.fields.map(field => <label key={field.name} className="block space-y-2">
-          <span>{fieldLabels[field.name] || field.name}{field.required ? " *" : ""}{options.defaults[field.name] ? " · preenchido pelo pedido" : ""}</span>
-          <textarea className={`${selectClass} min-h-20`} required={field.required} maxLength={20000} readOnly={Boolean(options.defaults[field.name])} value={options.defaults[field.name] || fields[field.name] || ""} onChange={event => setFields({ ...fields, [field.name]: event.target.value })} />
-        </label>)}
+        {contractFieldGroups.map(group => {
+          const grouped = template.fields.filter(field => contractFieldGroup(field.name) === group.key)
+          return grouped.length > 0 && <fieldset key={group.key} className="min-w-0 space-y-3 rounded-xl border p-4">
+            <legend className="px-2 font-medium">{group.title}</legend>
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">{grouped.map(field => <label key={field.name} className={`block min-w-0 space-y-2 ${["itens", "condicoes", "entrega", "observacoes"].includes(field.name) ? "md:col-span-2" : ""}`}>
+              <span>{fieldLabels[field.name] || field.name}{field.required ? " *" : ""}{options.defaults[field.name] ? " · preenchido pelo pedido ou proposta" : ""}</span>
+              <textarea className={`${selectClass} min-h-20 read-only:bg-muted/40`} required={field.required} maxLength={20000} readOnly={Boolean(options.defaults[field.name])} value={options.defaults[field.name] || fields[field.name] || ""} onChange={event => setFields({ ...fields, [field.name]: event.target.value })} />
+            </label>)}</div>
+          </fieldset>
+        })}
       </section>
       <section className="form-section space-y-4"><h2 className="font-semibold">Destinatários da assinatura</h2>
         {template.roles.map((role, index) => {
@@ -143,6 +160,7 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
         {currentFile && <><div className="flex flex-wrap gap-4"><a className={linkClass} href={fileUrl(currentFile)} target="_blank" rel="noreferrer">Abrir documento</a><a className={linkClass} href={fileUrl(currentFile)} download={`${currentFile.kind}-${contract.id}.pdf`}>Baixar PDF</a></div><iframe title={currentFile.kind === "audit" ? "Trilha de assinatura" : "Documento do contrato"} src={fileUrl(currentFile)} className="h-[65vh] min-h-96 w-full rounded-lg border" /><p className="break-all text-xs text-muted-foreground">Cópia preservada no servidor Avila Ops · SHA-256: {currentFile.sha256}</p></>}
       </section>
       <aside className="space-y-5">
+        <ProposalTerms proposal={contract.snapshot.proposal} />
         {email && <section className="form-section min-w-0 space-y-3" aria-label="E-mail do pedido e contrato"><h2 className="font-semibold">E-mail do pedido e contrato</h2><p className="text-sm text-muted-foreground">Cada destinatário recebe o resumo abaixo e seu link individual para o mesmo contrato.</p><p className="break-words font-medium">Assunto: {email.subject}</p><p className="whitespace-pre-wrap break-words text-sm">{email.text}</p></section>}
         <section className="form-section space-y-4"><h2 className="font-semibold">Destinatários e andamento</h2><ul className="space-y-4">{contract.recipients.map(recipient => {
           const progress = contract.progress.find(item => item.role === recipient.role)

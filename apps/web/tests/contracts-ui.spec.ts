@@ -16,6 +16,9 @@ const commercialRoles = ["Compradora", "Vendedora", "Testemunha 1", "Testemunha 
 const commercialDefaults = { cliente_nome: snapshot.customer.name, pedido_total: "100.00", itens: Array.from({ length: 10 }, (_, index) => `Acessório de teste ${index + 1} | 1 UN | R$ 10,00`).join("\n") }
 const commercialManualFields = ["condicoes", "entrega", "Representante — nome", "Representante — CPF", "Testemunha 1 — nome", "Testemunha 1 — CPF", "Testemunha 2 — nome", "Testemunha 2 — CPF", ...Array.from({ length: 20 }, (_, index) => `Informação comercial ${index + 1}`)]
 let commercial = false
+let inherited = false
+const proposalTerms = { id: "66666666-6666-4666-8666-666666666666", number: "18", version: 2, paymentTerms: "Entrada de 30%, saldo na entrega", deliveryTerms: "Entrega em 60 dias", notes: "Conferir acesso ao local" }
+function contractSnapshot() { return inherited ? { ...snapshot, proposal: proposalTerms } : snapshot }
 let generationCalls = 0
 let generatedRecipients: Recipient[] = []
 let generatedFields: Record<string, string> = {}
@@ -33,7 +36,7 @@ let templateDraft: { id: string; definition: unknown; revision: number } | null 
 let templateSaves = 0
 let templatePublications = 0
 function detail() {
-  return { tenantId: tenant, canEdit: true, canSend, emailReady, email: sends ? null : { subject: "Pedido PV-000042 e contrato para assinatura", text: "Pedido PV-000042\n\nCliente: Cliente de validação\n\nTotal do pedido: R$ 100,00\n\nO e-mail inclui o link individual para revisar e assinar o contrato." }, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
+  return { tenantId: tenant, canEdit: true, canSend, emailReady, email: sends ? null : { subject: "Pedido PV-000042 e contrato para assinatura", text: "Pedido PV-000042\n\nCliente: Cliente de validação\n\nTotal do pedido: R$ 100,00\n\nO e-mail inclui o link individual para revisar e assinar o contrato." }, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot: contractSnapshot(), recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial || inherited ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
 const upstream = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json")
@@ -85,6 +88,10 @@ const upstream = createServer(async (request, response) => {
     if (url.pathname === "/api/v1/me") { response.end(JSON.stringify({ tenant: { id: tenant, legalName: "Empresa de validação" }, permissions: ["sales.orders.read", "sales.orders.manage", "sales.contracts.send"] })); return }
     if (url.pathname === `/api/v1/orders/${orderId}`) { response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: { id: orderId, customerId, customerName: snapshot.customer.name, amount: "100.00", dueDate: "2026-12-01", status: "draft", revision: 1 }, items: [] })); return }
     if (url.pathname === `/api/v1/commercial-contracts/options/${orderId}`) {
+      if (inherited) {
+        const defaults = { cliente_nome: snapshot.customer.name, condicoes: proposalTerms.paymentTerms, entrega: proposalTerms.deliveryTerms, observacoes: proposalTerms.notes }
+        response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot: contractSnapshot(), defaults, templates: [{ id: 1, name: "Contrato de validação", updatedAt: "2026-10-29T00:00:00Z", roles: [{ name: "Cliente", uuid: "customer" }], fields: Object.keys(defaults).map(name => ({ name, type: "text", required: true })) }] })); return
+      }
       if (commercial) {
         response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot, defaults: commercialDefaults, templates: [{ id: 3, name: "Contrato comercial com quatro signatários", updatedAt: "2026-10-29T00:00:00Z", roles: commercialRoles.map((name, index) => ({ name, uuid: `signer-${index}` })), fields: [...Object.keys(commercialDefaults), ...commercialManualFields].map(name => ({ name, type: "text", required: true })) }] })); return
       }
@@ -97,7 +104,7 @@ const upstream = createServer(async (request, response) => {
       if (url.pathname === "/api/v1/commercial-contracts") {
         expect(body.orderId).toBe(orderId)
         expect(body.recipients[0].email).toBe("validation@example.test")
-        expect(body.fields.condicoes).toBe("Validação autorizada")
+        expect(body.fields.condicoes).toBe(inherited ? proposalTerms.paymentTerms : "Validação autorizada")
         generationCalls++
         generationKeys.push(String(request.headers["idempotency-key"]))
         generatedRecipients = body.recipients
@@ -145,7 +152,7 @@ test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(()
 test.beforeEach(() => {
   templateDraft = null; templateSaves = 0; templatePublications = 0
   status = "created"; revision = 1; canSend = true; emailReady = false
-  generated = false; sends = 0; reviewCalls = 0; commercial = false; generationCalls = 0
+  generated = false; sends = 0; reviewCalls = 0; commercial = false; inherited = false; generationCalls = 0
   generatedRecipients = []; generatedFields = {}; generationKeys = []; failures.length = 0
 })
 
@@ -272,6 +279,36 @@ test("contrato de outro pedido não oferece revisão nem envio no contexto de Ve
   await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toHaveCount(0)
   expect(sends).toBe(0)
   expect(reviewCalls).toBe(0)
+})
+
+test("condições da proposta são conferidas em grupos e protegidas antes de gerar sem enviar", async ({ page, context }, testInfo) => {
+  inherited = true
+  await context.addCookies([cookie()])
+  await page.goto(`/vendas/pedidos/${orderId}/contratos/novo`)
+  const source = page.getByRole("region", { name: "Condições herdadas da proposta" })
+  await expect(source).toContainText("Proposta 18 · versão 2")
+  await expect(source).toContainText(proposalTerms.notes)
+  await expect(page.getByRole("group", { name: "Cliente", exact: true })).toBeVisible()
+  await expect(page.getByRole("group", { name: "Pagamento, entrega e observações", exact: true })).toBeVisible()
+  for (const [label, value] of [["Condições comerciais", proposalTerms.paymentTerms], ["Condições e prazo de entrega", proposalTerms.deliveryTerms], ["Observações comerciais", proposalTerms.notes]]) {
+    const field = page.getByRole("textbox", { name: new RegExp(`^${label} \\*`) })
+    await expect(field).toHaveValue(value)
+    await expect(field).toHaveJSProperty("readOnly", true)
+  }
+  const generate = page.getByRole("button", { name: "Gerar prévia para revisão" })
+  await expect(generate).toBeEnabled()
+  await testInfo.attach("proposal-contract-fields-desktop", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await testInfo.attach("proposal-contract-fields-mobile", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await generate.click()
+  await page.waitForURL(`**/vendas/pedidos/${orderId}/contratos?contrato=${contractId}`)
+  expect(generatedFields).toEqual({ cliente_nome: snapshot.customer.name, condicoes: proposalTerms.paymentTerms, entrega: proposalTerms.deliveryTerms, observacoes: proposalTerms.notes })
+  expect(generationCalls).toBe(1)
+  expect(sends).toBe(0)
+  expect(reviewCalls).toBe(0)
+  await expect(page.getByRole("region", { name: "Condições herdadas da proposta" }).filter({ visible: true })).toContainText("Proposta 18 · versão 2")
+  expect(failures).toEqual([])
 })
 
 test("contrato comercial confere 31 campos e quatro destinatários antes da revisão, sem enviar convite", async ({ page, context }, testInfo) => {

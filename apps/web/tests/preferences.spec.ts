@@ -256,6 +256,38 @@ test("navegação por teclado mantém foco visível", async ({ page }) => {
   expect(focusStyle.outline !== "none" || focusStyle.shadow !== "none").toBeTruthy()
 })
 
+test("etiquetas customizadas criam e editam modelos validados", async ({ page }) => {
+  const tenant = "11111111-1111-4111-8111-111111111111"
+  let created: Record<string, unknown> | null = null
+  const template = {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Produto 100 × 50",
+    widthMm: 100, heightMm: 50, revision: 1,
+    layout: { source: "product", elements: [{ kind: "text", field: "name", label: "Produto", xMm: 2, yMm: 2, widthMm: 96, heightMm: 12, fontSizePt: 10 }] },
+  }
+  await page.route("**/api/erp/system/label-templates**", async (route) => {
+    const request = route.request()
+    if (request.method() === "POST") {
+      created = request.postDataJSON()
+      return route.fulfill({ status: 201, json: { tenantId: tenant, data: { ...template, ...created } } })
+    }
+    if (request.method() === "PUT") {
+      expect(request.headers()["if-match"]).toBe('"1"')
+      return route.fulfill({ json: { tenantId: tenant, data: { ...template, revision: 2 } } })
+    }
+    return route.fulfill({ json: { tenantId: tenant, data: [template], canEdit: true } })
+  })
+  await page.goto("/preferencias/sistema/etiquetas-customizadas")
+  await expect(page.getByRole("heading", { name: "Etiquetas customizadas" })).toBeVisible()
+  await page.getByLabel("Nome").fill("Etiqueta simples")
+  await page.getByRole("button", { name: "Criar modelo" }).click()
+  await expect.poll(() => created).not.toBeNull()
+  expect(created).toMatchObject({ name: "Etiqueta simples", source: "product", widthMm: 100, heightMm: 50 })
+  await page.getByRole("button", { name: "Editar" }).click()
+  await expect(page.getByRole("heading", { name: "Editar modelo" })).toBeVisible()
+  await page.getByRole("button", { name: "Salvar alterações" }).click()
+  await expect(page.getByRole("status")).toContainText("Modelo atualizado")
+})
+
 test("serviços executa fluxos específicos por operação", async ({ page }) => {
   await page.goto("/servicos/ordens")
   await page.getByRole("button", { name: /OS-2048/ }).click()

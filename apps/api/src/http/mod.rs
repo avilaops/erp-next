@@ -40,6 +40,8 @@ mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
 #[cfg(test)]
+mod label_templates_tests;
+#[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
 mod monitor_tests;
@@ -187,6 +189,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-reports/{id}",
             axum::routing::put(crate::platform::custom_reports::update),
+        )
+        .route(
+            "/api/v1/system/label-templates",
+            get(crate::platform::label_templates::list)
+                .post(crate::platform::label_templates::create),
+        )
+        .route(
+            "/api/v1/system/label-templates/{id}",
+            axum::routing::put(crate::platform::label_templates::update),
         )
         .merge(crate::domains::returns::routes())
         .route(

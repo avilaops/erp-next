@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+.erp-overview-body { container: overview-body / inline-size; }
+.erp-overview-bottom { display: grid; min-width: 0; gap: 1.5rem; align-items: start; }
+.erp-overview-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .75rem; }
+@container overview-body (min-width: 70rem) {
+  .erp-overview-bottom { grid-template-columns: minmax(0, 1fr) 20rem; }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

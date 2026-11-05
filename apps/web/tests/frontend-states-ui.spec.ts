@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test"
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret } from "../playwright.danfe.config"
 
+const dashboard = { tenantId: "11111111-1111-4111-8111-111111111111", period: "6M", startDate: "2026-05-05", endDate: "2026-11-05", sales: { orders: 3, cancelled: 1, amount: "1500.00", average: "500.00" }, salesSeries: [{ month: "2026-11", orders: 3, amount: "1500.00", average: "500.00" }], receivables: "820.50", purchasePayables: "250.00", products: 12, customers: 4 }
+
 const tenant = "11111111-1111-4111-8111-111111111111"
 const record = "22222222-2222-4222-8222-222222222222"
 test.beforeEach(async ({ context }) => {
@@ -19,6 +21,50 @@ test("dashboard inválido mostra 404 em português com saída", async ({ page })
   await expect(page.getByRole("heading", { name: "Dashboard de vendas", exact: true })).toHaveCount(0)
   await page.getByRole("link", { name: "Voltar ao início", exact: true }).click()
   await expect(page).toHaveURL(origin + "/")
+})
+
+test("dashboard usa a resposta da empresa e os módulos cabem na largura disponível", async ({ page }, testInfo) => {
+  await page.route("**/api/erp/dashboard?*", route => route.fulfill({ json: dashboard }))
+  await page.route("**/api/erp/audit", route => route.fulfill({ json: { tenantId: dashboard.tenantId, data: [{ id: "event-1", occurredAt: "2026-11-05T12:00:00Z", actor: "Operador de teste", action: "order.created", entityType: "sales_order" }], nextCursor: null } }))
+  await page.goto("/")
+  await expect(page.getByRole("link", { name: /Saldo a receber/ }).filter({ visible: true })).toContainText("R$ 820,50")
+  await expect(page.getByRole("complementary", { name: "Atividade recente" })).toContainText("order.created")
+  for (const width of [390, 907, 1280, 1600]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const cards = page.getByRole("region", { name: "Módulos", exact: true }).getByRole("link")
+    await expect(cards).toHaveCount(9)
+    for (const card of await cards.all()) {
+      const box = await card.boundingBox()
+      expect(box!.width).toBeGreaterThanOrEqual(250)
+      expect(await card.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const activity = await page.getByRole("complementary", { name: "Atividade recente" }).boundingBox()
+    expect(activity!.height).toBeLessThan(400)
+    await testInfo.attach(`dashboard-real-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  }
+  await page.goto("/dashboards/vendas")
+  await expect(page.getByRole("table")).toContainText("R$ 1.500,00")
+  await page.getByRole("combobox", { name: "Período do dashboard" }).selectOption("30D")
+  await expect.poll(() => page.locator("main").getByText("R$ 1.500,00", { exact: true }).count()).toBeGreaterThan(0)
+})
+
+test("metas e prévias não apresentam números fixos nem controles simulados", async ({ page }, testInfo) => {
+  await page.goto("/dashboards/metas")
+  await expect(page.getByRole("heading", { name: "Metas ainda não cadastradas", exact: true })).toBeVisible()
+  await expect(page.locator("main").getByText(/220 mil|83,9%|35,4 mil|Tendência positiva/)).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Exportar visão" })).toHaveCount(0)
+  await expect(page.getByRole("combobox", { name: "Período do dashboard" })).toHaveCount(0)
+  await testInfo.attach("metas-sem-dados-inventados", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.goto("/preferencias/integracoes/mercado-livre")
+  await expect(page.getByRole("heading", { name: "Integração ainda indisponível", exact: true })).toBeVisible()
+  await expect(page.locator("main").getByText(/4821|10:42|Conexão saudável|Sincronizar estoque/)).toHaveCount(0)
+  for (const path of ["/eventos", "/vendas/pdv", "/financeiro/relatorios", "/logistica/envios", "/servicos/ordens"]) {
+    await page.goto(path)
+    await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
+    await expect(page.locator("main button, main table, main input")).toHaveCount(0)
+    await expect(page.locator("main").getByText(/R\$|Academia Horizonte|Demonstração|Prévia de interface/)).toHaveCount(0)
+  }
 })
 
 test("títulos distinguem lista, criação, configuração e dashboard", async ({ page }) => {
@@ -43,31 +89,30 @@ test("importadores indisponíveis não aceitam arquivo nem inventam resultados",
   }
 })
 
-test("prévia de interface identifica dados fictícios e impede operação simulada", async ({ page }, testInfo) => {
+test("funcionalidade sem integração não monta dados ou operações fictícias", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/vendas/pdv")
-  await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
-  const buttons = page.locator("main button")
-  await expect(buttons.first()).toBeVisible()
-  expect(await buttons.count()).toBeGreaterThan(0)
-  for (const button of await buttons.all()) await expect(button).toBeDisabled()
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
+  await expect(page.locator("main button")).toHaveCount(0)
+  await expect(page.locator("main").getByText(/R\$|Academia Horizonte|PV-1048/)).toHaveCount(0)
+  await expect(page.getByRole("navigation", { name: "Operações disponíveis" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Suas empresas", exact: true })).toBeEnabled()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.screenshot({ path: testInfo.outputPath("previa-mobile.png"), fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath("indisponivel-mobile.png"), fullPage: true })
 })
 
-test("navegação entre prévia e cadastro integrado atualiza o bloqueio", async ({ page }) => {
+test("navegação entre funcionalidade indisponível e cadastro preserva as operações reais", async ({ page }) => {
   await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
   await page.goto("/vendas/pdv")
-  await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await page.getByRole("dialog").getByRole("combobox").fill("Produtos")
   await page.getByRole("option", { name: /^Produtos\b/ }).click()
-  await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toHaveCount(0)
   await expect(page.locator("main").getByRole("button", { name: "Buscar", exact: true })).toBeEnabled()
   await page.goBack()
-  await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
-  for (const button of await page.locator("main button").all()) await expect(button).toBeDisabled()
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
+  await expect(page.locator("main button")).toHaveCount(0)
 })
 
 test("erro inesperado oferece retry e mantém a consulta", async ({ page }) => {

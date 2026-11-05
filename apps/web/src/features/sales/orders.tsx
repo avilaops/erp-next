@@ -12,7 +12,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
@@ -235,6 +235,7 @@ function OrderDetail({ id }: { id: string }) {
         <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
         {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
+        {value.canEdit && value.data.status !== "cancelled" && <div className="space-y-2 rounded-xl border border-primary/30 p-4"><Link className={buttonVariants()} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link><p className="text-sm text-muted-foreground">Confira o documento e os destinatários. O resumo do pedido e o link de assinatura seguem no mesmo e-mail.</p></div>}
         {access.value?.permissions.includes("finance.commissions.read") && <OrderCommissionTerms orderId={id} onSaved={result.reload} />}
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}

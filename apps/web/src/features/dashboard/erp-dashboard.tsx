@@ -3,8 +3,9 @@
 import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useDashboardPreferences } from "./use-dashboard-preferences"
 import type { SetStateAction } from "react"
-import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Boxes, CircleDollarSign, ClipboardList, FileInput, PackageCheck, Plus, ReceiptText, Route, ShoppingCart, Star, Trash2, Users, Wrench } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, Boxes, CircleDollarSign, ClipboardList, PackageCheck, Plus, ReceiptText, Route, ShoppingCart, Star, Trash2, Users, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { money, RecentActivity, SalesSeries, useDashboardData, type DashboardData } from "./dashboard-data"
 
 const modules = [
   { title: "Cadastros", description: "Produtos, pessoas e tabelas fundamentais", href: "/cadastros", icon: Users },
@@ -35,6 +36,8 @@ export function ErpDashboard() {
     return option ? [{ label: option[0], href: option[1] }] : []
   })
   const period = preferences.layout.period
+  const summary = useDashboardData(period)
+  const metricValue = (value: string | number | null | undefined) => summary.loading ? "Carregando…" : summary.error ? "Indisponível" : value == null ? "Sem permissão" : String(value)
   const charts = preferences.layout.charts
   const availableChart = ["Ticket médio", "Valor faturado", "Pedidos de venda"].find(chart => !charts.includes(chart))
   function setFavorites(change: SetStateAction<typeof favorites>) {
@@ -69,7 +72,8 @@ export function ErpDashboard() {
           return <Link key={href as string} href={href as string} className="group flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-accent"><ActionIcon aria-hidden="true" className="size-5 text-primary" /><span className="flex-1">{label as string}</span><ArrowUpRight aria-hidden="true" className="size-4 text-muted-foreground" /></Link>
         })}
       </nav>
-      <p className="mt-5 text-sm text-muted-foreground">Os indicadores abaixo aguardam conexão com os dados da empresa.</p>
+      <p className="mt-5 text-sm text-muted-foreground">Pedidos consideram o período selecionado. Saldos financeiros e cadastros mostram a posição atual da empresa.</p>
+      {summary.error && <p className="mt-3 text-sm" role="status">{summary.error}</p>}
 
       <section className="mt-5 space-y-3 rounded-xl border p-4" aria-label="Preferências da página inicial">
         <div className="flex flex-wrap gap-3">
@@ -90,10 +94,6 @@ export function ErpDashboard() {
 
       <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="min-w-0 space-y-5">
-          <section className="rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-primary">Marketplaces</p><h2 className="mt-1 font-semibold">Importações de pedidos</h2></div><FileInput className="size-5 text-muted-foreground" /></div>
-            <p className="mt-5 text-sm text-muted-foreground">Contagem e limite indisponíveis. A integração de importações ainda não está conectada.</p>
-          </section>
 
           <section className="rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center justify-between"><h2 className="font-semibold">Atalhos favoritos</h2><Star className="size-4 text-primary" /></div><p className="mt-1 text-xs text-muted-foreground">Ordem salva para sua conta nesta empresa ao confirmar as alterações.</p>
@@ -102,19 +102,19 @@ export function ErpDashboard() {
           </section>
         </aside>
 
-        <div className="min-w-0">
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric href="/vendas/pedidos" label="Pedidos de venda" /><Metric href="/financeiro/contas-receber" label="Contas a receber" /><Metric href="/financeiro/contas-pagar" label="Contas a pagar" /><Metric href="/fiscal/notas-saida" label="Notas fiscais" /></section>
+        <div className="erp-overview-body min-w-0">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric href="/vendas/pedidos" label="Pedidos no período" value={metricValue(summary.value?.sales?.orders)} /><Metric href="/financeiro/contas-receber" label="Saldo a receber" value={metricValue(summary.value ? money(summary.value.receivables) : undefined)} /><Metric href="/financeiro/contas-pagar" label="Saldo a pagar de compras" value={metricValue(summary.value ? money(summary.value.purchasePayables) : undefined)} /><Metric href="/cadastros/produtos" label="Produtos ativos" value={metricValue(summary.value?.products)} /></section>
 
           <section className="mt-6 rounded-2xl border border-border bg-card p-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h2 className="text-lg font-semibold">Gráficos</h2><p className="mt-1 text-sm text-muted-foreground">Seleção pessoal de indicadores. Séries ainda não conectadas.</p></div><div className="flex flex-wrap gap-2">{periods.map((item) => <Button disabled={!preferences.editable} aria-pressed={period === item} key={item} onClick={() => setPeriod(item)} variant={period === item ? "default" : "outline"}>{item}</Button>)}<Button disabled={!preferences.editable || !availableChart} onClick={() => { if (availableChart) setCharts((items) => [...items, availableChart]) }} variant="outline"><Plus />Adicionar gráfico</Button></div></div>
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">{charts.map((chart) => <ChartCard key={chart} disabled={!preferences.editable} period={period} title={chart} onRemove={() => setCharts((items) => items.filter((item) => item !== chart))} />)}</div>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><h2 className="text-lg font-semibold">Gráficos</h2><p className="mt-1 text-sm text-muted-foreground">Pedidos não cancelados por mês de criação; não representam faturamento.</p></div><div className="flex flex-wrap gap-2">{periods.map((item) => <Button disabled={!preferences.editable} aria-pressed={period === item} key={item} onClick={() => setPeriod(item)} variant={period === item ? "default" : "outline"}>{item}</Button>)}<Button disabled={!preferences.editable || !availableChart} onClick={() => { if (availableChart) setCharts((items) => [...items, availableChart]) }} variant="outline"><Plus />Adicionar gráfico</Button></div></div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">{charts.map((chart) => <ChartCard key={chart} disabled={!preferences.editable} data={summary.value} period={period} title={chart} onRemove={() => setCharts((items) => items.filter((item) => item !== chart))} />)}</div>
           </section>
 
           <section className="mt-6"><div className="mb-3"><h2 className="text-lg font-semibold">Dashboards</h2><p className="mt-1 text-sm text-muted-foreground">Análises especializadas por objetivo.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{dashboardLinks.map(([label, href]) => <Link className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 hover:border-primary/40" href={href} key={href}><span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary"><BarChart3 className="size-4" /></span><strong className="min-w-0 flex-1 text-sm">{label}</strong><ArrowUpRight className="size-4 text-muted-foreground group-hover:text-primary" /></Link>)}</div></section>
 
-          <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <section><div className="mb-3"><h2 className="text-lg font-semibold">Módulos</h2><p className="mt-1 text-sm text-muted-foreground">Atalhos para as áreas operacionais.</p></div><div className="grid gap-3 sm:grid-cols-2">{modules.map((module) => { const Icon = module.icon; return <Link className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40" href={module.href} key={module.title}><span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="size-5" /></span><span className="min-w-0 flex-1"><strong className="block">{module.title}</strong><small className="mt-1 block text-sm text-muted-foreground">{module.description}</small></span><ArrowUpRight className="size-4 text-muted-foreground transition group-hover:text-primary" /></Link>})}</div></section>
-            <aside className="min-w-0 rounded-2xl border border-border bg-card"><div className="border-b border-border p-5"><h2 className="font-semibold">Atividade recente</h2></div><p className="p-5 text-sm text-muted-foreground">O histórico de atividades ainda não está conectado. Nenhum evento é apresentado nesta página.</p></aside>
+          <div className="erp-overview-bottom mt-6">
+            <section className="min-w-0" aria-label="Módulos"><div className="mb-3"><h2 className="text-lg font-semibold">Módulos</h2><p className="mt-1 text-sm text-muted-foreground">Atalhos para as áreas operacionais.</p></div><div className="erp-overview-modules">{modules.map((module) => { const Icon = module.icon; return <Link className="group flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40" href={module.href} key={module.title}><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="size-5" /></span><span className="min-w-0 flex-1"><strong className="block">{module.title}</strong><small className="mt-1 block text-sm text-muted-foreground">{module.description}</small></span><ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-primary" /></Link>})}</div></section>
+            <RecentActivity />
           </div>
         </div>
       </div>
@@ -122,10 +122,10 @@ export function ErpDashboard() {
   )
 }
 
-function Metric({ label, href }: { label: string; href: string }) {
-  return <Link className="group min-w-0 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40" href={href}><span className="text-sm text-muted-foreground">{label}</span><strong className="mt-2 block text-lg">Indisponível</strong><small className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>Aguardando dados da empresa</span><ArrowUpRight className="size-4 shrink-0 group-hover:text-primary" /></small></Link>
+function Metric({ label, href, value }: { label: string; href: string; value: string }) {
+  return <Link className="group min-w-0 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40" href={href}><span className="text-sm text-muted-foreground">{label}</span><strong className="mt-2 block text-lg">{value}</strong><small className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>Consultar registros</span><ArrowUpRight className="size-4 shrink-0 group-hover:text-primary" /></small></Link>
 }
 
-function ChartCard({ title, period, onRemove, disabled }: { title: string; period: string; onRemove: () => void; disabled: boolean }) {
-  return <article className="min-w-0 rounded-xl border border-border bg-background p-4" aria-label={`Gráfico ${title}`}><div className="flex items-start justify-between gap-3"><p className="min-w-0 text-sm text-muted-foreground">{title}</p><Button aria-label={`Remover gráfico ${title}`} disabled={disabled} onClick={onRemove} size="icon-sm" variant="ghost"><Trash2 /></Button></div><p className="mt-5 text-sm text-muted-foreground">Série indisponível para o período {period}. A fonte de dados ainda não está conectada.</p></article>
+function ChartCard({ title, period, onRemove, disabled, data }: { title: string; period: string; onRemove: () => void; disabled: boolean; data: DashboardData | null }) {
+  return <article className="min-w-0 rounded-xl border border-border bg-background p-4" aria-label={`Gráfico ${title}`}><div className="flex items-start justify-between gap-3"><p className="min-w-0 text-sm text-muted-foreground">{title}</p><Button aria-label={`Remover gráfico ${title}`} disabled={disabled} onClick={onRemove} size="icon-sm" variant="ghost"><Trash2 /></Button></div><p className="mt-3 text-xs text-muted-foreground">Período {period}</p>{title === "Valor faturado" ? <p className="mt-4 text-sm">Consulte os documentos autorizados em <Link className="text-primary underline" href="/fiscal/notas-saida">Notas fiscais</Link>. Valores de pedidos não equivalem a faturamento.</p> : data ? <SalesSeries data={data} average={title === "Ticket médio"} /> : <p className="mt-4 text-sm">Consulta de pedidos indisponível.</p> }</article>
 }

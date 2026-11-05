@@ -29,6 +29,8 @@ mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
 #[cfg(test)]
+mod files_tests;
+#[cfg(test)]
 mod financial_settings_tests;
 #[cfg(test)]
 mod fiscal_tests;
@@ -182,6 +184,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-fields/{id}",
             axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route("/api/v1/system/files", get(crate::platform::files::list))
+        .route(
+            "/api/v1/system/files/{id}/archive",
+            post(crate::platform::files::archive),
+        )
+        .route(
+            "/api/v1/system/files/{id}/content",
+            get(crate::platform::files::content),
         )
         .route(
             "/api/v1/system/custom-reports",

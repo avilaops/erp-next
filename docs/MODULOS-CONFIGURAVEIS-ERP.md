@@ -33,6 +33,13 @@ permissões específicas já adotadas pelo domínio fiscal.
 - Cancelamentos comerciais e fiscais permanecem fora dessa consulta.
 - A consulta exige `platform.audit.read` e nunca expõe detalhes, identificadores
   internos ou metadados privados da auditoria.
+- O Gerenciador de arquivos consulta, filtra e pagina os metadados atuais e os
+  arquivos imutáveis preservados do ERP anterior, sempre com isolamento RLS.
+- Conteúdo legado pode ser baixado pela rota autenticada. Binários atuais
+  continuam no storage que os originou; o PostgreSQL não recebe uma cópia
+  artificial e a interface não promete upload sem storage configurado.
+- O arquivamento altera somente o metadado atual, exige `If-Match`, incrementa a
+  revisão e registra auditoria/outbox. Não apaga conteúdo, versões ou legado.
 - O Gerenciador de transições mantém definições versionadas por empresa. Apenas
   rascunhos podem ser editados; versões publicadas são imutáveis e podem ser
   arquivadas, sem reabertura.

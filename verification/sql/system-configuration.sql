@@ -3,7 +3,8 @@ BEGIN;
 CREATE ROLE system_configuration_test NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA public, system_config TO system_configuration_test;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA system_config TO system_configuration_test;
-GRANT SELECT ON public.tenants, public.tenant_memberships, public.identities,
+GRANT SELECT ON public.tenants, public.platform_administrators,
+    public.tenant_memberships, public.identities,
     public.membership_roles, public.roles, public.role_permissions TO system_configuration_test;
 GRANT EXECUTE ON FUNCTION system_config.has_permission(text) TO system_configuration_test;
 

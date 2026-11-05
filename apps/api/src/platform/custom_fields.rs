@@ -1,4 +1,4 @@
-use super::{access, auth::AuthenticatedIdentity, state::AppState};
+use super::{auth::AuthenticatedIdentity, state::AppState};
 use crate::domains::{DomainChange, DomainError, authorized, db, record, response, revision};
 use axum::{
     Extension, Json,

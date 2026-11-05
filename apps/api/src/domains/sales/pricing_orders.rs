@@ -74,6 +74,7 @@ pub async fn create(
             upholstery_color: input.upholstery_color,
             arm_color: None,
             plate_holder_color: None,
+            plate_holder_type: None,
         }],
     };
     let mut order = super::prepare_order(&mut tx, tenant, &order_input, None).await?;

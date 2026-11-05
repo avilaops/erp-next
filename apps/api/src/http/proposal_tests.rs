@@ -66,7 +66,7 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
         "editor",
         None,
         Some(Uuid::now_v7()),
-        json!({"sku":"LEGACY-ARM-COLORS","name":"Produto legado","unit":"UN","ncm":null,"cest":null,"basePrice":"10.00","status":"active","armColors":["Azul"]}),
+        json!({"sku":"LEGACY-ARM-COLORS","name":"Produto legado","unit":"UN","ncm":null,"cest":null,"basePrice":"10.00","status":"active","armColors":["Azul"],"plateHolderType":"olympic"}),
     )
     .await;
     assert_eq!(
@@ -79,7 +79,26 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
         legacy_product.1["data"]["plateHolderColors"],
         json!(["Azul"])
     );
+    assert_eq!(
+        legacy_product.1["data"]["plateHolderTypes"],
+        json!(["Olímpico"])
+    );
+    assert_eq!(legacy_product.1["data"]["plateHolderType"], "olympic");
     assert!(legacy_product.1["data"].get("armColors").is_none());
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/products",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            json!({"sku":"CONFLICTING-HOLDER-TYPE","name":"Produto divergente","unit":"UN","ncm":null,"cest":null,"basePrice":"10.00","status":"active","plateHolderType":"standard","plateHolderTypes":["Olímpico"]}),
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
     let mut input = proposal();
     input["items"][0]["structureColor"] = json!("Piano Black");
     input["items"][0]["armColor"] = json!("Azul");

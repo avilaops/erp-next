@@ -380,6 +380,14 @@ mod tests {
             doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
         );
         assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderType"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderTypes"]
+                .is_object()
+        );
+        assert!(
             doc["components"]["schemas"]["OrderItemInput"]["properties"]["armColor"].is_object()
         );
         assert!(

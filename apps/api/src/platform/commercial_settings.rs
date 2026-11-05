@@ -83,8 +83,11 @@ pub async fn get(
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx) = transaction(&state, &headers, &identity, &line, false).await?;
     let (revision, mut data) = load(&mut tx, tenant, &line).await?;
-    let monthly_expenses_cents = crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await?;
-    if let Some(value) = data.as_mut() { value["monthlyExpensesCents"] = json!(monthly_expenses_cents); }
+    let monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await?;
+    if let Some(value) = data.as_mut() {
+        value["monthlyExpensesCents"] = json!(monthly_expenses_cents);
+    }
     tx.commit().await.map_err(db)?;
     snapshot(tenant, &line, revision, data, monthly_expenses_cents)
 }
@@ -101,7 +104,8 @@ pub async fn put(
     let expected = revision(&headers)?;
     let Json(mut parameters) = payload
         .map_err(|_| DomainError::Invalid("Parâmetros inválidos ou campos desconhecidos"))?;
-    parameters.monthly_expenses_cents = crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
+    parameters.monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
     parameters.simulate()?;
     let (current, _) = load(&mut tx, tenant, &line).await?;
     if current != expected {
@@ -133,7 +137,8 @@ pub async fn preview(
     let (tenant, mut tx) = transaction(&state, &headers, &identity, &line, false).await?;
     let Json(mut parameters) = payload
         .map_err(|_| DomainError::Invalid("Parâmetros inválidos ou campos desconhecidos"))?;
-    parameters.monthly_expenses_cents = crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
+    parameters.monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
     let calculation = parameters.simulate()?;
     tx.commit().await.map_err(db)?;
     Ok(response(

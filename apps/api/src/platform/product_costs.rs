@@ -19,7 +19,6 @@ pub struct ProductCostInput {
     pub tax_credit_bps: i32,
     pub packaging_cents: i64,
 }
-
 impl ProductCostInput {
     fn validate(&self) -> Result<(), DomainError> {
         if !matches!(self.product_line.as_str(), "imported" | "national")
@@ -101,7 +100,7 @@ fn snapshot(
     )
 }
 
-#[utoipa::path(get,path="/api/v1/product-costs/{id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=serde_json::Value),(status=403,description="Custos restritos à gestão"),(status=404,description="Produto não encontrado")))]
+#[utoipa::path(get,path="/api/v1/product-costs/{id}",operation_id="get_product_cost",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=serde_json::Value),(status=403,description="Custos restritos à gestão"),(status=404,description="Produto não encontrado")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -114,7 +113,7 @@ pub async fn get(
     Ok(snapshot(tenant, id, name, revision, data))
 }
 
-#[utoipa::path(put,path="/api/v1/product-costs/{id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=ProductCostInput,responses((status=200,body=serde_json::Value),(status=403,description="Exige gestão"),(status=404,description="Produto não encontrado"),(status=412,description="Revisão alterada"),(status=422,description="Custo inválido"),(status=428,description="Revisão obrigatória")))]
+#[utoipa::path(put,path="/api/v1/product-costs/{id}",operation_id="put_product_cost",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=ProductCostInput,responses((status=200,body=serde_json::Value),(status=403,description="Exige gestão"),(status=404,description="Produto não encontrado"),(status=412,description="Revisão alterada"),(status=422,description="Custo inválido"),(status=428,description="Revisão obrigatória")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -142,4 +141,3 @@ pub async fn put(
     tx.commit().await.map_err(db)?;
     Ok(snapshot(tenant, id, name, next, Some(data)))
 }
-

@@ -2272,7 +2272,7 @@
   "sources": [
     "apps/api/src/platform/commercial_settings.rs",
     "apps/api/src/platform/commercial_settings_model.rs",
-    "migrations/202611030001_commercial_settings.sql",
+    "migrations/202611042101_commercial_settings.sql",
     "apps/web/src/features/commercial-settings/commercial-settings.tsx"
   ],
   "verification": {
@@ -2366,7 +2366,7 @@
   "sources": [
     "apps/api/src/platform/commercial_settings.rs",
     "apps/api/src/platform/commercial_settings_model.rs",
-    "migrations/202611030001_commercial_settings.sql",
+    "migrations/202611042101_commercial_settings.sql",
     "apps/web/src/features/commercial-settings/commercial-settings.tsx"
   ],
   "verification": {

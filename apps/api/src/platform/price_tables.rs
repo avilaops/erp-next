@@ -1,6 +1,5 @@
 use super::{
-    auth::AuthenticatedIdentity, commercial_settings_model::CommercialParameters,
-    state::AppState,
+    auth::AuthenticatedIdentity, commercial_settings_model::CommercialParameters, state::AppState,
 };
 use crate::domains::{
     DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
@@ -66,7 +65,6 @@ mod tests {
         assert!(calculate(&p, 0, &cost(1_000_000_000_000, 0, 1_000_000_000_000)).is_err());
     }
 }
-
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PublishInput {
@@ -149,7 +147,8 @@ async fn candidate(
     .ok_or(DomainError::Conflict(
         "Salve os parâmetros da linha antes de preparar a publicação",
     ))?;
-    policy["monthlyExpensesCents"] = json!(crate::domains::fixed_expenses::monthly_total(tx, tenant).await?);
+    policy["monthlyExpensesCents"] =
+        json!(crate::domains::fixed_expenses::monthly_total(tx, tenant).await?);
     let parameters: CommercialParameters = serde_json::from_value(policy.clone())
         .map_err(|_| DomainError::Invalid("Parâmetros salvos inválidos"))?;
     let simulation = parameters.simulate()?;
@@ -185,7 +184,7 @@ async fn candidate(
     })
 }
 
-#[utoipa::path(get,path="/api/v1/price-tables/{line}/preview",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=409,description="Parâmetros ou custos ausentes")))]
+#[utoipa::path(get,path="/api/v1/price-tables/{line}/preview",operation_id="preview_price_table",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=409,description="Parâmetros ou custos ausentes")))]
 pub async fn preview(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -200,7 +199,9 @@ pub async fn preview(
         .execute(&mut *tx)
         .await
         .map_err(db)?;
-    if !matches!(code.as_str(), "imported" | "national") { return Err(DomainError::Invalid("Linha comercial inválida")); }
+    if !matches!(code.as_str(), "imported" | "national") {
+        return Err(DomainError::Invalid("Linha comercial inválida"));
+    }
     let result = candidate(&mut tx, tenant, &code).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
@@ -210,7 +211,7 @@ pub async fn preview(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/price-tables/{line}/publish",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=PublishInput,responses((status=200,body=Value),(status=412,description="Prévia desatualizada")))]
+#[utoipa::path(post,path="/api/v1/price-tables/{line}/publish",operation_id="publish_price_table",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),request_body=PublishInput,responses((status=200,body=Value),(status=412,description="Prévia desatualizada")))]
 pub async fn publish(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -245,7 +246,9 @@ pub async fn publish(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::OK, Some(expected), result));
     }
-    if !matches!(code.as_str(), "imported" | "national") { return Err(DomainError::Invalid("Linha comercial inválida")); }
+    if !matches!(code.as_str(), "imported" | "national") {
+        return Err(DomainError::Invalid("Linha comercial inválida"));
+    }
     let prepared = candidate(&mut tx, tenant, &code).await?;
     if prepared.settings_revision != expected || prepared.digest != input.digest {
         return Err(DomainError::StaleRevision);
@@ -267,7 +270,19 @@ pub async fn publish(
                 .bind(c.cost_revision).bind(json!({"purchaseCostCents":c.purchase_cost_cents,"taxCreditBps":c.tax_credit_bps,"packagingCents":c.packaging_cents}))
                 .bind(item.price_without_ipi_cents).bind(item.ipi_bps as i32).bind(item.price_with_ipi_cents).execute(&mut *tx).await.map_err(db)?;
         }
-        record(&mut tx,tenant,&identity,&headers,DomainChange {kind:"price_table",id,event:"price_table.published",details:json!({"line":code,"version":version,"itemCount":prepared.items.len()})}).await?;
+        record(
+            &mut tx,
+            tenant,
+            &identity,
+            &headers,
+            DomainChange {
+                kind: "price_table",
+                id,
+                event: "price_table.published",
+                details: json!({"line":code,"version":version,"itemCount":prepared.items.len()}),
+            },
+        )
+        .await?;
         (id, version)
     };
     sqlx::query("UPDATE commercial_settings SET active_price_version_id=$3 WHERE tenant_id=$1 AND product_line=$2")
@@ -287,7 +302,7 @@ pub async fn publish(
     Ok(response(StatusCode::OK, Some(expected), result))
 }
 
-#[utoipa::path(get,path="/api/v1/price-tables/{line}",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)))]
+#[utoipa::path(get,path="/api/v1/price-tables/{line}",operation_id="get_price_table",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)))]
 pub async fn current(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -296,7 +311,9 @@ pub async fn current(
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, _) =
         authorized(&state, &headers, &identity, MANAGE, MANAGE, false).await?;
-    if !matches!(code.as_str(), "imported" | "national") { return Err(DomainError::Invalid("Linha comercial inválida")); }
+    if !matches!(code.as_str(), "imported" | "national") {
+        return Err(DomainError::Invalid("Linha comercial inválida"));
+    }
     let current: Option<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',v.id,'version',v.version,'settingsRevision',v.settings_revision,'publishedAt',v.published_at,'calculatorVersion',v.calculator_version,'items',(SELECT COALESCE(jsonb_agg(jsonb_build_object('productId',i.product_id,'sku',i.product_snapshot->>'sku','name',i.product_snapshot->>'name','priceWithoutIpiCents',i.price_without_ipi_cents,'ipiBps',i.ipi_bps,'priceWithIpiCents',i.price_with_ipi_cents) ORDER BY i.product_id),'[]'::jsonb) FROM price_table_items i WHERE i.tenant_id=v.tenant_id AND i.version_id=v.id)) FROM commercial_settings s JOIN price_table_versions v ON v.tenant_id=s.tenant_id AND v.id=s.active_price_version_id WHERE s.tenant_id=$1 AND s.product_line=$2")
         .bind(tenant).bind(&code).fetch_optional(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
@@ -306,4 +323,3 @@ pub async fn current(
         json!({"tenantId":tenant,"line":code,"data":current}),
     ))
 }
-

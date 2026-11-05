@@ -288,6 +288,38 @@ test("etiquetas customizadas criam e editam modelos validados", async ({ page })
   await expect(page.getByRole("status")).toContainText("Modelo atualizado")
 })
 
+test("gerenciador de transições cria, edita e publica rascunhos", async ({ page }) => {
+  const tenant = "11111111-1111-4111-8111-111111111111"
+  let created: Record<string, unknown> | null = null
+  let action = ""
+  const workflow = {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", code: "approval_flow", version: 1,
+    name: "Aprovação", status: "draft", revision: 1,
+    states: [{ code: "draft", label: "Rascunho", isInitial: true, isTerminal: false }, { code: "approved", label: "Aprovado", isInitial: false, isTerminal: true }],
+    transitions: [{ fromState: "draft", toState: "approved", permissionCode: "system.workflows.manage", requiresReason: true }],
+  }
+  await page.route("**/api/erp/system/workflows**", async route => {
+    const request = route.request()
+    if (request.method() === "POST" && request.url().endsWith("/publish")) { action = "publish"; expect(request.headers()["if-match"]).toBe('"1"'); return route.fulfill({ json: { tenantId: tenant, data: { ...workflow, status: "published", revision: 2 } } }) }
+    if (request.method() === "POST") { created = request.postDataJSON(); return route.fulfill({ status: 201, json: { tenantId: tenant, data: { ...workflow, ...created } } }) }
+    if (request.method() === "PUT") { action = "update"; expect(request.headers()["if-match"]).toBe('"1"'); return route.fulfill({ json: { tenantId: tenant, data: { ...workflow, revision: 2 } } }) }
+    return route.fulfill({ json: { tenantId: tenant, data: [workflow], permissions: [{ code: "system.workflows.manage", description: "Configurar definições de fluxos" }], canEdit: true } })
+  })
+  await page.goto("/preferencias/sistema/transicoes")
+  await expect(page.getByRole("heading", { name: "Gerenciador de transições" })).toBeVisible()
+  await page.getByLabel("Código").fill("novo_fluxo")
+  await page.getByLabel("Nome").fill("Novo fluxo")
+  await page.getByRole("button", { name: "Adicionar transição" }).click()
+  await page.getByRole("button", { name: "Criar rascunho" }).click()
+  await expect.poll(() => created).not.toBeNull()
+  expect(created).toMatchObject({ code: "novo_fluxo", version: 1, name: "Novo fluxo" })
+  await page.getByRole("button", { name: "Editar" }).click()
+  await page.getByRole("button", { name: "Salvar rascunho" }).click()
+  await expect.poll(() => action).toBe("update")
+  await page.getByRole("button", { name: "Publicar" }).click()
+  await expect.poll(() => action).toBe("publish")
+})
+
 test("serviços executa fluxos específicos por operação", async ({ page }) => {
   await page.goto("/servicos/ordens")
   await page.getByRole("button", { name: /OS-2048/ }).click()

@@ -55,6 +55,16 @@ test("prepare refuses missing tax rules, changed totals, incompatible item rules
   assert.throws(() => mapDraft(incompatible), /classifica|regra/i);
 });
 
+test("component finishes survive preparation in infAdProd and pass the pinned XSD", async () => {
+  const input = preparation();
+  const additionalInfo = "Estrutura: Piano Black; Anilheiros: Azul; Tipo de anilheiro: Olímpico";
+  const withFinishes = { ...input, draft: { ...input.draft, items: [{ ...input.draft.items[0], additionalInfo }] } };
+  assert.equal(mapDraft(withFinishes).items[0].additionalInfo, additionalInfo);
+  const result = await dispatch("prepare", withFinishes);
+  assert.ok(String(result.signedXml).includes(`<infAdProd>${additionalInfo}</infAdProd>`));
+  assert.throws(() => mapDraft({ ...withFinishes, draft: { ...withFinishes.draft, items: [{ ...withFinishes.draft.items[0], additionalInfo: "x".repeat(501) }] } }), /Informações|500/i);
+});
+
 test("engine refuses mismatched environments and uncorrelated signed XML before any external call", async () => {
   let calls = 0;
   const send = async () => { calls++; return ""; };

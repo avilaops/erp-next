@@ -99,7 +99,7 @@ pub async fn snapshot(
                 WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
-                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color))
+                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color,'plateHolderColor',l.plate_holder_color,'plateHolderType',l.plate_holder_type))
                 ORDER BY l.line_number)
                 FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb))
         FROM sales_orders o
@@ -158,6 +158,8 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
                     let mut description = item["name"].as_str().unwrap_or("").to_owned();
                     for (key, label) in [
                         ("structureColor", "Estrutura"),
+                        ("plateHolderColor", "Anilheiros"),
+                        ("plateHolderType", "Tipo de anilheiro"),
                         ("upholsteryColor", "Estofado"),
                     ] {
                         if let Some(color) = item[key].as_str() {
@@ -338,10 +340,10 @@ mod tests {
 
     #[test]
     fn contract_items_include_the_finish_recorded_in_the_order() {
-        let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","upholsteryColor":"Vermelho"}]});
+        let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","plateHolderColor":"Azul","plateHolderType":"Olímpico","upholsteryColor":"Vermelho"}]});
         assert_eq!(
             defaults(&snapshot)["itens"],
-            "Equipamento · Estrutura: Branco · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
+            "Equipamento · Estrutura: Branco · Anilheiros: Azul · Tipo de anilheiro: Olímpico · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
         );
         let historical = json!({"items":[{"name":"Equipamento","quantity":"1.000000","unit":"UN","unitPrice":"1200.00","amount":"1200.00"}]});
         assert_eq!(

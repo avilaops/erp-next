@@ -46,7 +46,7 @@ async fn run() -> anyhow::Result<()> {
         .context("failed to bind HTTP listener")?;
     let local_address = listener.local_addr()?;
     let auth = AuthClient::new(config.auth_userinfo_url);
-    let state = AppState::new(pool, auth)
+    let mut state = AppState::new(pool, auth)
         .with_ibpt(domains::fiscal::ibpt::IbptCatalog::from_env()?)
         .with_registry(domains::registry_lookup::RegistryClient::new(
             std::env::var("ERP_CNPJ_WS_ENABLED").as_deref() == Ok("true"),
@@ -59,6 +59,7 @@ async fn run() -> anyhow::Result<()> {
         .with_danfe(config.danfe)
         .with_contracts(config.contracts)
         .with_invitations(config.invitations);
+    state.catalog_media = domains::catalog_publication::MediaGateway::from_env()?;
     let fiscal_worker = domains::fiscal::incoming::worker::start(state.clone())?;
     let cte_worker = domains::fiscal::cte_distribution::worker::start(state.clone())?;
     let payroll_worker = domains::staff_payroll::start_worker(state.clone());

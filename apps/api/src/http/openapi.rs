@@ -45,6 +45,9 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         access_management::get_role, access_management::create_role, access_management::update_role,
         access_management::delete_role, access_management::get_member, access_management::update_member,
         catalog::list, catalog::get, catalog::create, catalog::update,
+        crate::domains::catalog_publication::get, crate::domains::catalog_publication::put,
+        crate::domains::catalog_publication::media, crate::domains::catalog_publication::preview,
+        crate::domains::catalog_publication::publish,
         parties::list, parties::get, parties::create, parties::update,
         reference_data::list_product_categories, reference_data::get_product_category,
         reference_data::create_product_category, reference_data::update_product_category,
@@ -372,7 +375,24 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 204);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 207);
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderType"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderTypes"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["OrderItemInput"]["properties"]["armColor"].is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProposalItemInput"]["properties"]["armColor"].is_object()
+        );
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());

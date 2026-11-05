@@ -3,6 +3,9 @@ import "server-only"
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
+  const catalogPublicationResource = resource === "/catalog-publication" && ["GET", "POST"].includes(request.method)
+    || /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) && ["GET", "PUT"].includes(request.method)
+  if (catalogPublicationResource && new URL(request.url).search) return Response.json({ title: "Consulta inválida" }, { status: 400 })
   const payrollResource = request.method === "GET" && /^\/staff-payroll$|^\/staff\/[a-f0-9-]{36}\/payroll$/i.test(resource)
     || request.method === "POST" && /^\/staff-payroll\/(?:generate|salaries)$|^\/staff-payroll\/requests\/[a-f0-9-]{36}\/review$|^\/staff\/[a-f0-9-]{36}\/payroll\/requests$/i.test(resource)
   const registrationResource = resource === "/company-registration/lookup"
@@ -23,7 +26,7 @@ export async function forwardErp(request: Request, resource: string) {
     && (resource.endsWith("/publish") ? request.method === "POST" : request.method === "GET")
   const fixedExpenseResource = /^\/fixed-expenses(?:\/[a-f0-9-]{36})?$/.test(resource)
     && (resource === "/fixed-expenses" ? ["GET", "POST"].includes(request.method) : request.method === "PUT")
-  const commercialResource = /^\/(?:commercial-settings)\/(?:imported|national)(?:\/preview)?$/.test(resource)
+  const commercialResource = catalogPublicationResource || /^\/(?:commercial-settings)\/(?:imported|national)(?:\/preview)?$/.test(resource)
     && (resource.endsWith("/preview") ? request.method === "POST" : ["GET", "PUT"].includes(request.method))
   const simulatorCollection = /^\/sales-simulator\/(?:imported|national)$/.test(resource)
   const simulatorQuote = /^\/sales-simulator\/(?:imported|national)\/quote$/.test(resource)
@@ -60,7 +63,7 @@ export async function forwardErp(request: Request, resource: string) {
       const reader = request.body?.getReader()
       const chunks: Uint8Array[] = []
       let size = 0
-      const bodyLimit = /^\/(?:staff|products)(?:\/[a-f0-9-]{36})?$/i.test(resource) ? 400_000 : 65_536
+      const bodyLimit = /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) ? 14_100_000 : /^\/(?:staff|products)(?:\/[a-f0-9-]{36})?$/i.test(resource) ? 400_000 : 65_536
       if (reader) for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -121,7 +124,7 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(invitationResource || accountResource ? 20000 : 10000) })
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(catalogPublicationResource ? 90000 : invitationResource || accountResource ? 20000 : 10000) })
     // ETag is the backend revision used by If-Match; proxy encoding must not rewrite it.
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }

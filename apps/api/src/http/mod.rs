@@ -393,6 +393,21 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/products", get(catalog::list).post(catalog::create))
         .route(
+            "/api/v1/products/{id}/catalog",
+            get(crate::domains::catalog_publication::get)
+                .put(crate::domains::catalog_publication::put)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
+        )
+        .route(
+            "/api/v1/products/{id}/media/{media_id}",
+            get(crate::domains::catalog_publication::media),
+        )
+        .route(
+            "/api/v1/catalog-publication",
+            get(crate::domains::catalog_publication::preview)
+                .post(crate::domains::catalog_publication::publish),
+        )
+        .route(
             "/api/v1/products/{id}",
             get(catalog::get).put(catalog::update),
         )

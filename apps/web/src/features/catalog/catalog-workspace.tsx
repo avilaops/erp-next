@@ -30,7 +30,7 @@ import type { PersonalPreferences } from "@/features/preferences/system/system-p
 type Product = Schema<"Product">
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [] }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], armColors: [], plateHolderColors: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal
@@ -122,7 +122,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], armColors: value.data.armColors || [], plateHolderColors: value.data.plateHolderColors || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -131,7 +131,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       setStorageInvalid(!!stored.error)
       command.current = recoveredDraft?.command || null
       setStorageError(stored.error); setRecovered(!!recoveredDraft)
-      setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: value.data })
+      setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: id ? value.data : { ...empty, id: "", revision: 0, hasPhoto: false, upholsteryConfigurable: value.upholsteryConfigurable } })
       setDraft(recoveredDraft ? { ...data, ...recoveredDraft.draft } : data); setBaseline(recoveredDraft?.baseline || JSON.stringify(data)); setEtag(recoveredDraft?.etag || serverEtag)
       setError(changedRevision ? "O produto mudou no servidor. Sua edição foi recuperada; confira os dados antes de recarregar o cadastro." : recoveredDraft?.conflict ? "A gravação anterior precisa ser conferida. Sua edição foi recuperada; recarregue o cadastro para conferir o estado do servidor." : "")
       setConflict(changedRevision || !!recoveredDraft?.conflict); setUncertain(!!recoveredDraft?.uncertain)
@@ -151,7 +151,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
     const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
-    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []) })
+    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []), armColors: normalizeColors(draft.armColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []) })
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body }
     // Persist the in-flight command before dispatch. A reload must not create a new command.
     if (!writeProductDraft(storageKey, { version: 1, draft, baseline, etag, uncertain: !id, conflict: !!id, command: command.current })) {
@@ -199,7 +199,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
             <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
             <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
-            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores do estofado"]] as const).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "structureColors" ? "Uma cor de pintura por linha" : "Uma cor de revestimento por linha"} /></label>)}</div>
+            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["armColors", "Cores dos braços"], ["plateHolderColors", "Cores do anilheiro"], ["upholsteryColors", "Cores do estofado"]] as const).filter(([field]) => field !== "upholsteryColors" || snapshot.data.upholsteryConfigurable !== false).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={"Uma cor por linha"} /></label>)}</div>
           </fieldset>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-8 rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
           <p id="product-price-help" className="text-sm text-muted-foreground">Use vírgula ou ponto, com até duas casas decimais. Exemplo: 12,50. Não use separador de milhar.</p>
@@ -208,7 +208,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         </form>}
         {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Cores disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
+        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.armColors?.length || snapshot.data.plateHolderColors?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Cores disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Braços", snapshot.data.armColors], ["Anilheiro", snapshot.data.plateHolderColors], ["Estofado", snapshot.data.upholsteryColors]] as const).filter(([label, colors]) => label !== "Estofado" || snapshot.data.upholsteryConfigurable !== false || !!colors?.length).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
       </>}
     </section>
   </div>

@@ -99,6 +99,7 @@ export type NfeRules = {
 };
 
 export type NfeItem = {
+  additionalInfo?: string | null;
   code: string;
   name: string;
   ncm: string;
@@ -559,7 +560,7 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
           )
         : ""),
   );
-  return group("det", product + taxes, ` nItem="${index + 1}"`);
+  return group("det", product + taxes + tag("infAdProd", item.additionalInfo ? clean(item.additionalInfo, 500) : null), ` nItem="${index + 1}"`);
 }
 
 /** The transport group: the way of freight always; the carrier and the volumes only with what was informed. */

@@ -209,6 +209,8 @@ impl Recipient {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftItem {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additional_info: Option<String>,
     pub code: String,
     pub description: String,
     pub unit: String,
@@ -480,6 +482,15 @@ impl DraftInput {
         };
         let mut total = 0_i64;
         for item in &self.items {
+            if item
+                .additional_info
+                .as_deref()
+                .is_some_and(|value| !text(value, 500))
+            {
+                return Err(DomainError::Invalid(
+                    "Informações do item exigem até 500 caracteres sem controles",
+                ));
+            }
             if !text(&item.code, 60) || !text(&item.description, 120) || !text(&item.unit, 6) {
                 return Err(DomainError::Invalid(
                     "Código, descrição ou unidade do item inválidos",

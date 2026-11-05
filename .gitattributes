@@ -6,3 +6,5 @@ apps/fiscal-engine/src/lib/fiscal/schemas/**/*.xsd -text whitespace=-trailing-sp
 apps/fiscal-engine/tests/fixtures/nfe-xsd/**/*.xsd -text whitespace=-trailing-space
 # Signed XML fixtures are correlated with SHA-256 metadata; checkout must preserve bytes.
 apps/api/src/http/fixtures/*.xml -text
+# The authorizer matrix and source snapshots are verified by exact SHA-256.
+apps/fiscal-engine/src/lib/fiscal/schemas/nfe-authorizers/** -text

@@ -31,6 +31,10 @@ struct Order {
 
 #[derive(FromRow)]
 struct Line {
+    structure_color: Option<String>,
+    arm_color: Option<String>,
+    plate_holder_color: Option<String>,
+    upholstery_color: Option<String>,
     product_id: Uuid,
     sku: String,
     name: String,
@@ -38,6 +42,26 @@ struct Line {
     quantity_micros: i64,
     price_cents: i64,
     amount_cents: i64,
+}
+
+impl Line {
+    fn finish_information(&self) -> Option<String> {
+        let values = [
+            ("Estrutura", &self.structure_color),
+            ("Braços", &self.arm_color),
+            ("Anilheiro", &self.plate_holder_color),
+            ("Estofado", &self.upholstery_color),
+        ]
+        .into_iter()
+        .filter_map(|(label, value)| {
+            value
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .map(|s| format!("{label}: {s}"))
+        })
+        .collect::<Vec<_>>();
+        (!values.is_empty()).then(|| values.join("; "))
+    }
 }
 
 async fn order(
@@ -60,7 +84,7 @@ async fn lines(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Vec<Line>, DomainError> {
-    let lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,arm_color,plate_holder_color,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     if lines.is_empty() || lines.len() > 990 {
         return Err(DomainError::Conflict(
@@ -85,6 +109,7 @@ async fn lines(
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparationLine {
+    additional_info: Option<String>,
     product_id: Uuid,
     code: String,
     description: String,
@@ -177,6 +202,7 @@ pub async fn get(
                 .await
                 .map_err(db)?;
         items.push(PreparationLine {
+            additional_info: line.finish_information(),
             product_id: line.product_id,
             code: line.sku,
             description: line.name,
@@ -232,12 +258,14 @@ pub(super) async fn validate(
         .await?
         .into_iter()
         .map(|line| {
+            let additional_info = line.finish_information();
             (
                 line.sku,
                 line.unit,
                 i128::from(line.quantity_micros),
                 i128::from(line.price_cents) * 100_000_000,
                 i128::from(line.amount_cents),
+                additional_info,
             )
         })
         .collect::<Vec<_>>();
@@ -251,6 +279,7 @@ pub(super) async fn validate(
                 exact_decimal(&item.quantity, 11, 4)? * 100,
                 exact_decimal(&item.unit_price, 11, 10)?,
                 exact_decimal(&item.gross_total, 13, 2)?,
+                item.additional_info.clone(),
             ))
         })
         .collect::<Result<Vec<_>, DomainError>>()?;

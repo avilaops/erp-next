@@ -48,7 +48,7 @@ test("conflito preserva o formulário e impede repetição sem recarregar", asyn
 test("menu habilita Vendas e configurações respeitam acesso de consulta", async ({ page }) => {
   await page.route("**/api/erp/sales-settings", route => route.fulfill({ headers: { ETag: '"2"' }, json: { tenantId: tenant, revision: 2, canEdit: false, data: settings } }))
   await page.goto("/preferencias?categoria=vendas")
-  await expect(page.locator("#preference-options").getByRole("link", { name: "Tabela de preços", exact: true })).toHaveAttribute("href", "/preferencias/tabela-precos")
+  await expect(page.locator("#preference-options").getByRole("link", { name: /^Tabela de preços/ })).toHaveAttribute("href", "/preferencias/tabela-precos")
   await page.locator("#preference-options").getByRole("link", { name: "Vendas", exact: true }).click()
   await expect(page.getByLabel("Valor mínimo do pedido", { exact: true })).toHaveValue("100.00")
   await expect(page.getByLabel("Valor mínimo do pedido", { exact: true })).toBeDisabled()

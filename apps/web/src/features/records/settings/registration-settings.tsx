@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ludusProfiles, type TaxProfile } from "@/features/fiscal/settings/tax-profile-model"
+import { ludusProfiles, normalizedProfile, type TaxProfile } from "@/features/fiscal/settings/tax-profile-model"
+import { LineTaxRulesEditor } from "@/features/fiscal/settings/line-tax-rules"
 export type Section = "products" | "parties" | "contact-types" | "tax-profiles"
 type Data = {
   requireNcm?: boolean
@@ -85,7 +86,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
       const response = await erpFetch(`/api/erp/registration-settings/${section}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag },
-        body: JSON.stringify(data)
+        body: JSON.stringify(section === "tax-profiles" ? { ...data, profiles: data.profiles?.map(normalizedProfile) } : data)
       })
       const value = await response.json()
       if (!response.ok) {
@@ -256,6 +257,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                       />
                       Perfil ativo
                     </label>
+                    <LineTaxRulesEditor value={value} index={index + 1} update={patch => profile(index, patch)} />
                     <Button
                       type="button"
                       variant="outline"

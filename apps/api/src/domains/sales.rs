@@ -20,6 +20,10 @@ use uuid::Uuid;
 pub mod pricing;
 mod pricing_model;
 pub mod pricing_orders;
+pub mod negotiation;
+pub mod negotiation_model;
+#[cfg(test)]
+mod negotiation_model_tests;
 mod proposal_rules;
 pub mod proposals;
 pub mod settings;
@@ -608,6 +612,7 @@ pub async fn update(
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     input.normalize_legacy_component_colors()?;
     let request = serde_json::json!({"id":id,"revision":expected,"input":input});
+    negotiation::require_unquoted(&mut tx, tenant, id).await?;
     if let Some(previous) = replay(
         &mut tx,
         tenant,
@@ -740,6 +745,7 @@ async fn transition(
             ));
         }
         if matches!(action, Action::Confirm) {
+            negotiation::require_approval(&mut tx, tenant, id).await?;
             settings::validate_confirmation(&mut tx, tenant, &current).await?;
             pricing_orders::validate_confirmation(&mut tx, tenant, id).await?;
         }

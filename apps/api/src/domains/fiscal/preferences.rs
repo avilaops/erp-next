@@ -326,6 +326,7 @@ pub async fn put(
 }
 
 #[derive(Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct EventQuery {
     kind: String,

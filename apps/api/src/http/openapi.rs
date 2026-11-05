@@ -17,6 +17,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
     paths(crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         onboarding::select_company,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
+        crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
         crate::domains::registry_lookup::lookup,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
@@ -366,7 +367,10 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 185);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 187);
+        assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());
         let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
         for status in ["204", "400", "401", "403", "500", "503"] {
             assert!(selection["responses"].get(status).is_some());

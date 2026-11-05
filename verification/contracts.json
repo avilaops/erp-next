@@ -463,6 +463,17 @@
         ]
       },
       {
+        "id": "commercial-settings",
+        "title": "Parâmetros comerciais",
+        "goal": "Salvar e simular políticas por linha sem alterar preços existentes.",
+        "kind": "product",
+        "actionGroups": ["commercial-settings"],
+        "dependencies": ["company_onboarding"],
+        "nextStep": "Cadastrar despesas fixas e publicar tabelas versionadas após conferência.",
+        "additionalSources": ["docs/PARAMETROS-COMERCIAIS-2026-11-04.md"],
+        "journey": [{ "id": "configure", "title": "Salvar e simular política", "actionIds": ["get-commercial-settings", "put-commercial-settings", "preview-commercial-settings"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
         "id": "sales-settings",
         "title": "Configurações de vendas",
         "goal": "Definir valor mínimo, prazo máximo e exigência de contato na confirmação dos pedidos.",
@@ -1319,6 +1330,288 @@
     }
   ],
   "actions": [
++{
+  "id": "get-commercial-settings",
+  "flow": "commercial-settings",
+  "status": "implemented",
+  "operation": {
+    "method": "GET",
+    "path": "/api/v1/commercial-settings/{line}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": null,
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; linha Importada ou Nacional; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Política da linha ou ausência",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera preços do catálogo, propostas ou pedidos automaticamente."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta ou simulação sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "get-commercial-settings"
+  },
+  "recovery": "Preservar edição; recarregar após conflito ou confirmação incerta.",
+  "ui": {
+    "pages": [
+      "/preferencias/comercial"
+    ],
+    "bff": {
+      "method": "GET",
+      "path": "/api/erp/commercial-settings/{line}"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/commercial_settings.rs",
+    "apps/api/src/platform/commercial_settings_model.rs",
+    "migrations/202611042101_commercial_settings.sql",
+    "apps/web/src/features/commercial-settings/commercial-settings.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "put-commercial-settings",
+  "flow": "commercial-settings",
+  "status": "implemented",
+  "operation": {
+    "method": "PUT",
+    "path": "/api/v1/commercial-settings/{line}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id",
+      "If-Match"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": {
+      "source": "apps/api/src/platform/commercial_settings_model.rs",
+      "type": "CommercialParameters"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; linha Importada ou Nacional; gestão da empresa exigida.",
+    "Percentuais, valores e 27 UFs validados no servidor."
+  ],
+  "transition": {
+    "from": "Política da linha ou ausência",
+    "to": "Rascunho versionado salvo"
+  },
+  "effects": {
+    "writes": [
+      "commercial_settings",
+      "audit_log"
+    ],
+    "external": [],
+    "excludes": [
+      "Não altera preços do catálogo, propostas ou pedidos automaticamente."
+    ]
+  },
+  "concurrency": {
+    "revision": true,
+    "idempotency": false,
+    "rule": "If-Match exige revisão atual; auditoria e dados gravados na mesma transação."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "put-commercial-settings"
+  },
+  "recovery": "Preservar edição; recarregar após conflito ou confirmação incerta.",
+  "ui": {
+    "pages": [
+      "/preferencias/comercial"
+    ],
+    "bff": {
+      "method": "PUT",
+      "path": "/api/erp/commercial-settings/{line}"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/commercial_settings.rs",
+    "apps/api/src/platform/commercial_settings_model.rs",
+    "migrations/202611030001_commercial_settings.sql",
+    "apps/web/src/features/commercial-settings/commercial-settings.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "preview-commercial-settings",
+  "flow": "commercial-settings",
+  "status": "implemented",
+  "operation": {
+    "method": "POST",
+    "path": "/api/v1/commercial-settings/{line}/preview"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": {
+      "source": "apps/api/src/platform/commercial_settings_model.rs",
+      "type": "CommercialParameters"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; linha Importada ou Nacional; gestão da empresa exigida.",
+    "Percentuais, valores e 27 UFs validados no servidor."
+  ],
+  "transition": {
+    "from": "Política da linha ou ausência",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera preços do catálogo, propostas ou pedidos automaticamente."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta ou simulação sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "preview-commercial-settings"
+  },
+  "recovery": "Preservar edição; recarregar após conflito ou confirmação incerta.",
+  "ui": {
+    "pages": [
+      "/preferencias/comercial"
+    ],
+    "bff": {
+      "method": "POST",
+      "path": "/api/erp/commercial-settings/{line}/preview"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/commercial_settings.rs",
+    "apps/api/src/platform/commercial_settings_model.rs",
+    "migrations/202611030001_commercial_settings.sql",
+    "apps/web/src/features/commercial-settings/commercial-settings.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
     {
       "id": "post-registry-lookups",
       "flow": "registry-lookups",

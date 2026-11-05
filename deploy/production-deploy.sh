@@ -24,9 +24,9 @@ release="$ROOT/releases/$source_sha"
 cleanup() { rm -rf -- "$staging"; }
 trap cleanup EXIT
 
-tar --extract --gzip --no-same-owner --directory "$staging" \
-  --file - -- \
-  api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz compose.yaml fiscal-compose.yaml
+# Extract the complete stream first, then enforce the allow-list below. GNU tar
+# does not reliably match the selected names when the sender emits ./ prefixes.
+tar --extract --gzip --no-same-owner --directory "$staging" --file -
 
 for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz compose.yaml fiscal-compose.yaml; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"

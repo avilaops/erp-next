@@ -128,7 +128,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/v1/commercial-settings/{line}",
-            get(crate::platform::commercial_settings::get).put(crate::platform::commercial_settings::put),
+            get(crate::platform::commercial_settings::get)
+                .put(crate::platform::commercial_settings::put),
         )
         .route(
             "/api/v1/commercial-settings/{line}/preview",

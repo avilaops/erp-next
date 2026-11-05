@@ -6,6 +6,37 @@ const profile = { environment: "homologation", state: "SP", municipalityCode: "3
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("usuário escolhe produção e informa a numeração sem transmitir uma nota", async ({page},testInfo) => {
+  let saved: Record<string,unknown> = {...profile}
+  let writes=0
+  let emissions=0
+  await page.route("**/api/erp/company",route=>route.fulfill({json:{tenantId:tenant,data:company}}))
+  await page.route("**/api/erp/fiscal/config",route=>{
+    if(route.request().method()==="PUT") {
+      writes++
+      expect(route.request().headers()["if-match"]).toBe('"1"')
+      saved=route.request().postDataJSON()
+    }
+    return route.fulfill({headers:{ETag:writes?'"2"':'"1"'},json:{tenantId:tenant,revision:writes?2:1,canEdit:true,certificateVerified:true,data:saved}})
+  })
+  await page.route("**/api/erp/fiscal/nfe/**/issue",route=>{emissions++;return route.fulfill({status:500,json:{title:"Não deveria transmitir"}})})
+  await page.setViewportSize({width:390,height:844})
+  await page.goto("/preferencias/fiscal")
+  await page.getByLabel("Ambiente",{exact:true}).selectOption("production")
+  await expect(page.getByLabel("Próximo número da NF-e",{exact:false})).toHaveValue("")
+  await expect(page.getByRole("button",{name:"Salvar configuração fiscal",exact:true})).toBeDisabled()
+  await page.getByLabel("Próximo número da NF-e",{exact:false}).fill("500")
+  await page.getByRole("button",{name:"Salvar configuração fiscal",exact:true}).click()
+  await expect(page.getByText("Configuração fiscal salva no servidor. A transmissão é feita na nota fiscal.",{exact:true})).toBeVisible()
+  expect(saved).toEqual({...profile,environment:"production",nextNumber:500})
+  await page.reload()
+  await expect(page.getByLabel("Ambiente",{exact:true})).toHaveValue("production")
+  await expect(page.getByLabel("Próximo número da NF-e",{exact:false})).toHaveValue("500")
+  expect(emissions).toBe(0)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await testInfo.attach("nfe-production-config-mobile",{body:await page.screenshot({fullPage:true}),contentType:"image/png"})
+})
+
 test("preferências da empresa oferece acesso direto aos dados de emissão", async ({ page }) => {
   await page.route("**/api/erp/company", route => route.fulfill({ json: { tenantId: tenant, revision: 1, data: { ...company, substituteRegistrations: [] } } }))
   await page.goto("/preferencias/empresa")

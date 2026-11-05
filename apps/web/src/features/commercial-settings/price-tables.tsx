@@ -18,7 +18,7 @@ export function PriceTables() {
   const [locked, setLocked] = useState(false)
   return <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Preferências / Comercial" title="Tabela de preços" description="Confira a prévia e publique uma versão da linha selecionada." />
-    <div className="flex gap-3"><Link href="/preferencias/comercial" className="text-primary underline">Parâmetros comerciais</Link><Link href="/preferencias/despesas-fixas" className="text-primary underline">Despesas fixas</Link></div>
+    <div className="flex flex-wrap gap-3"><Link href="/vendas/simulador" className="text-primary underline">Simular negociação</Link><Link href="/preferencias/comercial" className="text-primary underline">Parâmetros comerciais</Link><Link href="/preferencias/despesas-fixas" className="text-primary underline">Despesas fixas</Link></div>
     <label className="grid max-w-xs gap-1">Linha comercial<select disabled={locked} className="min-h-10 rounded-lg border bg-background px-2" value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
     <Publication key={line} line={line} onLocked={setLocked} />
   </main>

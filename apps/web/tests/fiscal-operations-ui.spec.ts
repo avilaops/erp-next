@@ -13,7 +13,7 @@ test("lista de NF-e distingue emissão em homologação da produção indisponí
   await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
   await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: true, productionEnabled: false, blockers: [] } }))
   await page.goto("/fiscal/notas-saida")
-  await expect(page.getByText("A emissão está disponível somente em homologação, sem valor fiscal. A emissão em produção permanece indisponível.", { exact: false })).toBeVisible()
+  await expect(page.getByText("A emissão usa o ambiente escolhido na configuração fiscal. Homologação é um ambiente de testes, sem valor fiscal.", { exact: false })).toBeVisible()
   await expect(page.getByText("A transmissão à SEFAZ permanece indisponível.", { exact: true })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Preparar nota", exact: true })).toBeVisible()
 })

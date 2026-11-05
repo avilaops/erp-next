@@ -4,11 +4,32 @@ use utoipa::ToSchema;
 use crate::domains::{DomainError, decimal};
 use crate::platform::valid_document;
 
-/// No production variant: neither a request nor a database row can enable it.
-#[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Environment {
     Homologation,
+    Production,
+}
+impl Environment {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "homologation" => Some(Self::Homologation),
+            "production" => Some(Self::Production),
+            _ => None,
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Homologation => "homologation",
+            Self::Production => "production",
+        }
+    }
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Homologation => "2",
+            Self::Production => "1",
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
@@ -20,6 +41,9 @@ pub struct ProfileInput {
     pub state_registration: String,
     pub crt: u8,
     pub series: u16,
+    /// User-declared next number. Required when configuring production.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_number: Option<u32>,
     /// Opaque alias only. Not a path, password, certificate or proof of provisioning.
     #[serde(default)]
     #[schema(required = true)]
@@ -48,6 +72,15 @@ impl ToSchema for ProfileRequest {}
 
 impl ProfileInput {
     pub fn validate(&self) -> Result<(), DomainError> {
+        if self
+            .next_number
+            .is_some_and(|number| !(1..=999_999_999).contains(&number))
+            || self.environment == Environment::Production && self.next_number.is_none()
+        {
+            return Err(DomainError::Invalid(
+                "Informe a próxima numeração da série para produção",
+            ));
+        }
         let prefix = state_code(&self.state).ok_or(DomainError::Invalid("UF inválida"))?;
         if !digits(&self.municipality_code, 7) || !self.municipality_code.starts_with(prefix) {
             return Err(DomainError::Invalid(
@@ -460,6 +493,11 @@ pub struct DraftInput {
 impl DraftInput {
     /// Structural and arithmetic validation only; not an XSD or tax determination.
     pub fn validate(&self, profile: &ProfileInput) -> Result<i64, DomainError> {
+        if self.environment != profile.environment {
+            return Err(DomainError::Conflict(
+                "O ambiente do rascunho deve corresponder à configuração fiscal",
+            ));
+        }
         if self.model != 55
             || !text(&self.operation_nature, 60)
             || !text(&self.tax_rule_reference, 200)
@@ -789,8 +827,18 @@ mod tests {
         assert!(value.validate(&profile()).is_err());
     }
     #[test]
-    fn production_and_secret_payloads_are_not_configuration_options() {
-        assert!(serde_json::from_str::<Environment>("\"production\"").is_err());
+    fn environment_selection_requires_numbering_and_secret_payloads_remain_invalid() {
+        assert_eq!(
+            serde_json::from_str::<Environment>("\"production\"").unwrap(),
+            Environment::Production
+        );
+        assert!(serde_json::from_str::<Environment>("\"sandbox\"").is_err());
+        let mut production = profile();
+        production.environment = Environment::Production;
+        assert!(production.validate().is_err());
+        production.next_number = Some(1);
+        assert!(production.validate().is_ok());
+        assert!(draft().validate(&production).is_err());
         for alias in [
             "/tmp/a1.pfx",
             "https://secret.test/a1",

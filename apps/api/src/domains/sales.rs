@@ -17,6 +17,9 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+pub mod pricing;
+mod pricing_model;
+pub mod pricing_orders;
 mod proposal_rules;
 pub mod proposals;
 pub mod settings;
@@ -78,6 +81,8 @@ pub struct OrderLine {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderSnapshot {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pricing_origin: Option<bool>,
     tenant_id: Uuid,
     can_edit: bool,
     data: OrderSummary,
@@ -194,7 +199,16 @@ async fn load(
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color,plate_holder_color,plate_holder_type FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+    let simulated: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
     Ok(OrderSnapshot {
+        pricing_origin: simulated.then_some(true),
         tenant_id: tenant,
         can_edit,
         data,
@@ -594,6 +608,19 @@ pub async fn update(
             "Somente pedidos em rascunho podem ser editados",
         ));
     }
+    let simulated: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    if simulated {
+        return Err(DomainError::Conflict(
+            "Este pedido preserva uma simulação publicada. Cancele e refaça a simulação para alterar condições",
+        ));
+    }
     let prepared = prepare_order(&mut tx, tenant, &input, Some(&current)).await?;
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let updated = sqlx::query("UPDATE sales_orders SET customer_id=$3,customer_name=$4,customer_tax_id=$5,due_date=$6,amount_cents=$7,revision=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status='draft' AND revision=$9")
@@ -686,6 +713,7 @@ async fn transition(
         }
         if matches!(action, Action::Confirm) {
             settings::validate_confirmation(&mut tx, tenant, &current).await?;
+            pricing_orders::validate_confirmation(&mut tx, tenant, id).await?;
         }
         for item in &current.items {
             if matches!(action, Action::Complete) {

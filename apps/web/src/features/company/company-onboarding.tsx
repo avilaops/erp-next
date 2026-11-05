@@ -9,35 +9,50 @@ import { AccessLink } from "@/components/feedback/session-recovery"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
 
+function companySelectionError(status: number, title?: string) {
+  if (status === 401) return "Sua sessão expirou. Entre novamente para continuar."
+  if (status === 403) return "Seu acesso a esta empresa não foi autorizado."
+  if (status === 503) return "O serviço de empresas está temporariamente indisponível. Tente novamente."
+  return title || "Não foi possível selecionar esta empresa. Tente novamente."
+}
+
 export function CompanyPicker() {
   const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
   const [companies, setCompanies] = useState<(Schema<"CompanySummary"> & { status?: string })[]>([])
   const [platformAdministrator, setPlatformAdministrator] = useState(false)
-  const [status, setStatus] = useState("Carregando suas empresas…")
-  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState({ message: "Carregando suas empresas…", error: false })
+  const [busyCompanyId, setBusyCompanyId] = useState<string | null>(null)
   useEffect(() => {
     let active = true
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error(response.status === 401 ? "Entre novamente para continuar" : "Não foi possível consultar suas empresas")
       const body = await response.json()
-      if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setStatus(body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas") }
-    }).catch(error => { if (active) setStatus(error.message) })
+      if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setFeedback({ message: body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas", error: false }) }
+    }).catch(error => { if (active) setFeedback({ message: error.message, error: true }) })
     return () => { active = false }
   }, [])
-  async function select(tenantId: string) {
-    setBusy(true)
+  async function select(company: Schema<"CompanySummary"> & { status?: string }) {
+    const name = company.tradeName || company.legalName
+    setBusyCompanyId(company.id)
+    setFeedback({ message: `Acessando ${name}…`, error: false })
     try {
-      const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
-      if (!response.ok) throw new Error((await response.json()).title)
+      const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: company.id }), signal: AbortSignal.timeout(10000) })
+      const result = await response.json().catch(() => ({})) as { title?: string }
+      if (!response.ok) throw new Error(companySelectionError(response.status, result.title))
       router.push(returnTo)
       router.refresh()
-    } catch (error) { setStatus(error instanceof Error ? error.message : "Tente novamente"); setBusy(false) }
+    } catch (error) {
+      const timedOut = error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)
+      setFeedback({ message: timedOut ? "A seleção demorou mais que o esperado. Tente novamente." : error instanceof Error ? error.message : "Não foi possível selecionar esta empresa. Tente novamente.", error: true })
+      setBusyCompanyId(null)
+    }
   }
-  return <section className="form-section space-y-4">
+  const busy = busyCompanyId !== null
+  return <section className="form-section space-y-4" aria-busy={busy}>
     {platformAdministrator && <p className="font-medium">Administração da plataforma — todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
-    <p role="status">{status}</p>
-    {companies.map(company => <button disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => select(company.id)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
+    <p id="company-picker-feedback" role={feedback.error ? "alert" : "status"} aria-live={feedback.error ? "assertive" : "polite"}>{feedback.message}</p>
+    {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
     <AccessLink className="ml-4 inline-block underline" />
   </section>

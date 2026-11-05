@@ -159,11 +159,5 @@ async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool)
     .await
     .unwrap();
     assert_eq!(audit, 1);
-    application.abort();
-    server.abort();
-    drop(router);
-    sqlx::query(&format!("DROP ROLE {role}"))
-        .execute(&admin)
-        .await
-        .unwrap();
+    super::company_tests::cleanup(&admin, application, server, &role).await;
 }

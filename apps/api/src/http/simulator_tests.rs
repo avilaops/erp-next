@@ -370,6 +370,28 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         .0,
         StatusCode::OK
     );
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('fiscal.nfe.read','catalog.products.read','catalog.parties.read') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let fiscal = call(
+        &router,
+        "GET",
+        &format!("/api/v1/fiscal/order-preparations/{id}"),
+        ("editor", TENANT),
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(fiscal.0, StatusCode::OK, "{}", fiscal.1);
+    let expected_net = seller.1["sale"]["netSaleCents"].as_i64().unwrap();
+    assert_eq!(
+        crate::domains::fixed(fiscal.1["productsTotal"].as_str().unwrap(), 2).unwrap(),
+        expected_net
+    );
+    assert_eq!(
+        crate::domains::fixed(fiscal.1["items"][0]["unitPrice"].as_str().unwrap(), 2).unwrap(),
+        seller.1["sale"]["unitWithoutIpiCents"].as_i64().unwrap()
+    );
+    assert!(fiscal.1.get("taxDeclaration").is_none());
     let final_state: (String, i64) = sqlx::query_as("SELECT status,amount_cents FROM sales_orders")
         .fetch_one(&admin)
         .await

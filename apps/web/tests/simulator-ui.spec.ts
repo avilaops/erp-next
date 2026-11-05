@@ -77,3 +77,27 @@ test("tabela ausente e falha de acesso não fabricam valores", async ({ page }) 
   await page.getByRole("button", { name: "Nacional", exact: true }).click()
   await expect(page.getByRole("alert")).toContainText("Sem acesso a vendas")
 })
+
+test("aprovação usa revisão do pedido e mantém custo restrito na consulta", async ({ page }) => {
+  const orderId = "22222222-2222-4222-8222-222222222222"
+  let revision = 1
+  let approved = false
+  const input = { versionId: version, productId: product, quantity: 1, destination: "SP", taxpayer: false, discount: { kind: "percent", value: 3000 }, freightCents: 0 }
+  const snapshot = { tenantId: tenant, line: "imported", versionId: version, version: 6, digest: "a".repeat(64), product: { sku: equipment.sku, name: equipment.name, unit: "UN" }, input, sale: { ...sale, needsApproval: true, approvalReasons: ["discount_above_free"] }, director }
+  await page.route(`**/api/erp/orders/${orderId}`, route => route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, canEdit: true, pricingOrigin: true, data: { id: orderId, number: "1", customerId: customer, customerName: "Cliente de teste", customerTaxId: "52998224725", dueDate: "2026-12-30", amount: "226.00", status: "draft", revision }, items: [{ productId: product, sku: equipment.sku, name: equipment.name, unit: "UN", quantity: "1.000000", unitPrice: "226.00", amount: "226.00" }] } }))
+  await page.route("**/api/erp/sales-settings", route => route.fulfill({ json: { tenantId: tenant, canEdit: false, data: null } }))
+  await page.route(`**/api/erp/orders/${orderId}/pricing`, route => route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, canApprove: true, data: { snapshot, needsApproval: true, approved } } }))
+  await page.route(`**/api/erp/orders/${orderId}/pricing/approve`, route => {
+    expect(route.request().headers()["if-match"]).toBe('"1"')
+    expect(route.request().headers()["idempotency-key"]).toMatch(/^[a-f0-9-]{36}$/)
+    expect(route.request().postDataJSON()).toEqual({ reason: "Negociação revisada" })
+    revision += 1; approved = true
+    return route.fulfill({ headers: { ETag: '"2"' }, json: { tenantId: tenant, id: orderId, revision, approved } })
+  })
+  await page.goto(`/vendas/pedidos/${orderId}`)
+  await expect(page.getByRole("link", { name: "Editar rascunho", exact: true })).toHaveCount(0)
+  await page.getByLabel("Motivo da aprovação", { exact: true }).fill("Negociação revisada")
+  await page.getByRole("button", { name: "Aprovar exceção comercial", exact: true }).click()
+  await expect(page.getByText("Exceção comercial aprovada pela gestão.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Aprovar exceção comercial", exact: true })).toHaveCount(0)
+})

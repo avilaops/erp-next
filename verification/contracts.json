@@ -1526,482 +1526,482 @@
     }
   ],
   "actions": [
-{
-  "id": "get-sales-simulator",
-  "flow": "sales-simulator",
-  "status": "implemented",
-  "operation": {
-    "method": "GET",
-    "path": "/api/v1/sales-simulator/{line}"
-  },
-  "actor": "sales_member",
-  "permissions": [
-    "sales.orders.read"
-  ],
-  "input": {
-    "headers": [
-      "Authorization",
-      "X-Tenant-Id"
-    ],
-    "pathParameters": [
-      "line"
-    ],
-    "body": null,
-    "query": {
-      "type": "OptionsQuery",
-      "source": "apps/api/src/domains/sales/pricing.rs"
-    }
-  },
-  "preconditions": [
-    "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
-  ],
-  "transition": {
-    "from": "Estado anterior",
-    "to": "Sem alteração"
-  },
-  "effects": {
-    "writes": [],
-    "external": [],
-    "excludes": [
-      "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
-    ]
-  },
-  "concurrency": {
-    "revision": false,
-    "idempotency": false,
-    "rule": "Consulta sem escrita por versão imutável."
-  },
-  "response": {
-    "successStatuses": [
-      200
-    ],
-    "errorStatuses": [
-      400,
-      401,
-      403,
-      404,
-      409,
-      412,
-      422,
-      428,
-      500,
-      503
-    ],
-    "action": "get-sales-simulator"
-  },
-  "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
-  "ui": {
-    "pages": [
-      "/vendas/simulador"
-    ],
-    "bff": {
-      "method": "GET",
-      "path": "/api/erp/sales-simulator/[line]"
+    {
+      "id": "get-sales-simulator",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/sales-simulator/{line}"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": null,
+        "query": {
+          "type": "OptionsQuery",
+          "source": "apps/api/src/domains/sales/pricing.rs"
+        }
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "get-sales-simulator"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/sales-simulator/[line]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     },
-    "gap": null
-  },
-  "sources": [
-    "apps/api/src/domains/sales/pricing.rs",
-    "apps/web/src/features/commercial-settings/simulator.tsx",
-    "apps/web/src/features/commercial-settings/order-pricing.tsx",
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "verification": {
-    "status": "not_verified_by_catalog",
-    "criteria": [
-      "interface",
-      "request",
-      "authorization",
-      "domain",
-      "persistence",
-      "effects",
-      "failure",
-      "response"
-    ]
-  }
-},
-{
-  "id": "quote-sales-simulator",
-  "flow": "sales-simulator",
-  "status": "implemented",
-  "operation": {
-    "method": "POST",
-    "path": "/api/v1/sales-simulator/{line}/quote"
-  },
-  "actor": "sales_member",
-  "permissions": [
-    "sales.orders.read"
-  ],
-  "input": {
-    "headers": [
-      "Authorization",
-      "X-Tenant-Id"
-    ],
-    "pathParameters": [
-      "line"
-    ],
-    "body": {
-      "type": "QuoteInput",
-      "source": "apps/api/src/domains/sales/pricing_model.rs"
+    {
+      "id": "quote-sales-simulator",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/sales-simulator/{line}/quote"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": {
+          "type": "QuoteInput",
+          "source": "apps/api/src/domains/sales/pricing_model.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "quote-sales-simulator"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/sales-simulator/[line]/quote"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_model.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     },
-    "query": null
-  },
-  "preconditions": [
-    "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
-  ],
-  "transition": {
-    "from": "Estado anterior",
-    "to": "Sem alteração"
-  },
-  "effects": {
-    "writes": [],
-    "external": [],
-    "excludes": [
-      "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
-    ]
-  },
-  "concurrency": {
-    "revision": false,
-    "idempotency": false,
-    "rule": "Consulta sem escrita por versão imutável."
-  },
-  "response": {
-    "successStatuses": [
-      200
-    ],
-    "errorStatuses": [
-      400,
-      401,
-      403,
-      404,
-      409,
-      412,
-      422,
-      428,
-      500,
-      503
-    ],
-    "action": "quote-sales-simulator"
-  },
-  "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
-  "ui": {
-    "pages": [
-      "/vendas/simulador"
-    ],
-    "bff": {
-      "method": "POST",
-      "path": "/api/erp/sales-simulator/[line]/quote"
+    {
+      "id": "create-simulated-order",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/sales-simulator/{line}/orders"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": {
+          "type": "CreateInput",
+          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Simulação ou exceção pendente",
+        "to": "Rascunho preservado ou aprovação registrada"
+      },
+      "effects": {
+        "writes": [
+          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "create-simulated-order"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/sales-simulator/[line]/orders"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     },
-    "gap": null
-  },
-  "sources": [
-    "apps/api/src/domains/sales/pricing_model.rs",
-    "apps/web/src/features/commercial-settings/simulator.tsx",
-    "apps/web/src/features/commercial-settings/order-pricing.tsx",
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "verification": {
-    "status": "not_verified_by_catalog",
-    "criteria": [
-      "interface",
-      "request",
-      "authorization",
-      "domain",
-      "persistence",
-      "effects",
-      "failure",
-      "response"
-    ]
-  }
-},
-{
-  "id": "create-simulated-order",
-  "flow": "sales-simulator",
-  "status": "implemented",
-  "operation": {
-    "method": "POST",
-    "path": "/api/v1/sales-simulator/{line}/orders"
-  },
-  "actor": "sales_member",
-  "permissions": [
-    "sales.orders.read",
-    "sales.orders.manage"
-  ],
-  "input": {
-    "headers": [
-      "Authorization",
-      "X-Tenant-Id",
-      "Idempotency-Key"
-    ],
-    "pathParameters": [
-      "line"
-    ],
-    "body": {
-      "type": "CreateInput",
-      "source": "apps/api/src/domains/sales/pricing_orders.rs"
+    {
+      "id": "get-order-pricing",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/orders/{id}/pricing"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "get-order-pricing"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/orders/[id]/pricing"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     },
-    "query": null
-  },
-  "preconditions": [
-    "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
-  ],
-  "transition": {
-    "from": "Simulação ou exceção pendente",
-    "to": "Rascunho preservado ou aprovação registrada"
-  },
-  "effects": {
-    "writes": [
-      "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
-    ],
-    "external": [],
-    "excludes": [
-      "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
-    ]
-  },
-  "concurrency": {
-    "revision": false,
-    "idempotency": true,
-    "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
-  },
-  "response": {
-    "successStatuses": [
-      201
-    ],
-    "errorStatuses": [
-      400,
-      401,
-      403,
-      404,
-      409,
-      412,
-      422,
-      428,
-      500,
-      503
-    ],
-    "action": "create-simulated-order"
-  },
-  "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
-  "ui": {
-    "pages": [
-      "/vendas/simulador"
-    ],
-    "bff": {
-      "method": "POST",
-      "path": "/api/erp/sales-simulator/[line]/orders"
+    {
+      "id": "approve-order-pricing",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/orders/{id}/pricing/approve"
+      },
+      "actor": "company_manager",
+      "permissions": [
+        "sales.orders.read",
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "ApprovalInput",
+          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Simulação ou exceção pendente",
+        "to": "Rascunho preservado ou aprovação registrada"
+      },
+      "effects": {
+        "writes": [
+          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "approve-order-pricing"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/orders/[id]/pricing/approve"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     },
-    "gap": null
-  },
-  "sources": [
-    "apps/api/src/domains/sales/pricing_orders.rs",
-    "apps/web/src/features/commercial-settings/simulator.tsx",
-    "apps/web/src/features/commercial-settings/order-pricing.tsx",
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "verification": {
-    "status": "not_verified_by_catalog",
-    "criteria": [
-      "interface",
-      "request",
-      "authorization",
-      "domain",
-      "persistence",
-      "effects",
-      "failure",
-      "response"
-    ]
-  }
-},
-{
-  "id": "get-order-pricing",
-  "flow": "sales-simulator",
-  "status": "implemented",
-  "operation": {
-    "method": "GET",
-    "path": "/api/v1/orders/{id}/pricing"
-  },
-  "actor": "sales_member",
-  "permissions": [
-    "sales.orders.read"
-  ],
-  "input": {
-    "headers": [
-      "Authorization",
-      "X-Tenant-Id"
-    ],
-    "pathParameters": [
-      "id"
-    ],
-    "body": null,
-    "query": null
-  },
-  "preconditions": [
-    "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
-  ],
-  "transition": {
-    "from": "Estado anterior",
-    "to": "Sem alteração"
-  },
-  "effects": {
-    "writes": [],
-    "external": [],
-    "excludes": [
-      "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
-    ]
-  },
-  "concurrency": {
-    "revision": false,
-    "idempotency": false,
-    "rule": "Consulta sem escrita por versão imutável."
-  },
-  "response": {
-    "successStatuses": [
-      200
-    ],
-    "errorStatuses": [
-      400,
-      401,
-      403,
-      404,
-      409,
-      412,
-      422,
-      428,
-      500,
-      503
-    ],
-    "action": "get-order-pricing"
-  },
-  "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
-  "ui": {
-    "pages": [
-      "/vendas/pedidos/[id]"
-    ],
-    "bff": {
-      "method": "GET",
-      "path": "/api/erp/orders/[id]/pricing"
-    },
-    "gap": null
-  },
-  "sources": [
-    "apps/api/src/domains/sales/pricing_orders.rs",
-    "apps/web/src/features/commercial-settings/simulator.tsx",
-    "apps/web/src/features/commercial-settings/order-pricing.tsx",
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "verification": {
-    "status": "not_verified_by_catalog",
-    "criteria": [
-      "interface",
-      "request",
-      "authorization",
-      "domain",
-      "persistence",
-      "effects",
-      "failure",
-      "response"
-    ]
-  }
-},
-{
-  "id": "approve-order-pricing",
-  "flow": "sales-simulator",
-  "status": "implemented",
-  "operation": {
-    "method": "POST",
-    "path": "/api/v1/orders/{id}/pricing/approve"
-  },
-  "actor": "company_manager",
-  "permissions": [
-    "sales.orders.read",
-    "platform.company.manage"
-  ],
-  "input": {
-    "headers": [
-      "Authorization",
-      "X-Tenant-Id",
-      "If-Match",
-      "Idempotency-Key"
-    ],
-    "pathParameters": [
-      "id"
-    ],
-    "body": {
-      "type": "ApprovalInput",
-      "source": "apps/api/src/domains/sales/pricing_orders.rs"
-    },
-    "query": null
-  },
-  "preconditions": [
-    "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
-  ],
-  "transition": {
-    "from": "Simulação ou exceção pendente",
-    "to": "Rascunho preservado ou aprovação registrada"
-  },
-  "effects": {
-    "writes": [
-      "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
-    ],
-    "external": [],
-    "excludes": [
-      "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
-    ]
-  },
-  "concurrency": {
-    "revision": true,
-    "idempotency": true,
-    "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
-  },
-  "response": {
-    "successStatuses": [
-      200
-    ],
-    "errorStatuses": [
-      400,
-      401,
-      403,
-      404,
-      409,
-      412,
-      422,
-      428,
-      500,
-      503
-    ],
-    "action": "approve-order-pricing"
-  },
-  "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
-  "ui": {
-    "pages": [
-      "/vendas/pedidos/[id]"
-    ],
-    "bff": {
-      "method": "POST",
-      "path": "/api/erp/orders/[id]/pricing/approve"
-    },
-    "gap": null
-  },
-  "sources": [
-    "apps/api/src/domains/sales/pricing_orders.rs",
-    "apps/web/src/features/commercial-settings/simulator.tsx",
-    "apps/web/src/features/commercial-settings/order-pricing.tsx",
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "verification": {
-    "status": "not_verified_by_catalog",
-    "criteria": [
-      "interface",
-      "request",
-      "authorization",
-      "domain",
-      "persistence",
-      "effects",
-      "failure",
-      "response"
-    ]
-  }
-},
     {
       "id": "get-company-dashboard",
       "flow": "dashboard",

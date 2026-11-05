@@ -15,7 +15,7 @@ Base inicial: main 35c824c. Trabalho isolado para preservar o checkout original.
 - [ ] Integrar regras fiscais por linha aos cadastros e rascunhos existentes.
 - [ ] Conferir emitente, ambiente e numeração sem mudar dados de produção.
 - [ ] Completar indicadores de pedidos e comissões.
-- [ ] Implementar oportunidades anteriores ao cadastro definitivo do cliente.
+- [x] Implementar oportunidades anteriores ao cadastro definitivo do cliente.
 - [ ] Mapear os 21 acessos da central de cadastros.
 - [ ] Validar API, isolamento, autorização, desktop e celular.
 - [ ] Publicar PR, conferir CI e implantar o artefato aprovado.
@@ -45,3 +45,17 @@ de RAM livre. Testes completos e contrato final serão conferidos na CI.
 Custos, margens e alçadas são decididos no servidor. As imagens não autorizam
 importar percentuais, substituir configuração real, emitir notas, solicitar
 assinaturas, enviar comunicações ou ativar tarefas recorrentes.
+
+## Central de cadastros: destinos das 21 referências
+
+Os atalhos abaixo foram conferidos contra as rotas existentes. Um destino sem
+rota operacional continua explicitamente indisponível; não há tela simulada
+tratada como integração ativa.
+
+| Grupo | Referências da captura | Destino atual |
+| --- | --- | --- |
+| Vendas | dados, linhas, pagamento, cores, transportadoras, contrato | empresa; produtos; formas de pagamento; cores por produto; transportadoras indisponível; modelos de contrato |
+| Funil | etapas, mensagens, cadências, lembretes | etapas no funil; mensagens, cadências e lembretes indisponíveis |
+| Comunicação | e-mail, WhatsApp, telefonia, assistente | integrações ainda não ativadas; assistente existente |
+| Financeiro | fiscal/certificado, PIX, categorias, despesas | fiscal/certificado; PIX depende de integração; categorias e despesas existentes |
+| Equipe | usuários/perfis, produção, integrações | usuários/papéis; produção; integrações existentes, sem estado conectado inventado |

@@ -113,7 +113,7 @@ function OrderList() {
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
   return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
     <CommercialMetrics kind="orders" />
-    <nav className="my-4 flex flex-wrap gap-4"><Link className={linkClass} href="/vendas/tabela-precos">Tabela de preços</Link><Link className={linkClass} href="/vendas/simulador">Simular negociação</Link></nav>
+    <nav className="my-4 flex flex-wrap gap-4"><Link className={linkClass} href="/vendas/funil">Funil comercial</Link><Link className={linkClass} href="/vendas/tabela-precos">Tabela de preços</Link><Link className={linkClass} href="/vendas/simulador">Simular negociação</Link></nav>
     <section className="form-section min-w-0 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {

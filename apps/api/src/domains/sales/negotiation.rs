@@ -240,6 +240,8 @@ pub struct ConvertInput {
     digest: String,
     customer_id: Uuid,
     due_date: String,
+    opportunity_id: Option<Uuid>,
+    opportunity_revision: Option<i64>,
 }
 
 #[utoipa::path(post,path="/api/v1/commercial/orders",operation_id="post_commercial_orders",tag="Sales",request_body=ConvertInput,params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=201,body=Value),(status=412,description="Simulação desatualizada")))]
@@ -253,7 +255,10 @@ pub async fn convert(
     let key = command_key(&headers)?;
     let Json(input) =
         payload.map_err(|_| DomainError::Invalid("Conversão inválida ou campos desconhecidos"))?;
-    let request = json!({"simulation":input.simulation,"digest":input.digest,"customerId":input.customer_id,"dueDate":input.due_date});
+    let request = json!({"simulation":input.simulation,"digest":input.digest,"customerId":input.customer_id,"dueDate":input.due_date,"opportunityId":input.opportunity_id,"opportunityRevision":input.opportunity_revision});
+    if input.opportunity_id.is_some() != input.opportunity_revision.is_some() {
+        return Err(DomainError::Invalid("Oportunidade exige sua revisão atual"));
+    }
     if let Some(previous) = replay(
         &mut tx,
         tenant,
@@ -307,6 +312,23 @@ pub async fn convert(
     sqlx::query("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) VALUES($1,$2,$3,$4,$5,$6,$7,'draft')")
         .bind(order).bind(tenant).bind(input.customer_id).bind(customer.0).bind(customer.1).bind(due).bind(prepared.sale.total_cents).execute(&mut *tx).await.map_err(db)?;
     super::store_lines(&mut tx, tenant, order, &lines).await?;
+    if let (Some(id), Some(expected)) = (input.opportunity_id, input.opportunity_revision) {
+        super::opportunities::link_order(&mut tx, tenant, id, expected, input.customer_id, order)
+            .await?;
+        record(
+            &mut tx,
+            tenant,
+            &identity,
+            &headers,
+            DomainChange {
+                kind: "sales_opportunity",
+                id,
+                event: "opportunity.order_linked",
+                details: json!({"orderId":order,"revision":expected+1}),
+            },
+        )
+        .await?;
+    }
     let auto = prepared.rules.director_auto_approval
         && allowed(&mut tx, tenant, &identity, DIRECTOR).await?;
     let status = if prepared.sale.approval_reasons.is_empty() {

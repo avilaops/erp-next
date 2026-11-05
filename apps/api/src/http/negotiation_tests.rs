@@ -276,3 +276,96 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     );
     cleanup(&admin, app, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn opportunity_is_versioned_idempotent_and_isolated_before_customer_registration(
+    admin: PgPool,
+) {
+    let (router, app, server, role) = setup(&admin).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code IN ('sales.orders.read','sales.orders.manage') ON CONFLICT DO NOTHING;")
+        .execute(&admin).await.unwrap();
+    let body = json!({"title":"Academia Horizonte","estimatedCents":1250000,"stage":"contacted","customerId":null,"companyName":"Horizonte Ltda","companyTaxId":"","contactName":"Marina","phone":"","email":"","source":"Indicação","notes":"Aguardando visita"});
+    let key = Uuid::now_v7();
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/opportunities",
+        "editor",
+        None,
+        Some(key),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
+    assert_eq!(created.1["data"]["customerId"], Value::Null);
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/opportunities",
+            "editor",
+            None,
+            Some(key),
+            body.clone()
+        )
+        .await
+        .1,
+        created.1
+    );
+    let id = created.1["data"]["id"].as_str().unwrap();
+    let listed = call(
+        &router,
+        "GET",
+        "/api/v1/opportunities?q=horizonte&stage=contacted&limit=100",
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(listed.0, StatusCode::OK, "{}", listed.1);
+    assert_eq!(listed.1["total"], 1);
+    let mut changed = body;
+    changed["stage"] = json!("negotiation");
+    let updated = call(
+        &router,
+        "PUT",
+        &format!("/api/v1/opportunities/{id}"),
+        "editor",
+        Some("\"1\""),
+        Some(Uuid::now_v7()),
+        changed.clone(),
+    )
+    .await;
+    assert_eq!(updated.0, StatusCode::OK, "{}", updated.1);
+    assert_eq!(updated.1["data"]["revision"], 2);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &format!("/api/v1/opportunities/{id}"),
+            "editor",
+            Some("\"1\""),
+            Some(Uuid::now_v7()),
+            changed
+        )
+        .await
+        .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &format!("/api/v1/opportunities/{id}"),
+            "reader",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    cleanup(&admin, app, server, &role).await;
+}

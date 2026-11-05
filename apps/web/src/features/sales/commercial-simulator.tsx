@@ -14,22 +14,34 @@ import { states } from "@/features/commercial-settings/commercial-parameters"
 import { Lookup, ColorChoice, type Choice } from "./orders"
 import { NegotiationResult } from "./negotiation-result"
 import { money, percent, inputAmount, parseAmount, type PriceTable, type SimulationInput, type Simulation } from "./negotiation-types"
+import type { Opportunity } from "./opportunities"
 
 type Selected = { productId: string; quantity: string; structureColor: string; upholsteryColor: string }
 const selectClass = "min-h-10 min-w-0 rounded-lg border bg-background px-2"
 
-export function CommercialSimulator({ initialLine, initialProduct }: { initialLine: string; initialProduct: string }) {
+type SimulatorProps = { initialLine: string; initialProduct: string; initialOpportunity?: string }
+export function CommercialSimulator(props: SimulatorProps) {
+  return props.initialOpportunity ? <OpportunityContext {...props} id={props.initialOpportunity} /> : <SimulatorPage {...props} />
+}
+function OpportunityContext({ id, ...props }: SimulatorProps & { id: string }) {
+  const source = useResource<{ tenantId: string; data: Opportunity }>(`/api/erp/opportunities/${id}`)
+  if (source.loading) return <main className="p-6"><p role="status">Carregando dados da oportunidade…</p></main>
+  if (source.error || !source.value) return <main className="p-6"><p role="alert"><RequestError message={source.error || "Oportunidade indisponível"} status={source.status} /></p></main>
+  return <SimulatorPage {...props} opportunity={source.value.data} opportunityTenant={source.value.tenantId} />
+}
+function SimulatorPage({ initialLine, initialProduct, opportunity, opportunityTenant }: SimulatorProps & { opportunity?: Opportunity; opportunityTenant?: string }) {
   const [line, setLine] = useState(initialLine === "national" ? "national" : "imported")
   const table = useResource<PriceTable>(`/api/erp/commercial/tables/${line}`)
   return <main className="mx-auto min-w-0 max-w-7xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Vendas" title="Simulador comercial" description="Confira preços, entrada e condições antes de criar um pedido." />
+    {opportunity && <section className="rounded-lg border p-4"><h2 className="font-semibold">{opportunity.title}</h2><p>{opportunity.customerName || opportunity.companyName} · {opportunity.contactName}</p><p className="whitespace-pre-wrap text-sm text-muted-foreground">{opportunity.notes}</p><Link className="text-primary underline" href={`/vendas/funil/${opportunity.id}`}>Abrir oportunidade de origem</Link></section>}
     <nav className="flex flex-wrap gap-4"><Link className="text-primary underline" href="/vendas/tabela-precos">Tabela de preços</Link>{table.value?.canManage && <><Link className="text-primary underline" href="/preferencias/comercial">Parâmetros e metas</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link></>}</nav>
     <label className="grid max-w-sm gap-2">Linha comercial<select className={selectClass} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm("Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
-    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <p role="alert"><RequestError message={table.error} status={table.status} /></p> : table.value && <Simulator key={`${line}:${table.value.tenantId}:${table.value.data?.id}`} table={table.value} initialProduct={line === initialLine ? initialProduct : ""} />}
+    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <p role="alert"><RequestError message={table.error} status={table.status} /></p> : table.value && (opportunityTenant && opportunityTenant !== table.value.tenantId ? <p role="alert">A empresa da sessão mudou. Reabra a oportunidade.</p> : <Simulator key={`${line}:${table.value.tenantId}:${table.value.data?.id}`} table={table.value} opportunity={opportunity} initialProduct={line === initialLine ? initialProduct : ""} />)}
   </main>
 }
 
-function Simulator({ table, initialProduct }: { table: PriceTable; initialProduct: string }) {
+function Simulator({ table, initialProduct, opportunity }: { table: PriceTable; initialProduct: string; opportunity?: Opportunity }) {
   const router = useRouter()
   const command = useCommand()
   const [items, setItems] = useState<Selected[]>(() => table.data?.items.some(i => i.productId === initialProduct) ? [{ productId: initialProduct, quantity: "1", structureColor: "", upholsteryColor: "" }] : [])
@@ -41,7 +53,7 @@ function Simulator({ table, initialProduct }: { table: PriceTable; initialProduc
   const [freight, setFreight] = useState("")
   const [ourFreight, setOurFreight] = useState(false)
   const [downPayment, setDownPayment] = useState("")
-  const [customer, setCustomer] = useState<Choice | null>(null)
+  const [customer, setCustomer] = useState<Choice | null>(opportunity?.customerId ? { id: opportunity.customerId, legalName: opportunity.customerName || "Cliente da oportunidade" } : null)
   const [dueDate, setDueDate] = useState("")
   const [result, setResult] = useState<{ value: Simulation; input: SimulationInput } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -75,7 +87,7 @@ function Simulator({ table, initialProduct }: { table: PriceTable; initialProduc
   }
   async function convert() {
     if (!result || !customer || !dueDate) { setError("Selecione o cliente e informe o vencimento antes de criar o pedido."); return }
-    const value = await command.send<{ tenantId: string; id: string }>("/api/erp/commercial/orders", table.tenantId, { simulation: result.input, digest: result.value.digest, customerId: customer.id, dueDate })
+    const value = await command.send<{ tenantId: string; id: string }>("/api/erp/commercial/orders", table.tenantId, { simulation: result.input, digest: result.value.digest, customerId: customer.id, dueDate, ...(opportunity ? { opportunityId: opportunity.id, opportunityRevision: opportunity.revision } : {}) })
     if (value?.tenantId === table.tenantId && value.id) { setDirty(false); router.push(`/vendas/pedidos/${value.id}`) }
   }
   if (!table.data) return <section className="form-section space-y-3"><p>Nenhuma tabela publicada nesta linha.</p>{table.canManage && <Link className="text-primary underline" href="/preferencias/tabela-precos">Publicar tabela de preços</Link>}</section>

@@ -27,6 +27,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         sales::negotiation::table, sales::negotiation::simulate, sales::negotiation::convert,
         sales::negotiation::quote, sales::negotiation::decision,
         sales::metrics::orders, sales::metrics::commissions,
+        sales::opportunities::list, sales::opportunities::get, sales::opportunities::create, sales::opportunities::update,
         sales::negotiation::get_rules, sales::negotiation::put_rules,
         crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
         crate::domains::supply_settings::purchase::get_purchase, crate::domains::supply_settings::purchase::put_purchase,

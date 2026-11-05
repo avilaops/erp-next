@@ -22,6 +22,7 @@ pub mod negotiation;
 pub mod negotiation_model;
 #[cfg(test)]
 mod negotiation_model_tests;
+pub mod opportunities;
 mod proposal_rules;
 pub mod proposals;
 pub mod settings;

@@ -22,6 +22,16 @@
         ]
       },
       {
+        "id": "sales-opportunities",
+        "title": "Funil comercial e oportunidades",
+        "goal": "Registrar oportunidade antes do cliente definitivo e vinculá-la uma única vez ao pedido comercial calculado.",
+        "kind": "product",
+        "actionGroups": ["sales-opportunities"],
+        "dependencies": ["orders", "commercial-negotiation", "registry-lookups"],
+        "nextStep": "Validar migração, CI e jornada autenticada; o catálogo não comprova implantação.",
+        "additionalSources": ["docs/AVL-432-IMPLEMENTACAO.md"]
+      },
+      {
         "id": "proposals",
         "title": "Propostas comerciais",
         "goal": "Criar, versionar e decidir propostas; converter aceite em pedido em rascunho uma única vez.",
@@ -25510,6 +25520,78 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "opportunities-list",
+      "flow": "sales-opportunities",
+      "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/opportunities"},
+      "actor": "authorized_sales_member",
+      "permissions": ["sales.orders.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": "q, stage, offset e limit"},
+      "preconditions": ["Vínculo ativo e autorização de leitura são conferidos pelo servidor."],
+      "transition": {"from": "Oportunidades da empresa", "to": "Sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Não cria cliente, pedido, proposta ou comunicação."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "A consulta é isolada pela empresa ativa e paginação limitada."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 500, 503], "action": "opportunities-list"},
+      "recovery": "Corrigir filtro inválido e recarregar a lista; nenhuma entrada é descartada.",
+      "ui": {"pages": ["/vendas/funil"], "bff": {"method": "GET", "path": "/api/erp/opportunities"}, "gap": null},
+      "sources": ["apps/api/src/domains/sales/opportunities.rs", "apps/web/src/features/sales/opportunities.tsx", "docs/AVL-432-IMPLEMENTACAO.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "opportunities-get",
+      "flow": "sales-opportunities",
+      "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/opportunities/{id}"},
+      "actor": "authorized_sales_member",
+      "permissions": ["sales.orders.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null},
+      "preconditions": ["O identificador deve pertencer à empresa ativa; ausência retorna 404 sem revelar outra empresa."],
+      "transition": {"from": "Oportunidade existente", "to": "Sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Não altera estágio ou vínculo comercial durante a consulta."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "A resposta expõe a revisão necessária para um comando posterior."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 500, 503], "action": "opportunities-get"},
+      "recovery": "Voltar ao funil se o registro não existir ou não pertencer à empresa selecionada.",
+      "ui": {"pages": ["/vendas/funil/[id]", "/vendas/simulador"], "bff": {"method": "GET", "path": "/api/erp/opportunities/[id]"}, "gap": null},
+      "sources": ["apps/api/src/domains/sales/opportunities.rs", "apps/web/src/features/sales/opportunities.tsx", "docs/AVL-432-IMPLEMENTACAO.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "opportunities-create",
+      "flow": "sales-opportunities",
+      "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/opportunities"},
+      "actor": "authorized_sales_manager",
+      "permissions": ["sales.orders.read", "sales.orders.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/sales/opportunities.rs", "type": "OpportunityInput"}, "query": null},
+      "preconditions": ["Título, etapa, valor e empresa ou cliente são validados; cliente opcional deve estar ativo na empresa."],
+      "transition": {"from": "Sem oportunidade", "to": "Oportunidade versionada"},
+      "effects": {"writes": ["sales_opportunities", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["CNPJ preenche somente campos explicitamente aceitos; não cria pessoa definitiva."]},
+      "concurrency": {"revision": false, "idempotency": true, "rule": "Resultado incerto é recuperado repetindo a mesma chave e o mesmo corpo."},
+      "response": {"successStatuses": [201], "errorStatuses": [400, 401, 403, 409, 422, 428, 500, 503], "action": "opportunities-create"},
+      "recovery": "Manter o formulário e repetir somente com a mesma chave após resultado incerto.",
+      "ui": {"pages": ["/vendas/funil/nova"], "bff": {"method": "POST", "path": "/api/erp/opportunities"}, "gap": null},
+      "sources": ["apps/api/src/domains/sales/opportunities.rs", "apps/web/src/features/sales/opportunities.tsx", "docs/AVL-432-IMPLEMENTACAO.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "opportunities-update",
+      "flow": "sales-opportunities",
+      "status": "implemented",
+      "operation": {"method": "PUT", "path": "/api/v1/opportunities/{id}"},
+      "actor": "authorized_sales_manager",
+      "permissions": ["sales.orders.read", "sales.orders.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/sales/opportunities.rs", "type": "OpportunityInput"}, "query": null},
+      "preconditions": ["Revisão atual e chave são obrigatórias; cliente vinculado ao pedido não pode ser trocado."],
+      "transition": {"from": "Oportunidade versionada", "to": "Oportunidade versionada"},
+      "effects": {"writes": ["sales_opportunities", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não desvincula nem conclui pedido automaticamente."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 preserva a edição local; resultado incerto repete a mesma chave e corpo."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500, 503], "action": "opportunities-update"},
+      "recovery": "Após 412, consultar a revisão atual e reconciliar a edição antes de reenviar.",
+      "ui": {"pages": ["/vendas/funil/[id]"], "bff": {"method": "PUT", "path": "/api/erp/opportunities/[id]"}, "gap": null},
+      "sources": ["apps/api/src/domains/sales/opportunities.rs", "apps/web/src/features/sales/opportunities.tsx", "docs/AVL-432-IMPLEMENTACAO.md"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

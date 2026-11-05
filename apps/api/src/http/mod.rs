@@ -348,6 +348,14 @@ pub fn router(state: AppState) -> Router {
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
         .route(
+            "/api/v1/opportunities",
+            get(sales::opportunities::list).post(sales::opportunities::create),
+        )
+        .route(
+            "/api/v1/opportunities/{id}",
+            get(sales::opportunities::get).put(sales::opportunities::update),
+        )
+        .route(
             "/api/v1/commercial/metrics/orders",
             get(sales::metrics::orders),
         )

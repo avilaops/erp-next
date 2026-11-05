@@ -23,7 +23,7 @@ test('every canonical action has one product owner and declared journeys are exp
   assert.equal(context.flows.length, 47);
   assert.equal(context.actions.length, 238);
   assert.equal(context.pendingFlows.length, 34);
-  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'personal-preferences', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'users']);
+  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'personal-preferences', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'users']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'implemented');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
   const cte = context.flows.find(flow => flow.definition.id === 'fiscal-cte');

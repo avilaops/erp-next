@@ -11,11 +11,35 @@ const evaluateCompatibilityPolicy = report => {
 };
 
 const captured = JSON.parse(await readFile(new URL('./fixtures/avl402-comparison.json', import.meta.url)));
+const fiscalEnvironments = JSON.parse(await readFile(new URL('./fixtures/fiscal-environments-comparison.json', import.meta.url)));
 function decision(change = () => {}) {
   const report = structuredClone(captured);
   change(report);
   return evaluateCompatibilityPolicy(report);
 }
+
+test('the requested fiscal environment extension admits exactly its captured contract pair without relabeling compatibility', () => {
+  const original = structuredClone(fiscalEnvironments);
+  assert.equal(fiscalEnvironments.findings.length, 7);
+  assert.ok(fiscalEnvironments.findings.every(item => item.id === 'response-property-enum-value-added' && item.text.includes('production')));
+  assert.deepEqual(evaluateCompatibilityPolicy(fiscalEnvironments), {accepted:true,reason:'reviewed_capability_extension',reviewedCorrection:'FISCAL-ENV-2026-11-05-PR122'});
+  assert.deepEqual(fiscalEnvironments, original);
+  assert.equal(fiscalEnvironments.compatible, false);
+  assert.equal(fiscalEnvironments.runtimeVerified, false);
+  for (const mutate of [
+    report => { report.candidateSha256 = '0'.repeat(64); },
+    report => { report.baselineSha256 = '0'.repeat(64); },
+    report => { report.comparator.failOn = 'ERR'; },
+    report => { report.findings.push({...report.findings[0],fingerprint:'extra'}); },
+    report => { report.findings.pop(); },
+    report => { report.findings[0].text = 'different environment change'; },
+    report => { report.findings[0].unexpected = true; },
+    report => { report.runtimeVerified = true; },
+  ]) {
+    const changed = structuredClone(fiscalEnvironments); mutate(changed);
+    assert.equal(evaluateCompatibilityPolicy(changed).accepted, false);
+  }
+});
 
 test('only the twelve reviewed findings and both captured contracts are accepted', () => {
   const original = structuredClone(captured);

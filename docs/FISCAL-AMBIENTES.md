@@ -44,3 +44,13 @@ assinatura, XSD, endpoints de cada ambiente, isolamento da numeração, sequênc
 informada, impossibilidade de retrocesso e eventos após trocar o perfil.
 Configuração, testes, publicação e autorização real pela SEFAZ são evidências
 distintas. Não transmitir documentos reais durante esta implementação.
+
+## Ampliação do contrato
+
+O enum de resposta passa a incluir `production`. Consumidores fiscais com enum
+fechado precisam regenerar seus tipos; o frontend desta release o faz a partir
+do mesmo OpenAPI. O comparador registra sete incompatibilidades formais, todas
+desse acréscimo, sem remoção de campos ou endpoints. A admissão em
+`scripts/contracts/reviewed-fiscal-environments.json` fixa os dois hashes e os
+sete achados completos da implementação solicitada. O relatório continua
+`compatible=false`; outras diferenças ou contratos continuam recusados.

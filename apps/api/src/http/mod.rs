@@ -19,6 +19,10 @@ mod cte_inspection_tests;
 #[cfg(test)]
 mod cte_links_tests;
 #[cfg(test)]
+mod custom_fields_tests;
+#[cfg(test)]
+mod custom_reports_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -35,6 +39,8 @@ mod health_tests;
 mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
+#[cfg(test)]
+mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
@@ -80,6 +86,8 @@ mod supply_catalogs_tests;
 mod supply_settings_tests;
 #[cfg(test)]
 mod template_draft_tests;
+#[cfg(test)]
+mod workflows_tests;
 
 use axum::{
     Router, middleware,
@@ -167,6 +175,48 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route(
+            "/api/v1/system/custom-fields",
+            get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),
+        )
+        .route(
+            "/api/v1/system/custom-fields/{id}",
+            axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route(
+            "/api/v1/system/custom-reports",
+            get(crate::platform::custom_reports::list)
+                .post(crate::platform::custom_reports::create),
+        )
+        .route(
+            "/api/v1/system/custom-reports/{id}",
+            axum::routing::put(crate::platform::custom_reports::update),
+        )
+        .route(
+            "/api/v1/system/label-templates",
+            get(crate::platform::label_templates::list)
+                .post(crate::platform::label_templates::create),
+        )
+        .route(
+            "/api/v1/system/label-templates/{id}",
+            axum::routing::put(crate::platform::label_templates::update),
+        )
+        .route(
+            "/api/v1/system/workflows",
+            get(crate::platform::workflows::list).post(crate::platform::workflows::create),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}",
+            axum::routing::put(crate::platform::workflows::update),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/publish",
+            post(crate::platform::workflows::publish),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/archive",
+            post(crate::platform::workflows::archive),
+        )
         .merge(crate::domains::returns::routes())
         .route(
             "/api/v1/preferences",
@@ -314,7 +364,8 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/products/{id}/catalog",
             get(crate::domains::catalog_publication::get)
-                .put(crate::domains::catalog_publication::put),
+                .put(crate::domains::catalog_publication::put)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
         )
         .route(
             "/api/v1/products/{id}/media/{media_id}",

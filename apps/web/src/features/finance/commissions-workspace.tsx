@@ -1,6 +1,7 @@
 "use client"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { orderNumber } from "@/features/sales/order-presentation"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -11,7 +12,7 @@ import { useCommand, useResource } from "@/hooks/use-operation"
 
 type Balance = { sellerStaffId: string; sellerName: string; revision: number; openAmount: string; paidAmount: string }
 type Listing = { tenantId: string; canEdit: boolean; data: Balance[]; total: number; totals: { openAmount: string; paidAmount: string } }
-type Entry = { id: string; kind: "receipt" | "reversal" | "adjustment"; sellerName: string; orderId: string | null; receiptId: string | null; reversesEntryId: string | null; competence: string; paymentDue: string; amount: string; baseAmount: string; commissionRate: string | null; ipiRate: string | null; reason: string; paymentId: string | null }
+type Entry = { id: string; kind: "receipt" | "reversal" | "adjustment"; sellerName: string; orderId: string | null; orderNumber?: string | null; receiptId: string | null; reversesEntryId: string | null; competence: string; paymentDue: string; amount: string; baseAmount: string; commissionRate: string | null; ipiRate: string | null; reason: string; paymentId: string | null }
 type Payment = { id: string; amount: string; throughCompetence: string; occurredOn: string; reference: string }
 type Book = { tenantId: string; canEdit: boolean; data: Balance; entries: Entry[]; payments: Payment[] }
 type Terms = { tenantId: string; canEdit: boolean; data: { orderId: string; revision: number; status: "configured" | "not_required"; locked: boolean; sellerStaffId: string | null; sellerName: string | null; commissionRate: string | null; ipiRate: string | null; paymentDay: number | null } }
@@ -19,6 +20,12 @@ const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 const money = (value: string) => `R$ ${value.replace(".", ",")}`
 const origin = { receipt: "Recebimento", reversal: "Estorno", adjustment: "Ajuste manual" }
+
+function total(entries: Entry[], field: "amount" | "baseAmount") {
+  const cents = entries.reduce((sum, entry) => sum + BigInt(entry[field].replace(".", "")), BigInt(0))
+  const magnitude = cents < BigInt(0) ? -cents : cents
+  return `${cents < BigInt(0) ? "-" : ""}${magnitude / BigInt(100)}.${String(magnitude % BigInt(100)).padStart(2, "0")}`
+}
 
 export function CommissionsWorkspace() {
   const [offset, setOffset] = useState(0)
@@ -46,10 +53,13 @@ function SellerCommissions({ id, onSaved }: { id: string; onSaved: () => void })
   const [reference, setReference] = useState("")
   const [amount, setAmount] = useState("")
   const [paymentDay, setPaymentDay] = useState("")
+  const [order, setOrder] = useState("")
+  const [statementMonth, setStatementMonth] = useState("")
   const [notice, setNotice] = useState("")
   const frozen = command.busy || command.uncertain || command.stale
-  function clear() { setCompetence(""); setOccurredOn(""); setReference(""); setAmount(""); setPaymentDay("") }
+  function clear() { setCompetence(""); setOccurredOn(""); setReference(""); setAmount(""); setPaymentDay(""); setOrder("") }
   const value = result.value
+  const statement = (value?.entries || []).filter(entry => !statementMonth || entry.competence === statementMonth)
   return <section className="form-section mt-5 min-w-0 space-y-5" aria-label="Livro de comissões">
     {notice && <p role="status">{notice}</p>}
     {result.loading ? <p role="status">Carregando livro de comissões…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Consultar livro novamente</Button></div> : value && <>
@@ -60,14 +70,14 @@ function SellerCommissions({ id, onSaved }: { id: string; onSaved: () => void })
         const negative = amount.startsWith("-")
         const normalized = normalizeDecimal(negative ? amount.slice(1) : amount)
         if (action === "adjustments" && normalized === null) return
-        const body = action === "payments" ? { throughCompetence: competence, occurredOn, reference: reference.trim() } : { amount: `${negative ? "-" : ""}${normalized}`, competence, paymentDay: Number(paymentDay), reason: reference.trim() }
+        const body = action === "payments" ? { throughCompetence: competence, occurredOn, reference: reference.trim() } : { amount: `${negative ? "-" : ""}${normalized}`, competence, paymentDay: Number(paymentDay), reason: reference.trim(), ...(order.trim() ? { orderNumber: order.trim() } : {}) }
         const response = await command.send<Book>(`/api/erp/commissions/${id}/${action}`, value.tenantId, body, result.etag)
         if (response) { setNotice(action === "payments" ? "Pagamento de comissão declarado." : "Ajuste de comissão registrado."); clear(); result.reload(); onSaved() }
       }}>
         <fieldset disabled={frozen} className="grid min-w-0 gap-4 sm:grid-cols-2">
           <label className="min-w-0 space-y-2">Operação de comissão<select className={selectClass} value={action} onChange={event => { setAction(event.target.value as typeof action); clear(); command.reset() }}><option value="payments">Declarar pagamento</option><option value="adjustments">Lançar ajuste manual</option></select></label>
           <label className="min-w-0 space-y-2">{action === "payments" ? "Pagar competências até" : "Competência do ajuste"}<Input type="month" required min="1900-01" max="2100-12" value={competence} onChange={event => setCompetence(event.target.value)} /></label>
-          {action === "payments" ? <label className="min-w-0 space-y-2">Data do pagamento da comissão<Input type="date" required value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label> : <><label className="min-w-0 space-y-2">Valor do ajuste (negativo para débito)<Input inputMode="decimal" required pattern="-?[0-9]+([.,][0-9]{1,2})?" maxLength={16} value={amount} onChange={event => setAmount(event.target.value)} /></label><label className="min-w-0 space-y-2">Dia de pagamento do ajuste<Input type="number" min={1} max={28} required value={paymentDay} onChange={event => setPaymentDay(event.target.value)} /></label></>}
+          {action === "payments" ? <label className="min-w-0 space-y-2">Data do pagamento da comissão<Input type="date" required value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label> : <><label className="min-w-0 space-y-2">Valor do ajuste (negativo para débito)<Input inputMode="decimal" required pattern="-?[0-9]+([.,][0-9]{1,2})?" maxLength={16} value={amount} onChange={event => setAmount(event.target.value)} /></label><label className="min-w-0 space-y-2">Número do pedido de origem (opcional)<Input maxLength={22} value={order} onChange={event => setOrder(event.target.value)} placeholder="PV-000001" aria-describedby="commission-order-help" /></label><p id="commission-order-help" className="text-sm text-muted-foreground sm:col-span-2">O pedido precisa ter comissão configurada para este vendedor. O ajuste não registra recebimento de cliente.</p><label className="min-w-0 space-y-2">Dia de pagamento do ajuste<Input type="number" min={1} max={28} required value={paymentDay} onChange={event => setPaymentDay(event.target.value)} /></label></>}
           <label className="min-w-0 space-y-2">{action === "payments" ? "Referência do pagamento da comissão" : "Motivo do ajuste de comissão"}<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
         </fieldset>
         {action === "payments" && <p className="text-sm text-muted-foreground">O pagamento reúne os lançamentos em aberto até a competência selecionada. Os débitos são descontados quando sua competência está incluída no pagamento. O saldo líquido precisa ser positivo.</p>}
@@ -77,7 +87,10 @@ function SellerCommissions({ id, onSaved }: { id: string; onSaved: () => void })
         <Button type="submit" disabled={command.busy || command.stale || !result.etag} className="h-auto max-w-full whitespace-normal">{command.busy ? "Confirmando…" : command.uncertain ? "Repetir confirmação da comissão" : action === "payments" ? "Confirmar pagamento da comissão" : "Confirmar ajuste da comissão"}</Button>
       </form>}
       <h3 className="font-semibold">Histórico de comissões</h3>
-      {!value.entries.length ? <p>Nenhuma comissão lançada.</p> : <ul className="space-y-3">{value.entries.map(entry => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={entry.id}><p className="font-medium">{origin[entry.kind]} · {money(entry.amount)}</p><p>Competência: {entry.competence} · Vencimento: {entry.paymentDue}</p><p className="break-words">{entry.reason}</p><p>Vendedor registrado: {entry.sellerName}</p>{entry.commissionRate !== null && <p>Base sem IPI: {money(entry.baseAmount)} · Comissão: {entry.commissionRate.replace(".", ",")}% · IPI: {entry.ipiRate?.replace(".", ",")}%</p>}<p>{entry.paymentId ? "Incluído em pagamento declarado" : "Em aberto"}</p>{entry.orderId && <Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${entry.orderId}`}>Consultar pedido de origem</Link>}{entry.reversesEntryId && <p className="break-all text-xs text-muted-foreground">Estorna comissão {entry.reversesEntryId}</p>}</li>)}</ul>}
+      <div className="flex flex-wrap items-end gap-3"><label className="space-y-2">Competência do extrato<Input type="month" min="1900-01" max="2100-12" value={statementMonth} onChange={event => setStatementMonth(event.target.value)} /></label>{statementMonth && <Button type="button" variant="outline" onClick={() => setStatementMonth("")}>Todas as competências</Button>}</div>
+      <dl aria-label="Resumo do extrato" className="grid gap-3 sm:grid-cols-3">{[["Base recebida sem IPI", total(statement, "baseAmount")], ["Comissão do extrato", total(statement, "amount")], ["Em aberto no extrato", total(statement.filter(entry => !entry.paymentId), "amount")]].map(([label, amount]) => <div className="rounded-xl border p-4" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-2 text-xl font-semibold">{money(amount)}</dd></div>)}</dl>
+      <p className="text-sm text-muted-foreground">O extrato inclui estornos e ajustes da competência consultada. O pagamento considera o corte informado no formulário e pode incluir saldos de meses anteriores.</p>
+      {!statement.length ? <p>{statementMonth ? "Nenhuma comissão nesta competência." : "Nenhuma comissão lançada."}</p> : <ul className="space-y-3">{statement.map(entry => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={entry.id}><p className="font-medium">{origin[entry.kind]} · {money(entry.amount)}</p><p>Competência: {entry.competence} · Vencimento: {entry.paymentDue}</p><p className="break-words">{entry.reason}</p><p>Vendedor registrado: {entry.sellerName}</p>{entry.commissionRate !== null && <p>Base sem IPI: {money(entry.baseAmount)} · Comissão: {entry.commissionRate.replace(".", ",")}% · IPI: {entry.ipiRate?.replace(".", ",")}%</p>}<p>{entry.paymentId ? "Incluído em pagamento declarado" : "Em aberto"}</p>{entry.orderId && <Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${entry.orderId}`}>{entry.orderNumber ? `Consultar ${orderNumber(entry.orderNumber)}` : "Consultar pedido de origem"}</Link>}{entry.reversesEntryId && <p className="break-all text-xs text-muted-foreground">Estorna comissão {entry.reversesEntryId}</p>}</li>)}</ul>}
       <h3 className="font-semibold">Histórico de pagamentos de comissão</h3>
       {!value.payments.length ? <p>Nenhum pagamento de comissão declarado.</p> : <ul className="space-y-3">{value.payments.map(payment => <li key={payment.id} className="min-w-0 space-y-2 rounded-xl border p-4"><p>{money(payment.amount)} · {payment.occurredOn}</p><p>Competências até {payment.throughCompetence}</p><p className="break-words">{payment.reference}</p></li>)}</ul>}
     </>}

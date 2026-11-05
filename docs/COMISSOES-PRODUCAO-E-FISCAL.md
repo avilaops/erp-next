@@ -35,6 +35,23 @@ Permissões: `finance.commissions.read/manage`; configurar condições também e
 do replay quando houver configuração ou lançamentos vinculados. As telas estão
 em `/financeiro/comissoes` e no detalhe do pedido.
 
+### Ajuste manual vinculado ao pedido
+
+O ajuste aceita `orderNumber` opcional, como `PV-000001` ou `1`. O servidor
+localiza o pedido na empresa autenticada e exige comissão configurada para o
+mesmo vendedor do livro. Pedido ausente, sem configuração ou pertencente a outro
+vendedor é recusado antes do lançamento. O vínculo usa `commission_entries.order_id`,
+já existente; nenhuma tabela nova é necessária. O extrato devolve `orderNumber`
+e oferece acesso ao pedido de origem. O ajuste registra crédito ou débito de
+comissão; não registra recebimento de cliente. Motivo, competência, revisão,
+idempotência e auditoria continuam obrigatórios.
+
+O livro do vendedor oferece filtro de competência e resumo de base recebida sem
+IPI, comissão líquida e valor em aberto do extrato. Os totais usam centavos
+inteiros e incluem os estornos com sinal negativo; ajustes não aumentam a base
+recebida. O filtro é de consulta e não modifica o corte de um pagamento. O
+histórico de pagamentos anteriores continua visível ao consultar outro mês.
+
 ## Produção e componentes
 
 `GET`/`POST /api/v1/production/orders` lista/cria ordens a partir de venda

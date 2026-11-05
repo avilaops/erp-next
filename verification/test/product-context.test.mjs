@@ -20,10 +20,10 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 50);
-  assert.equal(context.actions.length, 251);
+  assert.equal(context.flows.length, 54);
+  assert.equal(context.actions.length, 265);
   assert.equal(context.pendingFlows.length, 34);
-  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'fixed-expenses', 'personal-preferences', 'price-tables', 'product-costs', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'users']);
+  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'custom-fields', 'custom-reports', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'fixed-expenses', 'label-templates', 'personal-preferences', 'price-tables', 'product-costs', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'users', 'workflows']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'implemented');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
   const cte = context.flows.find(flow => flow.definition.id === 'fiscal-cte');

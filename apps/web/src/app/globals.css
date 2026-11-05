@@ -63,7 +63,7 @@ html { scroll-padding-top: 76px; }
 .erp-content { min-width: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .erp-sidebar { display: none; }
 .erp-header { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 24px; position: sticky; top: 0; z-index: 30; background: var(--background); border-bottom: 1px solid var(--border); }
-.erp-header-brand { font-size: 15px; white-space: nowrap; }
+.erp-header-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; }
 .erp-global-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .erp-header .icon-action { width: 36px; height: 36px; border-radius: 6px; }
 .erp-header .icon-action svg, .erp-company-link svg { width: 18px; height: 18px; }
@@ -96,7 +96,7 @@ html { scroll-padding-top: 76px; }
 .erp-index-entry { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 .erp-index-entry .erp-module-button { color: var(--muted-foreground); }
 .erp-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; height: 64px; padding: 0 20px; border-bottom: 1px solid var(--border); }
-.erp-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); font-size: 15px; font-weight: 600; }
+.erp-brand-mark { display: block; width: 32px; height: 32px; flex-shrink: 0; }
 .erp-brand-name strong { display: block; font-size: 14px; line-height: 20px; }
 .erp-brand-name small { display: block; font-size: 11px; color: var(--muted-foreground); }
 .erp-sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
@@ -213,6 +213,24 @@ html { scroll-padding-top: 76px; }
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: #5eead4;
+}
+
+:root.avila-theme {
+  --primary: #0759f8;
+  --primary-hover: #0648c9;
+  --primary-foreground: #ffffff;
+  --accent: #edf3ff;
+  --accent-foreground: #0648c9;
+  --ring: #0759f8;
+  --chart-1: #0759f8;
+  --chart-2: #ff282c;
+  --chart-3: #d59e00;
+  --chart-4: #0648c9;
+  --chart-5: #b72028;
+  --sidebar-primary: #0759f8;
+  --sidebar-accent: #edf3ff;
+  --sidebar-accent-foreground: #0648c9;
+  --sidebar-ring: #0759f8;
 }
 
 @layer base {

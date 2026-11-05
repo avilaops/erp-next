@@ -20,7 +20,7 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 46);
+  assert.equal(context.flows.length, 47);
   assert.equal(context.actions.length, 238);
   assert.equal(context.pendingFlows.length, 34);
   assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commissions', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'personal-preferences', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'users']);

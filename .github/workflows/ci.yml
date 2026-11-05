@@ -283,7 +283,7 @@ jobs:
           if-no-files-found: error
 
   web-lint:
-    timeout-minutes: 2
+    timeout-minutes: 1
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -296,7 +296,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --prefer-offline
-      - run: timeout 90s pnpm --filter web lint
+      - run: timeout 35s pnpm --filter web lint
       - run: node --test tests/*-model.node.mjs
         working-directory: apps/web
 

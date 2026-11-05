@@ -19,6 +19,7 @@
     "assistant": "Assistente do ERP.",
     "catalog": "Produtos, variações e catálogo.",
     "company": "Cadastro, seleção e conta da empresa.",
+    "commercial-settings": "Parâmetros comerciais e publicação versionada de preços por linha.",
     "contracts": "Modelos e contratos comerciais.",
     "dashboard": "Painéis e disposição pessoal.",
     "data": "Importação, exportação e histórico legado.",
@@ -42,8 +43,8 @@
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 367,
-    "sha256": "8fab3be03d3fc050e0347fb1d98fde5eaf14978fe48ee5dddfdb6346dd0adfa0"
+    "count": 373,
+    "sha256": "3aaaa18a56e7516586581fd123570d3c58a69ce6f121d41a6e04dceba968c0e1"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

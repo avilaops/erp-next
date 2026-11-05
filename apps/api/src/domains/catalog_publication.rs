@@ -114,10 +114,10 @@ async fn assets(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Value, DomainError> {
-    Ok(sqlx::query_scalar::<_,Value>("SELECT COALESCE(jsonb_agg(jsonb_build_object('id',m.id,'variant',m.variant,'version',m.version,'width',m.width_px,'height',m.height_px,'mediaType',f.media_type) ORDER BY m.version DESC,m.variant),'[]'::jsonb) FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND f.status='available'")
-        .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)?)
+    sqlx::query_scalar::<_,Value>("SELECT COALESCE(jsonb_agg(jsonb_build_object('id',m.id,'variant',m.variant,'version',m.version,'width',m.width_px,'height',m.height_px,'mediaType',f.media_type) ORDER BY m.version DESC,m.variant),'[]'::jsonb) FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND f.status='available'")
+        .bind(tenant).bind(id).fetch_one(&mut **tx).await.map_err(db)
 }
-#[utoipa::path(get,path="/api/v1/products/{id}/catalog",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path)),responses((status=200,description="Rascunho e galeria")))]
+#[utoipa::path(get,operation_id="catalog_profile_get",path="/api/v1/products/{id}/catalog",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path)),responses((status=200,description="Rascunho e galeria")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -143,7 +143,7 @@ pub async fn get(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"assets":media}),
     ))
 }
-#[utoipa::path(put,path="/api/v1/products/{id}/catalog",tag="Catalog",request_body=CatalogProfileInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path)),responses((status=200,description="Rascunho salvo"),(status=412,description="Revisão alterada")))]
+#[utoipa::path(put,operation_id="catalog_profile_put",path="/api/v1/products/{id}/catalog",tag="Catalog",request_body=CatalogProfileInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path)),responses((status=200,description="Rascunho salvo"),(status=412,description="Revisão alterada")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -189,7 +189,7 @@ pub async fn put(
         json!({"saved":true,"revision":expected+1}),
     ))
 }
-#[utoipa::path(get,path="/api/v1/products/{id}/media/{media_id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("media_id"=Uuid,Path)),responses((status=200,description="Imagem privada autorizada")))]
+#[utoipa::path(get,operation_id="catalog_media_get",path="/api/v1/products/{id}/media/{media_id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("media_id"=Uuid,Path)),responses((status=200,description="Imagem privada autorizada")))]
 pub async fn media(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -266,7 +266,7 @@ fn fingerprint(products: &Value) -> String {
 pub struct PublishInput {
     pub preview_hash: String,
 }
-#[utoipa::path(get,path="/api/v1/catalog-publication",tag="Catalog",security(("bearerAuth"=[])),responses((status=200,description="Prévia sem preços e publicação atual")))]
+#[utoipa::path(get,operation_id="catalog_publication_preview",path="/api/v1/catalog-publication",tag="Catalog",security(("bearerAuth"=[])),responses((status=200,description="Prévia sem preços e publicação atual")))]
 pub async fn preview(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -290,7 +290,7 @@ pub async fn preview(
         json!({"tenantId":tenant,"canEdit":can_edit,"configured":state.catalog_media.as_ref().is_some_and(|g|g.tenant==tenant),"previewHash":fingerprint(&products),"products":products,"publication":publication}),
     ))
 }
-#[utoipa::path(post,path="/api/v1/catalog-publication",tag="Catalog",request_body=PublishInput,security(("bearerAuth"=[])),responses((status=200,description="Publicação explícita concluída")))]
+#[utoipa::path(post,operation_id="catalog_publication_publish",path="/api/v1/catalog-publication",tag="Catalog",request_body=PublishInput,security(("bearerAuth"=[])),responses((status=200,description="Publicação explícita concluída")))]
 pub async fn publish(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -316,12 +316,12 @@ pub async fn publish(
     .fetch_optional(&mut *tx)
     .await
     .map_err(db)?;
-    if let Some(previous) = &old {
-        if fingerprint(&previous["products"]) != input.preview_hash {
-            return Err(DomainError::Conflict(
-                "Esta chave já pertence a outra prévia",
-            ));
-        }
+    if let Some(previous) = &old
+        && fingerprint(&previous["products"]) != input.preview_hash
+    {
+        return Err(DomainError::Conflict(
+            "Esta chave já pertence a outra prévia",
+        ));
     }
     if old.is_none() {
         let products = snapshot(&mut tx, tenant).await?;

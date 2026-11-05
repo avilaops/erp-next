@@ -45,6 +45,9 @@ if [[ -f "$previous_release/compose.json" ]]; then
   # Keep its private runtime configuration on the server and replace only the
   # three immutable image references.
   cp -p "$previous_release/compose.json" "$release/compose.json"
+  # The generated JSON carries the public release marker in the web
+  # environment; update it together with the immutable image references.
+  sed -i "s|\"ERP_RELEASE_SHA\": \"[0-9a-f]*\"|\"ERP_RELEASE_SHA\": \"$source_sha\"|g" "$release/compose.json"
   previous_api=$(docker inspect --format '{{.Config.Image}}' erp-next-api-1)
   previous_web=$(docker inspect --format '{{.Config.Image}}' erp-next-web-1)
   previous_fiscal=$(docker inspect --format '{{.Config.Image}}' erp-next-fiscal-engine-1)
@@ -60,6 +63,7 @@ if [[ -f "$previous_release/compose.json" ]]; then
   grep -q "erp-next-api:sha-$source_sha" "$release/compose.json" || fail 'API image was not pinned'
   grep -q "erp-next-web:sha-$source_sha" "$release/compose.json" || fail 'web image was not pinned'
   grep -q "erp-next-fiscal:sha-$source_sha" "$release/compose.json" || fail 'fiscal image was not pinned'
+  grep -q "\\\"ERP_RELEASE_SHA\\\": \\\"$source_sha\\\"" "$release/compose.json" || fail 'release SHA was not pinned'
   compose_file=compose.json
   compose_env_args=()
 else

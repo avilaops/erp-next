@@ -1330,7 +1330,7 @@
     }
   ],
   "actions": [
-+{
+    {
   "id": "get-commercial-settings",
   "flow": "commercial-settings",
   "status": "implemented",

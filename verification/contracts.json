@@ -1501,7 +1501,7 @@
   "sources": [
     "apps/api/src/platform/commercial_settings.rs",
     "apps/api/src/platform/commercial_settings_model.rs",
-    "migrations/202611030001_commercial_settings.sql",
+    "migrations/202611042101_commercial_settings.sql",
     "apps/web/src/features/commercial-settings/commercial-settings.tsx"
   ],
   "verification": {
@@ -1595,7 +1595,7 @@
   "sources": [
     "apps/api/src/platform/commercial_settings.rs",
     "apps/api/src/platform/commercial_settings_model.rs",
-    "migrations/202611030001_commercial_settings.sql",
+    "migrations/202611042101_commercial_settings.sql",
     "apps/web/src/features/commercial-settings/commercial-settings.tsx"
   ],
   "verification": {
@@ -23617,6 +23617,96 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-product-catalog-profile",
+      "flow": "products",
+      "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/products/{id}/catalog"},
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null},
+      "preconditions": ["Identidade, empresa e permissão de leitura ativas; produto pertencente à empresa."],
+      "transition": {"from": "perfil atual", "to": "sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Leitura não publica catálogo nem altera preços."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "A resposta informa a revisão do perfil."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 503], "action": "Consultar rascunho e galeria do produto"},
+      "recovery": "Repetir consulta após verificar acesso e produto.",
+      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/products/[id]/catalog"}, "gap": null},
+      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/catalog/route.ts"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "put-product-catalog-profile",
+      "flow": "products",
+      "status": "implemented",
+      "operation": {"method": "PUT", "path": "/api/v1/products/{id}/catalog"},
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/catalog_publication.rs", "type": "CatalogProfileInput"}, "query": null},
+      "preconditions": ["Identidade, empresa e permissão de gestão ativas.", "If-Match corresponde à revisão atual; imagem principal disponível e pertencente ao produto."],
+      "transition": {"from": "rascunho na revisão informada", "to": "rascunho na próxima revisão"},
+      "effects": {"writes": ["Atualizar perfil do produto e registrar auditoria na transação."], "external": [], "excludes": ["Salvar rascunho não publica catálogo nem altera preços."]},
+      "concurrency": {"revision": true, "idempotency": false, "rule": "Revisão divergente retorna 412 sem substituir alterações concorrentes."},
+      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 412, 428, 503], "action": "Salvar rascunho do perfil"},
+      "recovery": "Recarregar revisão e resolver conflito antes de reenviar.",
+      "ui": {"pages": [], "bff": {"method": "PUT", "path": "/api/erp/products/[id]/catalog"}, "gap": null},
+      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/catalog/route.ts"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "get-private-product-media",
+      "flow": "products",
+      "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/products/{id}/media/{media_id}"},
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id", "media_id"], "body": null, "query": null},
+      "preconditions": ["Identidade, empresa e permissão de leitura ativas; mídia disponível e vinculada ao produto da empresa."],
+      "transition": {"from": "mídia privada disponível", "to": "sem alteração"},
+      "effects": {"writes": [], "external": ["Ler imagem autorizada do gateway de mídia."], "excludes": ["A mídia privada não recebe cache público."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Leitura sem comando ou revisão."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 409, 503], "action": "Consultar mídia privada do produto"},
+      "recovery": "Repetir leitura se o gateway estiver indisponível; não expor a chave de armazenamento.",
+      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/products/[id]/media/[mediaId]"}, "gap": null},
+      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/media/[mediaId]/route.ts"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "get-catalog-publication-preview",
+      "flow": "products",
+      "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/catalog-publication"},
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null},
+      "preconditions": ["Identidade, empresa e permissão de leitura ativas."],
+      "transition": {"from": "rascunhos e publicação atual", "to": "sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Prévia não publica catálogo nem altera preços."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Hash da prévia identifica o conjunto consultado."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 503], "action": "Consultar prévia e publicação atual"},
+      "recovery": "Gerar nova prévia após alterações no catálogo.",
+      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/catalog-publication"}, "gap": null},
+      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/catalog-publication/route.ts"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-catalog-publication",
+      "flow": "products",
+      "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/catalog-publication"},
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/catalog_publication.rs", "type": "PublishInput"}, "query": null},
+      "preconditions": ["Identidade, empresa e permissão de gestão ativas.", "Chave de comando obrigatória e hash igual à prévia persistida; gateway configurado para a empresa."],
+      "transition": {"from": "rascunho revisado", "to": "versão publicada"},
+      "effects": {"writes": ["Persistir versão do catálogo por empresa e chave de comando."], "external": ["Enviar publicação ao gateway de mídia configurado."], "excludes": ["Publicação não altera preços nem classificação fiscal."]},
+      "concurrency": {"revision": false, "idempotency": true, "rule": "A mesma chave só pode repetir a mesma prévia persistida."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 409, 428, 503], "action": "Publicar versão explícita do catálogo"},
+      "recovery": "Conferir publicação atual e repetir apenas com a mesma chave e prévia; gerar nova prévia se o catálogo mudou.",
+      "ui": {"pages": [], "bff": {"method": "POST", "path": "/api/erp/catalog-publication"}, "gap": null},
+      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/catalog-publication/route.ts"],
+      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

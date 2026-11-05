@@ -30,7 +30,7 @@ test("títulos distinguem lista, criação, configuração e dashboard", async (
     ["/dashboards/vendas", "Dashboard de vendas"],
   ]) {
     await page.goto(path)
-    await expect(page).toHaveTitle(title + " · ERP Next · Ávila Ops")
+    await expect(page).toHaveTitle(title + " · Ávila ERP")
   }
 })
 

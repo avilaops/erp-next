@@ -27,7 +27,6 @@ import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
 import type { PersonalPreferences } from "@/features/preferences/system/system-preferences"
 
-type Product = Schema<"Product">
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
 const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], armColors: [], plateHolderColors: [] }

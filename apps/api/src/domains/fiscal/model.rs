@@ -557,6 +557,16 @@ impl DraftInput {
                 "O ambiente do rascunho deve corresponder à configuração fiscal",
             ));
         }
+        if self.additional_information.as_ref().is_some_and(|text| {
+            text.chars().count() > 5000
+                || text
+                    .chars()
+                    .any(|character| character.is_control() && character != '\n')
+        }) {
+            return Err(DomainError::Invalid(
+                "Informações complementares exigem até 5000 caracteres, sem controles",
+            ));
+        }
         if self.model != 55
             || !text(&self.operation_nature, 60)
             || !text(&self.tax_rule_reference, 200)

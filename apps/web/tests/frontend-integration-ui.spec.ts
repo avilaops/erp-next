@@ -25,7 +25,7 @@ test("falha de consulta preserva orientação e nova tentativa nos editores", as
 const ready = { tenantId: tenant, profileConfigured: true, certificateVerified: false, canTransmit: false, productionEnabled: false, blockers: ["a1_certificate_missing_expired_or_unavailable"] }
 const permissions = ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"]
 
-test("redirecionamento legado e transição de inventário não geram erro de navegação", async ({ page }) => {
+test("redirecionamento legado e acesso ao estoque não expõem inventário fictício", async ({ page }) => {
   const errors: string[] = []
   page.on("pageerror", error => errors.push(error.message))
   page.on("console", message => { if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) errors.push(message.text()) })
@@ -33,10 +33,11 @@ test("redirecionamento legado e transição de inventário não geram erro de na
   await expect(page).toHaveURL("http://127.0.0.1:33118/")
   await expect(page.getByRole("heading", { name: "Visão geral", exact: true })).toBeVisible()
   await page.goto("/estoque/inventarios/" + record)
-  await page.locator('main a[href$="/contagem"]').click()
-  await expect(page.getByRole("heading", { name: "Contagem do inventário", exact: true })).toBeVisible({ timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
+  await page.getByRole("navigation", { name: "Operações disponíveis" }).getByRole("link", { name: "Estoque", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Saldos e movimentos", exact: true })).toBeVisible()
   await page.goBack()
-  await expect(page.locator('main a[href$="/contagem"]')).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
 

@@ -11,15 +11,14 @@ import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { useCommand, useResource } from "@/hooks/use-operation"
+import { contractFieldLabels as sources } from "./contract-fields"
 
-type Area = Schema<"Area">
 type Field = Schema<"Field">
 type Definition = Schema<"Definition">
 type Detail = Schema<"TemplateDraftDetail">
 type Listing = Schema<"TemplateDraftList">
 const linkClass = "text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background p-2"
-const sources = { empresa_nome: "Nome da empresa", empresa_documento: "Documento da empresa", empresa_endereco: "Endereço da empresa", cliente_nome: "Nome do cliente", cliente_documento: "Documento do cliente", cliente_endereco: "Endereço do cliente", cliente_email: "E-mail do cliente", pedido_numero: "Número do pedido", pedido_total: "Total do pedido", itens: "Itens e valores", vencimento: "Vencimento", condicoes: "Condições comerciais", entrega: "Entrega" }
 
 export function Templates({ id }: { id?: string }) {
   const listing = useResource<Listing>("/api/erp/contract-template-drafts")

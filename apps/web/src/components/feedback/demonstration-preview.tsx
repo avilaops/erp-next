@@ -3,20 +3,30 @@
 import type { ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { isDemonstrationRoute } from "@/lib/demonstration-routes"
+import Link from "next/link"
+
+const destinations = [
+  ["Produtos", "/cadastros/produtos"],
+  ["Clientes e fornecedores", "/cadastros/clientes-fornecedores"],
+  ["Pedidos de venda", "/vendas/pedidos"],
+  ["Pedidos de compra", "/compras/pedidos"],
+  ["Estoque", "/estoque"],
+  ["Contas a receber", "/financeiro/contas-receber"],
+  ["Contas a pagar", "/financeiro/contas-pagar"],
+  ["Contratos", "/servicos/contratos"],
+] as const
 
 export function DemonstrationPreview({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   if (!isDemonstrationRoute(pathname)) return <>{children}</>
-  return <div>
-    <section className="mx-auto max-w-[1600px] px-4 pt-6 lg:px-6" aria-labelledby="preview-title">
-      <div className="rounded-xl border border-border bg-muted/40 p-4">
-        <h2 id="preview-title" className="font-semibold">Prévia de interface</h2>
-        <p id="preview-description" className="mt-2 text-sm">Esta tela usa dados de exemplo. Seus indicadores não representam a empresa ativa. As ações de operação estão indisponíveis; os links permitem continuar a navegação.</p>
-      </div>
-    </section>
-    <fieldset disabled className="min-w-0 border-0 p-0" aria-describedby="preview-description">
-      <legend className="sr-only">Dados de exemplo; operações indisponíveis</legend>
-      {children}
-    </fieldset>
-  </div>
+  // Do not mount legacy preview components: their local state and example
+  // records must never look like operations or data of the active company.
+  const directory = ["/cadastros", "/servicos", "/logistica", "/relatorios"].includes(pathname)
+  const title = ({ "/cadastros": "Cadastros", "/servicos": "Serviços", "/logistica": "Logística", "/relatorios": "Relatórios" } as Record<string, string>)[pathname]
+  return <section className="mx-auto w-full min-w-0 max-w-5xl space-y-5 px-4 py-8 lg:px-6">
+    <Link className="inline-block text-primary underline" href="/">Voltar à visão geral</Link>
+    <h1 className="text-3xl font-semibold">{directory ? title : "Funcionalidade indisponível"}</h1>
+    <p className="text-muted-foreground">{directory ? "Acesse os registros e operações da empresa." : "Esta funcionalidade ainda não está disponível. Consulte os registros da empresa nas operações abaixo."}</p>
+    <nav aria-label="Operações disponíveis" className="grid gap-3 sm:grid-cols-2">{destinations.map(([label, href]) => <Link className="min-w-0 rounded-xl border bg-card p-4 font-medium text-primary hover:bg-accent" href={href} key={href}>{label}</Link>)}</nav>
+  </section>
 }

@@ -59,10 +59,10 @@ test("busca global encontra Produtos com destino direto", async ({ page }) => {
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
 })
 
-test("histórico demonstrativo não oferece download inexistente", async ({ page }) => {
+test("exportação sem integração não oferece download inexistente", async ({ page }) => {
   await page.goto("/preferencias/dados/exportacao")
-  await expect(page.getByRole("button", { name: "Baixar", exact: true }).first()).toBeDisabled()
-  await expect(page.getByText("Downloads indisponíveis nesta demonstração. Nenhum arquivo foi gerado.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar", exact: true })).toHaveCount(0)
+  await expect(page.getByText("A geração de arquivos ainda não está integrada. Nenhum arquivo foi gerado.", { exact: true })).toBeVisible()
 })
 
 test("filtro e página do catálogo sobrevivem a recarga e histórico", async ({ page }) => {

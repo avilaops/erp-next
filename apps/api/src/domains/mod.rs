@@ -4,6 +4,7 @@ mod catalog_images;
 pub mod catalog_publication;
 pub mod commissions;
 pub mod contracts;
+pub mod dashboard;
 pub mod finance;
 pub mod fiscal;
 pub mod fixed_expenses;

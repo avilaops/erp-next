@@ -91,9 +91,12 @@ pub async fn snapshot(
 ) -> Result<Value, DomainError> {
     sqlx::query_scalar(r#"
         SELECT jsonb_build_object(
-            'order',jsonb_build_object('id',o.id,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
+            'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
             'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
+            'proposal',(SELECT jsonb_build_object('id',sp.id,'number',sp.number::text,'version',v.version,'paymentTerms',v.payment_terms,'deliveryTerms',v.delivery_terms,'notes',v.notes)
+                FROM sales_proposals sp JOIN sales_proposal_versions v ON v.tenant_id=sp.tenant_id AND v.proposal_id=sp.id AND v.version=sp.current_version
+                WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
                 || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color,'plateHolderColor',l.plate_holder_color,'plateHolderType',l.plate_holder_type))
@@ -123,6 +126,20 @@ fn address(value: &Value) -> String {
     .filter(|s| !s.is_empty())
     .collect::<Vec<_>>()
     .join(", ")
+}
+
+pub fn order_number(snapshot: &Value) -> String {
+    match snapshot["order"]["number"].as_str() {
+        Some(number)
+            if !number.is_empty() && number.bytes().all(|value| value.is_ascii_digit()) =>
+        {
+            format!("PV-{number:0>6}")
+        }
+        _ => snapshot["order"]["id"]
+            .as_str()
+            .unwrap_or("Pedido")
+            .to_owned(),
+    }
 }
 
 pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
@@ -169,9 +186,11 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         ("cliente_nome", &snapshot["customer"]["name"]),
         ("cliente_documento", &snapshot["customer"]["taxId"]),
         ("cliente_email", &snapshot["customer"]["email"]),
-        ("pedido_numero", &snapshot["order"]["id"]),
         ("pedido_total", &snapshot["order"]["amount"]),
         ("vencimento", &snapshot["order"]["dueDate"]),
+        ("condicoes", &snapshot["proposal"]["paymentTerms"]),
+        ("entrega", &snapshot["proposal"]["deliveryTerms"]),
+        ("observacoes", &snapshot["proposal"]["notes"]),
     ] {
         result.insert(key.into(), value.as_str().unwrap_or("").into());
     }
@@ -181,6 +200,7 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         customer_address.map(address).unwrap_or_default(),
     );
     result.insert("itens".into(), items);
+    result.insert("pedido_numero".into(), order_number(snapshot));
     result
 }
 

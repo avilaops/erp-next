@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { createHandler } from "../src/server.ts";
 
-test("health check requires bearer and returns homologation readiness without fiscal credentials", async () => {
+test("health check requires bearer and reports supported environments without fiscal credentials", async () => {
   const server = createServer(createHandler("test-token-with-enough-entropy"));
   server.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert.ok(address && typeof address !== "string");
@@ -15,7 +15,7 @@ test("health check requires bearer and returns homologation readiness without fi
     const response = await fetch(url, { headers: { authorization: "Bearer test-token-with-enough-entropy" } });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
-    assert.deepEqual(await response.json(), { status: "ok", environment: "homologation" });
+    assert.deepEqual(await response.json(), { status: "ok", environments: ["homologation", "production"] });
     assert.equal((await fetch(url, { method: "POST", headers: { authorization: "Bearer test-token-with-enough-entropy" } })).status, 404);
   } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
 });

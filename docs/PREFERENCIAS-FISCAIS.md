@@ -56,6 +56,6 @@ de consulta remove os registros anteriores e mostra erro, sem simular vazio.
 - Testes verificam segredo, contexto criptográfico, revisão, permissões,
   isolamento, CFOP, duplicações, paginação, persistência e celular.
 
-Liberação de produção NF-e e emissão NFC-e permanecem etapas distintas desta
-base de configuração. Não executar emissão, inutilização ou correção real para
-validar formulários.
+Os ambientes NF-e 55/SP são descritos em `FISCAL-AMBIENTES.md`; a emissão NFC-e
+permanece integração própria, distinta desta configuração. Não executar emissão,
+inutilização ou correção real para validar formulários.

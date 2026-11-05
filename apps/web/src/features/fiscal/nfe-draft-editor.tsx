@@ -66,6 +66,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
         const proposed: Preparation | undefined = !id && sourceOrderId ? origin : undefined
         if (ready.tenantId !== me.tenant?.id || origin && origin.tenantId !== me.tenant.id) throw new Error("A empresa da sessão mudou. Reabra o rascunho")
         const input: DraftInput = current ? current.data.input : proposed ? { ...blankDraft(), sourceOrderId: proposed.orderId, recipient: proposed.recipient, items: proposed.items.map(item => ({ ...blankItem(), code: item.code, description: item.description, unit: item.unit, ncm: item.ncm || "", quantity: item.quantity, unitPrice: item.unitPrice, grossTotal: item.grossTotal })), productsTotal: proposed.productsTotal } : blankDraft()
+        if (!current) input.environment = ready.environment
         setDraft(input); setBaseline(JSON.stringify(input)); setSnapshot(current || null)
         setPreparation(proposed || null)
         setTenant(me.tenant.id); setReadiness(ready); setCanEdit(me.permissions.includes("fiscal.nfe.manage") && (!current || current.canEdit))
@@ -157,7 +158,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
   try { total = `R$ ${productsTotal(draft.items).replace(".", ",")}` } catch { /* Invalid fields remain visible until corrected. */ }
   return <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
     <Link className="text-sm text-primary underline" href="/fiscal/notas-saida" onClick={event => { if ((dirty || uncertain || saving) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar aos rascunhos</Link>
-    <header><p className="text-sm text-primary">Fiscal / NF-e de saída</p><h1 className="mt-2 text-3xl font-semibold">{id ? "Preparação e emissão de NF-e" : "Preparar nota de saída"}</h1><p className="mt-3 text-muted-foreground">Homologação · Modelo 55 · Sem valor fiscal</p>{snapshot && <p className="mt-2 break-all text-xs text-muted-foreground">{snapshot.data.id} · Revisão {snapshot.data.revision} · Emitente: {snapshot.data.issuer.legalName}</p>}</header>
+    <header><p className="text-sm text-primary">Fiscal / NF-e de saída</p><h1 className="mt-2 text-3xl font-semibold">{id ? "Preparação e emissão de NF-e" : "Preparar nota de saída"}</h1><p className="mt-3 text-muted-foreground">{draft.environment === "production" ? "Produção · Modelo 55" : "Homologação · Modelo 55 · Sem valor fiscal"}</p>{snapshot && <p className="mt-2 break-all text-xs text-muted-foreground">{snapshot.data.id} · Revisão {snapshot.data.revision} · Emitente: {snapshot.data.issuer.legalName}</p>}</header>
     <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">Salvar conserva o rascunho para conferência. A emissão começa pelo comando fiscal ao final da página. CST, CSOSN, CFOP e enquadramento devem seguir a instrução do responsável fiscal.</p>
     {draft.sourceOrderId && <section className="rounded-xl border border-primary/30 p-4 text-sm"><p>Origem: <Link className="break-all text-primary underline" href={`/vendas/pedidos/${draft.sourceOrderId}`}>Pedido {draft.sourceOrderId}</Link>{preparation ? ` · Revisão consultada ${preparation.orderRevision}` : ""}</p>{preparation && <Link className="mt-2 inline-block text-primary underline" href={`/cadastros/clientes-fornecedores/${preparation.customerId}`}>Abrir cadastro do cliente</Link>}<p className="mt-2 text-muted-foreground">Esta preparação representa o pedido integral. Código, unidade, quantidade e preço permanecem os registrados na venda. Confira o endereço e informe o código IBGE e a tributação. Salvar não marca o pedido como faturado.</p></section>}
     {loading && <p role="status">Carregando dados fiscais…</p>}
@@ -171,6 +172,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
           {tenant && <TaxProfilePicker key={tenant} tenant={tenant} onApply={(profile,revision)=>setDraft(previous=>applyTaxProfile(previous,profile,revision))} />}
           {tenant && <OperationNaturePicker key={`nature-${tenant}`} tenant={tenant} onApply={(nature,revision)=>setDraft(previous=>({...previous,operationNature:nature.name,taxRuleReference:`${nature.code} · revisão ${revision}`}))} />}
           <section className="form-section grid gap-4 sm:grid-cols-2" aria-label="Operação fiscal">
+            <Field label="Ambiente do rascunho"><select aria-label="Ambiente do rascunho" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={draft.environment} onChange={event => setDraft({ ...draft, environment: event.target.value as DraftInput["environment"] })}><option value="homologation">Homologação</option><option value="production">Produção</option></select></Field>
             <Field label="Natureza da operação"><Input required maxLength={60} value={draft.operationNature} onChange={event => setDraft({ ...draft, operationNature: event.target.value })} /></Field>
             <Field label="Referência da instrução fiscal"><Input required maxLength={200} value={draft.taxRuleReference} onChange={event => setDraft({ ...draft, taxRuleReference: event.target.value })} /></Field>
           </section>
@@ -225,7 +227,7 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
       </form>
       {snapshot?.data.ibptSnapshot && <IbptSavedSnapshot snapshot={snapshot.data.ibptSnapshot} revision={snapshot.data.revision} dirty={dirty} />}
       {readiness && !readiness.canTransmit && <section className="form-section space-y-2"><h2 className="font-semibold">Pendências para emitir</h2>{readiness.blockers.map(blocker => <p key={blocker} className="text-sm">{blockerLabels[blocker] || "Confira a configuração fiscal para esta operação"}</p>)}</section>}
-      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
+      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} environment={snapshot.data.input.environment} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
     </>}
   </main>
 }

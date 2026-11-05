@@ -312,8 +312,8 @@
       },
       {
         "id": "fiscal-emission",
-        "title": "Emissão e eventos NF-e em homologação",
-        "goal": "Preparar, validar, assinar, transmitir e reconciliar NF-e em SP/homologação com numeração durável.",
+        "title": "Emissão e eventos NF-e por ambiente",
+        "goal": "Preparar e emitir NF-e SP no ambiente escolhido pelo usuário, com numeração e eventos isolados por ambiente.",
         "kind": "product",
         "actionGroups": [
           "fiscal-emission"
@@ -8303,7 +8303,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Cancelamento comercial da empresa com motivo fiscal válido e exatamente um documento vinculado não rejeitado; If-Match da revisão desse documento."
       ],
@@ -8407,7 +8407,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "If-Match inicial 0; ano atual, série válida, faixa de até dez mil números sem número utilizado e justificativa válida."
       ],
@@ -8420,10 +8420,10 @@
           "Evento durável de inutilização, estado/resultado e auditoria."
         ],
         "external": [
-          "Motor privado assina e envia inutilização à SEFAZ em homologação."
+          "Motor privado assina e envia inutilização no ambiente persistido da solicitação."
         ],
         "excludes": [
-          "Não inutiliza números em produção nem substitui cancelamento de NF-e autorizada."
+          "Não substitui cancelamento de NF-e autorizada nem afeta a sequência de outro ambiente."
         ]
       },
       "concurrency": {
@@ -8514,7 +8514,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -8527,7 +8527,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ em homologação."
+          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -8622,7 +8622,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -8635,7 +8635,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ em homologação."
+          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -9077,7 +9077,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento com chave e XML preparado, revisão atual e nenhuma operação concorrente."
       ],
@@ -15404,7 +15404,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Homologação; alias de certificado não verifica nem contém certificado A1."
+        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
       ],
       "transition": {
         "from": "estado atual",
@@ -15442,7 +15442,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
+        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -15493,7 +15493,7 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "Homologação; alias de certificado não verifica nem contém certificado A1."
+        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
       ],
       "transition": {
         "from": "registro existente",
@@ -15501,7 +15501,7 @@
       },
       "effects": {
         "writes": [
-          "Gravar perfil de homologação com revisão; alias A1 não verifica certificado",
+          "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado",
           "Auditoria e outbox do comando na transação."
         ],
         "external": [],
@@ -15529,7 +15529,7 @@
           428,
           503
         ],
-        "action": "Gravar perfil de homologação com revisão; alias A1 não verifica certificado"
+        "action": "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado"
       },
       "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
       "ui": {
@@ -15540,7 +15540,7 @@
           "method": "PUT",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
+        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -16042,7 +16042,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Rascunho, snapshots da empresa/perfil, origem comercial, declaração tributária e pagamentos coerentes."
       ],
@@ -16056,10 +16056,10 @@
           "Estado durável da emissão, revisão, lease, auditoria e resultado idempotente."
         ],
         "external": [
-          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite à SEFAZ em homologação."
+          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite no ambiente persistido (homologação ou produção)."
         ],
         "excludes": [
-          "Não permite emissão em produção; não movimenta estoque, títulos ou dinheiro."
+          "Não movimenta estoque, títulos ou dinheiro; não escolhe o ambiente por variável global ou inferência."
         ]
       },
       "concurrency": {

@@ -47,6 +47,7 @@ pub fn routes() -> Router<AppState> {
 #[derive(FromRow)]
 pub(super) struct Document {
     pub id: Uuid,
+    pub environment: String,
     pub revision: i64,
     pub status: String,
     pub series: i32,
@@ -68,7 +69,7 @@ pub struct EmissionSnapshot {
     pub id: Uuid,
     pub revision: i64,
     pub status: String,
-    pub environment: &'static str,
+    pub environment: super::model::Environment,
     pub series: i32,
     pub number: i64,
     pub access_key: Option<String>,
@@ -77,13 +78,17 @@ pub struct EmissionSnapshot {
     pub source_order_id: Option<Uuid>,
 }
 impl Document {
+    fn fiscal_environment(&self) -> super::model::Environment {
+        super::model::Environment::parse(&self.environment)
+            .expect("environment checked by database")
+    }
     pub(super) fn snapshot(&self, tenant: Uuid) -> Value {
         serde_json::to_value(EmissionSnapshot {
             tenant_id: tenant,
             id: self.id,
             revision: self.revision,
             status: self.status.clone(),
-            environment: "homologation",
+            environment: self.fiscal_environment(),
             series: self.series,
             number: self.number,
             access_key: self.access_key.clone(),
@@ -99,7 +104,7 @@ pub(super) async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Document, DomainError> {
-    sqlx::query_as("SELECT id,revision,status,series,number,source_order_id,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as("SELECT id,environment,revision,status,series,number,source_order_id,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
 }
 pub(super) fn engine(state: &AppState) -> Result<&FiscalEngine, DomainError> {
@@ -125,8 +130,8 @@ pub(super) fn available_response() -> Response {
     super::problem(
         StatusCode::SERVICE_UNAVAILABLE,
         "nfe_emission_unavailable",
-        "Configure o motor fiscal e um certificado A1 válido para emitir em homologação",
-        json!({"environment":"homologation","productionEnabled":false}),
+        "Configure o motor fiscal e um certificado A1 válido para emitir no ambiente escolhido",
+        json!({"productionEnabled":true}),
     )
 }
 pub(super) fn reply(document: &Document, tenant: Uuid) -> Response {
@@ -241,7 +246,7 @@ pub async fn issue(
         return Ok(available_response());
     }
     if draft.issuer.profile.state != "SP" {
-        return Err(DomainError::Conflict("Emissão disponível somente em SP e homologação").into());
+        return Err(DomainError::Conflict("Emissão disponível para emitente de São Paulo").into());
     }
     // Revalidate the snapshot and order linkage before permanently allocating a number.
     draft.input.validate(&draft.issuer.profile)?;
@@ -261,6 +266,7 @@ pub async fn issue(
     if existing && load(&mut tx, tenant, id).await?.signed_xml.is_none() {
         let document = load(&mut tx, tenant, id).await?;
         if document.series != i32::from(draft.issuer.profile.series)
+            || document.environment != draft.input.environment.as_str()
             || document.source_order_id != draft.input.source_order_id
         {
             return Err(
@@ -281,7 +287,7 @@ pub async fn issue(
     if !existing {
         super::order_source::validate(&mut tx, tenant, &identity, &draft.input).await?;
         if let Some(order_id) = draft.input.source_order_id
-            && sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_order_id=$2 AND status<>'rejected')").bind(tenant).bind(order_id).fetch_one(&mut *tx).await.map_err(db)? {
+            && sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_order_id=$2 AND environment=$3 AND status<>'rejected')").bind(tenant).bind(order_id).bind(draft.input.environment.as_str()).fetch_one(&mut *tx).await.map_err(db)? {
                 return Err(DomainError::Conflict("Pedido já possui documento fiscal ou emissão pendente").into());
         }
         let current = super::prepare(&mut tx, tenant, &draft.input).await?.0;
@@ -294,10 +300,10 @@ pub async fn issue(
             .into());
         }
         let series = i32::from(draft.issuer.profile.series);
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,'homologation',$2,1) ON CONFLICT DO NOTHING").bind(tenant).bind(series).execute(&mut *tx).await.map_err(db)?;
-        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment='homologation' AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,$3,$2,$4) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i64::from(draft.issuer.profile.next_number.unwrap_or(1))).execute(&mut *tx).await.map_err(db)?;
+        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
-        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,environment,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,$8,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).bind(draft.input.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
         record(
             &mut tx,
             tenant,
@@ -307,7 +313,7 @@ pub async fn issue(
                 kind: "fiscal_nfe",
                 id,
                 event: "fiscal.nfe.requested",
-                details: json!({"series":series,"number":number,"environment":"homologation"}),
+                details: json!({"series":series,"number":number,"environment":draft.input.environment}),
             },
         )
         .await?;
@@ -328,6 +334,7 @@ pub async fn issue(
         .await?;
     }
     let mut body = payload(&state, &mut tx, tenant).await?;
+    body["environment"] = json!(document.environment);
     body["issuer"] =
         serde_json::to_value(&draft.issuer).map_err(|_| access::AccessError::Internal)?;
     body["draft"] =
@@ -351,6 +358,7 @@ pub async fn issue(
                 document.series,
                 document.number,
                 &document.random_code,
+                document.fiscal_environment(),
             )
             .ok()
         });
@@ -425,6 +433,7 @@ fn validate_prepared(
     series: i32,
     number: i64,
     random_code: &str,
+    environment: super::model::Environment,
 ) -> Result<(String, String), DomainError> {
     let invalid = || DomainError::Conflict("Motor retornou XML ou chave incompatível");
     let key = value["accessKey"]
@@ -464,7 +473,7 @@ fn validate_prepared(
             .find(|n| n.tag_name().name() == name)
             .and_then(|n| n.text())
     };
-    if child("tpAmb") != Some("2")
+    if child("tpAmb") != Some(environment.code())
         || child("mod") != Some("55")
         || child("serie") != Some(series.to_string().as_str())
         || child("nNF") != Some(number.to_string().as_str())
@@ -535,6 +544,7 @@ async fn finish_provider(
                 document.access_key.as_deref().unwrap_or(""),
                 protocol,
                 document.signed_xml.as_deref().unwrap_or(""),
+                document.fiscal_environment(),
             )
         {
             tx.rollback().await.map_err(db)?;
@@ -584,7 +594,13 @@ fn signature_digest(xml: &str, key: &str) -> Option<Vec<u8>> {
     }
     Some(bytes)
 }
-fn valid_protocol_xml(xml: &str, key: &str, protocol: &str, signed_xml: &str) -> bool {
+fn valid_protocol_xml(
+    xml: &str,
+    key: &str,
+    protocol: &str,
+    signed_xml: &str,
+    environment: super::model::Environment,
+) -> bool {
     if xml.len() > 5 * 1024 * 1024 || xml.contains("<!DOCTYPE") || xml.contains("<!ENTITY") {
         return false;
     }
@@ -595,7 +611,7 @@ fn valid_protocol_xml(xml: &str, key: &str, protocol: &str, signed_xml: &str) ->
         return false;
     };
     if inspected.key != key
-        || inspected.environment != "2"
+        || inspected.environment != environment.code()
         || signature_digest(xml, key) != signature_digest(signed_xml, key)
         || signature_digest(signed_xml, key).is_none()
     {
@@ -634,7 +650,7 @@ fn valid_protocol_xml(xml: &str, key: &str, protocol: &str, signed_xml: &str) ->
     };
     child("chNFe") == Some(key)
         && child("nProt") == Some(protocol)
-        && child("tpAmb") == Some("2")
+        && child("tpAmb") == Some(environment.code())
         && matches!(child("cStat"), Some("100" | "150"))
         && document.descendants().any(|n| {
             n.has_tag_name((namespace, "infNFe"))
@@ -723,6 +739,7 @@ pub async fn consult(
     }
     engine(&state)?;
     let mut body = payload(&state, &mut tx, tenant).await?;
+    body["environment"] = json!(document.environment);
     body["accessKey"] = json!(document.access_key);
     body["signedXml"] = json!(document.signed_xml);
     sqlx::query("UPDATE fiscal_nfe_documents SET lease_until=clock_timestamp()+interval '120 seconds' WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).execute(&mut *tx).await.map_err(db)?;
@@ -891,7 +908,8 @@ mod tests {
                 "04252011000110",
                 1,
                 1,
-                "12345678"
+                "12345678",
+                super::super::model::Environment::Homologation
             )
             .is_ok()
         );
@@ -901,7 +919,8 @@ mod tests {
                 "04252011000110",
                 1,
                 1,
-                "12345678"
+                "12345678",
+                super::super::model::Environment::Homologation
             )
             .is_err()
         );
@@ -911,7 +930,8 @@ mod tests {
                 "99999999999999",
                 1,
                 1,
-                "12345678"
+                "12345678",
+                super::super::model::Environment::Homologation
             )
             .is_err()
         );

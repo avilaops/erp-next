@@ -266,7 +266,12 @@ pub async fn get_profile(
     .await?;
     let row = load_profile(&mut tx, tenant).await?;
     let current = row.as_ref().map_or(0, |row| row.revision);
-    let data = row.as_ref().map(profile_data).transpose()?;
+    let mut data = row.as_ref().map(profile_data).transpose()?;
+    if let Some(profile) = data.as_mut()
+        && let Some(number) = sqlx::query_scalar::<_, i64>("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND series=$3")
+            .bind(tenant).bind(profile.environment.as_str()).bind(i32::from(profile.series)).fetch_optional(&mut *tx).await.map_err(db)? {
+        profile.next_number = Some(number.try_into().map_err(|_| access::AccessError::Internal)?);
+    }
     let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
@@ -311,10 +316,19 @@ pub async fn put_profile(
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
     let details = serde_json::to_value(&value).map_err(|_| access::AccessError::Internal)?;
-    sqlx::query("INSERT INTO fiscal_profiles(tenant_id,revision,environment,details) VALUES($1,$2,'homologation',$3) ON CONFLICT(tenant_id) DO UPDATE SET revision=excluded.revision,details=excluded.details,updated_at=now()")
-        .bind(tenant).bind(next).bind(details).execute(&mut *tx).await.map_err(db)?;
+    if let Some(number) = value.next_number {
+        let current_number: Option<i64> = sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND series=$3")
+            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).fetch_optional(&mut *tx).await.map_err(db)?;
+        if current_number.is_some_and(|current| i64::from(number) < current) {
+            return Err(DomainError::Conflict("A próxima numeração não pode ser menor que a já reservada. Recarregue a configuração").into());
+        }
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,$2,$3,$4) ON CONFLICT(tenant_id,environment,series) DO UPDATE SET next_number=$4")
+            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).bind(i64::from(number)).execute(&mut *tx).await.map_err(db)?;
+    }
+    sqlx::query("INSERT INTO fiscal_profiles(tenant_id,revision,environment,details) VALUES($1,$2,$4,$3) ON CONFLICT(tenant_id) DO UPDATE SET revision=excluded.revision,environment=excluded.environment,details=excluded.details,updated_at=now()")
+        .bind(tenant).bind(next).bind(details).bind(value.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
     let certificate_verified = certificates::verified(&state, &mut tx, tenant).await?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"fiscal_profile",id:tenant,event:"fiscal.profile.updated",details:serde_json::json!({"revision":next,"environment":"homologation","certificateVerified":certificate_verified})}).await?;
+    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"fiscal_profile",id:tenant,event:"fiscal.profile.updated",details:serde_json::json!({"revision":next,"environment":value.environment,"certificateVerified":certificate_verified})}).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
@@ -389,10 +403,15 @@ pub async fn readiness(
         None,
         Readiness {
             tenant_id: tenant,
-            environment: model::Environment::Homologation,
+            environment: row
+                .as_ref()
+                .map(profile_data)
+                .transpose()?
+                .map(|profile| profile.environment)
+                .unwrap_or(model::Environment::Homologation),
             model: 55,
             can_transmit,
-            production_enabled: false,
+            production_enabled: true,
             profile_configured: row.is_some(),
             certificate_verified,
             blockers,
@@ -627,9 +646,9 @@ pub async fn create(
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     let id = Uuid::now_v7();
     let issuer_json = serde_json::to_value(&issuer).map_err(|_| access::AccessError::Internal)?;
-    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,'homologation',55,$3,$4,$5,$6,$7,$8)")
+    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,$9,55,$3,$4,$5,$6,$7,$8)")
         .bind(tenant).bind(id).bind(issuer.profile_revision).bind(issuer.company_revision).bind(issuer_json).bind(&request).bind(total)
-        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).bind(value.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,
@@ -639,7 +658,7 @@ pub async fn create(
             kind: "nfe_draft",
             id,
             event: "fiscal.nfe.draft.created",
-            details: serde_json::json!({"revision":1,"environment":"homologation","model":55}),
+            details: serde_json::json!({"revision":1,"environment":value.environment,"model":55}),
         },
     )
     .await?;
@@ -694,6 +713,21 @@ pub async fn update(
         )
         .into());
     }
+    if current.input.environment != value.environment
+        && sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2)",
+        )
+        .bind(tenant)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?
+    {
+        return Err(DomainError::Conflict(
+            "O ambiente da numeração reservada não pode ser alterado",
+        )
+        .into());
+    }
     order_source::validate(&mut tx, tenant, &identity, &value).await?;
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
@@ -714,9 +748,10 @@ pub async fn update(
     let next = expected
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
-    sqlx::query("UPDATE fiscal_nfe_drafts SET revision=$3,profile_revision=$4,company_revision=$5,issuer_snapshot=$6,details=$7,products_total_cents=$8,ibpt_snapshot=$9,updated_at=now() WHERE tenant_id=$1 AND id=$2")
+    let environment = value.environment.as_str();
+    sqlx::query("UPDATE fiscal_nfe_drafts SET revision=$3,profile_revision=$4,company_revision=$5,issuer_snapshot=$6,details=$7,products_total_cents=$8,ibpt_snapshot=$9,environment=$10,updated_at=now() WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).bind(next).bind(issuer.profile_revision).bind(issuer.company_revision).bind(serde_json::to_value(issuer).map_err(|_|access::AccessError::Internal)?).bind(serde_json::to_value(value).map_err(|_|access::AccessError::Internal)?).bind(total)
-        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).bind(environment).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,

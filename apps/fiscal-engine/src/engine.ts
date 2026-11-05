@@ -247,7 +247,7 @@ export function mapDraft(value: unknown): NfeInput {
     if (formatCents(exactGross) !== gross) refuse("Total do item diverge do cálculo inteiro do rascunho");
     cents += BigInt(gross.replace(".", ""));
     if (!Number.isInteger(item.origin) || Number(item.origin) < 0 || Number(item.origin) > 8) refuse("Origem inválida");
-    return { code: text(item.code, "Código", 60), name: text(item.description, "Descrição", 120), ncm: text(item.ncm, "NCM", 8), cest: null, origin: Number(item.origin), unit: text(item.unit, "Unidade", 6), quantity, unitPrice, ipiRate };
+    return { additionalInfo: item.additionalInfo == null ? null : text(item.additionalInfo, "Informações do item", 500), code: text(item.code, "Código", 60), name: text(item.description, "Descrição", 120), ncm: text(item.ncm, "NCM", 8), cest: null, origin: Number(item.origin), unit: text(item.unit, "Unidade", 6), quantity, unitPrice, ipiRate };
   });
   const productsTotal = text(draft.productsTotal, "Total de produtos", 17);
   if (!/^(0|[1-9][0-9]{0,12})\.\d{2}$/.test(productsTotal) || cents !== BigInt(productsTotal.replace(".", "")) || cents > BigInt(Number.MAX_SAFE_INTEGER)) refuse("Total de produtos diverge da soma dos itens");

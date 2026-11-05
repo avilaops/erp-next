@@ -20,15 +20,16 @@ import { readProductDraft, writeProductDraft, type ProductInput, type ProductCom
 import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
 import { ProductPhoto } from "./product-photo"
+import { CatalogProfile } from "./catalog-profile"
+import { CatalogPublish } from "./catalog-publish"
 import { ProductCategory } from "./product-category"
 import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
 import type { PersonalPreferences } from "@/features/preferences/system/system-preferences"
 
-type Product = Schema<"Product">
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderType: "" }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderColors: [], plateHolderTypes: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal
@@ -68,6 +69,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
   }
   return <div>
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
+    <CatalogPublish />
     <section className="form-section space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4"><div><h2 className="text-lg font-semibold tracking-tight">Catálogo de produtos</h2><p className="mt-1 text-sm text-muted-foreground">Localize, consulte e edite os produtos da empresa ativa.</p></div>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
       <form className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_minmax(12rem,0.45fr)_9rem_auto]" onSubmit={event => {
@@ -122,7 +124,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], plateHolderType: value.data.plateHolderType || "", photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -131,7 +133,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       setStorageInvalid(!!stored.error)
       command.current = recoveredDraft?.command || null
       setStorageError(stored.error); setRecovered(!!recoveredDraft)
-      setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: value.data })
+      setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: id ? value.data : { ...empty, id: "", revision: 0, hasPhoto: false, photoUrl: null, upholsteryConfigurable: value.upholsteryConfigurable } })
       setDraft(recoveredDraft ? { ...data, ...recoveredDraft.draft } : data); setBaseline(recoveredDraft?.baseline || JSON.stringify(data)); setEtag(recoveredDraft?.etag || serverEtag)
       setError(changedRevision ? "O produto mudou no servidor. Sua edição foi recuperada; confira os dados antes de recarregar o cadastro." : recoveredDraft?.conflict ? "A gravação anterior precisa ser conferida. Sua edição foi recuperada; recarregue o cadastro para conferir o estado do servidor." : "")
       setConflict(changedRevision || !!recoveredDraft?.conflict); setUncertain(!!recoveredDraft?.uncertain)
@@ -151,7 +153,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
     const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
-    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []) })
+    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []), plateHolderTypes: normalizeColors(draft.plateHolderTypes || []) })
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body }
     // Persist the in-flight command before dispatch. A reload must not create a new command.
     if (!writeProductDraft(storageKey, { version: 1, draft, baseline, etag, uncertain: !id, conflict: !!id, command: command.current })) {
@@ -193,22 +195,22 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {!view && snapshot.canEdit && (dirty || recovered || storageError) && <Button variant="outline" onClick={reload} disabled={saving || uncertain}>Descartar rascunho</Button>}
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
-        {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
-          <ProductPhoto value={draft.photoDataUrl ?? undefined} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
+        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoUrl || snapshot.data.photoDataUrl || undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
+          <ProductPhoto value={snapshot.data.photoUrl || draft.photoDataUrl || undefined} readOnly={!!snapshot.data.photoUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
-            <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
-            <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
-            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores do estofado"]] as const).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "structureColors" ? "Uma cor de pintura por linha" : "Uma cor de revestimento por linha"} /></label>)}</div>
+            <legend className="px-2 font-semibold">Acabamentos disponíveis do equipamento</legend>
+            <p className="text-sm text-muted-foreground">Cadastre uma cor por linha para estrutura, anilheiros e estofado. O tipo de anilheiro deve ser Olímpico ou Standard. As opções serão oferecidas ao montar a proposta e o pedido.</p>
+            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["plateHolderColors", "Cores dos anilheiros"], ["plateHolderTypes", "Tipo de anilheiro"], ["upholsteryColors", "Cores do estofado"]] as const).filter(([field]) => field !== "upholsteryColors" || snapshot.data.upholsteryConfigurable !== false).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={field === "plateHolderTypes" ? 2 : 4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "plateHolderTypes" ? "Olímpico\nStandard" : "Uma cor por linha"} /></label>)}</div>
           </fieldset>
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Tipo de anilheiro<select aria-label="Tipo de anilheiro" className="block h-10 w-full rounded-lg border bg-background px-3" value={draft.plateHolderType || ""} onChange={event => setDraft({ ...draft, plateHolderType: event.target.value })}><option value="">Não se aplica</option><option value="standard">Standard</option><option value="olympic">Olímpico</option></select></label><label className="space-y-2">Situação<select className="block h-10 w-full rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-10 w-full rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
           <p id="product-price-help" className="text-sm text-muted-foreground">Use vírgula ou ponto, com até duas casas decimais. Exemplo: 12,50. Não use separador de milhar.</p>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
-        {view && <ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly />}
+        {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <section className="space-y-3 rounded-xl border p-4" aria-label="Opções disponíveis do equipamento"><h2 className="font-semibold">Opções disponíveis</h2><div><p className="text-sm text-muted-foreground">Tipo de anilheiro</p><p className="mt-1 text-sm font-medium">{snapshot.data.plateHolderType === "standard" ? "Standard" : snapshot.data.plateHolderType === "olympic" ? "Olímpico" : "Não se aplica"}</p></div>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</section>}
+        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.plateHolderColors?.length || snapshot.data.plateHolderTypes?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Acabamentos disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Anilheiros", snapshot.data.plateHolderColors], ["Tipo de anilheiro", snapshot.data.plateHolderTypes], ["Estofado", snapshot.data.upholsteryColors]] as const).filter(([label, colors]) => label !== "Estofado" || snapshot.data.upholsteryConfigurable !== false || !!colors?.length).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
       </>}
     </section>
   </div>

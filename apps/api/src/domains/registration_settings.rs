@@ -17,6 +17,8 @@ use uuid::Uuid;
 pub struct ProductSettings {
     pub require_ncm: bool,
     pub require_cest: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upholstery_configurable: Option<bool>,
 }
 #[derive(Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

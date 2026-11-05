@@ -4,60 +4,21 @@
     "schemaVersion": "erp-product-flow-definitions/1",
     "product": "erp",
     "flows": [
-{
-  "id": "sales-simulator",
-  "title": "Simulador de preços e criação de pedidos",
-  "goal": "Simular condições a partir de versões publicadas, preservar preços no rascunho e aprovar exceções sem expor custos à equipe.",
-  "kind": "product",
-  "actionGroups": [
-    "sales-simulator"
-  ],
-  "dependencies": [
-    "price-tables",
-    "orders"
-  ],
-  "nextStep": "Conferir a versão implantada com usuários autorizados; CI e merge não comprovam aceite em produção.",
-  "additionalSources": [
-    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
-  ],
-  "journey": [
-    {
-      "id": "simulate",
-      "title": "Simular negociação",
-      "actionIds": [
-        "get-sales-simulator",
-        "quote-sales-simulator"
-      ],
-      "authRefs": [],
-      "externalSystems": []
-    },
-    {
-      "id": "draft",
-      "title": "Criar rascunho e aprovar exceção",
-      "actionIds": [
-        "create-simulated-order",
-        "get-order-pricing",
-        "approve-order-pricing"
-      ],
-      "authRefs": [],
-      "externalSystems": []
-    }
-  ]
-},
       {
-        "id": "dashboard",
-        "title": "Dashboard com dados da empresa",
-        "goal": "Consultar indicadores reais por período e permissão, sem dados demonstrativos ou operações simuladas.",
+        "id": "commercial-negotiation",
+        "title": "Negociação comercial antes do pedido",
+        "goal": "Consultar a tabela publicada, simular no servidor e preservar condições e aprovação no pedido.",
         "kind": "product",
         "actionGroups": [
-          "dashboard"
+          "commercial-negotiation"
         ],
         "dependencies": [
-          "me"
+          "price-tables",
+          "orders"
         ],
-        "nextStep": "Conferir a versão publicada e o isolamento da empresa; consulta não altera registros.",
+        "nextStep": "Validar CI, migração e comportamento autenticado; catálogo não comprova implantação.",
         "additionalSources": [
-          "docs/DADOS-REAIS-ERP.md"
+          "docs/AVL-432-IMPLEMENTACAO.md"
         ]
       },
       {
@@ -683,23 +644,6 @@
         ]
       },
       {
-        "id": "workflows",
-        "title": "Gerenciador de transições",
-        "goal": "Configurar definições declarativas e versionadas de fluxos por empresa sem alterar as máquinas de estado operacionais do ERP.",
-        "kind": "product",
-        "actionGroups": ["workflows"],
-        "dependencies": ["company_onboarding"],
-        "nextStep": "Conferir criação, revisão, publicação imutável, arquivamento e isolamento das definições.",
-        "additionalSources": ["docs/MODULOS-CONFIGURAVEIS-ERP.md","migrations/202611040002_system_configuration.sql","migrations/202611050003_workflow_revisions.sql"],
-        "journey": [{
-          "id": "configure",
-          "title": "Criar, editar, publicar e arquivar definições",
-          "actionIds": ["get-system-workflows","post-system-workflows","put-system-workflows-id","post-system-workflows-id-publish","post-system-workflows-id-archive"],
-          "authRefs": [],
-          "externalSystems": []
-        }]
-      },
-      {
         "id": "audit",
         "title": "Segurança e auditoria",
         "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.",
@@ -1297,35 +1241,6 @@
             "externalSystems": []
           }
         ]
-      },
-      {
-        "id": "fiscal-preferences",
-        "title": "Configurações fiscais e consultas de eventos",
-        "goal": "Cadastrar parâmetros NFC-e e naturezas e consultar eventos reais; preenchimento cabe ao usuário.",
-        "kind": "product",
-        "actionGroups": [
-          "fiscal-preferences"
-        ],
-        "dependencies": [
-          "company_onboarding"
-        ],
-        "nextStep": "Conferir persistência na versão publicada; emissão NFC-e e produção NF-e têm validação separada.",
-        "additionalSources": [
-          "docs/PREFERENCIAS-FISCAIS.md"
-        ],
-        "journey": [
-          {
-            "id": "configure",
-            "title": "Configurar e consultar eventos",
-            "actionIds": [
-              "get-fiscal-preferences",
-              "put-fiscal-preferences",
-              "get-fiscal-events"
-            ],
-            "authRefs": [],
-            "externalSystems": []
-          }
-        ]
       }
     ]
   },
@@ -1345,10 +1260,7 @@
     {
       "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
       "method": "POST",
-      "actions": [
-        "preview",
-        "match"
-      ]
+      "actions": ["preview", "match"]
     },
     {
       "path": "/api/erp/proposals/[id]/[action]",
@@ -1560,14 +1472,194 @@
   ],
   "actions": [
     {
-      "id": "get-sales-simulator",
-      "flow": "sales-simulator",
+      "id": "commercial-metrics-orders",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "GET",
-        "path": "/api/v1/sales-simulator/{line}"
+        "path": "/api/v1/commercial/metrics/orders"
       },
-      "actor": "sales_member",
+      "actor": "authorized_sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": {
+          "source": "apps/api/src/domains/sales/metrics.rs",
+          "type": "MetricsQuery"
+        }
+      },
+      "preconditions": [
+        "Vínculo ativo e autorização da operação; competência AAAA-MM válida."
+      ],
+      "transition": {
+        "from": "Condições comerciais atuais",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "commercial-metrics-orders"
+      },
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial/metrics/orders"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/metrics.rs",
+        "apps/web/src/features/sales/commercial-metrics.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-metrics-commissions",
+      "flow": "commercial-negotiation",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial/metrics/commissions"
+      },
+      "actor": "authorized_sales_member",
+      "permissions": [
+        "finance.commissions.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": {
+          "source": "apps/api/src/domains/sales/metrics.rs",
+          "type": "MetricsQuery"
+        }
+      },
+      "preconditions": [
+        "Vínculo ativo e autorização da operação; competência AAAA-MM válida."
+      ],
+      "transition": {
+        "from": "Condições comerciais atuais",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "commercial-metrics-commissions"
+      },
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
+      "ui": {
+        "pages": [
+          "/financeiro/comissoes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/commercial/metrics/commissions"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/metrics.rs",
+        "apps/web/src/features/sales/commercial-metrics.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-table",
+      "flow": "commercial-negotiation",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/commercial/tables/{line}"
+      },
+      "actor": "authorized_sales_member",
       "permissions": [
         "sales.orders.read"
       ],
@@ -1580,29 +1672,28 @@
           "line"
         ],
         "body": null,
-        "query": {
-          "type": "OptionsQuery",
-          "source": "apps/api/src/domains/sales/pricing.rs"
-        }
+        "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "Estado anterior",
+        "from": "Condições comerciais atuais",
         "to": "Sem alteração"
       },
       "effects": {
         "writes": [],
         "external": [],
         "excludes": [
-          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Consulta sem escrita por versão imutável."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -1620,24 +1711,23 @@
           500,
           503
         ],
-        "action": "get-sales-simulator"
+        "action": "commercial-table"
       },
-      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
-          "/vendas/simulador"
+          "/vendas/tabela-precos"
         ],
         "bff": {
           "method": "GET",
-          "path": "/api/erp/sales-simulator/[line]"
+          "path": "/api/erp/commercial/tables/[line]"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/sales/pricing.rs",
-        "apps/web/src/features/commercial-settings/simulator.tsx",
-        "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1654,14 +1744,14 @@
       }
     },
     {
-      "id": "quote-sales-simulator",
-      "flow": "sales-simulator",
+      "id": "commercial-simulate",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "POST",
-        "path": "/api/v1/sales-simulator/{line}/quote"
+        "path": "/api/v1/commercial/simulate"
       },
-      "actor": "sales_member",
+      "actor": "authorized_sales_member",
       "permissions": [
         "sales.orders.read"
       ],
@@ -1670,33 +1760,33 @@
           "Authorization",
           "X-Tenant-Id"
         ],
-        "pathParameters": [
-          "line"
-        ],
+        "pathParameters": [],
         "body": {
-          "type": "QuoteInput",
-          "source": "apps/api/src/domains/sales/pricing_model.rs"
+          "source": "apps/api/src/domains/sales/negotiation_model.rs",
+          "type": "SimulationInput"
         },
         "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "Estado anterior",
+        "from": "Condições comerciais atuais",
         "to": "Sem alteração"
       },
       "effects": {
         "writes": [],
         "external": [],
         "excludes": [
-          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Consulta sem escrita por versão imutável."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -1714,24 +1804,23 @@
           500,
           503
         ],
-        "action": "quote-sales-simulator"
+        "action": "commercial-simulate"
       },
-      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
           "/vendas/simulador"
         ],
         "bff": {
           "method": "POST",
-          "path": "/api/erp/sales-simulator/[line]/quote"
+          "path": "/api/erp/commercial/simulate"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/sales/pricing_model.rs",
-        "apps/web/src/features/commercial-settings/simulator.tsx",
-        "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1748,14 +1837,14 @@
       }
     },
     {
-      "id": "create-simulated-order",
-      "flow": "sales-simulator",
+      "id": "commercial-convert",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "POST",
-        "path": "/api/v1/sales-simulator/{line}/orders"
+        "path": "/api/v1/commercial/orders"
       },
-      "actor": "sales_member",
+      "actor": "authorized_sales_member",
       "permissions": [
         "sales.orders.read",
         "sales.orders.manage"
@@ -1766,35 +1855,40 @@
           "X-Tenant-Id",
           "Idempotency-Key"
         ],
-        "pathParameters": [
-          "line"
-        ],
+        "pathParameters": [],
         "body": {
-          "type": "CreateInput",
-          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+          "source": "apps/api/src/domains/sales/negotiation.rs",
+          "type": "ConvertInput"
         },
         "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "Simulação ou exceção pendente",
-        "to": "Rascunho preservado ou aprovação registrada"
+        "from": "Condições comerciais atuais",
+        "to": "Negociação ou política versionada"
       },
       "effects": {
         "writes": [
-          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+          "sales_orders",
+          "sales_order_lines",
+          "commercial_order_quotes",
+          "audit_log",
+          "outbox_events",
+          "domain_commands"
         ],
         "external": [],
         "excludes": [
-          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": false,
         "idempotency": true,
-        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -1812,24 +1906,23 @@
           500,
           503
         ],
-        "action": "create-simulated-order"
+        "action": "commercial-convert"
       },
-      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
           "/vendas/simulador"
         ],
         "bff": {
           "method": "POST",
-          "path": "/api/erp/sales-simulator/[line]/orders"
+          "path": "/api/erp/commercial/orders"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/sales/pricing_orders.rs",
-        "apps/web/src/features/commercial-settings/simulator.tsx",
-        "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1846,14 +1939,14 @@
       }
     },
     {
-      "id": "get-order-pricing",
-      "flow": "sales-simulator",
+      "id": "commercial-quote",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "GET",
-        "path": "/api/v1/orders/{id}/pricing"
+        "path": "/api/v1/commercial/orders/{id}"
       },
-      "actor": "sales_member",
+      "actor": "authorized_sales_member",
       "permissions": [
         "sales.orders.read"
       ],
@@ -1869,23 +1962,25 @@
         "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "Estado anterior",
+        "from": "Condições comerciais atuais",
         "to": "Sem alteração"
       },
       "effects": {
         "writes": [],
         "external": [],
         "excludes": [
-          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Consulta sem escrita por versão imutável."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -1903,24 +1998,23 @@
           500,
           503
         ],
-        "action": "get-order-pricing"
+        "action": "commercial-quote"
       },
-      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
           "/vendas/pedidos/[id]"
         ],
         "bff": {
           "method": "GET",
-          "path": "/api/erp/orders/[id]/pricing"
+          "path": "/api/erp/commercial/orders/[id]"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/sales/pricing_orders.rs",
-        "apps/web/src/features/commercial-settings/simulator.tsx",
-        "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1937,17 +2031,17 @@
       }
     },
     {
-      "id": "approve-order-pricing",
-      "flow": "sales-simulator",
+      "id": "commercial-decision",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "POST",
-        "path": "/api/v1/orders/{id}/pricing/approve"
+        "path": "/api/v1/commercial/orders/{id}/decision"
       },
-      "actor": "company_manager",
+      "actor": "authorized_sales_member",
       "permissions": [
         "sales.orders.read",
-        "platform.company.manage"
+        "sales.approvals.manage OR sales.approvals.director"
       ],
       "input": {
         "headers": [
@@ -1960,31 +2054,38 @@
           "id"
         ],
         "body": {
-          "type": "ApprovalInput",
-          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+          "source": "apps/api/src/domains/sales/negotiation.rs",
+          "type": "DecisionInput"
         },
         "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "Simulação ou exceção pendente",
-        "to": "Rascunho preservado ou aprovação registrada"
+        "from": "Condições comerciais atuais",
+        "to": "Negociação ou política versionada"
       },
       "effects": {
         "writes": [
-          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+          "commercial_order_quotes",
+          "commercial_approval_decisions",
+          "sales_orders",
+          "audit_log",
+          "outbox_events",
+          "domain_commands"
         ],
         "external": [],
         "excludes": [
-          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": true,
         "idempotency": true,
-        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -2002,24 +2103,23 @@
           500,
           503
         ],
-        "action": "approve-order-pricing"
+        "action": "commercial-decision"
       },
-      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
           "/vendas/pedidos/[id]"
         ],
         "bff": {
           "method": "POST",
-          "path": "/api/erp/orders/[id]/pricing/approve"
+          "path": "/api/erp/commercial/orders/[id]/decision"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/sales/pricing_orders.rs",
-        "apps/web/src/features/commercial-settings/simulator.tsx",
-        "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2036,15 +2136,17 @@
       }
     },
     {
-      "id": "get-company-dashboard",
-      "flow": "dashboard",
+      "id": "commercial-get-rules",
+      "flow": "commercial-negotiation",
       "status": "implemented",
       "operation": {
         "method": "GET",
-        "path": "/api/v1/dashboard"
+        "path": "/api/v1/commercial/approval-settings"
       },
-      "actor": "active_tenant_member",
-      "permissions": [],
+      "actor": "company_manager",
+      "permissions": [
+        "platform.company.manage"
+      ],
       "input": {
         "headers": [
           "Authorization",
@@ -2052,30 +2154,28 @@
         ],
         "pathParameters": [],
         "body": null,
-        "query": {
-          "source": "apps/api/src/domains/dashboard.rs",
-          "type": "DashboardQuery"
-        }
+        "query": null
       },
       "preconditions": [
-        "Empresa e vínculo ativos; RLS na transação.",
-        "Cada indicador exige a permissão de leitura do respectivo domínio; sem ela retorna null, nunca zero."
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
       ],
       "transition": {
-        "from": "registros persistidos da empresa",
-        "to": "sem alteração"
+        "from": "Condições comerciais atuais",
+        "to": "Sem alteração"
       },
       "effects": {
         "writes": [],
         "external": [],
         "excludes": [
-          "Metas, margem, faturamento fiscal, dados demonstrativos e qualquer alteração comercial."
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
         ]
       },
       "concurrency": {
         "revision": false,
         "idempotency": false,
-        "rule": "Consulta sem cache; período dos pedidos em America/Sao_Paulo; saldos e cadastros refletem a posição atual."
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
       },
       "response": {
         "successStatuses": [
@@ -2085,30 +2185,129 @@
           400,
           401,
           403,
+          404,
+          409,
+          412,
           422,
+          428,
           500,
           503
         ],
-        "action": "Consultar indicadores autorizados da empresa"
+        "action": "commercial-get-rules"
       },
-      "recovery": "Repetir consulta após conferir a sessão; não substituir falha ou falta de permissão por zeros.",
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
       "ui": {
         "pages": [
-          "/",
-          "/dashboards",
-          "/dashboards/[kind]"
+          "/preferencias/aprovacao-comercial"
         ],
         "bff": {
           "method": "GET",
-          "path": "/api/erp/dashboard"
+          "path": "/api/erp/commercial/approval-settings"
         },
         "gap": null
       },
       "sources": [
-        "apps/api/src/domains/dashboard.rs",
-        "apps/web/src/features/dashboard/dashboard-data.tsx",
-        "apps/web/src/features/dashboard/erp-dashboard.tsx",
-        "apps/web/src/features/dashboard/dashboard-detail.tsx"
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "commercial-put-rules",
+      "flow": "commercial-negotiation",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/commercial/approval-settings"
+      },
+      "actor": "company_manager",
+      "permissions": [
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/sales/negotiation_model.rs",
+          "type": "ApprovalRules"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Vínculo ativo e autorização conferidos no servidor.",
+        "Simulação e conversão exigem tabela vigente, custos compatíveis e política de aprovação salva.",
+        "Custos e margens retornam somente com platform.company.manage; decisão respeita a alçada preservada."
+      ],
+      "transition": {
+        "from": "Condições comerciais atuais",
+        "to": "Negociação ou política versionada"
+      },
+      "effects": {
+        "writes": [
+          "commercial_approval_settings",
+          "audit_log",
+          "outbox_events"
+        ],
+        "external": [],
+        "excludes": [
+          "Não emite documento fiscal nem substitui configurações por valores de referência."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "Conversão revalida digest e revisões sob bloqueio da empresa; comandos incertos repetem a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "commercial-put-rules"
+      },
+      "recovery": "Preservar entradas, conferir revisão e simular novamente após mudança; repetir criação ou decisão incerta com a mesma chave.",
+      "ui": {
+        "pages": [
+          "/preferencias/aprovacao-comercial"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/commercial/approval-settings"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/negotiation.rs",
+        "apps/api/src/domains/sales/negotiation_model.rs",
+        "docs/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3145,38 +3344,6 @@
   }
 },
     {
-      "id": "post-company-registration-lookup",
-      "flow": "registry-lookups",
-      "status": "implemented",
-      "operation": { "method": "POST", "path": "/api/v1/company-registration/lookup" },
-      "actor": "authenticated_identity",
-      "permissions": [],
-      "input": {
-        "headers": ["Authorization"],
-        "pathParameters": [],
-        "body": { "source": "apps/api/src/domains/registry_lookup/registration.rs", "type": "RegistrationLookupInput" },
-        "query": null
-      },
-      "preconditions": [
-        "Identidade confirmada pelo Auth; não exige empresa ou membership e não consulta dados privados do ERP.",
-        "CNPJ válido; BFF exige origem permitida, sessão válida, JSON limitado e ausência de query.",
-        "Preencher apenas campos vazios, validar documento atual e validade da fonte; falha permite cadastro manual."
-      ],
-      "transition": { "from": "cadastro inicial com CNPJ", "to": "dados cadastrais disponíveis no formulário; empresa ainda não criada" },
-      "effects": {
-        "writes": [],
-        "external": ["BrasilAPI e CNPJ.ws habilitado, com quota global compartilhada e cache/budget isolados por identidade."],
-        "excludes": ["Sem criação de tenant, seleção de empresa ou grants; sem QSA bruto, inferência de regime ou condição de contribuinte."]
-      },
-      "concurrency": { "revision": false, "idempotency": false, "rule": "Debounce e cancelamento; resposta tardia nunca preenche outro documento. Edições manuais são preservadas." },
-      "response": { "successStatuses": [200], "errorStatuses": [400,401,409,415,422,503], "action": "Consultar CNPJ antes da criação da empresa" },
-      "recovery": "Continuar manualmente ou tentar consulta novamente. A criação usa seu próprio contrato idempotente.",
-      "ui": { "pages": ["/cadastro/empresa"], "bff": { "method": "POST", "path": "/api/erp/company-registration/lookup" }, "gap": "Disponibilidade externa e publicação exigem verificação separada." },
-      "sources": ["apps/api/src/domains/registry_lookup/registration.rs", "apps/api/src/domains/registry_lookup/client.rs", "apps/api/src/domains/registry_lookup/company_fields.rs", "apps/web/src/features/records/automatic-cnpj.tsx", "apps/web/src/features/company/company-onboarding.tsx", "apps/web/src/server/bff/erp-proxy.ts"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-
-    {
       "id": "post-registry-lookups",
       "flow": "registry-lookups",
       "status": "implemented",
@@ -3204,7 +3371,7 @@
       "preconditions": [
         "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
         "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
-        "BFF exige origem e empresa da sessão. CNPJ na configuração da empresa e em clientes/fornecedores preenche automaticamente campos vazios após conferir a sessão; CEP e IE mantêm prévia e confirmação. Gravar usa contrato próprio."
+        "BFF exige origem e empresa da sessão. Preencher exige confirmação, sessão atual, prévia válida e campos vazios; gravar usa contrato próprio."
       ],
       "transition": {
         "from": "entrada manual ou prévia anterior",
@@ -3258,8 +3425,6 @@
         "apps/api/src/domains/registry_lookup/client.rs",
         "apps/api/src/domains/registry_lookup/parse.rs",
         "apps/web/src/features/records/registry-lookup.tsx",
-        "apps/web/src/features/parties/party-cnpj.ts",
-        "apps/web/src/features/parties/party-workspace.tsx",
         "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {
@@ -8338,7 +8503,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Cancelamento comercial da empresa com motivo fiscal válido e exatamente um documento vinculado não rejeitado; If-Match da revisão desse documento."
       ],
@@ -8442,7 +8607,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "If-Match inicial 0; ano atual, série válida, faixa de até dez mil números sem número utilizado e justificativa válida."
       ],
@@ -8455,10 +8620,10 @@
           "Evento durável de inutilização, estado/resultado e auditoria."
         ],
         "external": [
-          "Motor privado assina e envia inutilização no ambiente persistido da solicitação."
+          "Motor privado assina e envia inutilização à SEFAZ em homologação."
         ],
         "excludes": [
-          "Não substitui cancelamento de NF-e autorizada nem afeta a sequência de outro ambiente."
+          "Não inutiliza números em produção nem substitui cancelamento de NF-e autorizada."
         ]
       },
       "concurrency": {
@@ -8549,7 +8714,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -8562,7 +8727,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
+          "Motor privado assina e envia evento à SEFAZ em homologação."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -8657,7 +8822,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -8670,7 +8835,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
+          "Motor privado assina e envia evento à SEFAZ em homologação."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -9112,7 +9277,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento com chave e XML preparado, revisão atual e nenhuma operação concorrente."
       ],
@@ -12223,96 +12388,6 @@
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
-      "id": "get-system-workflows",
-      "flow": "workflows",
-      "status": "implemented",
-      "operation": { "method": "GET", "path": "/api/v1/system/workflows" },
-      "actor": "company_manager",
-      "permissions": ["system.workflows.manage"],
-      "input": { "headers": ["Authorization","X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
-      "preconditions": ["Empresa e vínculo ativos; permissão de gestão de fluxos; RLS na transação."],
-      "transition": { "from": "definições persistidas", "to": "sem alteração" },
-      "effects": { "writes": [], "external": [], "excludes": ["Não executa transições operacionais nem altera documentos."] },
-      "concurrency": { "revision": false, "idempotency": false, "rule": "Consulta ordenada por código, versão e identificador." },
-      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "get-system-workflows" },
-      "recovery": "Corrigir o acesso ou recarregar a consulta.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "GET", "path": "/api/erp/system/workflows" }, "gap": null },
-      "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","migrations/202611050003_workflow_revisions.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-    {
-      "id": "post-system-workflows",
-      "flow": "workflows",
-      "status": "implemented",
-      "operation": { "method": "POST", "path": "/api/v1/system/workflows" },
-      "actor": "company_manager",
-      "permissions": ["system.workflows.manage"],
-      "input": { "headers": ["Authorization","X-Tenant-Id"], "pathParameters": [], "body": { "source": "apps/api/src/platform/workflows.rs", "type": "WorkflowInput" }, "query": null },
-      "preconditions": ["Código e versão únicos; um estado inicial; ao menos um final; permissões existentes; transições válidas."],
-      "transition": { "from": "definição ausente", "to": "rascunho persistido na revisão 1" },
-      "effects": { "writes": ["system_config.workflow_definitions","system_config.workflow_states","system_config.workflow_transitions","audit_log","outbox_events"], "external": [], "excludes": ["Não altera máquinas de estado de vendas, fiscal, estoque ou pagamentos."] },
-      "concurrency": { "revision": false, "idempotency": false, "rule": "Definição, estados, transições e auditoria são gravados na mesma transação." },
-      "response": { "successStatuses": [201], "errorStatuses": [400,401,403,409,422,500,503], "action": "post-system-workflows" },
-      "recovery": "Corrigir o rascunho ou recarregar após resposta incerta antes de repetir.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows" }, "gap": null },
-      "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","migrations/202611050003_workflow_revisions.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-    {
-      "id": "put-system-workflows-id",
-      "flow": "workflows",
-      "status": "implemented",
-      "operation": { "method": "PUT", "path": "/api/v1/system/workflows/{id}" },
-      "actor": "company_manager",
-      "permissions": ["system.workflows.manage"],
-      "input": { "headers": ["Authorization","X-Tenant-Id","If-Match"], "pathParameters": ["id"], "body": { "source": "apps/api/src/platform/workflows.rs", "type": "WorkflowInput" }, "query": null },
-      "preconditions": ["Definição em rascunho e na revisão atual; código e versão preservados; estados, permissões e transições válidos."],
-      "transition": { "from": "rascunho na revisão atual", "to": "rascunho na próxima revisão" },
-      "effects": { "writes": ["system_config.workflow_definitions","system_config.workflow_states","system_config.workflow_transitions","audit_log","outbox_events"], "external": [], "excludes": ["Não edita definições publicadas ou arquivadas."] },
-      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match exige a revisão persistida." },
-      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,422,428,500,503], "action": "put-system-workflows-id" },
-      "recovery": "Preservar a edição e recarregar após conflito de revisão.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "PUT", "path": "/api/erp/system/workflows/{id}" }, "gap": null },
-      "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","migrations/202611050003_workflow_revisions.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-    {
-      "id": "post-system-workflows-id-publish",
-      "flow": "workflows",
-      "status": "implemented",
-      "operation": { "method": "POST", "path": "/api/v1/system/workflows/{id}/publish" },
-      "actor": "company_manager",
-      "permissions": ["system.workflows.manage"],
-      "input": { "headers": ["Authorization","X-Tenant-Id","If-Match"], "pathParameters": ["id"], "body": null, "query": null },
-      "preconditions": ["Rascunho na revisão atual; estado inicial e final; nenhum estado final com transição de saída; nenhuma versão publicada do código."],
-      "transition": { "from": "draft", "to": "published" },
-      "effects": { "writes": ["system_config.workflow_definitions","audit_log","outbox_events"], "external": [], "excludes": ["Publicar a definição não executa nenhuma transição operacional."] },
-      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match serializa a publicação." },
-      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,422,428,500,503], "action": "post-system-workflows-id-publish" },
-      "recovery": "Corrigir a definição ou recarregar após conflito antes de publicar novamente.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/publish" }, "gap": null },
-      "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-    {
-      "id": "post-system-workflows-id-archive",
-      "flow": "workflows",
-      "status": "implemented",
-      "operation": { "method": "POST", "path": "/api/v1/system/workflows/{id}/archive" },
-      "actor": "company_manager",
-      "permissions": ["system.workflows.manage"],
-      "input": { "headers": ["Authorization","X-Tenant-Id","If-Match"], "pathParameters": ["id"], "body": null, "query": null },
-      "preconditions": ["Definição publicada na revisão atual."],
-      "transition": { "from": "published", "to": "archived" },
-      "effects": { "writes": ["system_config.workflow_definitions","audit_log","outbox_events"], "external": [], "excludes": ["O histórico e os filhos da definição são preservados."] },
-      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match serializa o arquivamento." },
-      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,428,500,503], "action": "post-system-workflows-id-archive" },
-      "recovery": "Recarregar a definição após conflito; definições arquivadas não reabrem.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/archive" }, "gap": null },
-      "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
-      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
-    },
-    {
       "id": "get-company-audit",
       "flow": "audit",
       "status": "implemented",
@@ -15148,7 +15223,9 @@
         "path": "/api/v1/fiscal/certificate"
       },
       "actor": "active_tenant_member",
-      "permissions": [],
+      "permissions": [
+        "fiscal.config.read"
+      ],
       "input": {
         "headers": [
           "Authorization",
@@ -15437,7 +15514,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
+        "Homologação; alias de certificado não verifica nem contém certificado A1."
       ],
       "transition": {
         "from": "estado atual",
@@ -15475,7 +15552,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
+        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -15526,7 +15603,7 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
+        "Homologação; alias de certificado não verifica nem contém certificado A1."
       ],
       "transition": {
         "from": "registro existente",
@@ -15534,7 +15611,7 @@
       },
       "effects": {
         "writes": [
-          "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado",
+          "Gravar perfil de homologação com revisão; alias A1 não verifica certificado",
           "Auditoria e outbox do comando na transação."
         ],
         "external": [],
@@ -15562,7 +15639,7 @@
           428,
           503
         ],
-        "action": "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado"
+        "action": "Gravar perfil de homologação com revisão; alias A1 não verifica certificado"
       },
       "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
       "ui": {
@@ -15573,7 +15650,7 @@
           "method": "PUT",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
+        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -16075,7 +16152,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
+        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Rascunho, snapshots da empresa/perfil, origem comercial, declaração tributária e pagamentos coerentes."
       ],
@@ -16089,10 +16166,10 @@
           "Estado durável da emissão, revisão, lease, auditoria e resultado idempotente."
         ],
         "external": [
-          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite no ambiente persistido (homologação ou produção)."
+          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite à SEFAZ em homologação."
         ],
         "excludes": [
-          "Não movimenta estoque, títulos ou dinheiro; não escolhe o ambiente por variável global ou inferência."
+          "Não permite emissão em produção; não movimenta estoque, títulos ou dinheiro."
         ]
       },
       "concurrency": {
@@ -25433,377 +25510,6 @@
           "response"
         ]
       }
-    },
-    {
-      "id": "get-product-catalog-profile",
-      "flow": "products",
-      "status": "implemented",
-      "operation": {"method": "GET", "path": "/api/v1/products/{id}/catalog"},
-      "actor": "active_tenant_member",
-      "permissions": ["catalog.products.read"],
-      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null},
-      "preconditions": ["Identidade, empresa e permissão de leitura ativas; produto pertencente à empresa."],
-      "transition": {"from": "perfil atual", "to": "sem alteração"},
-      "effects": {"writes": [], "external": [], "excludes": ["Leitura não publica catálogo nem altera preços."]},
-      "concurrency": {"revision": false, "idempotency": false, "rule": "A resposta informa a revisão do perfil."},
-      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 503], "action": "Consultar rascunho e galeria do produto"},
-      "recovery": "Repetir consulta após verificar acesso e produto.",
-      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/products/[id]/catalog"}, "gap": null},
-      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/catalog/route.ts"],
-      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
-    },
-    {
-      "id": "put-product-catalog-profile",
-      "flow": "products",
-      "status": "implemented",
-      "operation": {"method": "PUT", "path": "/api/v1/products/{id}/catalog"},
-      "actor": "active_tenant_member",
-      "permissions": ["catalog.products.manage"],
-      "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/catalog_publication.rs", "type": "CatalogProfileInput"}, "query": null},
-      "preconditions": ["Identidade, empresa e permissão de gestão ativas.", "If-Match corresponde à revisão atual; imagem principal disponível e pertencente ao produto."],
-      "transition": {"from": "rascunho na revisão informada", "to": "rascunho na próxima revisão"},
-      "effects": {"writes": ["Atualizar perfil do produto e registrar auditoria na transação."], "external": [], "excludes": ["Salvar rascunho não publica catálogo nem altera preços."]},
-      "concurrency": {"revision": true, "idempotency": false, "rule": "Revisão divergente retorna 412 sem substituir alterações concorrentes."},
-      "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 412, 428, 503], "action": "Salvar rascunho do perfil"},
-      "recovery": "Recarregar revisão e resolver conflito antes de reenviar.",
-      "ui": {"pages": [], "bff": {"method": "PUT", "path": "/api/erp/products/[id]/catalog"}, "gap": null},
-      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/catalog/route.ts"],
-      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
-    },
-    {
-      "id": "get-private-product-media",
-      "flow": "products",
-      "status": "implemented",
-      "operation": {"method": "GET", "path": "/api/v1/products/{id}/media/{media_id}"},
-      "actor": "active_tenant_member",
-      "permissions": ["catalog.products.read"],
-      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id", "media_id"], "body": null, "query": null},
-      "preconditions": ["Identidade, empresa e permissão de leitura ativas; mídia disponível e vinculada ao produto da empresa."],
-      "transition": {"from": "mídia privada disponível", "to": "sem alteração"},
-      "effects": {"writes": [], "external": ["Ler imagem autorizada do gateway de mídia."], "excludes": ["A mídia privada não recebe cache público."]},
-      "concurrency": {"revision": false, "idempotency": false, "rule": "Leitura sem comando ou revisão."},
-      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 409, 503], "action": "Consultar mídia privada do produto"},
-      "recovery": "Repetir leitura se o gateway estiver indisponível; não expor a chave de armazenamento.",
-      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/products/[id]/media/[mediaId]"}, "gap": null},
-      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/products/[id]/media/[mediaId]/route.ts"],
-      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
-    },
-    {
-      "id": "get-catalog-publication-preview",
-      "flow": "products",
-      "status": "implemented",
-      "operation": {"method": "GET", "path": "/api/v1/catalog-publication"},
-      "actor": "active_tenant_member",
-      "permissions": ["catalog.products.read"],
-      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null},
-      "preconditions": ["Identidade, empresa e permissão de leitura ativas."],
-      "transition": {"from": "rascunhos e publicação atual", "to": "sem alteração"},
-      "effects": {"writes": [], "external": [], "excludes": ["Prévia não publica catálogo nem altera preços."]},
-      "concurrency": {"revision": false, "idempotency": false, "rule": "Hash da prévia identifica o conjunto consultado."},
-      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 503], "action": "Consultar prévia e publicação atual"},
-      "recovery": "Gerar nova prévia após alterações no catálogo.",
-      "ui": {"pages": [], "bff": {"method": "GET", "path": "/api/erp/catalog-publication"}, "gap": null},
-      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/catalog-publication/route.ts"],
-      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
-    },
-    {
-      "id": "post-catalog-publication",
-      "flow": "products",
-      "status": "implemented",
-      "operation": {"method": "POST", "path": "/api/v1/catalog-publication"},
-      "actor": "active_tenant_member",
-      "permissions": ["catalog.products.manage"],
-      "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/catalog_publication.rs", "type": "PublishInput"}, "query": null},
-      "preconditions": ["Identidade, empresa e permissão de gestão ativas.", "Chave de comando obrigatória e hash igual à prévia persistida; gateway configurado para a empresa."],
-      "transition": {"from": "rascunho revisado", "to": "versão publicada"},
-      "effects": {"writes": ["Persistir versão do catálogo por empresa e chave de comando."], "external": ["Enviar publicação ao gateway de mídia configurado."], "excludes": ["Publicação não altera preços nem classificação fiscal."]},
-      "concurrency": {"revision": false, "idempotency": true, "rule": "A mesma chave só pode repetir a mesma prévia persistida."},
-      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 409, 428, 503], "action": "Publicar versão explícita do catálogo"},
-      "recovery": "Conferir publicação atual e repetir apenas com a mesma chave e prévia; gerar nova prévia se o catálogo mudou.",
-      "ui": {"pages": [], "bff": {"method": "POST", "path": "/api/erp/catalog-publication"}, "gap": null},
-      "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/catalog-publication/route.ts"],
-      "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
-      },
-      {
-      "id": "get-fiscal-preferences",
-      "flow": "fiscal-preferences",
-      "status": "implemented",
-      "operation": {
-        "method": "GET",
-        "path": "/api/v1/fiscal/settings/{section}"
-      },
-      "actor": "active_tenant_member",
-      "permissions": [
-        "fiscal.config.read"
-      ],
-      "input": {
-        "headers": [
-          "Authorization",
-          "X-Tenant-Id"
-        ],
-        "pathParameters": [
-          "section"
-        ],
-        "body": null,
-        "query": null
-      },
-      "preconditions": [
-        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
-        "NFC-e exige fiscal.config.read; naturezas aceitam fiscal.config.read ou fiscal.nfe.read. Escrita continua exigindo configuração fiscal."
-      ],
-      "transition": {
-        "from": "estado atual",
-        "to": "sem alteração de estado"
-      },
-      "effects": {
-        "writes": [],
-        "external": [],
-        "excludes": [
-          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
-        ]
-      },
-      "concurrency": {
-        "revision": false,
-        "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
-      },
-      "response": {
-        "successStatuses": [
-          200
-        ],
-        "errorStatuses": [
-          400,
-          401,
-          403,
-          404,
-          422,
-          500,
-          503
-        ],
-        "action": "Consultar configurações fiscais"
-      },
-      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
-      "ui": {
-        "pages": [
-          "/preferencias/fiscal/nfce",
-          "/preferencias/fiscal/naturezas"
-        ],
-        "bff": {
-          "method": "GET",
-          "path": "/api/erp/fiscal/settings/[section]"
-        },
-        "gap": null
-      },
-      "sources": [
-        "apps/api/src/domains/fiscal/preferences.rs",
-        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
-        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611051610_fiscal_preferences.sql"
-      ],
-      "verification": {
-        "status": "not_verified_by_catalog",
-        "criteria": [
-          "interface",
-          "request",
-          "authorization",
-          "domain",
-          "persistence",
-          "effects",
-          "failure",
-          "response"
-        ]
-      }
-    },
-    {
-      "id": "put-fiscal-preferences",
-      "flow": "fiscal-preferences",
-      "status": "implemented",
-      "operation": {
-        "method": "PUT",
-        "path": "/api/v1/fiscal/settings/{section}"
-      },
-      "actor": "active_tenant_member",
-      "permissions": [
-        "fiscal.config.read",
-        "fiscal.config.manage"
-      ],
-      "input": {
-        "headers": [
-          "Authorization",
-          "X-Tenant-Id",
-          "If-Match"
-        ],
-        "pathParameters": [
-          "section"
-        ],
-        "body": {
-          "source": "apps/api/src/domains/fiscal/preferences.rs",
-          "type": "FiscalPreferencesInput"
-        },
-        "query": null
-      },
-      "preconditions": [
-        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
-        "If-Match obrigatório; escrita serializada na empresa; revisão divergente retorna 412.",
-        "CSC exigido no primeiro cadastro e ao alterar ambiente, UF, identificador ou CNPJ."
-      ],
-      "transition": {
-        "from": "registro existente",
-        "to": "revisão incrementada"
-      },
-      "effects": {
-        "writes": [
-          "Configuração com revisão; CSC criptografado; auditoria e outbox sem segredo."
-        ],
-        "external": [],
-        "excludes": [
-          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
-        ]
-      },
-      "concurrency": {
-        "revision": true,
-        "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
-      },
-      "response": {
-        "successStatuses": [
-          200
-        ],
-        "errorStatuses": [
-          400,
-          401,
-          403,
-          404,
-          409,
-          412,
-          422,
-          428,
-          500,
-          503
-        ],
-        "action": "Salvar configurações fiscais"
-      },
-      "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
-      "ui": {
-        "pages": [
-          "/preferencias/fiscal/nfce",
-          "/preferencias/fiscal/naturezas"
-        ],
-        "bff": {
-          "method": "PUT",
-          "path": "/api/erp/fiscal/settings/[section]"
-        },
-        "gap": null
-      },
-      "sources": [
-        "apps/api/src/domains/fiscal/preferences.rs",
-        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
-        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611051610_fiscal_preferences.sql"
-      ],
-      "verification": {
-        "status": "not_verified_by_catalog",
-        "criteria": [
-          "interface",
-          "request",
-          "authorization",
-          "domain",
-          "persistence",
-          "effects",
-          "failure",
-          "response"
-        ]
-      }
-    },
-    {
-      "id": "get-fiscal-events",
-      "flow": "fiscal-preferences",
-      "status": "implemented",
-      "operation": {
-        "method": "GET",
-        "path": "/api/v1/fiscal/nfe-events"
-      },
-      "actor": "active_tenant_member",
-      "permissions": [
-        "fiscal.nfe.read"
-      ],
-      "input": {
-        "headers": [
-          "Authorization",
-          "X-Tenant-Id"
-        ],
-        "pathParameters": [],
-        "body": null,
-        "query": {
-          "source": "apps/api/src/domains/fiscal/preferences.rs",
-          "type": "EventQuery"
-        }
-      },
-      "preconditions": [
-        "Identidade e empresa ativas com permissão fiscal; RLS na transação."
-      ],
-      "transition": {
-        "from": "estado atual",
-        "to": "sem alteração de estado"
-      },
-      "effects": {
-        "writes": [],
-        "external": [],
-        "excludes": [
-          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
-        ]
-      },
-      "concurrency": {
-        "revision": false,
-        "idempotency": false,
-        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
-      },
-      "response": {
-        "successStatuses": [
-          200
-        ],
-        "errorStatuses": [
-          400,
-          401,
-          403,
-          404,
-          422,
-          500,
-          503
-        ],
-        "action": "Consultar eventos fiscais"
-      },
-      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
-      "ui": {
-        "pages": [
-          "/preferencias/fiscal/inutilizacoes",
-          "/preferencias/fiscal/correcoes"
-        ],
-        "bff": {
-          "method": "GET",
-          "path": "/api/erp/fiscal/nfe-events"
-        },
-        "gap": null
-      },
-      "sources": [
-        "apps/api/src/domains/fiscal/preferences.rs",
-        "apps/web/src/features/fiscal/settings/fiscal-events.tsx",
-        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "migrations/202611051610_fiscal_preferences.sql"
-      ],
-      "verification": {
-        "status": "not_verified_by_catalog",
-        "criteria": [
-          "interface",
-          "request",
-          "authorization",
-          "domain",
-          "persistence",
-          "effects",
-          "failure",
-          "response"
-        ]
-      }
     }
   ],
   "pendingFlows": [
@@ -25883,13 +25589,13 @@
       "planningReference": "AVL-372"
     },
     {
-      "id": "nfce-emission-next",
-      "title": "Emissão de NFC-e modelo 65",
+      "id": "preferences-fiscal-next",
+      "title": "Preferências: NFC-e e consultas fiscais consolidadas",
       "status": "needs_definition",
-      "intent": "Integrar emissão modelo 65 aos parâmetros NFC-e cadastrados pelo usuário.",
+      "intent": "Configurações de NFC-e, inutilizações/correções consolidadas e naturezas de operação.",
       "proposedEndpoints": [],
       "openDecisions": [
-        "Configuração, naturezas e consultas implementadas; emissão NFC-e exige numeração, assinatura, transporte e evidências próprios."
+        "Reutilizar eventos NF-e já armazenados; definir emissão NFC-e e configuração fiscal separadamente, com evidências próprias."
       ],
       "requiredFields": [
         "actor",

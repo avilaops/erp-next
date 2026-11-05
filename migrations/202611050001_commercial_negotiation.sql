@@ -53,15 +53,15 @@ CREATE TRIGGER commercial_quote_immutable BEFORE UPDATE ON commercial_order_quot
 ALTER TABLE commercial_approval_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commercial_approval_settings FORCE ROW LEVEL SECURITY;
 CREATE POLICY approval_settings_isolation ON commercial_approval_settings
- USING(tenant_id=current_setting('app.tenant_id',true)::uuid)
- WITH CHECK(tenant_id=current_setting('app.tenant_id',true)::uuid);
+ USING(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
 ALTER TABLE commercial_order_quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commercial_order_quotes FORCE ROW LEVEL SECURITY;
 CREATE POLICY commercial_quotes_isolation ON commercial_order_quotes
- USING(tenant_id=current_setting('app.tenant_id',true)::uuid)
- WITH CHECK(tenant_id=current_setting('app.tenant_id',true)::uuid);
+ USING(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);
 ALTER TABLE commercial_approval_decisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commercial_approval_decisions FORCE ROW LEVEL SECURITY;
 CREATE POLICY commercial_decisions_isolation ON commercial_approval_decisions
- USING(tenant_id=current_setting('app.tenant_id',true)::uuid)
- WITH CHECK(tenant_id=current_setting('app.tenant_id',true)::uuid);
+ USING(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+ WITH CHECK(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid);

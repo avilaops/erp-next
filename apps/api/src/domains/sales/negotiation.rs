@@ -181,7 +181,7 @@ async fn prepare(
     })
 }
 
-#[utoipa::path(get,path="/api/v1/commercial/tables/{line}",tag="Sales",params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Sem acesso comercial")))]
+#[utoipa::path(get,path="/api/v1/commercial/tables/{line}",operation_id="get_commercial_tables_line",tag="Sales",params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Sem acesso comercial")))]
 pub async fn table(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -204,7 +204,7 @@ pub async fn table(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/commercial/simulate",tag="Sales",request_body=SimulationInput,params(("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=409,description="Configuração ou tabela desatualizada"),(status=422,description="Entradas inválidas")))]
+#[utoipa::path(post,path="/api/v1/commercial/simulate",operation_id="post_commercial_simulate",tag="Sales",request_body=SimulationInput,params(("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=409,description="Configuração ou tabela desatualizada"),(status=422,description="Entradas inválidas")))]
 pub async fn simulate(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -242,7 +242,7 @@ pub struct ConvertInput {
     due_date: String,
 }
 
-#[utoipa::path(post,path="/api/v1/commercial/orders",tag="Sales",request_body=ConvertInput,params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=201,body=Value),(status=412,description="Simulação desatualizada")))]
+#[utoipa::path(post,path="/api/v1/commercial/orders",operation_id="post_commercial_orders",tag="Sales",request_body=ConvertInput,params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=201,body=Value),(status=412,description="Simulação desatualizada")))]
 pub async fn convert(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -340,7 +340,7 @@ pub async fn convert(
     Ok(response(StatusCode::CREATED, Some(1), value))
 }
 
-#[utoipa::path(get,path="/api/v1/commercial/approval-settings",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value)))]
+#[utoipa::path(get,path="/api/v1/commercial/approval-settings",operation_id="get_commercial_approval_settings",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value)))]
 pub async fn get_rules(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -364,7 +364,7 @@ pub async fn get_rules(
     ))
 }
 
-#[utoipa::path(put,path="/api/v1/commercial/approval-settings",tag="Sales",request_body=ApprovalRules,params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=412,description="Revisão divergente")))]
+#[utoipa::path(put,path="/api/v1/commercial/approval-settings",operation_id="put_commercial_approval_settings",tag="Sales",request_body=ApprovalRules,params(("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=412,description="Revisão divergente")))]
 pub async fn put_rules(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -409,7 +409,7 @@ pub async fn put_rules(
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/commercial/orders/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value)))]
+#[utoipa::path(get,path="/api/v1/commercial/orders/{id}",operation_id="get_commercial_orders_id",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value)))]
 pub async fn quote(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -451,7 +451,7 @@ pub struct DecisionInput {
     reason: String,
 }
 
-#[utoipa::path(post,path="/api/v1/commercial/orders/{id}/decision",tag="Sales",request_body=DecisionInput,params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Fora da alçada")))]
+#[utoipa::path(post,path="/api/v1/commercial/orders/{id}/decision",operation_id="post_commercial_orders_id_decision",tag="Sales",request_body=DecisionInput,params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Fora da alçada")))]
 pub async fn decision(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

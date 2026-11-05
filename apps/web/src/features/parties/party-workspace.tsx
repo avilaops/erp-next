@@ -17,8 +17,9 @@ import { Input } from "@/components/ui/input"
 
 import { PartyComplements } from "./party-complements"
 import { RegistryLookup } from "@/features/records/registry-lookup"
+import { clearPartyCnpj, emptyCnpjProvenance, fillPartyCnpj, type PartyDraft } from "./party-cnpj"
 
-type PartyInput = Schema<"PartyInput"> & { addresses: NonNullable<Schema<"PartyInput">["addresses"]>; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
+type PartyInput = PartyDraft
 type Party = Schema<"Party">
 type Snapshot = Omit<Schema<"PartySnapshot">, "data"> & { data?: Schema<"Party"> }
 type Page = Schema<"PartyList">
@@ -92,6 +93,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
   const [retry, setRetry] = useState(0)
   const pending = useRef(false)
   const command = useRef<{ key: string; body: string } | null>(null)
+  const cnpjProvenance = useRef(emptyCnpjProvenance())
   const dirty = JSON.stringify(draft) !== baseline
 
   useEffect(() => {
@@ -104,6 +106,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
       const input = id ? values(value.data) : { ...blank }
       setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: id ? value.data : undefined })
       setDraft(input); setBaseline(JSON.stringify(input)); setEtag(response.headers.get("etag") || "")
+      cnpjProvenance.current = emptyCnpjProvenance()
       setError(""); setConflict(false); setUncertain(false); command.current = null
     }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -137,6 +140,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
       if (!response.headers.get("etag") || !value.data?.id) throw new Error("Confirmação incompleta")
       const input = values(value.data)
       setUncertain(false); command.current = null; setDraft(input); setBaseline(JSON.stringify(input)); setSaved(true)
+      cnpjProvenance.current = emptyCnpjProvenance()
       if (!id) router.replace(`/cadastros/clientes-fornecedores/${value.data.id}`)
       else { setSnapshot(value); setEtag(response.headers.get("etag")!) }
     } catch {
@@ -148,7 +152,15 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
   function reload() {
     if (!dirty || window.confirm("Descartar sua edição e carregar o cadastro atual do servidor?")) { setLoading(true); setRetry(value => value + 1); setSaved(false) }
   }
-  function change<K extends keyof PartyInput>(field: K, value: PartyInput[K]) { setDraft({ ...draft, [field]: value }); setSaved(false) }
+  function change<K extends keyof PartyInput>(field: K, value: PartyInput[K]) {
+    const provenance = cnpjProvenance.current
+    const documentChanged = field === "personType" && value !== draft.personType || field === "taxId" && String(value).replace(/[.\s/-]/g, "").toUpperCase() !== draft.taxId.replace(/[.\s/-]/g, "").toUpperCase()
+    if (documentChanged) cnpjProvenance.current = emptyCnpjProvenance()
+    else if (field === "addresses") provenance.address = null
+    else if (["legalName", "tradeName", "email", "phone"].includes(field)) delete provenance.fields[field as keyof typeof provenance.fields]
+    setDraft(current => ({ ...(documentChanged ? clearPartyCnpj(current, provenance) : current), [field]: value }))
+    setSaved(false)
+  }
 
   return <>
     <PageHeader eyebrow="Cadastros · Clientes e fornecedores" title={view ? snapshot?.data?.legalName || "Pessoa" : id ? "Editar pessoa" : "Nova pessoa"} description="Identificação e contatos declarados. A validação do documento não consulta a situação cadastral nem aprova crédito ou tratamento fiscal." />
@@ -168,11 +180,13 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
             <label className="min-w-0 space-y-2">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
             <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
             {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["taxId", "CPF ou CNPJ", 30], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName" || field === "taxId"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" || field === "taxId" ? "" : null))} /></label>)}
-            {draft.personType === "juridica" && <RegistryLookup kind="cnpj" context="party" tenantId={snapshot.tenantId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
-              const count = Number(!draft.legalName.trim() && !!fields.legalName) + Number(!draft.tradeName?.trim() && !!fields.tradeName)
-              setDraft(current => ({ ...current, legalName: current.legalName.trim() ? current.legalName : fields.legalName || "", tradeName: current.tradeName?.trim() ? current.tradeName : fields.tradeName || null }))
+            {draft.personType === "juridica" && <RegistryLookup kind="cnpj" context="party" tenantId={snapshot.tenantId} automaticValue={draft.taxId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
+              const result = fillPartyCnpj(draft, fields, cnpjProvenance.current)
+              if (!result.count) return 0
+              cnpjProvenance.current = result.provenance
+              setDraft(result.draft)
               setSaved(false)
-              return count
+              return result.count
             }} />}
             <div className="min-w-0 space-y-3"><p className="font-medium">Relacionamento comercial</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos um papel.</p></div>
           <PartyComplements tenantId={snapshot.tenantId} addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />

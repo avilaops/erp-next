@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use super::company_fields::company_fields;
 use super::model::{LookupKind, RegistryData, RegistryStateRegistration, STATES};
 
 pub fn text(value: &Value, key: &str) -> Option<String> {
@@ -66,6 +67,7 @@ pub fn parse(
             ("number", "numero"),
             ("complement", "complemento"),
             ("tradeName", "nome_fantasia"),
+            ("email", "email"),
         ]
     } else {
         &[
@@ -78,6 +80,7 @@ pub fn parse(
             ("complement", "complemento"),
             ("tradeName", "nome_fantasia"),
             ("activityDescription", "cnae_fiscal_descricao"),
+            ("email", "email"),
         ]
     };
     for &(target, key) in mapping {
@@ -99,6 +102,8 @@ pub fn parse(
     }
     if !cep {
         fields.insert("legalName".into(), text(value, "razao_social")?);
+        fields.insert("personType".into(), "juridica".into());
+        company_fields(ws, value, record, &mut fields);
         if ws {
             if let Some(val) = record.get("estado").and_then(|s| text(s, "sigla")) {
                 fields.insert("state".into(), val);

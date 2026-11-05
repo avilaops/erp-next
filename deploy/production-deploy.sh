@@ -45,6 +45,16 @@ if [[ -f "$previous_release/compose.json" ]]; then
   # Keep its private runtime configuration on the server and replace only the
   # three immutable image references.
   cp -p "$previous_release/compose.json" "$release/compose.json"
+  python3 - "$release/compose.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+target = Path(sys.argv[1])
+config = json.loads(target.read_text())
+config["services"]["fiscal-engine"]["healthcheck"]["test"] = ["CMD", "node", "scripts/healthcheck.mjs"]
+target.write_text(json.dumps(config, indent=2))
+PY
   # The generated JSON carries the public release marker in the web
   # environment; update it together with the immutable image references.
   sed -i "s|\"ERP_RELEASE_SHA\": \"[0-9a-f]*\"|\"ERP_RELEASE_SHA\": \"$source_sha\"|g" "$release/compose.json"

@@ -13,7 +13,12 @@ use super::{model::*, parse};
 const MAX_CACHE: usize = 512;
 const MAX_BODY: usize = 262_144;
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(3);
-type CacheKey = (Uuid, LookupKind, String, Option<String>);
+#[derive(Clone, Hash, PartialEq, Eq)]
+enum Scope {
+    Tenant(Uuid),
+    Registration(String),
+}
+type CacheKey = (Scope, LookupKind, String, Option<String>);
 
 struct CacheEntry {
     expires: Instant,
@@ -23,7 +28,7 @@ struct CacheEntry {
 struct Memory {
     cache: HashMap<CacheKey, CacheEntry>,
     budgets: HashMap<&'static str, VecDeque<Instant>>,
-    tenants: HashMap<Uuid, VecDeque<Instant>>,
+    tenants: HashMap<Scope, VecDeque<Instant>>,
 }
 
 #[derive(Clone)]
@@ -93,9 +98,28 @@ impl RegistryClient {
     }
 
     pub async fn lookup(&self, tenant: Uuid, input: &LookupInput) -> LookupReply {
+        self.lookup_scoped(Scope::Tenant(tenant), tenant, input)
+            .await
+    }
+
+    pub(super) async fn lookup_registration(
+        &self,
+        subject: &str,
+        input: &LookupInput,
+    ) -> LookupReply {
+        self.lookup_scoped(Scope::Registration(subject.to_owned()), Uuid::nil(), input)
+            .await
+    }
+
+    async fn lookup_scoped(&self, scope: Scope, tenant: Uuid, input: &LookupInput) -> LookupReply {
         let now = Instant::now();
         let timestamp = OffsetDateTime::now_utc();
-        let key = (tenant, input.kind, input.value.clone(), input.state.clone());
+        let key = (
+            scope.clone(),
+            input.kind,
+            input.value.clone(),
+            input.state.clone(),
+        );
         let mut reply = LookupReply {
             tenant_id: tenant,
             kind: input.kind,
@@ -123,8 +147,8 @@ impl RegistryClient {
                     .back()
                     .is_some_and(|last| now.duration_since(*last) < Duration::from_secs(60))
             });
-            if (memory.tenants.len() >= MAX_CACHE && !memory.tenants.contains_key(&tenant))
-                || !reserve(memory.tenants.entry(tenant).or_default(), 20, now)
+            if (memory.tenants.len() >= MAX_CACHE && !memory.tenants.contains_key(&scope))
+                || !reserve(memory.tenants.entry(scope).or_default(), 20, now)
             {
                 reply.warnings.push(
                     "Limite de consultas atingido. Aguarde um minuto ou preencha manualmente"
@@ -226,7 +250,7 @@ impl RegistryClient {
                             reply.warnings.push("CEP genérico ou endereço incompleto. Complete os campos manualmente".into());
                         }
                         if input.kind != LookupKind::Cep {
-                            reply.warnings.push("Consulta cadastral não determina regime tributário, crédito ou condição de contribuinte. Confira a data da fonte".into());
+                            reply.warnings.push("Confira a data da fonte e os dados fiscais. Ausência de opção pelo Simples não determina Lucro Real ou Presumido, crédito ou condição de contribuinte".into());
                         }
                         if source == "CNPJ.ws" && data.state_registrations.is_empty() {
                             reply.warnings.push("Inscrição estadual não informada na base consultada; situação desconhecida".into());
@@ -508,5 +532,32 @@ mod tests {
         assert!(!reserve(&mut queue, 3, now + Duration::from_secs(59)));
         assert!(reserve(&mut queue, 3, now + Duration::from_secs(60)));
         assert!(!reserve(&mut queue, 3, now + Duration::from_secs(60)));
+    }
+
+    #[tokio::test]
+    async fn registration_cache_is_identity_scoped_and_separate_from_tenants() {
+        let (client, hits, task) = fixture().await;
+        let request = input(LookupKind::Cep, "01001000");
+        assert!(
+            !client
+                .lookup_registration("new-owner", &request)
+                .await
+                .cached
+        );
+        assert!(
+            client
+                .lookup_registration("new-owner", &request)
+                .await
+                .cached
+        );
+        assert!(
+            !client
+                .lookup_registration("another-owner", &request)
+                .await
+                .cached
+        );
+        assert!(!client.lookup(Uuid::nil(), &request).await.cached);
+        assert_eq!(hits.load(Ordering::SeqCst), 3);
+        task.abort();
     }
 }

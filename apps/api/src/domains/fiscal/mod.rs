@@ -21,6 +21,7 @@ pub mod model;
 pub mod monitor;
 mod monitor_store;
 pub mod order_source;
+pub mod preferences;
 pub(crate) mod production_events;
 pub mod purchase_match;
 pub mod received;
@@ -58,6 +59,11 @@ pub fn routes() -> Router<AppState> {
             axum::routing::post(ibpt::quote),
         )
         .merge(emission::routes())
+        .route(
+            "/api/v1/fiscal/settings/{section}",
+            get(preferences::get).put(preferences::put),
+        )
+        .route("/api/v1/fiscal/nfe-events", get(preferences::events))
         .merge(incoming::routes())
         .merge(cte_distribution::routes())
         .merge(cte_inspection::routes())

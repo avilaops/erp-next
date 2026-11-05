@@ -33,6 +33,8 @@ mod emission_tests;
 #[cfg(test)]
 mod financial_settings_tests;
 #[cfg(test)]
+mod fiscal_preferences_tests;
+#[cfg(test)]
 mod fiscal_tests;
 mod health;
 #[cfg(test)]

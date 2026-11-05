@@ -180,6 +180,22 @@ async fn operation_natures_validate_cfop_duplicates_and_isolate_real_event_pages
     let path = "/api/v1/fiscal/settings/operation-natures";
     let nature = json!({"id":"77777777-2222-4222-8222-222222222222","code":"VENDA","name":"Venda de produção","direction":"outgoing","purpose":1,"model":55,"internalCfop":"5101","interstateCfop":"6101","foreignCfop":"7101","active":true});
     let value = json!({"items":[nature.clone()]});
+    // An issuer may use the reference list without permission to manage CSCs.
+    sqlx::query("DELETE FROM role_permissions WHERE role_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND permission_code='fiscal.config.read'").execute(&admin).await.unwrap();
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            "/api/v1/fiscal/settings/nfce",
+            "reader",
+            TENANT,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
     let mut invalid = value.clone();
     invalid["items"][0]["internalCfop"] = json!("1101");
     assert_eq!(

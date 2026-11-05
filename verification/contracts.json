@@ -15113,9 +15113,7 @@
         "path": "/api/v1/fiscal/certificate"
       },
       "actor": "active_tenant_member",
-      "permissions": [
-        "fiscal.config.read"
-      ],
+      "permissions": [],
       "input": {
         "headers": [
           "Authorization",
@@ -25425,7 +25423,8 @@
         "query": null
       },
       "preconditions": [
-        "Identidade e empresa ativas com permissão fiscal; RLS na transação."
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
+        "NFC-e exige fiscal.config.read; naturezas aceitam fiscal.config.read ou fiscal.nfe.read. Escrita continua exigindo configuração fiscal."
       ],
       "transition": {
         "from": "estado atual",

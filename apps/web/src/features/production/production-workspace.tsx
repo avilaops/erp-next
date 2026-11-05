@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -191,7 +192,7 @@ export function ProductionWorkspace({ id }: { id?: string }) {
         {detail.canConsume && detail.data.status === "open" && <div className="space-y-4 border-t pt-4">
           <h3 className="font-semibold">Consumo declarado por ordem</h3>
           <p className="text-sm text-muted-foreground">As quantidades e os custos declarados ficam no histórico desta ordem. A produção não lança entrada de produto acabado nem título financeiro.</p>
-          <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setStockQuery(String(new FormData(event.currentTarget).get("componentQuery") || "")) }}><label className="min-w-0 flex-1 space-y-2">Buscar componente no estoque<Input name="componentQuery" maxLength={160} disabled={locked} /></label><Button variant="outline" disabled={locked} type="submit">Buscar componente</Button></form>
+          <div className="space-y-2"><form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setStockQuery(String(new FormData(event.currentTarget).get("componentQuery") || "")) }}><label className="min-w-0 flex-1 space-y-2">Buscar componente no estoque<Input name="componentQuery" maxLength={160} disabled={locked} /></label><Button variant="outline" disabled={locked} type="submit">Buscar componente</Button></form><Link className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar componente</Link></div>
           {stockError && <p role="alert">{stockError}</p>}
           <form className="space-y-4" onSubmit={consume}><fieldset disabled={locked} className="grid min-w-0 gap-4 sm:grid-cols-2">
             <label className="min-w-0 space-y-2 sm:col-span-2">Componente do estoque<select className={selectClass} required value={draft.productId} onChange={event => setDraft({ ...draft, productId: event.target.value })}><option value="">Selecione o componente</option>{stocks.map(stock => <option key={stock.productId} value={stock.productId}>{stock.name} · {stock.sku} · disponível {stock.available} {stock.unit}</option>)}</select></label>

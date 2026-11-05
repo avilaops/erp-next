@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
 import { PageHeader } from "@/components/page-header"
+import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -22,6 +23,7 @@ const labels: Record<string, string> = { draft: "Rascunho", sent: "Enviada", acc
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const textareaClass = "min-h-24 w-full rounded-lg border border-input bg-background p-3"
 const money = commercialMoney
+const proposalTrail = [{ label: "Vendas", href: "/vendas" }, { label: "Propostas", href: "/vendas/propostas" }]
 
 function CommercialText({ label, ...props }: ComponentProps<"textarea"> & { label: string }) {
   const id = useId()
@@ -38,7 +40,7 @@ function ProposalList() {
   const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, status: query.status, offset: String(query.offset), limit: "25" })
   const result = useResource<Listing>(`/api/erp/proposals?${params}`)
-  return <><PageHeader eyebrow="Vendas" title="Propostas comerciais" description="Orçamentos, condições e versões comerciais da empresa ativa." />
+  return <><PageHeader eyebrow="Vendas" breadcrumbs={[proposalTrail[0], { label: "Propostas" }]} title="Propostas comerciais" description="Orçamentos, condições e versões comerciais da empresa ativa." />
     <section className="form-section min-w-0 space-y-5">
       {result.value?.canEdit && <Link className={linkClass} href="/vendas/propostas/novo">Nova proposta</Link>}
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
@@ -82,11 +84,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
   const frozen = command.busy || command.uncertain || command.stale
-  useEffect(() => {
-    const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
-    window.addEventListener("beforeunload", prevent)
-    return () => window.removeEventListener("beforeunload", prevent)
-  }, [dirty, command.uncertain])
+  useNavigationGuard(dirty || command.uncertain ? "Sair sem confirmar as alterações desta proposta?" : null)
   useEffect(() => {
     if (!initial) return
     const controller = new AbortController()
@@ -100,7 +98,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
     return () => controller.abort()
   }, [initial, tenantId])
   function changeItem(id: string, patch: Partial<Selected>) { setItems(previous => previous.map(item => item.id === id ? { ...item, ...patch } : item)); setDirty(true) }
-  return <><PageHeader eyebrow="Vendas / Propostas" title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina o escopo e as condições comerciais. O rascunho fica salvo na empresa ativa." />
+  return <><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, ...(initial ? [{ label: `Proposta ${initial.data.number}`, href: `/vendas/propostas/${initial.data.id}` }, { label: "Editar" }] : [{ label: "Nova proposta" }])]} title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina o escopo e as condições comerciais. O rascunho fica salvo na empresa ativa." />
     <section className="form-section min-w-0 space-y-5">
       <Link className={linkClass} href={initial ? `/vendas/propostas/${initial.data.id}` : "/vendas/propostas"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações desta proposta?")) event.preventDefault() }}>Voltar às propostas</Link>
       <div className="grid items-start gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
@@ -157,7 +155,7 @@ function ProposalDetail({ id }: { id: string }) {
     const updated = await command.send<Detail>(`/api/erp/proposals/${id}/${action}`, value.tenantId, body, result.etag)
     if (updated) { setNotice("Operação confirmada no servidor."); setAction(""); setReason(""); setVersion(""); result.reload() }
   }
-  return <><div className="print:hidden"><PageHeader eyebrow="Vendas / Propostas" title={value ? `Proposta ${value.data.number}` : "Proposta comercial"} description="Consulte o documento comercial e registre as decisões sobre cada versão." /></div>
+  return <><div className="print:hidden"><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, { label: value ? `Proposta ${value.data.number} · versão ${value.data.version}` : "Proposta" }]} title={value ? `Proposta ${value.data.number}` : "Proposta comercial"} description="Consulte o documento comercial e registre as decisões sobre cada versão." /></div>
     <div className="print:hidden"><Link className={linkClass} href="/vendas/propostas">Voltar às propostas</Link></div>
     <section data-proposal-document className="form-section mt-5 min-w-0 space-y-5">
       {notice && <p role="status" className="print:hidden">{notice}</p>}

@@ -7,7 +7,7 @@ export type ErpSession = { accessToken: string; tenantId: string; expiresAt: num
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function erpConfiguration() {
-  const origin = new URL(process.env.ERP_WEB_ORIGIN || "http://localhost:3000")
+  const origin = new URL(process.env.ERP_WEB_ORIGIN || "http://localhost:3002")
   const issuer = new URL(process.env.AUTH_ISSUER || "https://auth.avilaops.com")
   const api = new URL(process.env.ERP_API_URL || "http://127.0.0.1:8080")
   for (const url of [origin, issuer, api]) {

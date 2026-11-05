@@ -125,6 +125,7 @@ export function StockWorkspace() {
         <label className="min-w-0 flex-1 space-y-2">Buscar produto ou SKU<SearchInput onSearch={q => { setLoading(true); setQuery({ q, offset: 0 }) }} name="q" maxLength={160} /></label>
         <Button type="submit" disabled={loading}>Buscar</Button>
       </form>
+      <Link className="inline-flex min-h-11 w-fit items-center font-medium text-primary underline underline-offset-4" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar produto</Link>
       {loading ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>
         <p className="text-sm text-muted-foreground">{stocks.total} produto(s) · {stocks.canEdit ? "Consulta e movimentação" : "Somente consulta"}</p>
         {stocks.data.length ? <ul className="grid gap-3 sm:grid-cols-2">{stocks.data.map(stock => <li className="min-w-0" key={stock.productId}>

@@ -20,6 +20,8 @@ import { readProductDraft, writeProductDraft, type ProductInput, type ProductCom
 import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
 import { ProductPhoto } from "./product-photo"
+import { CatalogProfile } from "./catalog-profile"
+import { CatalogPublish } from "./catalog-publish"
 import { ProductCategory } from "./product-category"
 import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
@@ -68,6 +70,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
   }
   return <div>
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
+    <CatalogPublish />
     <section className="form-section space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
@@ -190,7 +193,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {!view && snapshot.canEdit && (dirty || recovered || storageError) && <Button variant="outline" onClick={reload} disabled={saving || uncertain}>Descartar rascunho</Button>}
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
-        {view ? <><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
+        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={draft.photoDataUrl ?? undefined} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
@@ -203,9 +206,9 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
-        {view && <ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly />}
+        {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <section className="space-y-3 rounded-xl border p-4" aria-label="Cores disponíveis do equipamento"><h2 className="font-semibold">Cores disponíveis</h2>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</section>}
+        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Cores disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Estofado", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
       </>}
     </section>
   </div>

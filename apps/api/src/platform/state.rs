@@ -4,6 +4,7 @@ use super::auth::AuthClient;
 
 #[derive(Clone)]
 pub struct AppState {
+    pub catalog_media: Option<crate::domains::catalog_publication::MediaGateway>,
     pub ibpt: std::sync::Arc<crate::domains::fiscal::ibpt::IbptCatalog>,
     pub registry: Option<std::sync::Arc<crate::domains::registry_lookup::RegistryClient>>,
     pub subscriptions: Option<super::subscriptions::provider::MercadoPago>,
@@ -22,6 +23,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(database: PgPool, auth: AuthClient) -> Self {
         Self {
+            catalog_media: None,
             ibpt: std::sync::Arc::new(crate::domains::fiscal::ibpt::IbptCatalog::default()),
             registry: None,
             subscriptions: None,

@@ -3,6 +3,9 @@ import "server-only"
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
+  const catalogPublicationResource = resource === "/catalog-publication" && ["GET", "POST"].includes(request.method)
+    || /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) && ["GET", "PUT"].includes(request.method)
+  if (catalogPublicationResource && new URL(request.url).search) return Response.json({ title: "Consulta inválida" }, { status: 400 })
   const payrollResource = request.method === "GET" && /^\/staff-payroll$|^\/staff\/[a-f0-9-]{36}\/payroll$/i.test(resource)
     || request.method === "POST" && /^\/staff-payroll\/(?:generate|salaries)$|^\/staff-payroll\/requests\/[a-f0-9-]{36}\/review$|^\/staff\/[a-f0-9-]{36}\/payroll\/requests$/i.test(resource)
   const registryResource = resource === "/registry-lookups" && request.method === "POST"
@@ -15,7 +18,7 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "PUT" && /^\/orders\/[a-f0-9-]{36}\/commission$|^\/production\/stages\/[a-f0-9-]{36}$/i.test(resource)
     || request.method === "POST" && /^\/commissions\/[a-f0-9-]{36}\/(?:adjustments|payments)$|^\/production\/(?:orders|stages)$|^\/production\/orders\/[a-f0-9-]{36}\/(?:stage|consumptions(?:\/[a-f0-9-]{36}\/reverse)?)$/i.test(resource)
   const auditResource = resource === "/audit"
-  const commercialResource = /^\/(?:commercial-settings)\/(?:imported|national)(?:\/preview)?$/.test(resource)
+  const commercialResource = catalogPublicationResource || /^\/(?:commercial-settings)\/(?:imported|national)(?:\/preview)?$/.test(resource)
     && (resource.endsWith("/preview") ? request.method === "POST" : ["GET", "PUT"].includes(request.method))
   const proposalCollection = resource === "/proposals"
   const proposalDetail = /^\/proposals\/[a-f0-9-]{36}$/i.test(resource)
@@ -99,7 +102,7 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(invitationResource || accountResource ? 20000 : 10000) })
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(catalogPublicationResource ? 25000 : invitationResource || accountResource ? 20000 : 10000) })
     // ETag is the backend revision used by If-Match; proxy encoding must not rewrite it.
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }

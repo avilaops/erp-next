@@ -35,7 +35,7 @@ test("redirecionamento legado e acesso ao estoque não expõem inventário fict�
   await page.goto("/estoque/inventarios/" + record)
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   await page.getByRole("navigation", { name: "Operações disponíveis" }).getByRole("link", { name: "Estoque", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Estoque", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Saldos e movimentos", exact: true })).toBeVisible()
   await page.goBack()
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   expect(errors).toEqual([])

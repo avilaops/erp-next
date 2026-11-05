@@ -35,6 +35,8 @@ As rotas catalogadas em `demonstration-routes.ts` deixam de montar os componente
 legados com dados de exemplo. Diretórios preservam acesso aos módulos reais;
 funcionalidades sem implementação mostram estado indisponível. Rotas
 operacionais, autenticação, filtros e dados da empresa são preservados.
+O detalhe de integrações preserva a validação da rota no servidor (incluindo
+404 de provedor desconhecido) e não apresenta contas ou saúde fictícias.
 As telas de dashboard agora saem dessa lista, pois consultam o endpoint real.
 Dados sintéticos continuam restritos aos testes e imagens editoriais de entrada;
 dicas de preenchimento nos inputs são mantidas.

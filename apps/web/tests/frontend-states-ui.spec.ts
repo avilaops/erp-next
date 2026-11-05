@@ -56,6 +56,9 @@ test("metas e prévias não apresentam números fixos nem controles simulados", 
   await expect(page.getByRole("button", { name: "Exportar visão" })).toHaveCount(0)
   await expect(page.getByRole("combobox", { name: "Período do dashboard" })).toHaveCount(0)
   await testInfo.attach("metas-sem-dados-inventados", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.goto("/preferencias/integracoes/mercado-livre")
+  await expect(page.getByRole("heading", { name: "Integração ainda indisponível", exact: true })).toBeVisible()
+  await expect(page.locator("main").getByText(/4821|10:42|Conexão saudável|Sincronizar estoque/)).toHaveCount(0)
   for (const path of ["/eventos", "/vendas/pdv", "/financeiro/relatorios", "/logistica/envios", "/servicos/ordens"]) {
     await page.goto(path)
     await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()

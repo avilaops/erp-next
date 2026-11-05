@@ -35,7 +35,7 @@ export function OrderPricing({ id, onSaved }: { id: string; onSaved: () => void 
       if (result?.tenantId === value.tenantId && result.approved) { setNotice("Aprovação registrada."); setReason(""); resource.reload(); onSaved() }
     }}>
       <label className="grid gap-2">Motivo da aprovação<Input required minLength={3} maxLength={2000} value={reason} disabled={command.busy || command.uncertain || command.stale} onChange={event => setReason(event.target.value)} /></label>
-      <Button disabled={command.busy || command.stale}>{command.busy ? "Confirmando…" : command.uncertain ? "Conferir aprovação" : "Aprovar exceção comercial"}</Button>
+      <Button type="submit" disabled={command.busy || command.stale}>{command.busy ? "Confirmando…" : command.uncertain ? "Conferir aprovação" : "Aprovar exceção comercial"}</Button>
       {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
       {command.stale && <Button type="button" variant="outline" onClick={() => { command.reset(); resource.reload(); onSaved() }}>Recarregar pedido</Button>}
     </form>}

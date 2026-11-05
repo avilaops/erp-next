@@ -31,6 +31,7 @@ for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalid
   await expect(page.getByText("Custos e lucro — acesso da gestão")).toHaveCount(0)
   await expect(page.getByLabel("Criar pedido da simulação")).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.evaluate(() => { window.scrollTo(0, 0) })
   await page.screenshot({ path: test.info().outputPath(`simulador-${width}.png`), fullPage: true })
   await page.getByLabel("Quantidade", { exact: true }).fill("3")
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toHaveCount(0)

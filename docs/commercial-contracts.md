@@ -10,6 +10,8 @@ Atualizar andamento → Abrir/baixar PDF assinado e trilha de assinatura.
 Em **Vendas → Pedidos**, a ação **Enviar pedido e contrato** abre os contratos
 da venda dentro do ERP. Após gerar a prévia, a conferência apresenta o PDF,
 os destinatários e o conteúdo comercial do e-mail. A geração não envia convites.
+A revisão permanece em `/vendas/pedidos/{id}/contratos?contrato={contrato}`,
+mantendo o contexto de Vendas. A consulta geral e por cliente continua disponível.
 
 O comando de envio usa a mensagem personalizada da API da nossa instalação:
 um convite por participante, contendo o resumo do pedido e o link individual

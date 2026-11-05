@@ -228,7 +228,8 @@ test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato 
   await expect(page.getByRole("button", { name: "Gerar prévia para revisão" })).toBeDisabled()
   await page.getByLabel("Condições comerciais").fill("Validação autorizada")
   await page.getByRole("button", { name: "Gerar prévia para revisão" }).click()
-  await page.waitForURL(`**/servicos/contratos/${contractId}`)
+  await page.waitForURL(`**/vendas/pedidos/${orderId}/contratos?contrato=${contractId}`)
+  await expect(page.getByRole("navigation", { name: "Módulos do ERP" }).getByRole("button", { name: "Vendas" })).toBeVisible()
   expect(sends).toBe(0)
   await expect(page.getByRole("button", { name: "Confirmar revisão" })).toBeDisabled()
   await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toHaveCount(0)
@@ -261,6 +262,16 @@ test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato 
   await expect(page.getByText("A revisão e o envio exigem permissão específica para contratos.")).toBeVisible()
   await expect(page.getByRole("checkbox")).toHaveCount(0)
   expect(failures).toEqual([])
+})
+
+test("contrato de outro pedido não oferece revisão nem envio no contexto de Vendas", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto(`/vendas/pedidos/${customerId}/contratos?contrato=${contractId}`)
+  await expect(page.getByRole("alert").filter({ hasText: "Este contrato não pertence ao pedido consultado." })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Confirmar revisão", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toHaveCount(0)
+  expect(sends).toBe(0)
+  expect(reviewCalls).toBe(0)
 })
 
 test("contrato comercial confere 31 campos e quatro destinatários antes da revisão, sem enviar convite", async ({ page, context }, testInfo) => {
@@ -299,7 +310,7 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   expect(generationCalls).toBe(0)
   await lastSigner.getByLabel("E-mail", { exact: true }).fill(recipients[3].email)
   await generate.evaluate((button: HTMLButtonElement) => { button.click(); button.click() })
-  await page.waitForURL(`**/servicos/contratos/${contractId}`)
+  await page.waitForURL(`**/vendas/pedidos/${orderId}/contratos?contrato=${contractId}`)
   expect(generationCalls).toBe(1)
   expect(new Set(generationKeys).size).toBe(1)
   expect(generatedRecipients).toEqual(recipients)

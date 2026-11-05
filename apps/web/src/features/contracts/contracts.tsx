@@ -39,7 +39,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
     <section className="form-section min-w-0 space-y-4">
       {result.loading ? <p role="status">Carregando contratos…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : !result.value?.data.length ? <p>Nenhum contrato encontrado.</p> : <ul className="space-y-3">
         {result.value.data.map(contract => <li key={contract.id} className="rounded-xl border p-4">
-          <Link className={linkClass} href={`/servicos/contratos/${contract.id}`}>{contract.templateName}</Link>
+          <Link className={linkClass} href={orderId ? `/vendas/pedidos/${orderId}/contratos?contrato=${contract.id}` : `/servicos/contratos/${contract.id}`}>{contract.templateName}</Link>
           <p className="mt-2">{contract.customerName} · {labels[contract.status] || contract.status}</p>
           {contract.problem && <p className="mt-2 text-sm" role="status">{contract.problem}</p>}
         </li>)}
@@ -81,7 +81,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
       recipients: template.roles.map((role, index) => recipient(role.name, index)),
       fields: Object.fromEntries(template.fields.map(field => [field.name, options.defaults[field.name] || fields[field.name] || ""])),
     })
-    if (result) router.push(`/servicos/contratos/${result.data.id}`)
+    if (result) router.push(`/vendas/pedidos/${options.snapshot.order.id}/contratos?contrato=${result.data.id}`)
   }}>
     <fieldset disabled={locked} className="space-y-5">
       <section className="form-section space-y-4"><h2 className="flex items-center gap-2 font-semibold"><FileText />Modelo e pedido</h2>
@@ -112,7 +112,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
   </form>
 }
 
-export function ContractDetail({ id }: { id: string }) {
+export function ContractDetail({ id, orderId }: { id: string; orderId?: string }) {
   const result = useResource<Detail>(`/api/erp/commercial-contracts/${id}`)
   const command = useCommand()
   const [checkedRevision, setCheckedRevision] = useState("")
@@ -128,6 +128,7 @@ export function ContractDetail({ id }: { id: string }) {
   if (result.loading) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><p role="status">Carregando contrato…</p></>
   if (result.error || !result.value) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><Link className={linkClass} href="/servicos/contratos">Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   const { data: contract, files, canEdit, canSend, emailReady, email } = result.value
+  if (orderId && contract.orderId !== orderId) return <section className="form-section space-y-3"><p role="alert">Este contrato não pertence ao pedido consultado.</p><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link></section>
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
   const fileUrl = (file: StoredFile) => `/api/erp/commercial-contracts/${id}/files/${file.id}`

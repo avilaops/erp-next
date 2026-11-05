@@ -66,6 +66,60 @@ fn cnpj_exposes_only_form_fields_and_never_infers_taxpayer_status() {
 }
 
 #[test]
+fn cnpj_projects_contacts_activity_and_exact_size_without_guessing_tax_choices() {
+    let value = json!({"cnpj":"04252011000110","razao_social":"Empresa","codigo_porte":1,"ddd_telefone_1":"1133334444","email":"empresa@example.test","cnae_fiscal_descricao":"Atividade declarada","opcao_pelo_simples":false});
+    let (data, _) = parse::parse(
+        "BrasilAPI",
+        LookupKind::Cnpj,
+        "04252011000110",
+        None,
+        &value,
+    )
+    .unwrap();
+    assert_eq!(data.fields["companySize"], "micro");
+    assert_eq!(data.fields["email"], "empresa@example.test");
+    assert_eq!(data.fields["phone"], "1133334444");
+    assert_eq!(data.fields["activityDescription"], "Atividade declarada");
+    assert!(!data.fields.contains_key("taxRegime"));
+    assert!(!data.fields.contains_key("segments"));
+    let value = json!({"razao_social":"Empresa","porte":{"id":"05"},"estabelecimento":{"cnpj":"04252011000110","tipo_logradouro":"RUA","logradouro":"EXEMPLO","ddd1":"11","telefone1":"33334444","email":"contato@example.test","atividade_principal":{"id":"6201501","descricao":"Atividade da fonte"}}});
+    let (data, _) =
+        parse::parse("CNPJ.ws", LookupKind::Cnpj, "04252011000110", None, &value).unwrap();
+    assert_eq!(data.fields["street"], "RUA EXEMPLO");
+    assert_eq!(data.fields["phone"], "1133334444");
+    assert_eq!(data.fields["activityDescription"], "Atividade da fonte");
+    assert!(!data.fields.contains_key("companySize"));
+}
+
+#[test]
+fn simples_requires_an_explicit_positive_option_without_an_exclusion() {
+    for (option, exclusion, expected) in [
+        (Some(true), None, true),
+        (Some(false), None, false),
+        (None, None, false),
+        (Some(true), Some("2026-01-01"), false),
+    ] {
+        let value = json!({"cnpj":"04252011000110","razao_social":"Empresa","opcao_pelo_simples":option,"data_exclusao_do_simples":exclusion});
+        let (data, _) = parse::parse(
+            "BrasilAPI",
+            LookupKind::Cnpj,
+            "04252011000110",
+            None,
+            &value,
+        )
+        .unwrap();
+        assert_eq!(
+            data.fields.get("taxRegime").map(String::as_str),
+            expected.then_some("simples")
+        );
+    }
+    let value = json!({"razao_social":"Empresa","simples":{"simples":"Sim","data_exclusao_simples":null},"estabelecimento":{"cnpj":"04252011000110"}});
+    let (data, _) =
+        parse::parse("CNPJ.ws", LookupKind::Cnpj, "04252011000110", None, &value).unwrap();
+    assert_eq!(data.fields["taxRegime"], "simples");
+}
+
+#[test]
 fn ie_is_filtered_by_state_and_keeps_source_status_separate_from_tax_treatment() {
     let value = json!({"razao_social":"Empresa","atualizado_em":"2026-10-01T00:00:00Z","estabelecimento":{"cnpj":"04252011000110","estado":{"sigla":"SP"},"inscricoes_estaduais":[{"inscricao_estadual":"110042490114","ativo":false,"estado":{"sigla":"SP"}},{"inscricao_estadual":"123456789","ativo":true,"estado":{"sigla":"MG"}}]}});
     let (data, date) = parse::parse(

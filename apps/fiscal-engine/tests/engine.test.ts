@@ -55,10 +55,10 @@ test("prepare refuses missing tax rules, changed totals, incompatible item rules
   assert.throws(() => mapDraft(incompatible), /classifica|regra/i);
 });
 
-test("engine refuses production and uncorrelated signed XML before any external call", async () => {
+test("engine refuses mismatched environments and uncorrelated signed XML before any external call", async () => {
   let calls = 0;
   const send = async () => { calls++; return ""; };
-  await assert.rejects(dispatch("authorize", { ...preparation(), environment: "production", accessKey: key, signedXml: "<NFe/>" }, send), /homologa/i);
+  await assert.rejects(dispatch("authorize", { ...preparation(), environment: "production", accessKey: key, signedXml: "<NFe/>" }, send), /XML|assinad/i);
   await assert.rejects(dispatch("authorize", { ...preparation(), accessKey: key, signedXml: "<NFe/>" }, send), /XML|assinad/i);
   assert.equal(calls, 0);
 });
@@ -73,6 +73,33 @@ test("distribution uses fixed national endpoint and preserves the returned NSU b
   assert.equal(result.code, "137");
   assert.equal(result.lastNsu, "000000000000000");
   assert.deepEqual(result.documents, []);
+});
+
+test("production prepares and signs the declared environment and uses only its fixed SP endpoints", async () => {
+  const base = preparation();
+  const input = { ...base, environment: "production", issuer: { ...base.issuer, profile: { ...base.issuer.profile, environment: "production" } }, draft: { ...base.draft, environment: "production" } };
+  const prepared = await dispatch("prepare", input);
+  const signed = String(prepared.signedXml), accessKey = String(prepared.accessKey);
+  assert.match(signed, /<tpAmb>1<\/tpAmb>/);
+  assert.match(signed, /<xNome>CLIENTE TESTE<\/xNome>/);
+  const digest = /<DigestValue>([^<]+)<\/DigestValue>/.exec(signed)![1];
+  const protocol = `<protNFe versao="4.00"><infProt><tpAmb>1</tpAmb><verAplic>test</verAplic><chNFe>${accessKey}</chNFe><dhRecbto>2026-10-17T10:00:01-03:00</dhRecbto><nProt>135260000000001</nProt><digVal>${digest}</digVal><cStat>100</cStat><xMotivo>Autorizado</xMotivo></infProt></protNFe>`;
+  const calls: string[] = [];
+  const authorized = await dispatch("authorize", { environment: "production", certificate, accessKey, signedXml: signed }, async (url, _action, envelope) => {
+    assert.equal(url, "https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx");
+    assert.match(envelope, /<tpAmb>1<\/tpAmb>/); calls.push(url);
+    return `<retEnviNFe><cStat>104</cStat>${protocol}</retEnviNFe>`;
+  });
+  assert.equal(authorized.status, "authorized");
+  const consulted = await dispatch("consult", { environment: "production", certificate, accessKey, signedXml: signed }, async (url, _action, envelope) => {
+    assert.equal(url, "https://nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx");
+    assert.match(envelope, /<tpAmb>1<\/tpAmb>/); calls.push(url);
+    return `<retConsSitNFe><tpAmb>1</tpAmb><cStat>100</cStat><chNFe>${accessKey}</chNFe>${protocol}</retConsSitNFe>`;
+  });
+  assert.equal(consulted.status, "authorized");
+  await assert.rejects(dispatch("authorize", { environment: "homologation", certificate, accessKey, signedXml: signed }, async () => { calls.push("wrong"); return ""; }), /ambiente/);
+  assert.throws(() => mapDraft({ ...input, draft: base.draft }), /Ambiente/);
+  assert.equal(calls.length, 2);
 });
 
 test("authorization verifies the signed content, duplicates require reconciliation and A1 rotation permits consultation", async () => {

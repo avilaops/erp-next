@@ -59,10 +59,10 @@ test("busca global encontra Produtos com destino direto", async ({ page }) => {
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
 })
 
-test("histórico demonstrativo não oferece download inexistente", async ({ page }) => {
+test("exportação sem integração não oferece download inexistente", async ({ page }) => {
   await page.goto("/preferencias/dados/exportacao")
-  await expect(page.getByRole("button", { name: "Baixar", exact: true }).first()).toBeDisabled()
-  await expect(page.getByText("Downloads indisponíveis nesta demonstração. Nenhum arquivo foi gerado.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Baixar", exact: true })).toHaveCount(0)
+  await expect(page.getByText("A geração de arquivos ainda não está integrada. Nenhum arquivo foi gerado.", { exact: true })).toBeVisible()
 })
 
 test("filtro e página do catálogo sobrevivem a recarga e histórico", async ({ page }) => {
@@ -95,6 +95,15 @@ test("preferências mantém conteúdo acessível nos breakpoints e no tema escur
     await expect(page.getByRole("heading", { name: "Empresa", exact: true })).toBeVisible()
     if (width === 390 || width === 1749) await page.screenshot({ path: testInfo.outputPath(`preferencias-${width}.png`), fullPage: true })
   }
+})
+
+test("tema Avila pode ser escolhido e persiste neste navegador", async ({ page }) => {
+  await page.goto("/preferencias/sistema")
+  await page.getByRole("radio", { name: "Avila" }).check()
+  await expect(page.locator("html")).toHaveClass(/avila-theme/)
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe("#0759f8")
+  await page.reload()
+  await expect(page.getByRole("radio", { name: "Avila" })).toBeChecked()
 })
 
 test("painel mobile fecha após navegar para uma configuração", async ({ page }) => {

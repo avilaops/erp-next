@@ -11,9 +11,9 @@ import { Input } from "@/components/ui/input"
 
 type Profile = Schema<"ProfileInput">
 type Snapshot = Schema<"ProfileSnapshot">
-type ProfileDraft = Omit<Profile, "environment" | "crt" | "series"> & { environment: Profile["environment"] | ""; crt: number | ""; series: number | "" }
+type ProfileDraft = Omit<Profile, "environment" | "crt" | "series" | "nextNumber"> & { environment: "homologation" | "production" | ""; crt: number | ""; series: number | ""; nextNumber: number | "" }
 type Company = { legalName: string; taxId: string; state: string; stateRegistration: string; taxRegime: string; city: string }
-const empty: ProfileDraft = { environment: "", state: "", municipalityCode: "", stateRegistration: "", crt: "", series: "", certificateReference: "" }
+const empty: ProfileDraft = { environment: "", state: "", municipalityCode: "", stateRegistration: "", crt: "", series: "", nextNumber: "", certificateReference: "" }
 const regimeLabels: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" }
 
 export function FiscalSettings() {
@@ -38,6 +38,7 @@ export function FiscalSettings() {
     draft.crt === "" && "Código de regime tributário",
     draft.series === "" && "Série da NF-e",
     draft.environment === "" && "Ambiente",
+    draft.environment === "production" && draft.nextNumber === "" && "Próxima numeração da série em produção",
   ].filter(Boolean) : []
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export function FiscalSettings() {
       if (controller.signal.aborted) return
       if (profile.value.tenantId !== registered.value.tenantId || !profile.etag) throw new Error("A empresa da sessão mudou. Recarregue a configuração")
       const data = registered.value.data as Company
-      const value: ProfileDraft = profile.value.data || { ...empty }
+      const value: ProfileDraft = profile.value.data ? { ...profile.value.data, nextNumber: profile.value.data.nextNumber ?? "" } : { ...empty }
       setSnapshot(profile.value); setCompany(data); setDraft(value); setBaseline(JSON.stringify(value)); setEtag(profile.etag); setBlocked(false); setError("")
     }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -69,7 +70,7 @@ export function FiscalSettings() {
     if (!snapshot?.canEdit || pending.current || blocked || missing.length) return
     pending.current = true; setSaving(true); setError(""); setNotice("")
     try {
-      const response = await erpFetch("/api/erp/fiscal/config", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag }, body: JSON.stringify(draft) })
+      const response = await erpFetch("/api/erp/fiscal/config", { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, "If-Match": etag }, body: JSON.stringify({ ...draft, nextNumber: draft.nextNumber === "" ? undefined : draft.nextNumber }) })
       const value = await response.json()
       if (!response.ok) {
         if ([401, 403, 409, 412].includes(response.status) || response.status >= 500) setBlocked(true)
@@ -77,7 +78,8 @@ export function FiscalSettings() {
       }
       const revision = response.headers.get("etag")
       if (!revision) { setBlocked(true); throw new Error("Gravação recebida sem revisão. Recarregue para conferir os dados") }
-      setSnapshot(value); setDraft(value.data); setBaseline(JSON.stringify(value.data)); setEtag(revision); setNotice("Configuração fiscal salva no servidor. A transmissão é feita na nota fiscal.")
+      const saved: ProfileDraft = { ...value.data, nextNumber: value.data.nextNumber ?? "" }
+      setSnapshot(value); setDraft(saved); setBaseline(JSON.stringify(saved)); setEtag(revision); setNotice("Configuração fiscal salva no servidor. A transmissão é feita na nota fiscal.")
     } catch (reason) {
       if (reason instanceof TypeError) setBlocked(true)
       setError(reason instanceof Error ? reason.message : "Não foi possível confirmar a gravação. Recarregue antes de repetir")
@@ -96,8 +98,9 @@ export function FiscalSettings() {
           <label className="space-y-2 text-sm">Inscrição estadual<Input value={draft.stateRegistration} inputMode="numeric" pattern="[0-9]{1,14}" required onChange={event => setDraft({ ...draft, stateRegistration: event.target.value })} /><span className="text-xs text-muted-foreground">Somente dígitos. Cadastro atual: {company.stateRegistration || "não informado"}</span></label>
           <label className="space-y-2 text-sm">Código IBGE do município<Input value={draft.municipalityCode} inputMode="numeric" pattern="[0-9]{7}" maxLength={7} required onChange={event => setDraft({ ...draft, municipalityCode: event.target.value })} /><span className="text-xs text-muted-foreground">Município cadastrado: {company.city || "não informado"}</span></label>
           <label className="space-y-2 text-sm">Código de regime tributário<select aria-label="Código de regime tributário" className="h-10 w-full rounded-xl border bg-background px-3" required value={draft.crt} onChange={event => setDraft({ ...draft, crt: event.target.value === "" ? "" : Number(event.target.value) })}><option value="">Selecione o CRT</option><option value={1}>1 — Simples Nacional</option><option value={2}>2 — Simples Nacional com excesso de sublimite</option><option value={3}>3 — Regime normal</option><option value={4}>4 — Simples Nacional — MEI</option></select></label>
-          <label className="space-y-2 text-sm">Série da NF-e<Input type="number" min={1} max={999} step={1} required placeholder="Informe a série" value={draft.series} onChange={event => setDraft({ ...draft, series: event.target.value === "" ? "" : Number(event.target.value) })} /></label>
-          <label className="space-y-2 text-sm">Ambiente<select aria-label="Ambiente" className="h-10 w-full rounded-xl border bg-background px-3" required value={draft.environment} onChange={event => setDraft({ ...draft, environment: event.target.value === "homologation" ? "homologation" : "" })}><option value="">Selecione o ambiente</option><option value="homologation">Homologação</option></select><span className="text-xs text-muted-foreground">Ambiente disponível: homologação. Salvar a preparação não transmite uma nota.</span></label>
+          <label className="space-y-2 text-sm">Série da NF-e<Input type="number" min={1} max={999} step={1} required placeholder="Informe a série" value={draft.series} onChange={event => setDraft({ ...draft, series: event.target.value === "" ? "" : Number(event.target.value), nextNumber: "" })} /></label>
+          <label className="space-y-2 text-sm">Ambiente<select aria-label="Ambiente" className="h-10 w-full rounded-xl border bg-background px-3" required value={draft.environment} onChange={event => setDraft({ ...draft, environment: event.target.value === "homologation" || event.target.value === "production" ? event.target.value : "", nextNumber: "" })}><option value="">Selecione o ambiente</option><option value="homologation">Homologação</option><option value="production">Produção</option></select><span className="text-xs text-muted-foreground">Escolha o ambiente de emissão. Salvar a configuração não transmite uma nota.</span></label>
+          <label className="space-y-2 text-sm">Próximo número da NF-e<Input aria-label="Próximo número da NF-e" type="number" min={1} max={999999999} step={1} required={draft.environment === "production"} value={draft.nextNumber} onChange={event => setDraft({ ...draft, nextNumber: event.target.value === "" ? "" : Number(event.target.value) })} /><span className="text-xs text-muted-foreground">Informe a sequência da série neste ambiente. Números já reservados não podem ser reutilizados.</span></label>
         </fieldset>
       </section>
       <section className="form-section space-y-4"><h2 className="text-lg font-semibold">Certificado digital A1</h2><p className="text-sm">Situação: {snapshot.certificateVerified ? "Certificado conectado e vigente" : "Nenhum certificado vigente disponível"}.</p><p className="text-sm text-muted-foreground">O arquivo e a senha são informados na tela própria do certificado, que confere o CNPJ, a validade e a cadeia de confiança.</p><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/certificado-digital">Gerenciar certificado A1</Link></section>

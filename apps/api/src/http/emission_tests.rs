@@ -34,6 +34,11 @@ struct Provider {
     calls: Calls,
 }
 fn registered_event(body: &Value) -> Value {
+    let ambient = if body["environment"] == "production" {
+        "1"
+    } else {
+        "2"
+    };
     let key = body["accessKey"].as_str().unwrap();
     let kind = if body["kind"] == "cancelamento" {
         "110111"
@@ -41,7 +46,7 @@ fn registered_event(body: &Value) -> Value {
         "110110"
     };
     let sequence = body["sequence"].as_i64().unwrap();
-    json!({"kind":body["kind"],"sequence":sequence,"text":body["text"],"registered":true,"code":"135","reason":"Evento registrado","protocol":"135260000000002","xml":format!("<procEventoNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><retEvento><infEvento><tpAmb>2</tpAmb><chNFe>{key}</chNFe><tpEvento>{kind}</tpEvento><nSeqEvento>{sequence}</nSeqEvento><cStat>135</cStat><nProt>135260000000002</nProt></infEvento></retEvento></procEventoNFe>")})
+    json!({"kind":body["kind"],"sequence":sequence,"text":body["text"],"registered":true,"code":"135","reason":"Evento registrado","protocol":"135260000000002","xml":format!("<procEventoNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><retEvento><infEvento><tpAmb>{ambient}</tpAmb><chNFe>{key}</chNFe><tpEvento>{kind}</tpEvento><nSeqEvento>{sequence}</nSeqEvento><cStat>135</cStat><nProt>135260000000002</nProt></infEvento></retEvento></procEventoNFe>")})
 }
 async fn provider(
     State(state): State<Provider>,
@@ -50,7 +55,18 @@ async fn provider(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     assert_eq!(headers["authorization"], "Bearer synthetic-token");
-    assert_eq!(body["environment"], "homologation");
+    assert!(matches!(
+        body["environment"].as_str(),
+        Some("homologation" | "production")
+    ));
+    if state.mode != "both" {
+        assert_eq!(body["environment"], "homologation");
+    }
+    let ambient = if body["environment"] == "production" {
+        "1"
+    } else {
+        "2"
+    };
     assert!(body["certificate"]["pkcs12Base64"].as_str().is_some());
     state
         .calls
@@ -81,7 +97,7 @@ async fn provider(
         let issued_at = body["issuedAt"].as_str().unwrap();
         let total = body["draft"]["productsTotal"].as_str().unwrap();
         let xml = format!(
-            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>55</mod><tpAmb>2</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
+            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>55</mod><tpAmb>{ambient}</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
         );
         return (
             StatusCode::OK,
@@ -102,7 +118,7 @@ async fn provider(
         return (
             StatusCode::OK,
             Json(
-                json!({"registered":true,"code":"102","protocol":"135260000000003","xml":format!("<retInutNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infInut><tpAmb>2</tpAmb><CNPJ>04252011000110</CNPJ><serie>{series}</serie><nNFIni>{first}</nNFIni><nNFFin>{last}</nNFFin><cStat>102</cStat><nProt>135260000000003</nProt></infInut></retInutNFe>")}),
+                json!({"registered":true,"code":"102","protocol":"135260000000003","xml":format!("<retInutNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infInut><tpAmb>{ambient}</tpAmb><CNPJ>04252011000110</CNPJ><serie>{series}</serie><nNFIni>{first}</nNFIni><nNFFin>{last}</nNFFin><cStat>102</cStat><nProt>135260000000003</nProt></infInut></retInutNFe>")}),
             ),
         );
     }
@@ -157,7 +173,7 @@ async fn provider(
         "AAAAAAAAAAAAAAAAAAAAAAAAAAA="
     };
     let xml = format!(
-        "<nfeProc versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\">{}<protNFe versao=\"4.00\"><infProt><tpAmb>2</tpAmb><chNFe>{key}</chNFe><cStat>100</cStat><nProt>135260000000001</nProt><dhRecbto>2026-10-31T10:00:00-03:00</dhRecbto><digVal>{digest}</digVal></infProt></protNFe></nfeProc>",
+        "<nfeProc versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\">{}<protNFe versao=\"4.00\"><infProt><tpAmb>{ambient}</tpAmb><chNFe>{key}</chNFe><cStat>100</cStat><nProt>135260000000001</nProt><dhRecbto>2026-10-31T10:00:00-03:00</dhRecbto><digVal>{digest}</digVal></infProt></protNFe></nfeProc>",
         body["signedXml"].as_str().unwrap()
     );
     let xml = if state.mode == "content-mismatch" {
@@ -599,6 +615,190 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
             .await
             .unwrap(),
         1
+    );
+    for task in tasks {
+        task.abort();
+    }
+    cleanup(&admin, application, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn production_numbers_and_events_follow_the_document_after_the_profile_switches(
+    admin: PgPool,
+) {
+    let (_, application, auth, role) = setup(&admin).await;
+    let (router, tasks, calls) = services(&admin, application.clone(), "both").await;
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        draft(),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let homo_id = created.2["data"]["id"].as_str().unwrap();
+    let homo = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{homo_id}/issue"),
+        "editor",
+        Some("\"1\""),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(homo.2["status"], "authorized", "{}", homo.2);
+    assert_eq!(homo.2["environment"], "homologation");
+    assert_eq!(homo.2["number"], 1);
+    let current = call(
+        &router,
+        "GET",
+        "/api/v1/fiscal/config",
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    let mut profile = current.2["data"].clone();
+    profile["environment"] = json!("production");
+    profile["nextNumber"] = json!(41);
+    let configured = call(
+        &router,
+        "PUT",
+        "/api/v1/fiscal/config",
+        "editor",
+        Some("\"1\""),
+        None,
+        profile.clone(),
+    )
+    .await;
+    assert_eq!(configured.0, StatusCode::OK, "{}", configured.2);
+    let mut input = draft();
+    input["environment"] = json!("production");
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        input,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let issued = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{id}/issue"),
+        "editor",
+        Some("\"1\""),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(issued.2["status"], "authorized", "{}", issued.2);
+    assert_eq!(issued.2["environment"], "production");
+    assert_eq!(issued.2["number"], 41);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            "/api/v1/fiscal/config",
+            "editor",
+            Some("\"2\""),
+            None,
+            profile.clone()
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let current = call(
+        &router,
+        "GET",
+        "/api/v1/fiscal/config",
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(current.2["data"]["nextNumber"], 42);
+    // Homologation number 1 cannot prohibit voiding a gap in production.
+    let voided = call(&router,"POST","/api/v1/fiscal/number-voids","editor",Some("\"0\""),Some(Uuid::now_v7()),json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":1,"text":"Lacuna declarada no ambiente de produção"})).await;
+    assert_eq!(voided.2["status"], "registered", "{}", voided.2);
+    profile["environment"] = json!("homologation");
+    profile["nextNumber"] = json!(2);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            "/api/v1/fiscal/config",
+            "editor",
+            Some("\"2\""),
+            None,
+            profile
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let etag = format!("\"{}\"", issued.2["revision"].as_i64().unwrap());
+    let consulted = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{id}/consult"),
+        "editor",
+        Some(&etag),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(consulted.2["status"], "authorized", "{}", consulted.2);
+    assert_eq!(consulted.2["environment"], "production");
+    let etag = format!("\"{}\"", consulted.2["revision"].as_i64().unwrap());
+    let corrected = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{id}/correction"),
+        "editor",
+        Some(&etag),
+        Some(Uuid::now_v7()),
+        json!({"text":"Correção textual declarada pelo operador"}),
+    )
+    .await;
+    assert_eq!(corrected.2["status"], "registered", "{}", corrected.2);
+    let recorded = calls.lock().unwrap().clone();
+    assert!(
+        recorded
+            .iter()
+            .any(|(operation, body)| operation == "void" && body["environment"] == "production")
+    );
+    assert!(
+        recorded
+            .iter()
+            .any(|(operation, body)| operation == "event" && body["environment"] == "production")
+    );
+    assert!(
+        recorded
+            .iter()
+            .filter(|(_, body)| body["accessKey"] == issued.2["accessKey"])
+            .all(|(_, body)| body["environment"] == "production")
+    );
+    let sequences: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT environment,next_number FROM fiscal_number_sequences ORDER BY environment",
+    )
+    .fetch_all(&admin)
+    .await
+    .unwrap();
+    assert_eq!(
+        sequences,
+        vec![("homologation".into(), 2), ("production".into(), 42)]
     );
     for task in tasks {
         task.abort();

@@ -2,6 +2,7 @@
 
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
+import { AutomaticCnpj, fillCompanyFields } from "@/features/records/automatic-cnpj"
 
 import Link from "next/link"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
@@ -69,6 +70,7 @@ export function CompanySignup() {
   // Retain the key across ambiguous network failures; changing the payload gets a new key.
   const command = useRef<{ body: string; key: string } | null>(null)
   const [created, setCreated] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true); setStatus("Salvando cadastro…")
@@ -92,10 +94,20 @@ export function CompanySignup() {
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }
   }
   const fields = [["legalName", "Nome empresarial"], ["tradeName", "Nome fantasia"], ["taxId", "CPF ou CNPJ"], ["postalCode", "CEP"], ["city", "Cidade"], ["street", "Rua"], ["number", "Número"], ["district", "Bairro"], ["email", "E-mail da empresa"]]
-  return <form onSubmit={submit} className="form-section space-y-4">
-    <p>Cadastre sua empresa com sua conta Ávila Ops. Você será o administrador desta empresa.</p>
+  return <form ref={formRef} onSubmit={submit} className="form-section space-y-4">
+    <p>Cadastre sua empresa com sua conta Avila Ops. Você será o administrador desta empresa.</p>
     <fieldset disabled={!hydrated || busy || Boolean(created)} className="grid gap-4 sm:grid-cols-2">
       {fields.map(([name, label]) => <label className="field" key={name}>{label}<input name={name} maxLength={300} type={name === "email" ? "email" : "text"} required={!["tradeName", "email"].includes(name)} /></label>)}
+      <AutomaticCnpj formRef={formRef} disabled={!hydrated || busy || Boolean(created)} onApply={data => {
+        return formRef.current ? fillCompanyFields(formRef.current, data) : 0
+      }} />
+      <details className="col-span-full space-y-3">
+        <summary className="cursor-pointer text-sm font-medium">Dados complementares da empresa</summary>
+        <div className="grid gap-4 pt-3 sm:grid-cols-2">
+          {[["complement", "Complemento"], ["phone", "Telefone"], ["cnae", "CNAE principal"], ["activityDescription", "Descrição da atividade"], ["stateRegistration", "Inscrição estadual"]].map(([name, label]) => <label className="field" key={name}>{label}<input name={name} maxLength={name === "phone" ? 40 : 200} /></label>)}
+          <label className="field">Porte<select name="companySize" defaultValue=""><option value="">Não informado</option><option value="micro">Microempresa</option><option value="pequena">Pequena</option><option value="media">Média</option><option value="grande">Grande</option></select></label>
+        </div>
+      </details>
       <label className="field">Tipo de pessoa<select name="personType" defaultValue="juridica"><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
       <label className="field">Regime tributário<select name="taxRegime" required defaultValue=""><option value="" disabled>Selecione</option><option value="simples">Simples Nacional</option><option value="presumido">Lucro presumido</option><option value="real">Lucro real</option></select></label>
       <label className="field">UF<select aria-label="UF" name="state" required defaultValue=""><option value="" disabled>Selecione</option>{"AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ").map(state => <option key={state}>{state}</option>)}</select></label>

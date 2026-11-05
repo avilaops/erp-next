@@ -5,8 +5,10 @@ import { currentIdentitySession, currentSession, erpConfiguration } from "@/serv
 export async function forwardErp(request: Request, resource: string) {
   const payrollResource = request.method === "GET" && /^\/staff-payroll$|^\/staff\/[a-f0-9-]{36}\/payroll$/i.test(resource)
     || request.method === "POST" && /^\/staff-payroll\/(?:generate|salaries)$|^\/staff-payroll\/requests\/[a-f0-9-]{36}\/review$|^\/staff\/[a-f0-9-]{36}\/payroll\/requests$/i.test(resource)
-  const registryResource = resource === "/registry-lookups" && request.method === "POST"
-  if (resource === "/registry-lookups" && (!registryResource || new URL(request.url).search)) return Response.json({ title: "Consulta inválida" }, { status: 400 })
+  const registrationResource = resource === "/company-registration/lookup"
+  const identityResource = resource === "/companies" || registrationResource
+  const registryResource = (resource === "/registry-lookups" || registrationResource) && request.method === "POST"
+  if ((resource === "/registry-lookups" || registrationResource) && (!registryResource || new URL(request.url).search)) return Response.json({ title: "Consulta inválida" }, { status: 400 })
   const accountResource = request.method === "GET" && ["/company-account", "/company-account/invoices"].includes(resource)
     || request.method === "POST" && ["/company-account/checkout", "/company-account/refresh", "/company-account/change-plan", "/company-account/cancel"].includes(resource)
   const commissionRead = /^\/commissions(?:\/[a-f0-9-]{36})?$|^\/orders\/[a-f0-9-]{36}\/commission$/i.test(resource)
@@ -15,6 +17,7 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "PUT" && /^\/orders\/[a-f0-9-]{36}\/commission$|^\/production\/stages\/[a-f0-9-]{36}$/i.test(resource)
     || request.method === "POST" && /^\/commissions\/[a-f0-9-]{36}\/(?:adjustments|payments)$|^\/production\/(?:orders|stages)$|^\/production\/orders\/[a-f0-9-]{36}\/(?:stage|consumptions(?:\/[a-f0-9-]{36}\/reverse)?)$/i.test(resource)
   const auditResource = resource === "/audit"
+  const dashboardResource = resource === "/dashboard" && request.method === "GET"
   const productCostResource = /^\/product-costs\/[a-f0-9-]{36}$/.test(resource) && ["GET", "PUT"].includes(request.method)
   const priceTableResource = /^\/price-tables\/(?:imported|national)(?:\/(?:preview|publish))?$/.test(resource)
     && (resource.endsWith("/publish") ? request.method === "POST" : request.method === "GET")
@@ -22,6 +25,13 @@ export async function forwardErp(request: Request, resource: string) {
     && (resource === "/fixed-expenses" ? ["GET", "POST"].includes(request.method) : request.method === "PUT")
   const commercialResource = /^\/(?:commercial-settings)\/(?:imported|national)(?:\/preview)?$/.test(resource)
     && (resource.endsWith("/preview") ? request.method === "POST" : ["GET", "PUT"].includes(request.method))
+  const simulatorCollection = /^\/sales-simulator\/(?:imported|national)$/.test(resource)
+  const simulatorQuote = /^\/sales-simulator\/(?:imported|national)\/quote$/.test(resource)
+  const simulatorCreate = /^\/sales-simulator\/(?:imported|national)\/orders$/.test(resource)
+  const orderPricingRead = /^\/orders\/[a-f0-9-]{36}\/pricing$/i.test(resource)
+  const orderPricingApprove = /^\/orders\/[a-f0-9-]{36}\/pricing\/approve$/i.test(resource)
+  const simulatorResource = (simulatorCollection || orderPricingRead) && request.method === "GET"
+    || (simulatorQuote || simulatorCreate || orderPricingApprove) && request.method === "POST"
   const proposalCollection = resource === "/proposals"
   const proposalDetail = /^\/proposals\/[a-f0-9-]{36}$/i.test(resource)
   const proposalAction = /^\/proposals\/[a-f0-9-]{36}\/(?:send|accept|reject|cancel|revise|convert)$/i.test(resource)
@@ -36,14 +46,14 @@ export async function forwardErp(request: Request, resource: string) {
   if (returnResource && (resource.endsWith("/cancellations") || resource.endsWith("/reversals") ? request.method !== "GET" : request.method !== "POST")) return Response.json({ title: "Método inválido" }, { status: 405 })
   const purchaseCollection = /^\/(?:purchase-orders|payables|financial-payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables|financial-payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/(?:payables|financial-payables)\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !returnResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !returnResource && !invitationResource && !referenceResource && !serviceKeyResource && !purchaseResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
-    const session = resource === "/companies" ? await currentIdentitySession() : await currentSession()
+    const session = identityResource ? await currentIdentitySession() : await currentSession()
     if (!session) return Response.json({ title: "Entre para acessar os dados da empresa" }, { status: 401, headers: { "Cache-Control": "no-store" } })
     if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ title: "Origem não autorizada" }, { status: 403 })
-    if (request.method !== "GET" && resource !== "/companies" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
-    const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, ...(session.tenantId && resource !== "/companies" ? { "X-Tenant-Id": session.tenantId } : {}), Accept: "application/json" })
+    if (request.method !== "GET" && !identityResource && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
+    const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, ...(session.tenantId && !identityResource ? { "X-Tenant-Id": session.tenantId } : {}), Accept: "application/json" })
     let body: string | undefined
     if (request.method === "PUT" || request.method === "POST") {
       if (!request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ title: "Envie JSON" }, { status: 415 })
@@ -66,6 +76,13 @@ export async function forwardErp(request: Request, resource: string) {
     const commandKey = request.headers.get("idempotency-key")
     if (commandKey) headers.set("Idempotency-Key", commandKey)
     const upstream = new URL(`${config.api}/api/v1${resource}`)
+    if (simulatorResource) {
+      const query = new URL(request.url).searchParams
+      for (const [key, value] of query) {
+        if (!simulatorCollection || key !== "versionId" || query.getAll(key).length !== 1 || !/^[a-f0-9-]{36}$/i.test(value)) return Response.json({ title: "Filtro inválido" }, { status: 400 })
+        upstream.searchParams.set(key, value)
+      }
+    }
     if (proposalResource) {
       const query = new URL(request.url).searchParams
       const allowed = request.method !== "GET" ? [] : proposalCollection ? ["q", "status", "offset", "limit"] : proposalDetail ? ["version"] : []
@@ -95,9 +112,9 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    if (auditResource || referenceCollection || purchaseResource || ["/staff", "/products", "/stock", "/stock/movements", "/parties", "/orders", "/receivables"].includes(resource)) {
+    if (dashboardResource || auditResource || referenceCollection || purchaseResource || ["/staff", "/products", "/stock", "/stock/movements", "/parties", "/orders", "/receivables"].includes(resource)) {
       const query = new URL(request.url).searchParams
-      const allowed = auditResource ? ["q", "action", "entity", "startDate", "endDate", "before"] : purchaseResource ? purchaseCollection ? ["offset", "limit"] : [] : resource === "/stock/movements" ? ["productId", "offset", "limit"] : ["/parties", "/staff"].includes(resource) ? ["q", "status", "role", "offset", "limit"] : resource === "/orders" ? ["q", "offset", "limit"] : resource === "/receivables" ? ["offset", "limit"] : ["q", "status", "offset", "limit"]
+      const allowed = dashboardResource ? ["period"] : auditResource ? ["q", "action", "entity", "startDate", "endDate", "before"] : purchaseResource ? purchaseCollection ? ["offset", "limit"] : [] : resource === "/stock/movements" ? ["productId", "offset", "limit"] : ["/parties", "/staff"].includes(resource) ? ["q", "status", "role", "offset", "limit"] : resource === "/orders" ? ["q", "offset", "limit"] : resource === "/receivables" ? ["offset", "limit"] : ["q", "status", "offset", "limit"]
       if (resource === "/products") allowed.push("category_id")
       for (const [key, value] of query) {
         if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })

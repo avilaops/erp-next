@@ -132,7 +132,7 @@ export function ErpAssistantModule() {
       <p className="mt-3 text-muted-foreground">Localize telas e consulte produtos, estoque, clientes e pedidos da empresa ativa.</p>
       {tenant && <p className="mt-2 text-sm font-medium text-primary">{tenant.legalName}</p>}
     </header>
-    <p className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">Somente consultas. As fontes mostram dados confirmados pelo ERP conforme suas permissões. A conversa fica nesta tela e é processada na infraestrutura da Ávila Ops.</p>
+    <p className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">Somente consultas. As fontes mostram dados confirmados pelo ERP conforme suas permissões. A conversa fica nesta tela e é processada na infraestrutura da Avila Ops.</p>
     <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card" aria-label="Conversa com o assistente">
       <div className="max-h-[60vh] min-h-80 space-y-4 overflow-y-auto p-4 sm:p-5" role="log" aria-live="polite" aria-relevant="additions text">
         {!messages.length && <div className="rounded-2xl bg-muted p-4 text-sm">Posso localizar telas, buscar produtos e clientes, consultar estoque e mostrar os pedidos mais recentes. Para um pedido específico, informe o identificador exibido no cadastro.</div>}

@@ -5,7 +5,7 @@ import { GuardedLink } from "../shell/navigation-guard"
 import { accessHref, recoveryDestination } from "@/lib/return-to"
 import type { ReactNode } from "react"
 
-export function AccessLink({ page = "/entrar", children = "Entrar com Ávila Ops", className = "font-medium text-primary underline" }: { page?: "/entrar" | "/empresas"; children?: ReactNode; className?: string }) {
+export function AccessLink({ page = "/entrar", children = "Entrar com Avila Ops", className = "font-medium text-primary underline" }: { page?: "/entrar" | "/empresas"; children?: ReactNode; className?: string }) {
   const pathname = usePathname()
   const params = useSearchParams()
   return <GuardedLink className={className} href={accessHref(page, recoveryDestination(pathname, params))}>{children}</GuardedLink>

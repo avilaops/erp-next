@@ -85,6 +85,8 @@ jobs:
       - name: Provision initial membership
         if: ${{ !inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
+      - name: Grant system configuration storage to the runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-system-configuration.sql
       - name: Grant invitation storage to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_invitations TO erp_next_app'
@@ -99,6 +101,10 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fixed-expenses.sql
       - name: Grant private product costs to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-costs.sql
+      - name: Grant fiscal preference storage to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-preferences.sql
+      - name: Grant immutable sales simulation storage
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-simulator.sql
       - name: Grant published price storage to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-price-tables.sql
       - name: Grant commercial order numbering to the existing runtime role

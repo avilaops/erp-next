@@ -1,6 +1,88 @@
 import { expect, test } from "@playwright/test"
 import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
+
+test("configuração NFC-e salva dados do usuário e não devolve o CSC", async ({page},testInfo) => {
+  let saved: Record<string,unknown> | null = null
+  await page.route("**/api/erp/fiscal/settings/nfce",async route=>{
+    if(route.request().method()==="PUT") {
+      expect(route.request().headers()["if-match"]).toBe('"1"')
+      expect(route.request().headers()["x-tenant-id"]).toBe(tenant)
+      const {csc,...data}=route.request().postDataJSON()
+      expect(csc).toBe("12345678-1234-1234-1234-123456789ABC")
+      saved={...data,cscConfigured:true}
+    }
+    await route.fulfill({headers:{ETag:saved?'"2"':'"1"'},json:{tenantId:tenant,revision:saved?2:1,canEdit:true,secretStorageAvailable:true,data:saved}})
+  })
+  await page.setViewportSize({width:390,height:844})
+  await page.goto("/preferencias/fiscal/nfce")
+  await page.getByLabel("Ambiente",{exact:true}).selectOption("production")
+  await page.getByLabel("UF do emitente").fill("SP")
+  await page.getByLabel("Série da NFC-e").fill("2")
+  await page.getByLabel("Próximo número da NFC-e").fill("145")
+  await page.getByLabel("Identificador do CSC").fill("000001")
+  await page.getByLabel("Código de segurança do contribuinte (CSC)").fill("12345678-1234-1234-1234-123456789ABC")
+  await page.getByRole("button",{name:"Salvar configuração",exact:true}).click()
+  await expect(page.getByRole("status")).toHaveText("Configuração salva no servidor.")
+  await expect(page.getByLabel("Código de segurança do contribuinte (CSC)")).toHaveValue("")
+  await page.reload()
+  await expect(page.getByLabel("Próximo número da NFC-e")).toHaveValue("145")
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await testInfo.attach("nfce-config-mobile",{body:await page.screenshot({fullPage:true}),contentType:"image/png"})
+})
+
+test("naturezas persistem e conflito preserva a edição sem repetir gravação",async ({page},testInfo)=>{
+  let saved: unknown = {items:[]}
+  let writes=0
+  await page.route("**/api/erp/fiscal/settings/operation-natures",route=>{
+    if(route.request().method()==="PUT") {
+      writes++
+      if(writes>1)return route.fulfill({status:412,json:{title:"Naturezas alteradas por outra pessoa"}})
+      saved=route.request().postDataJSON()
+    }
+    return route.fulfill({headers:{ETag:writes?'"2"':'"1"'},json:{tenantId:tenant,revision:writes?2:1,canEdit:true,secretStorageAvailable:true,data:saved}})
+  })
+  await page.setViewportSize({width:390,height:844})
+  await page.goto("/preferencias/fiscal/naturezas")
+  await page.getByRole("button",{name:"Adicionar natureza"}).click()
+  const nature=page.getByRole("region",{name:"Natureza 1",exact:true})
+  await nature.getByLabel("Código",{exact:true}).fill("VENDA")
+  await nature.getByLabel("Descrição da natureza").fill("Venda de produção")
+  await nature.getByLabel("Operação",{exact:true}).selectOption("outgoing")
+  await nature.getByLabel("CFOP interno").fill("5101")
+  await page.getByRole("button",{name:"Salvar configuração",exact:true}).click()
+  await expect(page.getByRole("status")).toHaveText("Configuração salva no servidor.")
+  await page.reload()
+  await expect(nature.getByLabel("CFOP interno")).toHaveValue("5101")
+  await nature.getByLabel("Descrição da natureza").fill("Venda revisada")
+  await page.getByRole("button",{name:"Salvar configuração",exact:true}).click()
+  await expect(page.getByRole("alert").filter({hasText:"Naturezas alteradas por outra pessoa"})).toHaveText("Naturezas alteradas por outra pessoa")
+  await expect(nature.getByLabel("Descrição da natureza")).toHaveValue("Venda revisada")
+  await expect(page.getByRole("button",{name:"Salvar configuração",exact:true})).toBeDisabled()
+  expect(writes).toBe(2)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await testInfo.attach("naturezas-mobile",{body:await page.screenshot({fullPage:true}),contentType:"image/png"})
+})
+
+test("consultas fiscais mostram eventos reais e falha não aparece como lista vazia",async ({page})=>{
+  let fail=false
+  await page.route("**/api/erp/fiscal/nfe-events?**",route=>{
+    if(fail)return route.fulfill({status:503,json:{title:"Consulta fiscal indisponível"}})
+    const kind=new URL(route.request().url()).searchParams.get("kind")
+    return route.fulfill({json:{tenantId:tenant,nextCursor:null,data:kind==="correcao"?[]:[{id:"event-1",documentId:null,kind,sequence:1,status:"unknown",environment:"homologation",series:null,number:null,accessKey:null,request:{year:2026,series:1,first:3,last:5,text:"Justificativa registrada pelo operador"},result:{code:"timeout",reason:"Consulte antes de repetir"},createdAt:"2026-11-05T10:00:00-03:00"}]}})
+  })
+  await page.goto("/preferencias/fiscal/inutilizacoes")
+  await expect(page.getByText("Faixa: 3 a 5")).toBeVisible()
+  await expect(page.getByText("Sem confirmação",{exact:true})).toBeVisible()
+  fail=true
+  await page.getByRole("button",{name:"Atualizar consulta"}).click()
+  await expect(page.getByRole("alert").filter({hasText:"Consulta fiscal indisponível"})).toHaveText("Consulta fiscal indisponível")
+  await expect(page.getByText("Faixa: 3 a 5")).toHaveCount(0)
+  await expect(page.getByText("Nenhum evento desta categoria registrado nesta empresa.")).toHaveCount(0)
+  fail=false
+  await page.goto("/preferencias/fiscal/correcoes")
+  await expect(page.getByText("Nenhum evento desta categoria registrado nesta empresa.")).toBeVisible()
+})
 test("perfis da Ludus preservam códigos e salvam por empresa com revisão no celular", async ({ page }) => {
   let saved: unknown
   await page.route("**/api/erp/registration-settings/tax-profiles", (route) => {

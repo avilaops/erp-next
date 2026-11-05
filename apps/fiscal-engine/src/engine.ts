@@ -59,6 +59,11 @@ function city(state: string, code: unknown): string {
 function homologation(input: ObjectValue): void {
   if (input.environment !== "homologation") refuse("Motor habilitado exclusivamente em homologação");
 }
+function fiscalEnvironment(input: ObjectValue): "homologacao" | "producao" {
+  if (input.environment === "homologation") return "homologacao";
+  if (input.environment === "production") return "producao";
+  return refuse("Informe homologação ou produção para a operação fiscal");
+}
 export const recipientEventUrl = (environment: "homologacao" | "producao") => environment === "homologacao"
   ? "https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"
   : "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx";
@@ -199,9 +204,10 @@ function assertExactTaxes(mapped: NfeInput, declaredProducts: bigint): void {
 /** Only explicit, uniform tax classifications are mapped. No NCM, recipient
  * or rate is used to infer the choices of the responsible fiscal operator. */
 export function mapDraft(value: unknown): NfeInput {
-  const input = object(value); homologation(input);
+  const input = object(value), environment = fiscalEnvironment(input);
   const issuer = object(input.issuer), company = object(issuer.company), profile = object(issuer.profile), draft = object(input.draft);
-  if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP" || draft.environment !== "homologation" || draft.model !== 55) refuse("Emissão fora do recorte: NF-e 55, SP, CRT 1 ou 3 em homologação", "tax_rule_scope");
+  if (draft.environment !== input.environment || (profile.environment ?? "homologation") !== input.environment) refuse("Ambiente deve corresponder ao perfil e ao rascunho de homologação ou produção");
+  if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP" || draft.model !== 55) refuse("Emissão fora do recorte: NF-e 55, SP, CRT 1 ou 3", "tax_rule_scope");
   const recipient = object(draft.recipient), state = text(recipient.state, "UF", 2);
   const rawItems = draft.items;
   if (!Array.isArray(rawItems) || !rawItems.length || rawItems.length > 990) refuse("Itens fiscais inválidos");
@@ -257,7 +263,7 @@ export function mapDraft(value: unknown): NfeInput {
   });
   const noPayment = payments.some((payment) => payment.code === "90");
   const mapped: NfeInput = {
-    environment: "homologacao", freightMode: "9", transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
+    environment, freightMode: "9", transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
     series: whole(profile.series, 999), number: whole(input.number, 999_999_999), randomCode: text(input.randomCode, "Código aleatório", 8), issuedAt: date(input.issuedAt),
     issuer: { cnpj: taxId, legalName: text(company.legalName, "Razão social", 60), stateRegistration: text(profile.stateRegistration, "IE", 14), taxRegime: normal ? 3 : 1, street: text(company.street), number: text(company.number), district: text(company.district), cityCode: text(profile.municipalityCode), city: city("SP", profile.municipalityCode), uf: "SP", cep: text(company.postalCode, "CEP", 8) },
     recipient: { kind: recipientTaxId.length === 11 ? "PF" : "PJ", document: recipientTaxId, name: text(recipient.legalName, "Destinatário", 60), stateRegistration, taxpayer, street: text(recipient.street), number: text(recipient.number), district: text(recipient.district), cityCode: text(recipient.municipalityCode), city: city(state, recipient.municipalityCode), uf: state, cep: text(recipient.postalCode, "CEP", 8) },
@@ -300,7 +306,8 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
       throw error;
     }
   }
-  homologation(input);
+  const environment = fiscalEnvironment(input);
+  if (!["prepare", "authorize", "consult", "event", "void"].includes(operation)) homologation(input);
   if (operation === "prepare") {
     const mapped = mapDraft(input), credentials = material(input, mapped.issuer.cnpj);
     const generated = buildNfeXml(mapped), signedXml = signNfeXml(generated.xml, signingKeyOf(credentials.pfx, credentials.passphrase));
@@ -313,7 +320,7 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     let signed: string | undefined;
     if (operation === "authorize" || input.signedXml != null) {
       signed = text(input.signedXml, "XML assinado", 1_048_576);
-      if (!signed.includes(`Id="NFe${key}"`) || !signed.includes("<tpAmb>2</tpAmb>")) refuse("XML diverge da chave ou do ambiente");
+      if (!signed.includes(`Id="NFe${key}"`) || !signed.includes(`<tpAmb>${environment === "producao" ? "1" : "2"}</tpAmb>`)) refuse("XML diverge da chave ou do ambiente");
       await assertFiscalXml(signed, "nfe");
       // A consultation authenticates using the current A1. The historical XML
       // may have been signed with an older certificate and is never retransmitted.
@@ -327,8 +334,8 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
       }
     }
     const rawXml = operation === "authorize"
-      ? await send(authorizationUrl("SP", "homologacao"), AUTHORIZATION_ACTION, authorizationEnvelope(signed!, String(input.batch ?? "1")), credentials)
-      : await send(consultUrl("SP", "homologacao"), CONSULT_ACTION, consultEnvelope(key, "homologacao"), credentials);
+      ? await send(authorizationUrl("SP", environment), AUTHORIZATION_ACTION, authorizationEnvelope(signed!, String(input.batch ?? "1")), credentials)
+      : await send(consultUrl("SP", environment), CONSULT_ACTION, consultEnvelope(key, environment), credentials);
     const parsed = operation === "authorize" ? parseAuthorization(rawXml, key) : parseConsult(rawXml, key);
     const duplicates = ["204", "205", "206", "218", "539"];
     const status = duplicates.includes(parsed.code) ? "unknown" : ({ autorizada: "authorized", rejeitada: "rejected", cancelada: "cancelled", "nao-consta": "not_found", denegada: "denied" } as Record<string, string>)[parsed.status] ?? "unknown";
@@ -353,8 +360,8 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     if (operation === "event") {
       if (key.slice(6, 20) !== cnpj || key.slice(0, 2) !== "35") refuse("Evento não pertence ao emitente SP");
       if (input.kind !== "cancelamento" && input.kind !== "correcao") refuse("Tipo de evento inválido");
-      xml = eventXml({ kind: input.kind, environment: "homologacao", accessKey: key, cnpj, at: date(input.issuedAt), sequence: whole(input.sequence, 20), protocol: typeof input.protocol === "string" ? input.protocol : undefined, text: text(input.text, "Texto do evento", 1000) }).xml;
-      endpoint = eventUrl("SP", "homologacao");
+      xml = eventXml({ kind: input.kind, environment, accessKey: key, cnpj, at: date(input.issuedAt), sequence: whole(input.sequence, 20), protocol: typeof input.protocol === "string" ? input.protocol : undefined, text: text(input.text, "Texto do evento", 1000) }).xml;
+      endpoint = eventUrl("SP", environment);
     } else {
       if (!["ciencia", "confirmacao", "desconhecimento", "nao_realizada"].includes(String(input.kind))) refuse("Tipo de manifestação inválido");
       xml = recipientManifestXml({ accessKey: key, cnpj, environment: "homologacao", at: date(input.issuedAt), kind: input.kind as RecipientManifestKind, reason: typeof input.justification === "string" ? input.justification : undefined }).xml;
@@ -370,10 +377,10 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
     const year = String(input.year);
     if (!/^\d{2}$/.test(year) && !/^20\d{2}$/.test(year)) refuse("Ano de inutilização inválido");
-    const generated = voidXml({ environment: "homologacao", stateCode: UF_CODES.SP, year: year.slice(-2), cnpj, series: whole(input.series, 999), first: whole(input.first, 999_999_999), last: whole(input.last, 999_999_999), reason: text(input.text, "Justificativa", 255) });
+    const generated = voidXml({ environment, stateCode: UF_CODES.SP, year: year.slice(-2), cnpj, series: whole(input.series, 999), first: whole(input.first, 999_999_999), last: whole(input.last, 999_999_999), reason: text(input.text, "Justificativa", 255) });
     const signed = signVoidXml(generated.xml, signingKeyOf(credentials.pfx, credentials.passphrase));
     await assertFiscalXml(signed, "inutilizacao");
-    const rawXml = await send(voidUrl("SP", "homologacao"), VOID_ACTION, voidEnvelope(signed), credentials);
+    const rawXml = await send(voidUrl("SP", environment), VOID_ACTION, voidEnvelope(signed), credentials);
     const receipt = /<retInutNFe\b[\s\S]*?<\/retInutNFe>/.exec(rawXml)?.[0];
     const xml = receipt ? `<procInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">${signed}${receipt}</procInutNFe>` : signed;
     return { ...parseVoid(rawXml), xml, rawXml };

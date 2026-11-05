@@ -2,6 +2,7 @@ pub mod assistant;
 pub mod catalog;
 pub mod commissions;
 pub mod contracts;
+pub mod dashboard;
 pub mod finance;
 pub mod fiscal;
 pub mod fixed_expenses;

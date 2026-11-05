@@ -6,6 +6,7 @@ const themes = [
   { value: "light", label: "Claro" },
   { value: "dark", label: "Escuro" },
   { value: "system", label: "Sistema" },
+  { value: "avila", label: "Avila" },
 ] as const
 
 export function EntryThemeSelector() {

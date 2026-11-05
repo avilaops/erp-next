@@ -19,13 +19,21 @@ mod cte_inspection_tests;
 #[cfg(test)]
 mod cte_links_tests;
 #[cfg(test)]
+mod custom_fields_tests;
+#[cfg(test)]
+mod custom_reports_tests;
+#[cfg(test)]
 mod danfe_tests;
+#[cfg(test)]
+mod dashboard_tests;
 #[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
 #[cfg(test)]
 mod financial_settings_tests;
+#[cfg(test)]
+mod fiscal_preferences_tests;
 #[cfg(test)]
 mod fiscal_tests;
 mod health;
@@ -35,6 +43,8 @@ mod health_tests;
 mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
+#[cfg(test)]
+mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
@@ -71,6 +81,8 @@ mod returns_tests;
 #[cfg(test)]
 mod sales_settings_tests;
 #[cfg(test)]
+mod simulator_tests;
+#[cfg(test)]
 mod staff_tests;
 #[cfg(test)]
 mod subscription_tests;
@@ -80,6 +92,8 @@ mod supply_catalogs_tests;
 mod supply_settings_tests;
 #[cfg(test)]
 mod template_draft_tests;
+#[cfg(test)]
+mod workflows_tests;
 
 use axum::{
     Router, middleware,
@@ -148,6 +162,26 @@ pub fn router(state: AppState) -> Router {
             get(crate::platform::product_costs::get).put(crate::platform::product_costs::put),
         )
         .route(
+            "/api/v1/sales-simulator/{line}",
+            get(crate::domains::sales::pricing::options),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/quote",
+            post(crate::domains::sales::pricing::quote),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/orders",
+            post(crate::domains::sales::pricing_orders::create),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing",
+            get(crate::domains::sales::pricing_orders::get),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing/approve",
+            post(crate::domains::sales::pricing_orders::approve),
+        )
+        .route(
             "/api/v1/price-tables/{line}",
             get(crate::platform::price_tables::current),
         )
@@ -167,6 +201,49 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route("/api/v1/dashboard", get(crate::domains::dashboard::get))
+        .route(
+            "/api/v1/system/custom-fields",
+            get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),
+        )
+        .route(
+            "/api/v1/system/custom-fields/{id}",
+            axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route(
+            "/api/v1/system/custom-reports",
+            get(crate::platform::custom_reports::list)
+                .post(crate::platform::custom_reports::create),
+        )
+        .route(
+            "/api/v1/system/custom-reports/{id}",
+            axum::routing::put(crate::platform::custom_reports::update),
+        )
+        .route(
+            "/api/v1/system/label-templates",
+            get(crate::platform::label_templates::list)
+                .post(crate::platform::label_templates::create),
+        )
+        .route(
+            "/api/v1/system/label-templates/{id}",
+            axum::routing::put(crate::platform::label_templates::update),
+        )
+        .route(
+            "/api/v1/system/workflows",
+            get(crate::platform::workflows::list).post(crate::platform::workflows::create),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}",
+            axum::routing::put(crate::platform::workflows::update),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/publish",
+            post(crate::platform::workflows::publish),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/archive",
+            post(crate::platform::workflows::archive),
+        )
         .merge(crate::domains::returns::routes())
         .route(
             "/api/v1/preferences",
@@ -219,6 +296,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/payables/{id}/reverse-payment",
             axum::routing::post(payables::reverse),
+        )
+        .route(
+            "/api/v1/company-registration/lookup",
+            post(crate::domains::registry_lookup::lookup_registration),
         )
         .route(
             "/api/v1/companies",

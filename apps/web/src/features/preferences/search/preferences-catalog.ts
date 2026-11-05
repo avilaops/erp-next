@@ -16,11 +16,11 @@ export const preferenceCategories: PreferenceCategory[] = [
   { id: "sistema", label: "Sistema", sections: [
     { title: "Configurações do sistema", items: [{ label: "Interface", href: "/preferencias/sistema", description: "Aparência e quantidade de produtos por página." }] },
     { title: "Tabelas e configurações adicionais", items: [
-      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, unavailable("Gerenciador de arquivos"), unavailable("Relatórios customizados"), unavailable("Etiquetas customizadas"),
+      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, unavailable("Gerenciador de arquivos"), { label: "Relatórios customizados", href: "/preferencias/sistema/relatorios-customizados" }, { label: "Etiquetas customizadas", href: "/preferencias/sistema/etiquetas-customizadas" },
       { label: "Registro de atividades", href: "/preferencias/seguranca" },
       { label: "Usuários", href: "/preferencias/usuarios" },
       { label: "Papéis e horários", href: "/preferencias/papeis" },
-      unavailable("Gerenciador de transições"), unavailable("Campos customizados"),
+      { label: "Gerenciador de transições", href: "/preferencias/sistema/transicoes" }, { label: "Campos customizados", href: "/preferencias/sistema/campos-customizados" },
     ] },
   ] },
   { id: "cadastros", label: "Cadastros", sections: [
@@ -48,10 +48,10 @@ export const preferenceCategories: PreferenceCategory[] = [
   ] },
   { id: "notas-fiscais", label: "Notas Fiscais", sections: [
     { title: "Configurações de notas fiscais", items: [
-      unavailable("Configurações de NFC-e"), { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
+      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
     ] },
     { title: "Tabelas e configurações adicionais", items: [
-      unavailable("Consulta de inutilizações de NF-es"), unavailable("Consulta de correções de NF-es", "A consulta consolidada ainda não está disponível. Os eventos existentes são consultados em cada NF-e."), unavailable("Naturezas de operação"),
+      { label: "Consulta de inutilizações de NF-es", href: "/preferencias/fiscal/inutilizacoes" }, { label: "Consulta de correções de NF-es", href: "/preferencias/fiscal/correcoes" }, { label: "Naturezas de operação", href: "/preferencias/fiscal/naturezas" },
     ] },
   ] },
   { id: "certificado-digital", label: "Certificado Digital", sections: [

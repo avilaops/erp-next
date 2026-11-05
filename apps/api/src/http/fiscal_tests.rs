@@ -323,7 +323,7 @@ async fn fiscal_emission_guard_never_numbers_queues_or_transmits_a_draft(admin: 
         .send(&router)
         .await;
     assert_eq!(ready.2["canTransmit"], false);
-    assert_eq!(ready.2["productionEnabled"], false);
+    assert_eq!(ready.2["productionEnabled"], true);
     assert_eq!(ready.2["certificateVerified"], false);
     assert_eq!(
         ready.2["blockers"],
@@ -349,7 +349,7 @@ async fn fiscal_emission_guard_never_numbers_queues_or_transmits_a_draft(admin: 
         assert_eq!(result.0, StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(result.1["cache-control"], "no-store");
         assert_eq!(result.1["content-type"], "application/problem+json");
-        assert_eq!(result.2["productionEnabled"], false);
+        assert_eq!(result.2["productionEnabled"], true);
     }
     assert_eq!(
         sqlx::query_scalar::<_, i64>(

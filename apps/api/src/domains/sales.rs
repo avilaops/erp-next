@@ -33,6 +33,9 @@ pub struct OrderItemInput {
     structure_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     upholstery_color: Option<String>,
+    /// Campo legado: armColor representa a cor dos anilheiros.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    arm_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -44,6 +47,29 @@ pub struct OrderInput {
     customer_id: Uuid,
     due_date: String,
     items: Vec<OrderItemInput>,
+}
+
+impl OrderInput {
+    fn normalize_legacy_component_colors(&mut self) -> Result<(), DomainError> {
+        for item in &mut self.items {
+            let Some(legacy) = item.arm_color.take() else {
+                continue;
+            };
+            if item
+                .plate_holder_color
+                .as_deref()
+                .is_some_and(|current| !current.trim().eq_ignore_ascii_case(legacy.trim()))
+            {
+                return Err(DomainError::Invalid(
+                    "Informe a cor dos anilheiros apenas em plateHolderColor",
+                ));
+            }
+            if item.plate_holder_color.is_none() {
+                item.plate_holder_color = Some(legacy);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(FromRow, Serialize, ToSchema)]
@@ -519,8 +545,9 @@ pub async fn create(
         true,
     )
     .await?;
-    let Json(input) =
+    let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
+    input.normalize_legacy_component_colors()?;
     let request = serde_json::to_value(&input).map_err(|_| AccessError::Internal)?;
     if let Some(previous) = replay(
         &mut tx,
@@ -577,8 +604,9 @@ pub async fn update(
         true,
     )
     .await?;
-    let Json(input) =
+    let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
+    input.normalize_legacy_component_colors()?;
     let request = serde_json::json!({"id":id,"revision":expected,"input":input});
     if let Some(previous) = replay(
         &mut tx,

@@ -37,6 +37,9 @@ pub struct ProductInput {
     pub structure_colors: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upholstery_colors: Option<Vec<String>>,
+    /// Campo legado: clientes anteriores usavam armColors para as cores dos anilheiros.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arm_colors: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plate_holder_colors: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -44,6 +47,21 @@ pub struct ProductInput {
 }
 impl ProductInput {
     fn validate(&mut self) -> Result<i64, DomainError> {
+        if let Some(legacy) = self.arm_colors.take() {
+            if self.plate_holder_colors.as_ref().is_some_and(|current| {
+                current.len() != legacy.len()
+                    || current.iter().zip(&legacy).any(|(current, legacy)| {
+                        !current.trim().eq_ignore_ascii_case(legacy.trim())
+                    })
+            }) {
+                return Err(DomainError::Invalid(
+                    "Informe as cores dos anilheiros apenas em plateHolderColors",
+                ));
+            }
+            if self.plate_holder_colors.is_none() {
+                self.plate_holder_colors = Some(legacy);
+            }
+        }
         if let Some(category) = &mut self.category_id {
             *category = category.trim().to_owned();
             if !category.is_empty() && Uuid::parse_str(category).is_err() {
@@ -209,6 +227,7 @@ impl From<ProductRow> for Product {
                 status: r.status,
                 structure_colors: Some(r.structure_colors),
                 upholstery_colors: Some(r.upholstery_colors),
+                arm_colors: None,
                 plate_holder_colors: Some(r.plate_holder_colors),
                 plate_holder_types: Some(r.plate_holder_types),
             },

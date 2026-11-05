@@ -29,6 +29,9 @@ pub struct ProposalItemInput {
     unit_price: Option<String>,
     structure_color: Option<String>,
     upholstery_color: Option<String>,
+    /// Campo legado: armColor representa a cor dos anilheiros.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    arm_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -44,6 +47,29 @@ pub struct ProposalInput {
     delivery_terms: String,
     notes: String,
     items: Vec<ProposalItemInput>,
+}
+
+impl ProposalInput {
+    fn normalize_legacy_component_colors(&mut self) -> Result<(), DomainError> {
+        for item in &mut self.items {
+            let Some(legacy) = item.arm_color.take() else {
+                continue;
+            };
+            if item
+                .plate_holder_color
+                .as_deref()
+                .is_some_and(|current| !current.trim().eq_ignore_ascii_case(legacy.trim()))
+            {
+                return Err(DomainError::Invalid(
+                    "Informe a cor dos anilheiros apenas em plateHolderColor",
+                ));
+            }
+            if item.plate_holder_color.is_none() {
+                item.plate_holder_color = Some(legacy);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(FromRow, Serialize, ToSchema)]
@@ -576,8 +602,9 @@ async fn save_draft(
         StatusCode::CREATED
     };
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
-    let Json(input) =
+    let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
+    input.normalize_legacy_component_colors()?;
     let request = serde_json::json!({"id":existing_id,"revision":expected,"input":input});
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
     {

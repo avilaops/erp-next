@@ -57,7 +57,7 @@ test("prepare refuses missing tax rules, changed totals, incompatible item rules
 
 test("component finishes survive preparation in infAdProd and pass the pinned XSD", async () => {
   const input = preparation();
-  const additionalInfo = "Estrutura: Piano Black; Braços: Azul; Anilheiro: Amarelo";
+  const additionalInfo = "Estrutura: Piano Black; Anilheiros: Azul; Tipo de anilheiro: Olímpico";
   const withFinishes = { ...input, draft: { ...input.draft, items: [{ ...input.draft.items[0], additionalInfo }] } };
   assert.equal(mapDraft(withFinishes).items[0].additionalInfo, additionalInfo);
   const result = await dispatch("prepare", withFinishes);

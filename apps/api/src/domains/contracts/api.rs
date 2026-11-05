@@ -75,8 +75,8 @@ pub struct ContractContextItem {
     pub amount: String,
     pub structure_color: Option<String>,
     pub upholstery_color: Option<String>,
-    pub arm_color: Option<String>,
     pub plate_holder_color: Option<String>,
+    pub plate_holder_type: Option<String>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

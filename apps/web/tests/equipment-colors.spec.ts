@@ -25,6 +25,7 @@ test("cores do equipamento são escolhidas, persistidas e preservadas após alte
   await expect(page.getByRole("img", { name: "Foto cadastrada do produto", exact: true })).toBeVisible()
   await page.getByLabel("Cores da estrutura", { exact: true }).fill("Preto fosco\nBranco")
   await page.getByLabel("Cores do estofado", { exact: true }).fill("Preto\nVermelho")
+  await page.getByLabel("Tipo de anilheiro", { exact: true }).selectOption("standard")
   await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos\/[a-f0-9-]{36}$/)
   const productId = new URL(page.url()).pathname.split("/").at(-1)!
@@ -36,6 +37,9 @@ test("cores do equipamento são escolhidas, persistidas e preservadas após alte
   await expect(page.getByRole("img", { name: "Foto cadastrada do produto", exact: true })).toBeVisible()
   expect(product.structureColors).toEqual(["Preto fosco", "Branco"])
   expect(product.upholsteryColors).toEqual(["Preto", "Vermelho"])
+  expect(product.plateHolderType).toBe("standard")
+  await expect(page.getByText("Tipo de anilheiro", { exact: true })).toBeVisible()
+  await expect(page.getByText("Standard", { exact: true })).toBeVisible()
   await page.goto("/cadastros/produtos")
   await page.getByLabel("Buscar nome ou SKU", { exact: true }).fill(sku)
   await page.locator("#conteudo-principal").getByRole("button", { name: "Buscar", exact: true }).click()

@@ -6,16 +6,29 @@ A prévia retorna um hash dos dados. A publicação exige esse hash e uma chave 
 
 Configuração exclusiva do servidor: `CATALOG_MEDIA_ORIGIN=https://ludusequipamentos.com`, `CATALOG_MEDIA_TENANT` e `CATALOG_MEDIA_TOKEN`. O segredo também é configurado no Worker como `PUBLISH_TOKEN`; não pode aparecer no navegador, Git ou logs.
 
-## Pendências antes de produção
+## Novas imagens
 
-- Aplicar migração e permissões após aprovação dos testes de integração.
-- Importar perfis revisados dos 157 produtos, sem alterar preços ou cadastros fiscais.
-- Implantar o Worker, configurar integração e conferir uma publicação real.
-- Validar galeria autenticada e site no navegador.
-- Implementar importação de novas versões de imagem e adaptação da exportação ao avx-tools antes de anunciar essas capacidades como completas.
+A galeria aceita JPEG, PNG e WebP de até 10 MB, valida formato e limites de pixels e preserva os bytes originais. O backend aplica orientação EXIF aos derivados, gera WebP principal e miniatura e registra versões no PostgreSQL. Chaves R2 incluem SHA-256, linha e SKU; arquivos imutáveis e originais privados. Salvar perfil não publica o catálogo.
 
-## Auditoria de cores
+O Worker valida MIME, hash, tamanho, SKU e variante. A publicação aceita apenas derivados registrados do mesmo produto. Tokens são secretos de servidor e precisam ser preservados nas atualizações do Worker.
 
-Consulta autenticada às duas páginas de `/api/erp/products`, em 2026-11-04, confirmou 160 produtos no tenant Ludus, incluindo 66 Core. Todos retornaram listas vazias de `structureColors` e `upholsteryColors`. Nenhuma cor deve ser inferida das fotos recoloridas. A lista comercial por estrutura/estofado e por linha aguarda informação do solicitante.
+## Cores aprovadas para Ludus
 
-O fluxo de preparação fiscal em `domains/fiscal/order_source.rs` não transporta as cores do pedido. O suporte de cores em propostas, pedidos e contratos não prova suporte na NF-e.
+Somente Premium recebe opções. Estrutura: Piano Black, Graphite Black, Light Grey, Titanium Grey e Performance Red. Braços e anilheiro têm escolhas independentes entre Preto, Grafite, Cinza, Vermelho, Laranja, Amarelo e Azul. Estofado é padrão: `upholsteryConfigurable=false` no tenant Ludus; preservar configurações de outros tenants e escolhas históricas.
+
+Propostas, pedidos e contratos transportam as escolhas. A preparação fiscal inclui os acabamentos em informações adicionais por item, com limite de tamanho e teste do XML. Isso não equivale a uma NF-e emitida; nenhuma emissão real foi autorizada para teste.
+
+## Integração com avx-tools e site
+
+O adaptador `from_publication.py` baixa o snapshot público e as imagens principais, preserva cores, valida dados e registra hashes/versão. A geração é manual, sem preços. Para impressão, o manifesto privado pode usar originais em alta resolução.
+
+Em 05/11/2026, o Worker já entrega fotos e PDFs pelo domínio correto. Catálogos publicados: Core 66 equipamentos/79 páginas; Premium 91/107 páginas, fotos originais. Ambos têm versões compactas, logos transparentes, navegação e imagens com todos os equipamentos de cada grupo. Área com folga estimada de 600 mm por lado, duas casas decimais.
+
+## Etapas operacionais restantes
+
+- Implantar a versão final validada do ERP e aplicar seus grants de arquivos.
+- Importar 157 perfis, referências v2 e paletas dos 94 Premium com backup e transação, preservando preços e dados fiscais.
+- Só então limpar as fotos legadas dos 157 produtos migrados; preservar os três arquivados.
+- Conferir publicação real ERP → site e galeria na sessão autenticada. A conexão do navegador ainda não estava disponível na última consulta.
+
+As migrações de perfis e cores já existem no banco. Release, migração, implantação, carga comercial e validação autenticada devem ser registrados separadamente.

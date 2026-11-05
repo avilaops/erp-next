@@ -6,6 +6,6 @@ export async function ContractsAccess({ id, orderId, customerId, generate = fals
   await connection()
   const access = await currentWorkspaceAccess()
   return <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">
-    {!access.session ? <WorkspaceAccessNotice state={access.state} /> : id ? <ContractDetail key={id} id={id} /> : generate && orderId ? <ContractGenerator orderId={orderId} /> : <ContractsList orderId={orderId} customerId={customerId} />}
+    {!access.session ? <WorkspaceAccessNotice state={access.state} /> : id ? <ContractDetail key={id} id={id} orderId={orderId} /> : generate && orderId ? <ContractGenerator orderId={orderId} /> : <ContractsList orderId={orderId} customerId={customerId} />}
   </div>
 }

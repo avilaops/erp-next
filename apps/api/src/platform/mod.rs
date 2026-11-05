@@ -4,6 +4,8 @@ mod administrators;
 pub mod audit;
 pub mod auth;
 pub mod company;
+pub mod commercial_settings;
+pub mod commercial_settings_model;
 mod company_data;
 pub mod invitations;
 pub mod onboarding;

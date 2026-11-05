@@ -69,6 +69,7 @@ export const preferenceGroups = [
     { label: "Segurança e auditoria", href: "/preferencias/seguranca" },
   ] },
   { label: "Operação", items: [
+    { label: "Parâmetros comerciais", href: "/preferencias/comercial" },
     { label: "Configurações financeiras", href: "/preferencias/financeiro" },
     { label: "Configurações fiscais", href: "/preferencias/fiscal" },
   ] },

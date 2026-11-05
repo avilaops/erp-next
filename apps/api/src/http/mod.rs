@@ -126,6 +126,14 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/sales-settings",
             get(sales::settings::get).put(sales::settings::put),
         )
+        .route(
+            "/api/v1/commercial-settings/{line}",
+            get(crate::platform::commercial_settings::get).put(crate::platform::commercial_settings::put),
+        )
+        .route(
+            "/api/v1/commercial-settings/{line}/preview",
+            post(crate::platform::commercial_settings::preview),
+        )
         .merge(crate::platform::subscriptions::routes())
         .merge(crate::domains::commissions::routes())
         .merge(crate::domains::production::routes())

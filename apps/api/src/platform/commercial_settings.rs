@@ -53,6 +53,7 @@ fn snapshot(
     line: &str,
     revision: i64,
     data: Option<Value>,
+    monthly_expenses_cents: i64,
 ) -> Result<Response, DomainError> {
     let calculation = data
         .as_ref()
@@ -67,7 +68,8 @@ fn snapshot(
         Some(revision),
         json!({
             "tenantId": tenant, "line": line, "revision": revision, "data": data,
-            "calculation": calculation, "status": "draft", "canEdit": true
+            "calculation": calculation, "status": "draft", "canEdit": true,
+            "monthlyExpensesCents": monthly_expenses_cents
         }),
     ))
 }
@@ -80,9 +82,14 @@ pub async fn get(
     headers: HeaderMap,
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx) = transaction(&state, &headers, &identity, &line, false).await?;
-    let (revision, data) = load(&mut tx, tenant, &line).await?;
+    let (revision, mut data) = load(&mut tx, tenant, &line).await?;
+    let monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await?;
+    if let Some(value) = data.as_mut() {
+        value["monthlyExpensesCents"] = json!(monthly_expenses_cents);
+    }
     tx.commit().await.map_err(db)?;
-    snapshot(tenant, &line, revision, data)
+    snapshot(tenant, &line, revision, data, monthly_expenses_cents)
 }
 
 #[utoipa::path(put,path="/api/v1/commercial-settings/{line}",operation_id="put_commercial_settings",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=CommercialParameters,responses((status=200,body=Value),(status=403,description="Exige gestão"),(status=412,description="Revisão alterada"),(status=422,description="Parâmetros inválidos")))]
@@ -95,8 +102,10 @@ pub async fn put(
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx) = transaction(&state, &headers, &identity, &line, true).await?;
     let expected = revision(&headers)?;
-    let Json(parameters) = payload
+    let Json(mut parameters) = payload
         .map_err(|_| DomainError::Invalid("Parâmetros inválidos ou campos desconhecidos"))?;
+    parameters.monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
     parameters.simulate()?;
     let (current, _) = load(&mut tx, tenant, &line).await?;
     if current != expected {
@@ -105,6 +114,7 @@ pub async fn put(
     let next = current
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
+    let monthly_expenses_cents = parameters.monthly_expenses_cents as i64;
     let data = serde_json::to_value(parameters).map_err(|_| access::AccessError::Internal)?;
     sqlx::query("INSERT INTO commercial_settings(tenant_id,product_line,parameters,revision) VALUES($1,$2,$3,$4) ON CONFLICT(tenant_id,product_line) DO UPDATE SET parameters=$3,revision=$4,updated_at=now()")
         .bind(tenant).bind(&line).bind(&data).bind(next).execute(&mut *tx).await.map_err(db)?;
@@ -113,7 +123,7 @@ pub async fn put(
         .bind(tenant).bind(&identity.subject).bind(json!({"line":line,"previousRevision":current,"revision":next}))
         .execute(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
-    snapshot(tenant, &line, next, Some(data))
+    snapshot(tenant, &line, next, Some(data), monthly_expenses_cents)
 }
 
 #[utoipa::path(post,path="/api/v1/commercial-settings/{line}/preview",operation_id="preview_commercial_settings",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),request_body=CommercialParameters,responses((status=200,body=Value),(status=403,description="Exige gestão"),(status=422,description="Parâmetros inviáveis")))]
@@ -124,9 +134,11 @@ pub async fn preview(
     headers: HeaderMap,
     payload: Result<Json<CommercialParameters>, JsonRejection>,
 ) -> Result<Response, DomainError> {
-    let (tenant, tx) = transaction(&state, &headers, &identity, &line, false).await?;
-    let Json(parameters) = payload
+    let (tenant, mut tx) = transaction(&state, &headers, &identity, &line, false).await?;
+    let Json(mut parameters) = payload
         .map_err(|_| DomainError::Invalid("Parâmetros inválidos ou campos desconhecidos"))?;
+    parameters.monthly_expenses_cents =
+        crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
     let calculation = parameters.simulate()?;
     tx.commit().await.map_err(db)?;
     Ok(response(

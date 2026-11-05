@@ -70,6 +70,8 @@ export const preferenceGroups = [
   ] },
   { label: "Operação", items: [
     { label: "Parâmetros comerciais", href: "/preferencias/comercial" },
+    { label: "Despesas fixas", href: "/preferencias/despesas-fixas" },
+    { label: "Tabela de preços", href: "/preferencias/tabela-precos" },
     { label: "Configurações financeiras", href: "/preferencias/financeiro" },
     { label: "Configurações fiscais", href: "/preferencias/fiscal" },
   ] },

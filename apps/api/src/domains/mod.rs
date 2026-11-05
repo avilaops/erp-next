@@ -4,6 +4,7 @@ pub mod commissions;
 pub mod contracts;
 pub mod finance;
 pub mod fiscal;
+pub mod fixed_expenses;
 pub mod inventory;
 pub mod legacy;
 pub mod parties;

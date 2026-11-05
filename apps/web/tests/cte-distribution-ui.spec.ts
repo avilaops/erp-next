@@ -509,7 +509,7 @@ test("CT-e BFF exige sessão e tenant fixado, limita filtros e transporta apenas
 test("central CT-e baixa XML íntegro e consulta captura sem transmitir à SEFAZ", async ({ page }) => {
   await page.goto("/fiscal/ctes")
   await expect(page.getByRole("heading", { name: "CT-e recebidos" })).toBeVisible()
-  await expect(page.getByText("Empresa CT-e sintética", { exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "CT-e recebidos" }).locator("..").getByText("Empresa CT-e sintética", { exact: true })).toBeVisible()
   await expect(page.getByText("Situação fiscal externa pendente", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /Consultar SEFAZ|Capturar CT-e/ })).toHaveCount(0)
   const download = page.waitForEvent("download")

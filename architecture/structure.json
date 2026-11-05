@@ -18,7 +18,7 @@
     "access": "Acesso à empresa, usuários, papéis e auditoria.",
     "assistant": "Assistente do ERP.",
     "catalog": "Produtos, variações e catálogo.",
-    "commercial-settings": "Parâmetros comerciais por linha e simulação de políticas de preço.",
+    "commercial-settings": "Políticas comerciais, despesas fixas e publicação de preços por linha.",
     "company": "Cadastro, seleção e conta da empresa.",
     "contracts": "Modelos e contratos comerciais.",
     "dashboard": "Painéis e disposição pessoal.",
@@ -43,8 +43,8 @@
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 371,
-    "sha256": "f22e3f0135160f17db6df2af00dd10d4aed223213f188c0ef512ba2738f5504b"
+    "count": 380,
+    "sha256": "ac01e555f426650b7b2bd6e4bb8ee7a970d2be4f495a92c2906ac13ad367f345"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

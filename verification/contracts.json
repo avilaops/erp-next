@@ -3203,7 +3203,7 @@
       "preconditions": [
         "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
         "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
-        "BFF exige origem e empresa da sessão. CNPJ na configuração da empresa preenche automaticamente campos vazios após conferir a sessão; consultas manuais mantêm prévia e confirmação. Gravar usa contrato próprio."
+        "BFF exige origem e empresa da sessão. CNPJ na configuração da empresa e em clientes/fornecedores preenche automaticamente campos vazios após conferir a sessão; CEP e IE mantêm prévia e confirmação. Gravar usa contrato próprio."
       ],
       "transition": {
         "from": "entrada manual ou prévia anterior",
@@ -3257,6 +3257,8 @@
         "apps/api/src/domains/registry_lookup/client.rs",
         "apps/api/src/domains/registry_lookup/parse.rs",
         "apps/web/src/features/records/registry-lookup.tsx",
+        "apps/web/src/features/parties/party-cnpj.ts",
+        "apps/web/src/features/parties/party-workspace.tsx",
         "apps/web/src/server/bff/erp-proxy.ts"
       ],
       "verification": {

@@ -4,7 +4,7 @@ import Link from "next/link"
 
 export default function ErrorPage({ retry }: { retry: () => void }) {
   return <section role="alert" className="mx-auto max-w-2xl space-y-4 px-4 py-12">
-    <title>Não foi possível abrir esta tela · ERP Next · Ávila Ops</title>
+    <title>Não foi possível abrir esta tela · Ávila ERP</title>
     <h1 className="text-3xl font-semibold">Não foi possível abrir esta tela</h1>
     <p>Tente carregar novamente. Se houve uma gravação em andamento, confira o registro antes de repetir a operação.</p>
     <div className="flex flex-wrap gap-4">

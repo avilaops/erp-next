@@ -2,11 +2,11 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark" | "system" | "avila";
 
 function getTheme(): Theme {
   const stored = window.localStorage.getItem("erp-theme");
-  return stored === "dark" || stored === "system" ? stored : "light";
+  return stored === "dark" || stored === "system" || stored === "avila" ? stored : "light";
 }
 
 function subscribe(listener: () => void) {
@@ -42,6 +42,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         "dark",
         theme === "dark" || (theme === "system" && media.matches),
       );
+      document.documentElement.classList.toggle("avila-theme", theme === "avila");
     };
     update();
     media.addEventListener("change", update);

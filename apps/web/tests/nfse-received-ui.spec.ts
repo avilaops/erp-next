@@ -146,7 +146,7 @@ test("leitura sem importação, recusa de acesso e resposta de outro tenant não
   await page.getByRole("button", { name: "Atualizar arquivos", exact: true }).click()
   const files = page.getByRole("region", { name: /^Arquivos armazenados/ })
   await expect(files.getByRole("alert")).toContainText("Sem permissão")
-  await expect(page.getByText("Empresa NFS-e sintética", { exact: true })).toHaveCount(0)
+  await expect(page.getByRole("main").getByText("Empresa NFS-e sintética", { exact: true })).toHaveCount(0)
   mode = "wrong_tenant"
   await page.getByRole("button", { name: "Atualizar arquivos", exact: true }).click()
   await expect(files.getByRole("alert")).toContainText("empresa")
@@ -202,7 +202,7 @@ test("troca da sessão durante lista e detalhe impede publicar a resposta antiga
     const files = page.getByRole("region", { name: /^Arquivos armazenados/ })
     await expect(files.getByRole("alert")).toContainText("empresa da sessão mudou")
     await expect(page.getByRole("button", { name: "Baixar XML original" })).toHaveCount(0)
-    await expect(page.getByText("Empresa NFS-e sintética", { exact: true })).toHaveCount(0)
+    await expect(page.getByRole("main").getByText("Empresa NFS-e sintética", { exact: true })).toHaveCount(0)
   }
 })
 

@@ -18,6 +18,7 @@ pub struct AuditQuery {
     q: Option<String>,
     action: Option<String>,
     entity: Option<String>,
+    category: Option<String>,
     start_date: Option<String>,
     end_date: Option<String>,
     before: Option<Uuid>,
@@ -66,6 +67,13 @@ pub async fn list(
     let member = access::load_access(&mut tx, tenant, &identity.subject).await?;
     access::require_permission(&member, "platform.audit.read")?;
     let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros de auditoria inválidos"))?;
+    if query
+        .category
+        .as_deref()
+        .is_some_and(|value| value != "deletions")
+    {
+        return Err(DomainError::Invalid("Categoria de auditoria inválida"));
+    }
     for value in [&query.q, &query.action, &query.entity]
         .into_iter()
         .flatten()
@@ -110,11 +118,13 @@ pub async fn list(
           AND ($5::date IS NULL OR a.occurred_at >= ($5::date::timestamp AT TIME ZONE 'UTC'))
           AND ($6::date IS NULL OR a.occurred_at < (($6::date + 1)::timestamp AT TIME ZONE 'UTC'))
           AND ($7::timestamptz IS NULL OR (a.occurred_at,a.id)<($7,$8))
+          AND ($9::text IS NULL OR ($9='deletions' AND (a.action LIKE '%.deleted' OR a.action LIKE '%.removed')))
         ORDER BY a.occurred_at DESC,a.id DESC LIMIT 26
     "#).bind(tenant).bind(query.q.as_deref().filter(|v| !v.is_empty()))
         .bind(query.action.as_deref().filter(|v| !v.is_empty()))
         .bind(query.entity.as_deref().filter(|v| !v.is_empty()))
         .bind(start).bind(end).bind(cursor.map(|v| v.0)).bind(cursor.map(|v| v.1))
+        .bind(query.category.as_deref())
         .fetch_all(&mut *tx).await.map_err(db)?;
     let next_cursor = if rows.len() > 25 {
         rows.truncate(25);

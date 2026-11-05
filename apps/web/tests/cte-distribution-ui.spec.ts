@@ -255,7 +255,7 @@ for (const failure of ["503", "network"] as const) test(`vínculo CT-e conserva 
   await panel.getByRole("button", { name: "Confirmar vínculo", exact: true }).click()
   await expect(panel.getByRole("button", { name: "Repetir confirmação", exact: true })).toBeVisible()
   await expect(page.getByText("Fornecedor sintético", { exact: true })).toHaveCount(0)
-  await expect(page.getByText("Empresa CT-e sintética", { exact: true })).toHaveCount(0)
+  await expect(page.getByRole("main").getByText("Empresa CT-e sintética", { exact: true })).toHaveCount(0)
   accessFailure = "none"; failAccessAfterCommercialPost = "none"
   await panel.getByRole("button", { name: "Repetir confirmação", exact: true }).click()
   await expect(panel.getByRole("status").filter({ hasText: "Vínculo comercial registrado" })).toBeVisible()

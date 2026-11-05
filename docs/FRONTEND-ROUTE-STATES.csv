@@ -136,6 +136,7 @@ route,title,ui_classification,source
 "/preferencias/plano","Plano e limites","preview","apps/web/src/app/preferencias/plano/page.tsx"
 "/preferencias/seguranca","Segurança e auditoria","preview","apps/web/src/app/preferencias/seguranca/page.tsx"
 "/preferencias/sistema","Sistema","navigation-or-local","apps/web/src/app/preferencias/sistema/page.tsx"
+"/preferencias/sistema/exclusoes","Consulta de exclusões realizadas","api-or-auth","apps/web/src/app/preferencias/sistema/exclusoes/page.tsx"
 "/preferencias/usuarios","Usuários e acessos","api-or-auth","apps/web/src/app/preferencias/usuarios/page.tsx"
 "/preferencias/usuarios/novo","Convidar usuário","api-or-auth","apps/web/src/app/preferencias/usuarios/novo/page.tsx"
 "/preferencias/usuarios/[id]","Detalhes do usuário","api-or-auth","apps/web/src/app/preferencias/usuarios/[id]/page.tsx"

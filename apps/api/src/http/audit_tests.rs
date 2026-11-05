@@ -110,3 +110,30 @@ async fn audit_is_authorized_tenant_scoped_filtered_paginated_and_redacted(admin
     );
     super::company_tests::cleanup(&admin, application, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn deletion_category_contains_only_completed_deletions_and_removals(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    sqlx::raw_sql(r#"
+      INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','platform.audit.read');
+      INSERT INTO audit_log(tenant_id,identity_id,action,entity_type,occurred_at) VALUES
+        ('11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333','role.deleted','role','2026-11-01T12:00:00Z'),
+        ('11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333','fiscal.certificate.removed','fiscal_certificate','2026-11-01T11:00:00Z'),
+        ('11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333','order.cancelled','sales_order','2026-11-01T10:00:00Z'),
+        ('22222222-2222-4222-8222-222222222222',NULL,'role.deleted','role','2026-11-01T13:00:00Z');
+    "#).execute(&admin).await.unwrap();
+
+    let (status, result) = call(&router, "editor", TENANT, "?category=deletions").await;
+    assert_eq!(status, StatusCode::OK);
+    let rows = result["data"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0]["action"], "role.deleted");
+    assert_eq!(rows[1]["action"], "fiscal.certificate.removed");
+    assert!(!result.to_string().contains("order.cancelled"));
+    assert_eq!(
+        call(&router, "editor", TENANT, "?category=unknown").await.0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}

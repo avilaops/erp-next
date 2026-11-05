@@ -214,3 +214,22 @@ test("filtros amigáveis preservam os códigos enviados à consulta de auditoria
   await page.getByRole("button", { name: "Limpar filtros", exact: true }).click()
   await expect.poll(() => queries.at(-1)?.toString()).toBe("")
 })
+
+test("consulta de exclusões separa remoções concluídas de cancelamentos", async ({ page }) => {
+  const queries: URLSearchParams[] = []
+  const deletions = [
+    { id: "1", occurredAt: "2026-11-01T12:00:00Z", actor: "Pessoa de teste", action: "role.deleted", entityType: "role" },
+    { id: "2", occurredAt: "2026-11-01T11:00:00Z", actor: null, action: "fiscal.certificate.removed", entityType: "fiscal_certificate" },
+  ]
+  await page.route("**/api/erp/audit?*", route => {
+    queries.push(new URL(route.request().url()).searchParams)
+    return route.fulfill({ json: { tenantId: tenant, data: deletions, nextCursor: null } })
+  })
+  await page.goto("/preferencias/sistema/exclusoes")
+  await expect(page.getByRole("heading", { name: "Consulta de exclusões realizadas", exact: true })).toBeVisible()
+  await expect.poll(() => queries.at(-1)?.get("category")).toBe("deletions")
+  await expect(page.getByText("Perfil de acesso removido", { exact: true })).toBeVisible()
+  await expect(page.getByText("Certificado digital removido", { exact: true })).toBeVisible()
+  await expect(page.getByText(/Cancelamentos de pedidos e documentos não são exclusões/)).toBeVisible()
+  await expect(page.getByRole("combobox", { name: "Atividade", exact: true }).locator("option")).toHaveCount(3)
+})

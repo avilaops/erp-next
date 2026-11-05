@@ -166,3 +166,13 @@ fn quote_one_cent_rounding_and_composition_remain_consistent() {
         );
     }
 }
+
+#[test]
+fn quote_zero_discount_preserves_the_published_ipi_ceiling() {
+    let mut i = input();
+    i.quantity = 1;
+    let value = quote(&i, 10001, &cost(), &example()).unwrap();
+    assert_eq!(value.sale.unit_without_ipi_cents, 10001);
+    assert_eq!(value.sale.unit_with_ipi_cents, 11302);
+    assert_eq!(value.sale.invoice_total_cents, 11302);
+}

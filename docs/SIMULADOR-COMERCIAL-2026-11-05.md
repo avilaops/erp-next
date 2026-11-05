@@ -15,7 +15,9 @@ O servidor calcula preço por unidade, total sem IPI, IPI, total da venda,
 entrada mínima da política e situação da margem. Quantidades vão de 1 a
 1.000.000, com limites monetários explícitos e rejeição de valores inválidos.
 O preço sem IPI é arredondado por unidade; o preço com IPI e o total mantêm
-a igualdade entre quantidade, unitário e total. Um total desejado nunca é
+a igualdade entre quantidade, unitário e total. O unitário com IPI usa o mesmo
+arredondamento para cima da publicação, preservando o preço sem desconto.
+Um total desejado nunca é
 ultrapassado pelo arredondamento e pode resultar em diferença de centavos.
 
 A gestão recebe também composição de custos, resultado antes e depois do IR,

@@ -139,7 +139,8 @@ pub fn quote(
     let table_total = i128::from(price) * q;
     cents(table_total)?;
     let factor = BPS + i128::from(p.ipi_bps);
-    let gross = |unit: i128| rounded(unit * factor, BPS);
+    // Published tables round the final unit with IPI upwards; preserve that price at zero discount.
+    let gross = |unit: i128| up(unit * factor, BPS);
     let unit = match input.discount {
         Discount::Percent(value) if value < 10_000 => {
             rounded(i128::from(price) * (BPS - i128::from(value)), BPS)

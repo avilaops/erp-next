@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { brazilianStates, companyFields, type CompanyData } from "./company-types";
 import { companySections, type CompanySection } from "./company-sections";
 import { RegistryLookup } from "@/features/records/registry-lookup";
+import { AutomaticCnpj, fillCompanyFields } from "@/features/records/automatic-cnpj";
 
 const segments = ["Comércio", "E-commerce", "Serviços", "Indústria"];
 export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, tenantId }: {
@@ -65,7 +66,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
   function applyRegistryFields(fields: Record<string, string>) {
     if (!canEdit || saving || conflict) return 0;
     let count = 0;
-    for (const field of ["legalName", "tradeName", "postalCode", "state", "city", "street", "district", "number", "complement", "cnae", "activityDescription", "stateRegistration"]) {
+    for (const field of ["legalName", "tradeName", "postalCode", "state", "city", "street", "district", "number", "complement", "cnae", "activityDescription", "stateRegistration", "companySize", "taxRegime", "email", "phone"]) {
       const input = formRef.current?.elements.namedItem(field) as HTMLInputElement | HTMLSelectElement | null;
       if (input && !input.value.trim() && fields[field]) { input.value = fields[field]; count++; }
     }
@@ -161,6 +162,11 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
             <input name="taxId" defaultValue={initial.taxId} required />
           </label>
           <RegistryLookup kind="cnpj" context="company" tenantId={tenantId} disabled={!canEdit || saving || conflict} readValue={() => readField("taxId")} onApply={applyRegistryFields} />
+          <AutomaticCnpj formRef={formRef} tenantId={tenantId} disabled={!canEdit || saving || conflict} onApply={data => {
+            const count = formRef.current ? fillCompanyFields(formRef.current, data) : 0;
+            if (count) markDirty();
+            return count;
+          }} />
         </div>
       </section>
 

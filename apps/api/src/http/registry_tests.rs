@@ -30,6 +30,45 @@ async fn registry_lookup_requires_authentication_before_any_provider_request() {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn registration_lookup_authenticates_without_requiring_a_company(admin: sqlx::PgPool) {
+    use super::company_tests::{cleanup, setup};
+    use serde_json::json;
+    let (router, application, server, role) = setup(&admin).await;
+    for (subject, value, expected) in [
+        ("", "04252011000110", StatusCode::UNAUTHORIZED),
+        ("new-owner", "52998224725", StatusCode::UNPROCESSABLE_ENTITY),
+        ("new-owner", "04252011000110", StatusCode::CONFLICT),
+    ] {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/company-registration/lookup")
+            .header("content-type", "application/json");
+        if !subject.is_empty() {
+            request = request.header("authorization", format!("Bearer {subject}"));
+        }
+        let response = router
+            .clone()
+            .oneshot(
+                request
+                    .body(Body::from(json!({"value":value}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        // A valid identity reaches the disabled-provider response without tenant membership.
+        assert_eq!(response.status(), expected);
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM tenants")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        2
+    );
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn registry_context_permissions_and_tenant_membership_are_enforced(admin: sqlx::PgPool) {
     use super::company_tests::{cleanup, setup};
     use serde_json::{Value, json};

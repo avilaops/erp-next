@@ -298,6 +298,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(payables::reverse),
         )
         .route(
+            "/api/v1/company-registration/lookup",
+            post(crate::domains::registry_lookup::lookup_registration),
+        )
+        .route(
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )

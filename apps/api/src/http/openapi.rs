@@ -22,6 +22,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
         crate::platform::workflows::list, crate::platform::workflows::create, crate::platform::workflows::update, crate::platform::workflows::publish, crate::platform::workflows::archive,
         crate::domains::registry_lookup::lookup,
+        crate::domains::registry_lookup::lookup_registration,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
@@ -371,7 +372,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 203);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 204);
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());

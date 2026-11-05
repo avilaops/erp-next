@@ -21,7 +21,7 @@ export function FiscalEvents({ kind }: { kind: "correcao" | "inutilizacao" }) {
       if (!response.ok) throw new Error(value.title || "Não foi possível consultar os eventos fiscais")
       if (!value.tenantId || !Array.isArray(value.data)) throw new Error("Resposta fiscal inválida")
       if (controller.signal.aborted) return
-      setPage(previous => ({ tenant:value.tenantId,items:request.cursor && previous?.tenant === value.tenantId ? [...new Map([...previous.items,...value.data].map(item=>[item.id,item])).values()] : value.data,cursor:value.nextCursor }))
+      setPage(previous => ({ tenant:value.tenantId,items:previous && request.cursor && previous.tenant === value.tenantId ? [...new Map([...previous.items,...value.data].map(item=>[item.id,item])).values()] : value.data,cursor:value.nextCursor }))
       setError("")
     }).catch(reason => { if (!controller.signal.aborted) { setPage(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })

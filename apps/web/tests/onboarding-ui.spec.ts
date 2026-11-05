@@ -208,7 +208,7 @@ test("entry keeps access visible and its single preview supports keyboard readin
     else expect(thumbnailBox!.height).toBeGreaterThan(320)
     await trigger.focus()
     await page.keyboard.press("Enter")
-    const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+    const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
     await expect(dialog).toBeVisible()
     const image = dialog.getByRole("img")
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
@@ -275,7 +275,7 @@ test("entry preview shows complete product data with margins in landscape and ad
     await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
     await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
-    const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+    const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
     const image = dialog.getByRole("img")
     await image.evaluate((image: HTMLImageElement) => image.decode())
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-landscape.png")
@@ -317,7 +317,7 @@ test("entry preview announces loading and recovers from a failed image without l
   await expect(trigger.getByRole("status")).toHaveText("Carregando prévia…")
   await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeEnabled()
   await trigger.click()
-  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
   await expect(dialog.getByRole("status")).toHaveText("Carregando prévia…")
   fail = true
   releaseImage()
@@ -351,7 +351,7 @@ test("a loaded preview reports a failed source after rotation and recovers when 
   await page.setViewportSize({ width: 390, height: 680 })
   await page.goto("/entrar")
   await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
-  const dialog = page.getByRole("dialog", { name: "Por dentro do Ávila ERP", exact: true })
+  const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
   await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
   await expect(dialog.getByRole("status")).toHaveCount(0)
   await page.setViewportSize({ width: 568, height: 320 })
@@ -411,7 +411,7 @@ test("cadastros distinguish a signed-out user from an authenticated user without
     await expect(page.getByRole("status")).toContainText("Você já entrou. Selecione uma empresa")
     await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: route }))
     await expect(page.getByRole("link", { name: "Cadastrar empresa", exact: true })).toHaveAttribute("href", "/cadastro/empresa")
-    await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveCount(0)
   }
   expect(upstreamCalls).toBe(0)
 })
@@ -465,7 +465,7 @@ test("expired company selection retains the original destination during recovery
   await context.addCookies([cookie(tenant)])
   await page.route("**/api/erp/companies", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
   await page.goto("/empresas?" + new URLSearchParams({ returnTo: destination }))
-  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: destination }))
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: destination }))
 })
 
 test("OIDC returns to the sealed destination and ignores callback redirect parameters", async ({ context }) => {
@@ -511,12 +511,12 @@ test("401 offers contextual login while 503 remains retryable and company switch
   await context.addCookies([cookie(tenant)])
   await page.route("**/api/erp/product-categories?*", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
   await page.goto("/cadastros/categorias-produtos")
-  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: "/cadastros/categorias-produtos" }))
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: "/cadastros/categorias-produtos" }))
   let unavailable = true
   await page.route("**/api/erp/company", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { title: "Consulta temporariamente indisponível" } : { tenantId: tenant, revision: 1, canEdit: true, data: { ...Object.fromEntries(companyFields.map(field => [field, ""])), legalName: "Empresa de teste", tradeName: "", taxId: "11222333000181", segments: [], substituteRegistrations: [] } } }))
   await page.goto("/preferencias/empresa")
   await expect(page.getByText("Consulta temporariamente indisponível", { exact: true })).toBeVisible()
-  await expect(page.locator("main").getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
+  await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveCount(0)
   unavailable = false
   await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
   await expect(page.getByRole("link", { name: "Trocar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: "/preferencias/empresa" }))

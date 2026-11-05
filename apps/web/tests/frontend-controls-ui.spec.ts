@@ -97,13 +97,13 @@ test("preferências mantém conteúdo acessível nos breakpoints e no tema escur
   }
 })
 
-test("tema Ávila pode ser escolhido e persiste neste navegador", async ({ page }) => {
+test("tema Avila pode ser escolhido e persiste neste navegador", async ({ page }) => {
   await page.goto("/preferencias/sistema")
-  await page.getByRole("radio", { name: "Ávila" }).check()
+  await page.getByRole("radio", { name: "Avila" }).check()
   await expect(page.locator("html")).toHaveClass(/avila-theme/)
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe("#0759f8")
   await page.reload()
-  await expect(page.getByRole("radio", { name: "Ávila" })).toBeChecked()
+  await expect(page.getByRole("radio", { name: "Avila" })).toBeChecked()
 })
 
 test("painel mobile fecha após navegar para uma configuração", async ({ page }) => {

@@ -45,6 +45,11 @@ informada, impossibilidade de retrocesso e eventos após trocar o perfil.
 Configuração, testes, publicação e autorização real pela SEFAZ são evidências
 distintas. Não transmitir documentos reais durante esta implementação.
 
+A implantação usa `scripts/healthcheck.mjs` da imagem fiscal para validar o
+HTTP 200 autenticado e ambos os ambientes anunciados em `/healthz`. Tanto o
+overlay Compose quanto a atualização do Compose privado usam essa mesma sonda;
+o campo antigo `environment` não representa as capacidades atuais do motor.
+
 ## Ampliação do contrato
 
 O enum de resposta passa a incluir `production`. Consumidores fiscais com enum

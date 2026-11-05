@@ -60,7 +60,7 @@ test("navegação entre prévia e cadastro integrado atualiza o bloqueio", async
   await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
   await page.goto("/vendas/pdv")
   await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toBeVisible()
-  await page.getByRole("button", { name: /Pesquisar/ }).click()
+  await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await page.getByRole("dialog").getByRole("combobox").fill("Produtos")
   await page.getByRole("option", { name: /^Produtos\b/ }).click()
   await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toHaveCount(0)

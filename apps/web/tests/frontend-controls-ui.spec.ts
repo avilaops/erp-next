@@ -18,7 +18,7 @@ test("cabeçalho cabe em 320 px sem perder os acessos", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   await page.getByRole("link", { name: "Suas empresas", exact: true }).click({ trial: true })
-  await page.getByRole("button", { name: "Buscar", exact: true }).click()
+  await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
 })
 
@@ -53,7 +53,7 @@ test("falha de consulta não apresenta configuração ou contagem presumida", as
 
 test("busca global encontra Produtos com destino direto", async ({ page }) => {
   await page.goto("/")
-  await page.getByRole("button", { name: /Pesquisar/ }).click()
+  await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await page.getByRole("dialog").getByRole("combobox").fill("Produtos")
   await page.getByRole("option", { name: /^Produtos\b/ }).click({ timeout: 8000 })
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
@@ -116,7 +116,7 @@ test("busca distingue módulos, configurações e operações financeiras", asyn
     ["Fiscal", "Fiscal", "/fiscal"],
     ["Monitor fiscal", "Monitor fiscal", "/fiscal/monitor"],
   ]) {
-    await page.getByRole("button", { name: /Pesquisar/ }).click()
+    await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
     const dialog = page.getByRole("dialog")
     await dialog.getByRole("combobox").fill(query)
     await dialog.getByRole("option").filter({ has: page.getByText(label, { exact: true }) }).first().click()

@@ -23,6 +23,10 @@ const upstream = createServer(async (request, response) => {
     response.writeHead(403, { "Content-Type": "application/problem+json" })
     response.end(JSON.stringify({ title: "Sem permissão para gerenciar integrações", status: 403 })); return
   }
+  if (request.url === "/api/v1/me" && request.method === "GET") {
+    response.writeHead(200, { "Content-Type": "application/json" })
+    response.end(JSON.stringify({ tenant: { id: tenant, legalName: "Empresa de teste" }, permissions: [] })); return
+  }
   if (unavailable) {
     response.writeHead(503, { "Content-Type": "application/problem+json" })
     response.end(JSON.stringify({ title: "Serviço temporariamente indisponível", status: 503 })); return

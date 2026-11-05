@@ -18,7 +18,10 @@ export function FixedExpenses() {
   const categories = useResource<{ tenantId: string; data: Category[] }>("/api/erp/financial-categories?limit=100")
   const [selected, setSelected] = useState<Expense | null>(null)
   const [serial, setSerial] = useState(0)
-  const available = categories.value?.tenantId === expenses.value?.tenantId ? categories.value.data.filter(row => row.direction === "expense" && row.status === "active") : []
+  const categorySnapshot = categories.value
+  const expenseSnapshot = expenses.value
+  const available = categorySnapshot && expenseSnapshot && categorySnapshot.tenantId === expenseSnapshot.tenantId
+    ? categorySnapshot.data.filter(row => row.direction === "expense" && row.status === "active") : []
   return <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Preferências / Comercial" title="Despesas fixas" description="Despesas mensais recorrentes usadas na formação da tabela de preços." />
     <Link className="text-primary underline" href="/preferencias/comercial">Voltar aos parâmetros</Link>

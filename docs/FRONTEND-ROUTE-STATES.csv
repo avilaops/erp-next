@@ -121,7 +121,7 @@ route,title,ui_classification,source
 "/logistica/reversa/nova","Nova logística reversa","unavailable","apps/web/src/app/logistica/reversa/nova/page.tsx"
 "/logistica/reversa/[id]","Detalhes da logística reversa","unavailable","apps/web/src/app/logistica/reversa/[id]/page.tsx"
 "/notificacoes","Notificações","unavailable","apps/web/src/app/notificacoes/page.tsx"
-"/novidades","Novidades","navigation-or-local","apps/web/src/app/novidades/page.tsx"
+"/novidades","Novidades","unavailable","apps/web/src/app/novidades/page.tsx"
 "/preferencias/certificado-digital","Certificado digital","api-or-auth","apps/web/src/app/preferencias/certificado-digital/page.tsx"
 "/preferencias/dados/exportacao","Exportação de dados","unavailable","apps/web/src/app/preferencias/dados/exportacao/page.tsx"
 "/preferencias/dados/importacao","Importação de dados","unavailable","apps/web/src/app/preferencias/dados/importacao/page.tsx"

@@ -596,6 +596,36 @@
         ]
       },
       {
+        "id": "label-templates",
+        "title": "Etiquetas customizadas",
+        "goal": "Configurar modelos de etiquetas por empresa com fontes, campos e posições estritamente autorizados.",
+        "kind": "product",
+        "actionGroups": [
+          "label-templates"
+        ],
+        "dependencies": [
+          "company_onboarding"
+        ],
+        "nextStep": "Conferir criação, edição, revisão, limites físicos e isolamento dos modelos.",
+        "additionalSources": [
+          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "migrations/202611040002_system_configuration.sql"
+        ],
+        "journey": [
+          {
+            "id": "configure",
+            "title": "Consultar, criar e editar modelos",
+            "actionIds": [
+              "get-system-label-templates",
+              "post-system-label-templates",
+              "put-system-label-templates-id"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
+      },
+      {
         "id": "audit",
         "title": "Segurança e auditoria",
         "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.",
@@ -11431,6 +11461,60 @@
       "recovery": "Preservar a edição e recarregar após conflito de revisão.",
       "ui": { "pages": ["/preferencias/sistema/relatorios-customizados"], "bff": { "method": "PUT", "path": "/api/erp/system/custom-reports/{id}" }, "gap": null },
       "sources": ["apps/api/src/platform/custom_reports.rs","migrations/202611040002_system_configuration.sql","migrations/202611040004_system_query_authorization.sql","apps/web/src/features/preferences/system/custom-reports.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "get-system-label-templates",
+      "flow": "label-templates",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/system/label-templates" },
+      "actor": "company_manager",
+      "permissions": ["system.labels.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; permissão de gestão de etiquetas; RLS na transação."],
+      "transition": { "from": "modelos persistidos", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não imprime etiquetas e não contrata serviços logísticos."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Consulta ordenada por nome e identificador." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,500,503], "action": "get-system-label-templates" },
+      "recovery": "Corrigir o acesso ou recarregar a consulta.",
+      "ui": { "pages": ["/preferencias/sistema/etiquetas-customizadas"], "bff": { "method": "GET", "path": "/api/erp/system/label-templates" }, "gap": null },
+      "sources": ["apps/api/src/platform/label_templates.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/label-templates.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "post-system-label-templates",
+      "flow": "label-templates",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/system/label-templates" },
+      "actor": "company_manager",
+      "permissions": ["system.labels.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": { "source": "apps/api/src/platform/label_templates.rs", "type": "LabelTemplateInput" }, "query": null },
+      "preconditions": ["Empresa e vínculo ativos; fonte e campos autorizados; dimensões e elementos dentro da área da etiqueta."],
+      "transition": { "from": "modelo ausente", "to": "modelo persistido na revisão 1" },
+      "effects": { "writes": ["system_config.label_templates","audit_log","outbox_events"], "external": [], "excludes": ["Não imprime, gera arquivo ou transmite dados a transportadoras."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Modelo e auditoria são gravados na mesma transação." },
+      "response": { "successStatuses": [201], "errorStatuses": [400,401,403,422,500,503], "action": "post-system-label-templates" },
+      "recovery": "Corrigir o modelo ou recarregar a lista após resposta incerta antes de repetir.",
+      "ui": { "pages": ["/preferencias/sistema/etiquetas-customizadas"], "bff": { "method": "POST", "path": "/api/erp/system/label-templates" }, "gap": null },
+      "sources": ["apps/api/src/platform/label_templates.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/label-templates.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "put-system-label-templates-id",
+      "flow": "label-templates",
+      "status": "implemented",
+      "operation": { "method": "PUT", "path": "/api/v1/system/label-templates/{id}" },
+      "actor": "company_manager",
+      "permissions": ["system.labels.manage"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "If-Match"], "pathParameters": ["id"], "body": { "source": "apps/api/src/platform/label_templates.rs", "type": "LabelTemplateInput" }, "query": null },
+      "preconditions": ["Modelo pertence ao tenant; revisão atual; fonte, campos, dimensões e posições válidos."],
+      "transition": { "from": "modelo na revisão atual", "to": "modelo validado na próxima revisão" },
+      "effects": { "writes": ["system_config.label_templates","audit_log","outbox_events"], "external": [], "excludes": ["Não altera documentos ou tarefas de impressão existentes."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match exige a revisão persistida." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,412,422,428,500,503], "action": "put-system-label-templates-id" },
+      "recovery": "Preservar a edição e recarregar após conflito de revisão.",
+      "ui": { "pages": ["/preferencias/sistema/etiquetas-customizadas"], "bff": { "method": "PUT", "path": "/api/erp/system/label-templates/{id}" }, "gap": null },
+      "sources": ["apps/api/src/platform/label_templates.rs","migrations/202611040002_system_configuration.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/label-templates.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {

@@ -14,7 +14,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+    paths(crate::domains::dashboard::get,crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         onboarding::select_company,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 195);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 196);
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());

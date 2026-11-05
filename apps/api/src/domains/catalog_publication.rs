@@ -211,7 +211,7 @@ pub async fn media(
     let gateway = MediaGateway::for_tenant(&state, tenant)?;
     let key = file
         .0
-        .strip_prefix("r2://ludus-equipamentos-midias/ludus/catalogo/v1/")
+        .strip_prefix("r2://ludus-equipamentos-midias/ludus/catalogo/")
         .ok_or(DomainError::NotFound)?;
     if key.contains("..")
         || !key

@@ -9,6 +9,7 @@ export type Section = "products" | "parties" | "contact-types" | "tax-profiles"
 type Data = {
   requireNcm?: boolean
   requireCest?: boolean
+  upholsteryConfigurable?: boolean
   requireEmail?: boolean
   requirePhone?: boolean
   labels?: string[]
@@ -24,7 +25,8 @@ const titles: Record<Section, string> = {
 const fields = {
   products: [
     ["requireNcm", "Exigir NCM no cadastro de produtos"],
-    ["requireCest", "Exigir CEST no cadastro de produtos"]
+    ["requireCest", "Exigir CEST no cadastro de produtos"],
+    ["upholsteryConfigurable", "Permitir escolha de cor do estofado"]
   ],
   parties: [
     ["requireEmail", "Exigir e-mail de clientes e fornecedores"],
@@ -142,7 +144,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                   <label key={key} className="flex min-h-11 items-center gap-3">
                     <input
                       type="checkbox"
-                      checked={!!data[key]}
+                      checked={key === "upholsteryConfigurable" ? data[key] !== false : !!data[key]}
                       onChange={(event) => setData({ ...data, [key]: event.target.checked })}
                     />
                     {label}

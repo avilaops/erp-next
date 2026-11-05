@@ -96,7 +96,7 @@ pub async fn snapshot(
             'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
-                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color))
+                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color,'armColor',l.arm_color,'plateHolderColor',l.plate_holder_color))
                 ORDER BY l.line_number)
                 FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb))
         FROM sales_orders o

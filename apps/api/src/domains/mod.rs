@@ -3,6 +3,7 @@ pub mod catalog;
 pub mod commissions;
 pub mod contracts;
 pub mod finance;
+pub mod fixed_expenses;
 pub mod fiscal;
 pub mod inventory;
 pub mod legacy;

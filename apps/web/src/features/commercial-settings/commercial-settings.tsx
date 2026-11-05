@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
@@ -14,6 +15,7 @@ export function CommercialSettings() {
   const resource = useResource<Snapshot>(`/api/erp/commercial-settings/${line}`)
   return <main className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Preferências" title="Parâmetros comerciais" description="Política de preço por linha e simulação gerencial. Acesso restrito à gestão da empresa." />
+    <div className="flex gap-4"><Link className="text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="text-primary underline" href="/preferencias/tabela-precos">Tabela de preços</Link></div>
     <div className="flex gap-2" aria-label="Linha de produto">
       <Button type="button" variant={line === "imported" ? "default" : "outline"} aria-pressed={line === "imported"} onClick={() => { if (line !== "imported" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("imported") }}>Importada</Button>
       <Button type="button" variant={line === "national" ? "default" : "outline"} aria-pressed={line === "national"} onClick={() => { if (line !== "national" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("national") }}>Nacional</Button>
@@ -23,7 +25,7 @@ export function CommercialSettings() {
 }
 
 function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; reload: () => void }) {
-  const [draft, setDraft] = useState<Draft>(() => toDraft(snapshot.data))
+  const [draft, setDraft] = useState<Draft>(() => toDraft(snapshot.data, snapshot.monthlyExpensesCents))
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [blocked, setBlocked] = useState(false)
@@ -56,7 +58,7 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
     {!snapshot.data && <p role="status">Esta linha ainda não tem parâmetros. Informe as alíquotas da empresa.</p>}
     <fieldset disabled={busy || blocked || !snapshot.canEdit} className="space-y-5">
       <label className="grid max-w-sm gap-2">UF de origem<select required className="min-h-10 rounded-lg border bg-background px-2" value={draft.originState} onChange={e => change({ ...draft, originState: e.target.value })}><option value="">Selecione</option>{states.map(state => <option key={state}>{state}</option>)}</select></label>
-      {fieldGroups.map(group => <section className="form-section space-y-3" key={group.title}><h2 className="font-semibold">{group.title}</h2><div className="grid gap-3 sm:grid-cols-2">{group.fields.map(([key, label, unit]) => <label key={key} className="grid gap-1">{label} ({unit === "percent" ? "%" : unit === "money" ? "R$" : "dias"})<Input required inputMode={unit === "days" ? "numeric" : "decimal"} value={draft[key]} onChange={e => change({ ...draft, [key]: e.target.value })} /></label>)}</div></section>)}
+      {fieldGroups.map(group => <section className="form-section space-y-3" key={group.title}><h2 className="font-semibold">{group.title}</h2><div className="grid gap-3 sm:grid-cols-2">{group.fields.map(([key, label, unit]) => <label key={key} className="grid gap-1">{label} ({unit === "percent" ? "%" : unit === "money" ? "R$" : "dias"})<Input required readOnly={key === "monthlyExpensesCents"} inputMode={unit === "days" ? "numeric" : "decimal"} value={draft[key]} onChange={e => change({ ...draft, [key]: e.target.value })} /></label>)}</div>{group.title === "Provisões e despesas" && <p>Despesas fixas são somadas dos cadastros vigentes. <Link className="text-primary underline" href="/preferencias/despesas-fixas">Gerenciar despesas fixas</Link></p>}</section>)}
       <section className="form-section space-y-3"><h2 className="font-semibold">ICMS por UF de destino</h2><p>Saída em branco usa a alíquota interestadual padrão. Zero é um valor explícito.</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{draft.stateRates.map((row, index) => <fieldset key={row.state} className="rounded-lg border p-3"><legend>{row.state}</legend><div className="grid grid-cols-3 gap-2">{([ ["internalBps", "Interno"], ["fcpBps", "FCP"], ["outgoingBps", "Saída"] ] as const).map(([key, label]) => <label key={key} className="grid gap-1 text-xs">{label}<Input aria-label={`${row.state} ${label}`} required={key !== "outgoingBps"} inputMode="decimal" value={row[key]} onChange={e => change({ ...draft, stateRates: draft.stateRates.map((item, position) => position === index ? { ...item, [key]: e.target.value } : item) })} /></label>)}</div></fieldset>)}</div></section>
       <div className="flex gap-3"><Button type="submit" value="preview" variant="outline">Simular</Button><Button type="submit" value="save" disabled={!dirty}>Salvar parâmetros</Button></div>
     </fieldset>

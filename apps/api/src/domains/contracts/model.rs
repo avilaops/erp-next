@@ -91,7 +91,7 @@ pub async fn snapshot(
 ) -> Result<Value, DomainError> {
     sqlx::query_scalar(r#"
         SELECT jsonb_build_object(
-            'order',jsonb_build_object('id',o.id,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
+            'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
             'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
             'items',COALESCE((SELECT jsonb_agg(
@@ -123,6 +123,20 @@ fn address(value: &Value) -> String {
     .filter(|s| !s.is_empty())
     .collect::<Vec<_>>()
     .join(", ")
+}
+
+pub fn order_number(snapshot: &Value) -> String {
+    match snapshot["order"]["number"].as_str() {
+        Some(number)
+            if !number.is_empty() && number.bytes().all(|value| value.is_ascii_digit()) =>
+        {
+            format!("PV-{number:0>6}")
+        }
+        _ => snapshot["order"]["id"]
+            .as_str()
+            .unwrap_or("Pedido")
+            .to_owned(),
+    }
 }
 
 pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
@@ -167,7 +181,6 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         ("cliente_nome", &snapshot["customer"]["name"]),
         ("cliente_documento", &snapshot["customer"]["taxId"]),
         ("cliente_email", &snapshot["customer"]["email"]),
-        ("pedido_numero", &snapshot["order"]["id"]),
         ("pedido_total", &snapshot["order"]["amount"]),
         ("vencimento", &snapshot["order"]["dueDate"]),
     ] {
@@ -179,6 +192,7 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         customer_address.map(address).unwrap_or_default(),
     );
     result.insert("itens".into(), items);
+    result.insert("pedido_numero".into(), order_number(snapshot));
     result
 }
 

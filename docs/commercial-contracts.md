@@ -5,6 +5,36 @@
 Pedido → Contratos → Gerar contrato → Revisar → Enviar para assinatura →
 Atualizar andamento → Abrir/baixar PDF assinado e trilha de assinatura.
 
+### Envio conjunto pelo pedido — AVL-318
+
+Em **Vendas → Pedidos**, a ação **Enviar pedido e contrato** abre os contratos
+da venda dentro do ERP. Após gerar a prévia, a conferência apresenta o PDF,
+os destinatários e o conteúdo comercial do e-mail. A geração não envia convites.
+
+O comando de envio usa a mensagem personalizada da API da nossa instalação:
+um convite por participante, contendo o resumo do pedido e o link individual
+para revisar e assinar o contrato. Não envia uma segunda mensagem de pedido.
+O resumo contém número comercial, empresa, cliente, itens, quantidades,
+valores, acabamentos, total, vencimento e condições preenchidas no contrato.
+O contrato é acessado pelo link; este incremento não anexa PDFs ao e-mail.
+
+O Rust monta a mensagem a partir do snapshot imutável, sem receber corpo,
+destinatários ou totais do comando de envio. A prévia expõe o mesmo conteúdo
+comercial antes da revisão. Dados de cadastro são escapados para não se tornarem
+HTML, links Markdown ou variáveis do provedor. Custos e margens não são enviados.
+O número `PV-000001` substitui o UUID no campo automático de contratos novos;
+snapshots históricos sem número conservam seu identificador original.
+
+Alterar cliente, itens, quantidades, preços ou vencimento depois da geração
+bloqueia o primeiro envio e exige uma nova prévia. Mudança de estado comercial
+sem alterar esses dados não invalida o documento. A autorização específica,
+a revisão do PDF, a intenção durável e a reconciliação sem repetir o disparo
+continuam obrigatórias. A auditoria registra o hash da mensagem, sem seu texto.
+
+A confirmação de transmissão e a assinatura continuam sendo acompanhadas no
+ERP. O funcionamento da mensagem foi verificado no contrato da API do serviço;
+testes com adaptador isolado não comprovam entrega na caixa de entrada.
+
 - Pedido: `/vendas/pedidos/{id}/contratos`.
 - Geração: `/vendas/pedidos/{id}/contratos/novo`.
 - Contrato: `/servicos/contratos/{id}`.

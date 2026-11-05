@@ -230,13 +230,18 @@ pub async fn detail(
     email_ready: bool,
 ) -> Result<axum::response::Response, DomainError> {
     let contract = model::load(tx, tenant, id).await?;
+    let email = if contract.send_requested_at.is_none() {
+        Some(super::email::preview(&contract.snapshot, &contract.fields))
+    } else {
+        None
+    };
     let files: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'kind',kind,'position',position,'sha256',sha256) FROM commercial_contract_files WHERE tenant_id=$1 AND contract_id=$2 ORDER BY kind,position")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     Ok(super::super::response(
         StatusCode::OK,
         Some(contract.revision),
         super::api::checked::<super::api::ContractDetail>(
-            json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"data":contract,"files":files}),
+            json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"data":contract,"files":files,"email":email}),
         )?,
     ))
 }

@@ -29,6 +29,7 @@ struct ProviderFixture {
     creates: Arc<AtomicUsize>,
     sends: Arc<AtomicUsize>,
     completed: Arc<AtomicBool>,
+    invitations: Arc<Mutex<Vec<Value>>>,
 }
 
 fn template() -> Value {
@@ -118,7 +119,8 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
             Json(submission)
         }}))
         .route("/api/submissions/7/documents",get(move || { let base = pdf_base.clone(); async move { Json(json!({"documents":[{"url":format!("{base}document.pdf")}]})) } }))
-        .route("/api/submitters/5",put(|State(state): State<ProviderFixture>| async move {
+        .route("/api/submitters/5",put(|State(state): State<ProviderFixture>, Json(body): Json<Value>| async move {
+            state.invitations.lock().unwrap().push(body);
             state.sends.fetch_add(1,Ordering::SeqCst);
             // Accepted upstream, response lost: must not be repeated.
             StatusCode::SERVICE_UNAVAILABLE
@@ -170,6 +172,22 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
         "Cliente de validação"
     );
     assert_eq!(generated.1["data"]["progress"][0]["sendConfirmed"], false);
+    assert_eq!(
+        generated.1["data"]["snapshot"]["order"]["number"],
+        order.1["data"]["number"]
+    );
+    assert!(
+        generated.1["email"]["subject"]
+            .as_str()
+            .unwrap()
+            .starts_with("Pedido PV-")
+    );
+    assert!(
+        generated.1["email"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Produto")
+    );
     let id = generated.1["data"]["id"].as_str().unwrap();
     let path = format!("/api/v1/commercial-contracts/{id}");
     for replay_key in [key, Uuid::now_v7()] {
@@ -279,6 +297,30 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
     assert_eq!(unchanged.1["emailReady"], false);
     assert_eq!(unchanged.1["data"]["status"], "reviewed");
     assert!(unchanged.1["data"]["sendRequestedAt"].is_null());
+    // Changed commercial terms cannot be paired with an earlier contract.
+    let order_id: Uuid = order.1["data"]["id"].as_str().unwrap().parse().unwrap();
+    sqlx::query("UPDATE sales_orders SET due_date='2027-02-01' WHERE id=$1")
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let stale = call(
+        &router,
+        "POST",
+        &format!("{path}/send"),
+        "editor",
+        send_revision,
+        Uuid::now_v7(),
+        json!({}),
+    )
+    .await;
+    assert_eq!(stale.0, StatusCode::CONFLICT);
+    assert_eq!(fixture.sends.load(Ordering::SeqCst), 0);
+    sqlx::query("UPDATE sales_orders SET due_date='2026-12-01' WHERE id=$1")
+        .bind(order_id)
+        .execute(&admin)
+        .await
+        .unwrap();
     let sent = call(
         &router,
         "POST",
@@ -307,6 +349,18 @@ async fn contracts_preserve_snapshot_and_reconcile_unknown_results_without_dupli
         );
     }
     assert_eq!(fixture.sends.load(Ordering::SeqCst), 1);
+    let invitation = fixture.invitations.lock().unwrap()[0].clone();
+    assert_eq!(invitation["send_email"], true);
+    assert_eq!(
+        invitation["message"]["subject"],
+        generated.1["email"]["subject"]
+    );
+    let mail_body = invitation["message"]["body"].as_str().unwrap();
+    assert!(mail_body.contains("CONTRACT\\-1"));
+    assert!(mail_body.contains("R$ 10,00"));
+    assert!(mail_body.contains("Apenas validação"));
+    assert_eq!(mail_body.matches("{submitter.link}").count(), 1);
+    assert!(sent.1["email"].is_null());
 
     let order_id: Uuid = order.1["data"]["id"].as_str().unwrap().parse().unwrap();
     sqlx::query("UPDATE sales_orders SET due_date='2027-01-01',revision=revision+1 WHERE id=$1")

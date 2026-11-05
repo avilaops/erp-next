@@ -15,7 +15,6 @@ import { useCommand, useResource } from "@/hooks/use-operation"
 
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">
-type Contract = Schema<"Contract">
 type StoredFile = Schema<"ContractFile">
 type Detail = Schema<"ContractDetail">
 type Options = Schema<"ContractOptions">
@@ -29,7 +28,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
   const query = new URLSearchParams({ offset: String(offset), ...(orderId ? { orderId } : {}), ...(customerId ? { customerId } : {}) })
   const result = useResource<{ tenantId: string; canEdit: boolean; data: ContractSummary[]; total: number }>(`/api/erp/commercial-contracts?${query}`)
   return <>
-    <PageHeader eyebrow="Avila Ops · Comercial" title="Contratos" description="Documentos vinculados à empresa, ao cliente e ao pedido, da revisão à assinatura." />
+    <PageHeader eyebrow={orderId ? "Vendas / Pedido" : "Avila Ops · Comercial"} title={orderId ? "Pedido e contrato" : "Contratos"} description={orderId ? "Prepare e confira o contrato. O resumo do pedido e o link de assinatura serão enviados no mesmo e-mail." : "Documentos vinculados à empresa, ao cliente e ao pedido, da revisão à assinatura."} />
     <div className="mb-5 flex flex-wrap gap-4">
       <Link className={linkClass} href="/servicos/contratos/modelos">Modelos de contrato</Link>
       {orderId && <Link className={linkClass} href={`/vendas/pedidos/${orderId}`}>Voltar ao pedido</Link>}
@@ -55,7 +54,7 @@ export function ContractGenerator({ orderId }: { orderId: string }) {
   if (result.loading) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><p role="status">Consultando pedido e modelos da empresa…</p></>
   if (result.error || !result.value) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Gerar contrato" description="Consulte o pedido e os modelos disponíveis para a empresa." /><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Pedido indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
   return <>
-    <PageHeader eyebrow="Avila Ops · Contratos" title="Gerar contrato" description="Confira os dados do pedido e complete os campos do modelo. A geração produz uma prévia e ainda não envia e-mail." />
+    <PageHeader eyebrow="Vendas / Pedido e contrato" title="Gerar contrato" description="Confira os dados do pedido e complete os campos do modelo. A prévia será revisada antes do envio conjunto por e-mail." />
     <Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link>
     {result.value.configured && !result.value.emailReady && <p className="mt-4 rounded-lg border p-4" role="status">O e-mail de assinatura ainda não foi validado. Você pode gerar e revisar a prévia; o envio ficará bloqueado.</p>}
     {!result.value.canEdit ? <p className="mt-5" role="status">Seu acesso permite apenas consulta de pedidos e contratos.</p> : !result.value.configured || !result.value.templates.length ? <section className="form-section mt-5 space-y-3"><h2 className="font-semibold">Modelo ainda não disponível</h2><p>A conexão e os modelos de contrato desta empresa precisam ser configurados pelo administrador.</p><Button variant="outline" onClick={result.reload}>Consultar novamente</Button></section> : <GeneratorForm key={`${orderId}:${result.value.snapshot.order.revision}`} options={result.value} reload={result.reload} />}
@@ -128,13 +127,13 @@ export function ContractDetail({ id }: { id: string }) {
   }
   if (result.loading) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><p role="status">Carregando contrato…</p></>
   if (result.error || !result.value) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><Link className={linkClass} href="/servicos/contratos">Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
-  const { data: contract, files, canEdit, canSend, emailReady } = result.value
+  const { data: contract, files, canEdit, canSend, emailReady, email } = result.value
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
   const fileUrl = (file: StoredFile) => `/api/erp/commercial-contracts/${id}/files/${file.id}`
   return <>
-    <PageHeader eyebrow="Avila Ops · Contratos" title={contract.templateName} description={labels[contract.status] || contract.status} />
-    <div className="mb-5 flex flex-wrap gap-4"><Link className={linkClass} href={`/vendas/pedidos/${contract.orderId}/contratos`}>Contratos do pedido</Link><Link className={linkClass} href={`/cadastros/clientes-fornecedores/${contract.customerId}/contratos`}>Contratos do cliente</Link></div>
+    <PageHeader eyebrow="Vendas / Pedido e contrato" title={contract.templateName} description={labels[contract.status] || contract.status} />
+    <div className="mb-5 flex flex-wrap gap-4"><Link className={linkClass} href={`/vendas/pedidos/${contract.orderId}`}>Voltar ao pedido</Link><Link className={linkClass} href={`/vendas/pedidos/${contract.orderId}/contratos`}>Contratos do pedido</Link><Link className={linkClass} href={`/cadastros/clientes-fornecedores/${contract.customerId}/contratos`}>Contratos do cliente</Link></div>
     <ol className="mb-5 grid gap-2 text-sm sm:grid-cols-4" aria-label="Etapas do contrato">{["1. Gerar", "2. Revisar", "3. Enviar", "4. Acompanhar"].map(step => <li className="rounded-lg border bg-muted/40 px-4 py-3" key={step}>{step}</li>)}</ol>
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <section className="form-section min-w-0 space-y-4"><h2 className="font-semibold">Documento {contract.status === "completed" ? "assinado" : "para revisão"}</h2>
@@ -143,6 +142,7 @@ export function ContractDetail({ id }: { id: string }) {
         {currentFile && <><div className="flex flex-wrap gap-4"><a className={linkClass} href={fileUrl(currentFile)} target="_blank" rel="noreferrer">Abrir documento</a><a className={linkClass} href={fileUrl(currentFile)} download={`${currentFile.kind}-${contract.id}.pdf`}>Baixar PDF</a></div><iframe title={currentFile.kind === "audit" ? "Trilha de assinatura" : "Documento do contrato"} src={fileUrl(currentFile)} className="h-[65vh] min-h-96 w-full rounded-lg border" /><p className="break-all text-xs text-muted-foreground">Cópia preservada no servidor Avila Ops · SHA-256: {currentFile.sha256}</p></>}
       </section>
       <aside className="space-y-5">
+        {email && <section className="form-section min-w-0 space-y-3" aria-label="E-mail do pedido e contrato"><h2 className="font-semibold">E-mail do pedido e contrato</h2><p className="text-sm text-muted-foreground">Cada destinatário recebe o resumo abaixo e seu link individual para o mesmo contrato.</p><p className="break-words font-medium">Assunto: {email.subject}</p><p className="whitespace-pre-wrap break-words text-sm">{email.text}</p></section>}
         <section className="form-section space-y-4"><h2 className="font-semibold">Destinatários e andamento</h2><ul className="space-y-4">{contract.recipients.map(recipient => {
           const progress = contract.progress.find(item => item.role === recipient.role)
           return <li key={recipient.role} className="break-words"><strong>{recipient.name}</strong><p className="text-sm">{recipient.role} · {recipient.email}</p><p className="mt-1 text-sm">{progress?.completedAt ? "Assinou" : progress?.declinedAt ? "Recusou" : progress?.openedAt ? "Abriu o documento" : progress?.sendConfirmed ? "Transmissão de e-mail confirmada pelo serviço" : contract.sendRequestedAt ? "Envio solicitado; confirmação pendente" : "Convite ainda não solicitado"}</p></li>
@@ -153,8 +153,8 @@ export function ContractDetail({ id }: { id: string }) {
           {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
           {command.uncertain ? <Button disabled={command.busy} onClick={() => action(pendingAction)}>Conferir resultado da operação</Button> : <Button variant="outline" disabled={blocked} onClick={() => action("sync")}><RefreshCw />Atualizar andamento</Button>}
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar contrato</Button>}
-          {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi todos os documentos, dados e destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}
-          {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>A revisão foi registrada. O convite será enviado aos destinatários acima pelo e-mail configurado no portal.</p><Button disabled={blocked || !emailReady} onClick={() => action("send")}>Enviar para assinatura</Button></div>}
+          {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi o pedido, os documentos, o e-mail e os destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}
+          {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>O pedido e o link do contrato seguem juntos para os destinatários acima, pelo e-mail configurado no serviço de contratos.</p><Button disabled={blocked || !emailReady || !email} onClick={() => action("send")}>Enviar pedido e contrato</Button>{!email && <p role="status">Atualize a integração antes de enviar o pedido e o contrato juntos.</p>}</div>}
           {canEdit && !canSend && <p className="text-sm">A revisão e o envio exigem permissão específica para contratos.</p>}
         </section>
         <section className="form-section space-y-3"><h2 className="font-semibold">Dados preservados</h2><p>{contract.snapshot.company.legalName}</p><p>{contract.snapshot.customer.name} · {contract.snapshot.customer.taxId}</p><p>R$ {contract.snapshot.order.amount.replace(".", ",")} · Pedido na revisão {contract.snapshot.order.revision}</p><details><summary className="cursor-pointer font-medium">Conferir campos utilizados</summary><dl className="mt-3 space-y-3">{Object.entries(contract.fields).map(([key, value]) => <div key={key}><dt className="text-sm font-medium">{fieldLabels[key] || key}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value || "Não informado"}</dd></div>)}</dl></details><p className="break-all text-xs text-muted-foreground">Contrato {contract.id}{contract.externalId ? ` · Solicitação ${contract.externalId}` : ""}</p></section>

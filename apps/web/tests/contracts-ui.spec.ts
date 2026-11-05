@@ -33,7 +33,7 @@ let templateDraft: { id: string; definition: unknown; revision: number } | null 
 let templateSaves = 0
 let templatePublications = 0
 function detail() {
-  return { tenantId: tenant, canEdit: true, canSend, emailReady, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
+  return { tenantId: tenant, canEdit: true, canSend, emailReady, email: sends ? null : { subject: "Pedido PV-000042 e contrato para assinatura", text: "Pedido PV-000042\n\nCliente: Cliente de validação\n\nTotal do pedido: R$ 100,00\n\nO e-mail inclui o link individual para revisar e assinar o contrato." }, data: { id: contractId, orderId, customerId, templateName: commercial ? "Contrato comercial com quatro signatários" : "Contrato de validação", status, revision, snapshot, recipients: commercial ? generatedRecipients : [{ name: "Cliente de validação", role: "Cliente", email: "validation@example.test" }], fields: commercial ? generatedFields : { cliente_nome: "Cliente de validação", condicoes: "Validação autorizada" }, externalId: 7, problem: null, sendRequestedAt: sends ? "2026-10-29T00:00:00Z" : null, progress: [], reviewedAt: reviewCalls ? "2026-10-29T00:00:00Z" : null, completedAt: null }, files: [{ id: fileId, kind: "preview", position: 0, sha256: createHash("sha256").update(pdf).digest("hex") }] }
 }
 const upstream = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json")
@@ -218,30 +218,39 @@ test("editor publica revisao salva com assinatura em multiplas posicoes sem conv
   expect(failures).toEqual([])
 })
 
-test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato pelo cliente", async ({ page, context }) => {
+test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato pelo cliente", async ({ page, context }, testInfo) => {
   expect((await context.request.get("/api/erp/commercial-contracts")).status()).toBe(401)
   await context.addCookies([cookie()])
   await page.goto(`/vendas/pedidos/${orderId}`)
-  await page.getByRole("link", { name: "Contratos do pedido", exact: true }).click()
+  await page.getByRole("link", { name: "Enviar pedido e contrato", exact: true }).click()
   await page.getByRole("link", { name: "Gerar contrato", exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${orderId}/contratos/novo$`), { timeout: 30000 })
   await expect(page.getByRole("button", { name: "Gerar prévia para revisão" })).toBeDisabled()
   await page.getByLabel("Condições comerciais").fill("Validação autorizada")
   await page.getByRole("button", { name: "Gerar prévia para revisão" }).click()
   await page.waitForURL(`**/servicos/contratos/${contractId}`)
   expect(sends).toBe(0)
   await expect(page.getByRole("button", { name: "Confirmar revisão" })).toBeDisabled()
-  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toHaveCount(0)
   await page.getByRole("checkbox").check()
   await page.getByRole("button", { name: "Confirmar revisão" }).click()
-  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toBeDisabled()
+  await expect(page.getByRole("region", { name: "E-mail do pedido e contrato" })).toContainText("Total do pedido: R$ 100,00")
+  await testInfo.attach("order-contract-email-desktop", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole("region", { name: "E-mail do pedido e contrato" })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await testInfo.attach("order-contract-email-mobile", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.setViewportSize({ width: 1280, height: 900 })
   await expect(page.getByText("O e-mail de assinatura ainda não foi validado. A prévia e a revisão estão disponíveis; o envio está bloqueado.")).toBeVisible()
   expect(sends).toBe(0)
   emailReady = true
   await page.reload()
-  await page.getByRole("button", { name: "Enviar para assinatura", exact: true }).click()
+  await expect(page.getByRole("region", { name: "E-mail do pedido e contrato" })).toContainText("Pedido PV-000042");
+  await page.getByRole("button", { name: "Enviar pedido e contrato", exact: true }).click()
   await expect(page.getByText("Envio solicitado", { exact: true })).toBeVisible()
   expect(sends).toBe(1)
-  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toHaveCount(0)
   await page.getByRole("link", { name: "Contratos do cliente", exact: true }).click()
   await page.getByRole("link", { name: "Contrato de validação", exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/servicos/contratos/${contractId}$`))
@@ -303,14 +312,14 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   expect(await storedFile.body()).toEqual(pdf)
   await page.getByRole("checkbox").check()
   await page.getByRole("button", { name: "Confirmar revisão" }).click()
-  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toBeDisabled()
   await expect(page.getByText("Revisado", { exact: true })).toBeVisible()
   expect(reviewCalls).toBe(1)
   expect(sends).toBe(0)
   await page.getByRole("link", { name: "Contratos do cliente", exact: true }).click()
   await page.getByRole("link", { name: "Contrato comercial com quatro signatários", exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/servicos/contratos/${contractId}$`))
-  await expect(page.getByRole("button", { name: "Enviar para assinatura", exact: true })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Enviar pedido e contrato", exact: true })).toBeDisabled()
   await page.getByText("Conferir campos utilizados", { exact: true }).click()
   await expect(page.getByRole("definition").filter({ hasText: manualValues["Testemunha 2 — CPF"] })).toBeVisible()
   await page.getByText("Conferir campos utilizados", { exact: true }).click()

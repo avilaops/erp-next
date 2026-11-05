@@ -179,3 +179,4 @@ route,title,ui_classification,source
 "/vendas/propostas/[id]/editar","Editar proposta","preview","apps/web/src/app/vendas/propostas/[id]/editar/page.tsx"
 "/vendas/relatorios","Relatórios de vendas","preview","apps/web/src/app/vendas/relatorios/page.tsx"
 "/preferencias/sistema/campos-customizados","Campos customizados","api-or-auth","apps/web/src/app/preferencias/sistema/campos-customizados/page.tsx"
+"/preferencias/sistema/relatorios-customizados","Relatórios customizados","api-or-auth","apps/web/src/app/preferencias/sistema/relatorios-customizados/page.tsx"

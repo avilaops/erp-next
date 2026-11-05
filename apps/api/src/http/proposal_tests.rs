@@ -140,7 +140,7 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
     assert_eq!(order.1["items"][0]["plateHolderColor"], "Amarelo");
     assert_eq!(order.1["items"][0]["unitPrice"], "19.99");
     let edited = call(&router, "PUT", &format!("/api/v1/orders/{order_id}"), "editor", Some(1), Some(Uuid::now_v7()),
-        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3"}]})).await;
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3.000000"}]})).await;
     assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
     assert_eq!(edited.1["items"][0]["armColor"], "Azul");
     assert_eq!(edited.1["items"][0]["plateHolderColor"], "Amarelo");

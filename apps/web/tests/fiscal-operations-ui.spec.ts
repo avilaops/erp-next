@@ -8,6 +8,16 @@ const draft = { environment: "homologation", model: 55, operationNature: "Venda"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("lista de NF-e distingue emissão em homologação da produção indisponível", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
+  await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: true, productionEnabled: false, blockers: [] } }))
+  await page.goto("/fiscal/notas-saida")
+  await expect(page.getByText("A emissão está disponível somente em homologação, sem valor fiscal. A emissão em produção permanece indisponível.", { exact: false })).toBeVisible()
+  await expect(page.getByText("A transmissão à SEFAZ permanece indisponível.", { exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Preparar nota", exact: true })).toBeVisible()
+})
+
 test("emissão conserva comando em resposta incerta e eventos usam a revisão fiscal", async ({ page }) => {
   const calls: { key: string; revision: string; body: unknown }[] = []
   let issued = false, cancelled = false

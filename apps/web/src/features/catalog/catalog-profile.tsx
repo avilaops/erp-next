@@ -19,7 +19,9 @@ export function CatalogProfile({ id, tenantId }: { id: string; tenantId: string 
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState("")
   const [retry, setRetry] = useState(0)
-  const dirty = !!draft && JSON.stringify(draft) !== JSON.stringify(snapshot?.data)
+  const [newImage, setNewImage] = useState<string | null>(null)
+  const [imageName, setImageName] = useState("")
+  const dirty = !!newImage || !!draft && JSON.stringify(draft) !== JSON.stringify(snapshot?.data)
   useNavigationGuard(dirty ? "Há alterações no catálogo ainda não salvas. Sair?" : null)
   useEffect(() => {
     const controller = new AbortController()
@@ -37,12 +39,12 @@ export function CatalogProfile({ id, tenantId }: { id: string; tenantId: string 
     event.preventDefault(); if (!draft || !snapshot) return
     setBusy(true); setError(""); setMessage("")
     const { revision, collection, muscleGroup, technicalCategory, dimensionsMm, description, weight, weightStack, mainMediaId } = draft
-    const input = { collection, muscleGroup, technicalCategory, dimensionsMm, description, weight, weightStack, mainMediaId }
+    const input = { collection, muscleGroup, technicalCategory, dimensionsMm, description, weight, weightStack, mainMediaId, ...(newImage ? { newImage } : {}) }
     try {
       const response = await erpFetch(`/api/erp/products/${id}/catalog`, { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `"${revision}"` }, body: JSON.stringify(input) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.title || "Não foi possível salvar")
-      const next = { ...draft, revision: result.revision }; setDraft(next); setSnapshot({ ...snapshot, data: next }); setMessage("Rascunho salvo. Publique pelo catálogo de produtos quando estiver pronto.")
+      const next = { ...draft, revision: result.revision, mainMediaId: result.mainMediaId }; setDraft(next); setSnapshot({ ...snapshot, data: next }); setNewImage(null); setImageName(""); setPreview(result.mainMediaId); setRetry(n => n + 1); setMessage("Rascunho salvo. Publique pelo catálogo de produtos quando estiver pronto.")
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao salvar") }
     finally { setBusy(false) }
   }
@@ -50,7 +52,19 @@ export function CatalogProfile({ id, tenantId }: { id: string; tenantId: string 
     <div><h2 className="text-xl font-semibold">Catálogo e imagens</h2><p className="mt-2 text-sm text-muted-foreground">Revise a apresentação do equipamento. Salvar não altera o site até você publicar o catálogo.</p></div>
     <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
       <div className="min-w-0 space-y-4">
-        <div className="rounded-xl bg-white p-4"><Image unoptimized src={`/api/erp/products/${id}/media/${preview}`} alt="Prévia da imagem selecionada" width={1200} height={1000} className="h-80 w-full object-contain sm:h-96" /></div>
+        <div className="rounded-xl bg-white p-4"><Image unoptimized src={newImage || `/api/erp/products/${id}/media/${preview}`} alt="Prévia da imagem selecionada" width={1200} height={1000} className="h-80 w-full object-contain sm:h-96" /></div>
+        {snapshot.canEdit && <label className="grid gap-2 text-sm">Enviar nova foto<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={async event => {
+          const input = event.currentTarget, file = input.files?.[0]
+          if (!file) return
+          setError(""); setBusy(true)
+          try {
+            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10_000_000) throw new Error("Escolha JPG, PNG ou WebP com até 10 MB.")
+            const value = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Não foi possível ler a foto.")); reader.readAsDataURL(file) })
+            setNewImage(value); setImageName(file.name)
+          } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao abrir a foto") }
+          finally { input.value = ""; setBusy(false) }
+        }} /><span className="text-muted-foreground">Até 10 MB, 16 megapixels e 6000 px por lado. O original fica privado; as versões WebP preservam as cores. Grave em “Salvar apresentação”.</span></label>}
+        {newImage && <p className="text-sm">Foto pendente: {imageName} <Button type="button" variant="outline" disabled={busy} onClick={() => { setNewImage(null); setImageName("") }}>Descartar foto pendente</Button></p>}
         <div className="grid grid-cols-2 gap-3">{snapshot.assets.map(asset => <button key={asset.id} type="button" onClick={() => setPreview(asset.id)} aria-pressed={preview === asset.id} className={`rounded-lg border p-3 text-left ${preview === asset.id ? "border-primary ring-1 ring-primary" : ""}`}><Image unoptimized src={`/api/erp/products/${id}/media/${asset.id}`} alt={labels[asset.variant] || asset.variant} width={160} height={110} className="h-24 w-full rounded bg-white object-contain" /><strong className="mt-2 block text-sm">{labels[asset.variant] || asset.variant}</strong><span className="text-xs text-muted-foreground">{asset.width} × {asset.height} px · versão {asset.version}</span></button>)}</div>
       </div>
       <form className="space-y-4" onSubmit={save}>

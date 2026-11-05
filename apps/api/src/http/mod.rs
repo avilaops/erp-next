@@ -314,7 +314,8 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/products/{id}/catalog",
             get(crate::domains::catalog_publication::get)
-                .put(crate::domains::catalog_publication::put),
+                .put(crate::domains::catalog_publication::put)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
         )
         .route(
             "/api/v1/products/{id}/media/{media_id}",

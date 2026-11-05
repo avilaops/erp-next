@@ -13,6 +13,8 @@ let companyCount = 0
 let platformAdministrator = false
 let suspendedCompany = false
 let denied = false
+let selectionDelayMs = 0
+let selectionStatus = 204
 let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
 let redirectAuthorization = false
@@ -32,7 +34,8 @@ const upstream = createServer(async (request, response) => {
   }
   if (request.url === "/api/v1/company-selection") {
     expect(request.method).toBe("POST")
-    response.writeHead(denied ? 403 : 204); response.end(); return
+    if (selectionDelayMs) await new Promise(resolve => setTimeout(resolve, selectionDelayMs))
+    response.writeHead(denied ? 403 : selectionStatus); response.end(); return
   }
   if (request.url === "/api/v1/me") {
     response.writeHead(denied ? 403 : 200)
@@ -75,7 +78,7 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false })
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true
@@ -97,6 +100,34 @@ test("platform directory shows but disables suspended companies", async ({ page,
   await page.goto("/empresas")
   await expect(page.getByRole("button", { name: /Empresa 2/ })).toBeDisabled()
   await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeEnabled()
+})
+
+test("company picker identifies the pending company and recovers from denied selection", async ({ page, context }) => {
+  companyCount = 2; platformAdministrator = true; selectionDelayMs = 250
+  await context.addCookies([cookie()])
+  await page.goto("/empresas")
+  const first = page.getByRole("button", { name: "Empresa 1", exact: true })
+  const second = page.getByRole("button", { name: /Empresa 2/ })
+  await second.click()
+  await expect(page.getByRole("status")).toHaveText("Acessando Empresa 2…")
+  await expect(second).toContainText("Acessando…")
+  await expect(first).toBeDisabled()
+  await expect(second).toBeDisabled()
+  await expect(page).toHaveURL(origin + "/preferencias/empresa/dados")
+
+  await context.addCookies([cookie()])
+  denied = true; selectionDelayMs = 0
+  await page.goto("/empresas")
+  await first.click()
+  await expect(page.locator("#company-picker-feedback")).toHaveText("Seu acesso a esta empresa não foi autorizado.")
+  await expect(first).toBeEnabled()
+  await expect(second).toBeEnabled()
+
+  denied = false; selectionStatus = 503
+  await second.click()
+  await expect(page.locator("#company-picker-feedback")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await expect(first).toBeEnabled()
+  await expect(second).toBeEnabled()
 })
 
 for (const error of ["", "restart"]) test(`entry login reaches Auth from ${error || "normal access"} under the same-origin form policy and preserves its return path`, async ({ page, context }) => {

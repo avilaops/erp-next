@@ -51,3 +51,7 @@ inventado, erro de consulta, autorização, empresa, período, parcelas e estorn
 Implementação isolada em `fix/dashboard-real-data`. O checkout original possui
 74 pendências e quatro conflitos de merge e permanece preservado. Publicação e
 validação autenticada são etapas separadas dos testes com fixtures.
+
+A varredura final também identificou comunicados demonstrativos em Novidades,
+fora do catálogo antigo. Essa rota passa a informar indisponibilidade, sem
+comunicados inventados ou botão sem ação, e entra no teste de navegação.

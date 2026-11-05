@@ -20,7 +20,7 @@ export function ProductThumbnail({ id, name, tenantId, hasPhoto, decorative = fa
         if (!response.ok) throw new Error("Foto indisponível")
         const result = await response.json()
         if (result.tenantId !== tenantId || result.data?.id !== id) throw new Error("Empresa ou produto alterado")
-        if (!controller.signal.aborted) setPhoto(result.data.photoDataUrl || "")
+        if (!controller.signal.aborted) setPhoto(result.data.photoUrl || result.data.photoDataUrl || "")
       }).catch(() => { if (!controller.signal.aborted) setFailed(true) })
     }, { rootMargin: "100px" })
     observer.observe(root.current)

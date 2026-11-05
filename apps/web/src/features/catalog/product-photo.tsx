@@ -10,7 +10,7 @@ export function ProductPhoto({ value, disabled, readOnly = false, onChange, onBu
   return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label="Foto do produto">
     <h2 className="font-semibold">Foto do produto</h2>
     <div className="grid min-h-40 place-items-center rounded-lg bg-muted/40">
-      {value ? <Image unoptimized src={value} alt="Foto cadastrada do produto" width={1024} height={768} className="h-52 w-full object-contain" /> : <p className="p-6 text-sm text-muted-foreground">Nenhuma foto cadastrada</p>}
+      {value ? <Image unoptimized src={value} alt="Foto cadastrada do produto" width={1024} height={768} className="h-72 w-full object-contain sm:h-96" /> : <p className="p-6 text-sm text-muted-foreground">Nenhuma foto cadastrada</p>}
     </div>
     {!readOnly && <>
       <label className="grid min-w-0 gap-2 text-sm">Selecionar foto do produto<input className="block w-full min-w-0 max-w-full" type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled || busy} onChange={async event => {

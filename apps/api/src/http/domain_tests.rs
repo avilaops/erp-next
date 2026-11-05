@@ -71,6 +71,155 @@ fn movement(id: &str, direction: &str, quantity: &str) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn catalog_profiles_preserve_prices_enforce_revisions_and_hide_other_tenants(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    sqlx::raw_sql(&format!("GRANT USAGE ON SCHEMA system_config TO {role}; GRANT SELECT ON system_config.files TO {role}"))
+        .execute(&admin).await.unwrap();
+    let id = create(&router).await;
+    let tenant = Uuid::parse_str(TENANT).unwrap();
+    let other = Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+    let foreign_product = Uuid::now_v7();
+    sqlx::query("INSERT INTO products(tenant_id,id,sku,name,unit,price_cents,status) VALUES($1,$2,'FOREIGN','Outro produto','UN',999,'active')")
+        .bind(other).bind(foreign_product).execute(&admin).await.unwrap();
+    sqlx::query("INSERT INTO tenant_memberships(id,tenant_id,identity_id,status) VALUES($1,$2,'33333333-3333-4333-8333-333333333333','active')")
+        .bind(Uuid::now_v7()).bind(other).execute(&admin).await.unwrap();
+    let main = Uuid::now_v7();
+    let source = Uuid::now_v7();
+    let foreign_media = Uuid::now_v7();
+    for (owner, product_id, asset, variant) in [
+        (tenant, Uuid::parse_str(&id).unwrap(), main, "webp"),
+        (tenant, Uuid::parse_str(&id).unwrap(), source, "source"),
+        (other, foreign_product, foreign_media, "webp"),
+    ] {
+        let file = Uuid::now_v7();
+        sqlx::query("INSERT INTO system_config.files(tenant_id,id,storage_key,original_name,media_type,byte_size,sha256,status,created_by) VALUES($1,$2,$3,'photo.webp','image/webp',10,repeat('0',64),'available','33333333-3333-4333-8333-333333333333')")
+            .bind(owner).bind(file).bind(format!("r2://ludus-equipamentos-midias/ludus/catalogo/v1/{asset}"))
+            .execute(&admin).await.unwrap();
+        sqlx::query("INSERT INTO product_media_assets(tenant_id,id,product_id,file_id,collection,variant,version,width_px,height_px) VALUES($1,$2,$3,$4,'core',$5,1,800,600)")
+            .bind(owner).bind(asset).bind(product_id).bind(file).bind(variant).execute(&admin).await.unwrap();
+        if variant == "webp" {
+            sqlx::query("INSERT INTO product_catalog_profiles(tenant_id,product_id,collection,muscle_group,technical_category,dimensions_mm,description,public_path,main_media_id) VALUES($1,$2,'core','Costas','Articulado',ARRAY[1200,900,1800],'Descrição','/core/teste/',$3)")
+                .bind(owner).bind(product_id).bind(asset).execute(&admin).await.unwrap();
+        }
+    }
+    let uri = format!("/api/v1/products/{id}/catalog");
+    let read = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    assert_eq!(read.0, StatusCode::OK);
+    assert_eq!(read.2["canEdit"], false);
+    assert_eq!(read.2["assets"].as_array().unwrap().len(), 2);
+    let mut input = json!({"collection":"premium","muscleGroup":"Peitoral","technicalCategory":"Peso livre","dimensionsMm":[1400,1000,1600],"description":"Atualizado","weight":"","weightStack":"","mainMediaId":main});
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            "reader",
+            Some("\"1\""),
+            None,
+            input.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    for invalid in [source, foreign_media] {
+        input["mainMediaId"] = json!(invalid);
+        assert_eq!(
+            call(
+                &router,
+                "PUT",
+                &uri,
+                "editor",
+                Some("\"1\""),
+                None,
+                input.clone()
+            )
+            .await
+            .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    input["mainMediaId"] = json!(main);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            "editor",
+            Some("\"1\""),
+            None,
+            input.clone()
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(&router, "PUT", &uri, "editor", Some("\"1\""), None, input)
+            .await
+            .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    let preview = call(
+        &router,
+        "GET",
+        "/api/v1/catalog-publication",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(preview.0, StatusCode::OK);
+    assert_eq!(preview.2["products"].as_array().unwrap().len(), 1);
+    assert_eq!(preview.2["products"][0]["colecao"], "premium");
+    assert!(preview.2["products"][0].get("basePrice").is_none());
+    assert!(preview.2["products"][0].get("ncm").is_none());
+    assert_eq!(preview.2["previewHash"].as_str().unwrap().len(), 64);
+    let product = call(
+        &router,
+        "GET",
+        &format!("/api/v1/products/{id}"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(product.2["data"]["basePrice"], "0.33");
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &format!("/api/v1/products/{foreign_product}/catalog"),
+            "reader",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &format!("/api/v1/products/{id}/media/{foreign_media}"),
+            "reader",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn product_categories_are_tenant_scoped_filterable_and_preserved_on_legacy_updates(
     admin: PgPool,
 ) {

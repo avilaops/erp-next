@@ -72,6 +72,9 @@ pub async fn create(
             quantity: format!("{}.000000", input.quote.quantity),
             structure_color: input.structure_color,
             upholstery_color: input.upholstery_color,
+            arm_color: None,
+            plate_holder_color: None,
+            plate_holder_type: None,
         }],
     };
     let mut order = super::prepare_order(&mut tx, tenant, &order_input, None).await?;

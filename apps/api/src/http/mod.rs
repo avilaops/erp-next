@@ -83,7 +83,7 @@ mod template_draft_tests;
 
 use axum::{
     Router, middleware,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
@@ -134,6 +134,30 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/commercial-settings/{line}/preview",
             post(crate::platform::commercial_settings::preview),
+        )
+        .route(
+            "/api/v1/fixed-expenses",
+            get(crate::domains::fixed_expenses::list).post(crate::domains::fixed_expenses::create),
+        )
+        .route(
+            "/api/v1/fixed-expenses/{id}",
+            put(crate::domains::fixed_expenses::update),
+        )
+        .route(
+            "/api/v1/product-costs/{id}",
+            get(crate::platform::product_costs::get).put(crate::platform::product_costs::put),
+        )
+        .route(
+            "/api/v1/price-tables/{line}",
+            get(crate::platform::price_tables::current),
+        )
+        .route(
+            "/api/v1/price-tables/{line}/preview",
+            get(crate::platform::price_tables::preview),
+        )
+        .route(
+            "/api/v1/price-tables/{line}/publish",
+            post(crate::platform::price_tables::publish),
         )
         .merge(crate::platform::subscriptions::routes())
         .merge(crate::domains::commissions::routes())

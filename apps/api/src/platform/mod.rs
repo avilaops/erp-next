@@ -10,6 +10,8 @@ mod company_data;
 pub mod invitations;
 pub mod onboarding;
 pub mod preferences;
+pub mod price_tables;
+pub mod product_costs;
 pub(crate) use company_data::{CompanyData, valid_document};
 pub mod langfuse;
 pub mod service_auth;

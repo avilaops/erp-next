@@ -27,7 +27,6 @@ import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
 import type { PersonalPreferences } from "@/features/preferences/system/system-preferences"
 
-type Product = Schema<"Product">
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
 const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [] }
@@ -193,7 +192,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {!view && snapshot.canEdit && (dirty || recovered || storageError) && <Button variant="outline" onClick={reload} disabled={saving || uncertain}>Descartar rascunho</Button>}
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
-        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link>}</> : <form className="space-y-5" onSubmit={save}>
+        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoDataUrl ?? undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={draft.photoDataUrl ?? undefined} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">

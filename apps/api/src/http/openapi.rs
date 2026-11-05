@@ -86,7 +86,10 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::monitor::status, fiscal::monitor::sync, fiscal::monitor::download_xml,
         fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
-        service_auth::revoke),
+        service_auth::revoke,
+        crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
+        crate::platform::product_costs::get, crate::platform::product_costs::put,
+        crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),
     components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
     modifiers(&Security),
     tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
@@ -366,7 +369,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 182);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 187);
         let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
         for status in ["204", "400", "401", "403", "500", "503"] {
             assert!(selection["responses"].get(status).is_some());

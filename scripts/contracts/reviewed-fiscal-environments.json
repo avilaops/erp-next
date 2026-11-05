@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "erp-openapi-reviewed-correction/1",
+  "id": "FISCAL-ENV-2026-11-05-PR122",
+  "admissionReason": "reviewed_capability_extension",
+  "pullRequest": "https://github.com/avilaops/erp-next/pull/122",
+  "authorization": {
+    "date": "2026-11-05",
+    "kind": "feature_request",
+    "source": "Pedido do usuário nesta sessão para habilitar o software e deixar dados/configuração sob responsabilidade do usuário.",
+    "decision": "Implementar seleção de produção no software NF-e.",
+    "scope": "Somente os sete acréscimos do valor production ao enum de resposta Environment entre os dois contratos fixados por SHA-256. Não autoriza outras incompatibilidades nem emissão real."
+  },
+  "evidence": {
+    "sourceCommit": "a61423d7db427c4e5d04774d5886bd0a21ef5467",
+    "workflowRun": "https://github.com/avilaops/erp-next/actions/runs/42070474687",
+    "artifactId": 13435354337,
+    "explanation": [
+      "A alteração funcional solicitada acrescenta produção; as respostas de homologação e os campos anteriores são preservados.",
+      "O frontend regenera os tipos a partir do contrato da mesma release e apresenta o ambiente do documento. Consumidores antigos com enum fechado precisam regenerar tipos antes de usar produção.",
+      "O relatório permanece compatible=false e runtimeVerified=false. A admissão exige ambos os hashes, comparador/limiar e todos os achados completos; não aceita um oitavo achado ou novos contratos."
+    ]
+  },
+  "baselineSha256": "3eba63098f093a87186374212e6efc409a98f3f437c2a2048e1ad04980babe3a",
+  "candidateSha256": "0cc034af75d5bd02a9ce1088bb05e592c5ded5defaef27eeb1a710a196bd2a6d",
+  "comparator": {
+    "name": "oasdiff",
+    "version": "1.34.1",
+    "failOn": "WARN"
+  },
+  "findings": [
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/oneOf[#/components/schemas/ProfileInput]/environment` response property for the response status `200`",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "level": 3,
+      "operation": "GET",
+      "operationId": "get_profile",
+      "path": "/api/v1/fiscal/config",
+      "section": "paths",
+      "fingerprint": "6a357e7feb43"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/oneOf[#/components/schemas/ProfileInput]/environment` response property for the response status `200`",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "level": 3,
+      "operation": "PUT",
+      "operationId": "put_profile",
+      "path": "/api/v1/fiscal/config",
+      "section": "paths",
+      "fingerprint": "4eec44ed653a"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/items/input/environment` response property for the response status `200` (shared schema: `Environment`, also at `data/items/issuer/profile/environment`)",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "sharedSchema": {
+        "name": "Environment",
+        "properties": [
+          "data/items/input/environment",
+          "data/items/issuer/profile/environment"
+        ],
+        "count": 2
+      },
+      "level": 3,
+      "operation": "GET",
+      "operationId": "get:/api/v1/fiscal/nfe",
+      "path": "/api/v1/fiscal/nfe",
+      "section": "paths",
+      "fingerprint": "4e46cb084e8f"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/input/environment` response property for the response status `201` (shared schema: `Environment`, also at `data/issuer/profile/environment`)",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "sharedSchema": {
+        "name": "Environment",
+        "properties": [
+          "data/input/environment",
+          "data/issuer/profile/environment"
+        ],
+        "count": 2
+      },
+      "level": 3,
+      "operation": "POST",
+      "operationId": "post:/api/v1/fiscal/nfe",
+      "path": "/api/v1/fiscal/nfe",
+      "section": "paths",
+      "fingerprint": "60dec4f758e6"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/input/environment` response property for the response status `200` (shared schema: `Environment`, also at `data/issuer/profile/environment`)",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "sharedSchema": {
+        "name": "Environment",
+        "properties": [
+          "data/input/environment",
+          "data/issuer/profile/environment"
+        ],
+        "count": 2
+      },
+      "level": 3,
+      "operation": "GET",
+      "operationId": "get_draft",
+      "path": "/api/v1/fiscal/nfe/{id}",
+      "section": "paths",
+      "fingerprint": "14832c781eae"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `data/input/environment` response property for the response status `200` (shared schema: `Environment`, also at `data/issuer/profile/environment`)",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "sharedSchema": {
+        "name": "Environment",
+        "properties": [
+          "data/input/environment",
+          "data/issuer/profile/environment"
+        ],
+        "count": 2
+      },
+      "level": 3,
+      "operation": "PUT",
+      "operationId": "put:/api/v1/fiscal/nfe/{id}",
+      "path": "/api/v1/fiscal/nfe/{id}",
+      "section": "paths",
+      "fingerprint": "6b6a037e1f56"
+    },
+    {
+      "id": "response-property-enum-value-added",
+      "text": "added the new `production` enum value to the `environment` response property for the response status `200`",
+      "comment": "The server may now return a value the previous contract excluded, so a client written against it may not handle the response. If the value set is meant to grow, declare it with x-extensible-enum.",
+      "level": 3,
+      "operation": "GET",
+      "operationId": "readiness",
+      "path": "/api/v1/fiscal/readiness",
+      "section": "paths",
+      "fingerprint": "2d0abe500dce"
+    }
+  ]
+}

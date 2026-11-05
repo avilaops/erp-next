@@ -50,12 +50,14 @@ de consulta remove os registros anteriores e mostra erro, sem simular vazio.
 - BFF correspondente em `/api/erp/fiscal/`, sem cache e com origem/empresa
   verificadas na escrita.
 - Consulta de configuração exige `fiscal.config.read`; escrita também exige
-  `fiscal.config.manage`. Eventos exigem `fiscal.nfe.read`.
+  `fiscal.config.manage`. Naturezas também podem ser consultadas com
+  `fiscal.nfe.read`, sem liberar configuração NFC-e ou escrita. Eventos exigem
+  `fiscal.nfe.read`.
 - Gravação exige `If-Match`, serializa por empresa e registra auditoria/outbox.
 - Migração nova cria somente armazenamento com RLS; não preenche dados fiscais.
 - Testes verificam segredo, contexto criptográfico, revisão, permissões,
   isolamento, CFOP, duplicações, paginação, persistência e celular.
 
-Liberação de produção NF-e e emissão NFC-e permanecem etapas distintas desta
-base de configuração. Não executar emissão, inutilização ou correção real para
-validar formulários.
+Os ambientes NF-e 55/SP são descritos em `FISCAL-AMBIENTES.md`; a emissão NFC-e
+permanece integração própria, distinta desta configuração. Não executar emissão,
+inutilização ou correção real para validar formulários.

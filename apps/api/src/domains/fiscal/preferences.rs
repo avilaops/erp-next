@@ -166,15 +166,17 @@ pub async fn get(
     Path(section): Path<String>,
 ) -> Result<Response, DomainError> {
     let empty = default_data(&section)?;
-    let (tenant, mut tx, can_edit) = authorized(
-        &state,
-        &headers,
-        &identity,
-        "fiscal.config.read",
-        "fiscal.config.manage",
-        false,
-    )
-    .await?;
+    let tenant = access::tenant_id(&headers)?;
+    let mut tx = access::tenant_transaction(&state, tenant).await?;
+    let rights = access::load_access(&mut tx, tenant, &identity.subject).await?;
+    let can_read_config = access::require_permission(&rights, "fiscal.config.read").is_ok();
+    let can_read_natures = section == "operation-natures"
+        && access::require_permission(&rights, "fiscal.nfe.read").is_ok();
+    if !can_read_config && !can_read_natures {
+        return Err(access::AccessError::Forbidden.into());
+    }
+    let can_edit =
+        can_read_config && access::require_permission(&rights, "fiscal.config.manage").is_ok();
     let row: Option<Row> = sqlx::query_as("SELECT revision,data,secret_key_id,secret_nonce,secret_ciphertext,secret_context FROM fiscal_preferences WHERE tenant_id=$1 AND section=$2").bind(tenant).bind(section).fetch_optional(&mut *tx).await.map_err(db)?;
     let (revision, data) = row.map(|r| (r.revision, r.data)).unwrap_or((1, empty));
     tx.commit().await.map_err(db)?;

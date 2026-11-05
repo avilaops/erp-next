@@ -50,7 +50,7 @@ export function publishedNfeService(issuerUf: string, environment: NfeEnvironmen
   };
 }
 
-/** Preserve the existing SP resolvers. Production dispatch remains blocked in the engine. */
+/** Both environments use the pinned SP services; other routes remain explicit. */
 export function configuredNfeServiceUrl(issuerUf: string, environment: NfeEnvironment, service: NfeService, mode: RouteMode = "normal"): string {
   if (mode !== "normal") throw new NfeRoutingError("Fluxo de contingência NF-e ainda não implementado nem habilitado.");
   if (issuerUf !== "SP") throw new NfeRoutingError("UF ainda não habilitada para transporte: só São Paulo permanece configurado.");

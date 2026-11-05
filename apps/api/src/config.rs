@@ -15,7 +15,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
-        reject_production_fiscal_mode(
+        validate_legacy_fiscal_flag(
             &env::var("NFE_PRODUCTION_ENABLED").unwrap_or_else(|_| "false".to_owned()),
         )?;
         let bind_address = env::var("API_BIND_ADDRESS")
@@ -75,22 +75,25 @@ fn danfe_configuration() -> anyhow::Result<Option<crate::domains::fiscal::danfe_
     crate::domains::fiscal::danfe_client::DanfeClient::new(&endpoint, &token, bundle).map(Some)
 }
 
-fn reject_production_fiscal_mode(value: &str) -> anyhow::Result<()> {
+// Kept for deployment compatibility. Environment selection belongs to the
+// persisted tenant profile; this legacy variable cannot issue or switch a note.
+fn validate_legacy_fiscal_flag(value: &str) -> anyhow::Result<()> {
     ensure!(
-        value == "false",
-        "NFE_PRODUCTION_ENABLED must remain false: production NF-e is not implemented or approved"
+        ["false", "true"].contains(&value),
+        "NFE_PRODUCTION_ENABLED must be a boolean; select the fiscal environment in the company profile"
     );
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::reject_production_fiscal_mode;
+    use super::validate_legacy_fiscal_flag;
     #[test]
-    fn production_fiscal_flag_cannot_enable_transmission() {
-        assert!(reject_production_fiscal_mode("false").is_ok());
-        for value in ["true", "1", "", "False", "production"] {
-            assert!(reject_production_fiscal_mode(value).is_err());
+    fn legacy_flag_accepts_booleans_without_selecting_a_company_environment() {
+        assert!(validate_legacy_fiscal_flag("false").is_ok());
+        assert!(validate_legacy_fiscal_flag("true").is_ok());
+        for value in ["1", "", "False", "production"] {
+            assert!(validate_legacy_fiscal_flag(value).is_err());
         }
     }
 }

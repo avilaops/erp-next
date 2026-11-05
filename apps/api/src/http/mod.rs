@@ -21,6 +21,8 @@ mod cte_links_tests;
 #[cfg(test)]
 mod custom_fields_tests;
 #[cfg(test)]
+mod custom_reports_tests;
+#[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
 mod domain_tests;
@@ -176,6 +178,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-fields/{id}",
             axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route(
+            "/api/v1/system/custom-reports",
+            get(crate::platform::custom_reports::list)
+                .post(crate::platform::custom_reports::create),
+        )
+        .route(
+            "/api/v1/system/custom-reports/{id}",
+            axum::routing::put(crate::platform::custom_reports::update),
         )
         .merge(crate::domains::returns::routes())
         .route(

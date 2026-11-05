@@ -47,7 +47,7 @@ async fn call(
 }
 async fn seed(admin: &PgPool) {
     sqlx::raw_sql(&format!("
-        INSERT INTO role_permissions(role_id,permission_code) SELECT id,code FROM roles CROSS JOIN permissions WHERE code IN ('sales.orders.read','sales.orders.manage');
+        INSERT INTO role_permissions(role_id,permission_code) SELECT r.id,p.code FROM roles r CROSS JOIN permissions p WHERE p.code IN ('sales.orders.read','sales.orders.manage');
         INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status,structure_colors) VALUES('{PRODUCT}','{TENANT}','TEST','Equipamento publicado','UN',1999,'active',ARRAY['Preto']);
         INSERT INTO stock_balances(tenant_id,product_id,quantity_micros) VALUES('{TENANT}','{PRODUCT}',100000000);
         INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES('{CUSTOMER}','{TENANT}','fisica','Cliente real','52998224725',true,false,'active');

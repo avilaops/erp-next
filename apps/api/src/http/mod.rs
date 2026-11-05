@@ -79,6 +79,8 @@ mod returns_tests;
 #[cfg(test)]
 mod sales_settings_tests;
 #[cfg(test)]
+mod simulator_tests;
+#[cfg(test)]
 mod staff_tests;
 #[cfg(test)]
 mod subscription_tests;
@@ -156,6 +158,26 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/product-costs/{id}",
             get(crate::platform::product_costs::get).put(crate::platform::product_costs::put),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}",
+            get(crate::domains::sales::pricing::options),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/quote",
+            post(crate::domains::sales::pricing::quote),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/orders",
+            post(crate::domains::sales::pricing_orders::create),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing",
+            get(crate::domains::sales::pricing_orders::get),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing/approve",
+            post(crate::domains::sales::pricing_orders::approve),
         )
         .route(
             "/api/v1/price-tables/{line}",

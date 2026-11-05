@@ -21,8 +21,9 @@ import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
 import { commercialMoney, commercialQuantity, orderNumber } from "./order-presentation"
+import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 
-type Detail = Schema<"OrderSnapshot">
+type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean }
 type Listing = Schema<"OrderList">
 export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
 type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
@@ -149,6 +150,7 @@ function OrderEditor({ id }: { id?: string }) {
   if (access.loading) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><p role="status">Carregando rascunho e permissões…</p></>
   if (access.error || !access.value) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><Link className={linkClass} href="/vendas/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section></>
   const initial = "items" in access.value ? access.value : undefined
+  if (initial?.pricingOrigin) return <><PageHeader eyebrow="Vendas" title="Condições preservadas" description="Este pedido mantém os itens e preços da simulação publicada." /><Link className={linkClass} href={`/vendas/pedidos/${initial.data.id}`}>Consultar pedido e condições</Link></>
   if (!access.value.canEdit || (initial && initial.data.status !== "draft")) {
     return <><PageHeader eyebrow="Vendas" title="Edição do pedido" description="Alterações são permitidas somente em rascunhos com autorização de gestão." /><section className="form-section space-y-3"><p role="status">{!access.value.canEdit ? "Somente consulta. Solicite permissão para alterar pedidos." : "Este pedido não está em rascunho e não pode ser editado."}</p><Link className={linkClass} href={id ? `/vendas/pedidos/${id}` : "/vendas/pedidos"}>Voltar aos pedidos</Link></section></>
   }
@@ -234,11 +236,12 @@ function OrderDetail({ id }: { id: string }) {
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
         {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
+        {value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} />}
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
         {value.canEdit && value.data.status !== "cancelled" && <div className="space-y-2 rounded-xl border border-primary/30 p-4"><Link className={buttonVariants()} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link><p className="text-sm text-muted-foreground">Confira o documento e os destinatários. O resumo do pedido e o link de assinatura seguem no mesmo e-mail.</p></div>}
         {access.value?.permissions.includes("finance.commissions.read") && <OrderCommissionTerms orderId={id} onSaved={result.reload} />}
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
-        {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
+        {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
         <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {commercialQuantity(item.quantity)} {item.unit}</p><p className="break-words text-sm">Unitário: {commercialMoney(item.unitPrice)}</p><p className="break-words text-sm">Total do item: {commercialMoney(item.amount)}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}

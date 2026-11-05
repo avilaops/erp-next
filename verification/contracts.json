@@ -3144,6 +3144,38 @@
   }
 },
     {
+      "id": "post-company-registration-lookup",
+      "flow": "registry-lookups",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/company-registration/lookup" },
+      "actor": "authenticated_identity",
+      "permissions": [],
+      "input": {
+        "headers": ["Authorization"],
+        "pathParameters": [],
+        "body": { "source": "apps/api/src/domains/registry_lookup/registration.rs", "type": "RegistrationLookupInput" },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada pelo Auth; não exige empresa ou membership e não consulta dados privados do ERP.",
+        "CNPJ válido; BFF exige origem permitida, sessão válida, JSON limitado e ausência de query.",
+        "Preencher apenas campos vazios, validar documento atual e validade da fonte; falha permite cadastro manual."
+      ],
+      "transition": { "from": "cadastro inicial com CNPJ", "to": "dados cadastrais disponíveis no formulário; empresa ainda não criada" },
+      "effects": {
+        "writes": [],
+        "external": ["BrasilAPI e CNPJ.ws habilitado, com quota global compartilhada e cache/budget isolados por identidade."],
+        "excludes": ["Sem criação de tenant, seleção de empresa ou grants; sem QSA bruto, inferência de regime ou condição de contribuinte."]
+      },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Debounce e cancelamento; resposta tardia nunca preenche outro documento. Edições manuais são preservadas." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,409,415,422,503], "action": "Consultar CNPJ antes da criação da empresa" },
+      "recovery": "Continuar manualmente ou tentar consulta novamente. A criação usa seu próprio contrato idempotente.",
+      "ui": { "pages": ["/cadastro/empresa"], "bff": { "method": "POST", "path": "/api/erp/company-registration/lookup" }, "gap": "Disponibilidade externa e publicação exigem verificação separada." },
+      "sources": ["apps/api/src/domains/registry_lookup/registration.rs", "apps/api/src/domains/registry_lookup/client.rs", "apps/api/src/domains/registry_lookup/company_fields.rs", "apps/web/src/features/records/automatic-cnpj.tsx", "apps/web/src/features/company/company-onboarding.tsx", "apps/web/src/server/bff/erp-proxy.ts"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+
+    {
       "id": "post-registry-lookups",
       "flow": "registry-lookups",
       "status": "implemented",
@@ -3171,7 +3203,7 @@
       "preconditions": [
         "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
         "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
-        "BFF exige origem e empresa da sessão. Preencher exige confirmação, sessão atual, prévia válida e campos vazios; gravar usa contrato próprio."
+        "BFF exige origem e empresa da sessão. CNPJ na configuração da empresa preenche automaticamente campos vazios após conferir a sessão; consultas manuais mantêm prévia e confirmação. Gravar usa contrato próprio."
       ],
       "transition": {
         "from": "entrada manual ou prévia anterior",

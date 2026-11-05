@@ -18,10 +18,25 @@ let selectionStatus = 204
 let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
 let redirectAuthorization = false
+let registrationCalls = 0
+let registrationUnavailable = false
+const registrationReply = (value: string) => ({ value, status: "found", source: "BrasilAPI", sourceUpdatedAt: "2026-11-01T00:00:00Z", fetchedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600_000).toISOString(), warnings: [], data: {
+  fields: { legalName: "Empresa da fonte", tradeName: `Fantasia ${value.slice(0, 2)}`, postalCode: "01001000", state: "SP", city: "São Paulo", street: "Rua da fonte", number: "120", district: "Centro", complement: "Sala 2", email: "contato@example.test", phone: "1133334444", cnae: "6201501", activityDescription: "Atividade declarada", companySize: "micro" },
+  stateRegistrations: [{ state: "SP", number: "110042490114", active: true, sourceUpdatedAt: null }], taxpayerStatus: "unknown", genericPostalCode: false,
+} })
 const upstream = createServer(async (request, response) => {
   upstreamCalls++
   expect(request.headers.authorization).toBe("Bearer onboarding-fixture-token")
   response.setHeader("Content-Type", "application/json")
+  if (request.url === "/api/v1/company-registration/lookup") {
+    registrationCalls++
+    expect(request.headers["x-tenant-id"]).toBeUndefined()
+    let body = ""; for await (const chunk of request) body += chunk
+    const input = JSON.parse(body)
+    expect(Object.keys(input)).toEqual(["value"])
+    response.writeHead(registrationUnavailable ? 503 : 200)
+    response.end(JSON.stringify(registrationUnavailable ? { title: "Fonte indisponível. Continue manualmente." } : registrationReply(input.value))); return
+  }
   if (request.url === "/api/v1/companies") {
     expect(request.headers["x-tenant-id"]).toBeUndefined()
     if (request.method === "POST") {
@@ -78,7 +93,111 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; registrationCalls = 0; registrationUnavailable = false })
+
+test("CNPJ registration BFF requires identity and origin and never forwards a tenant", async ({ context }) => {
+  const url = "/api/erp/company-registration/lookup"
+  const data = { value: "04252011000110" }
+  expect((await context.request.post(url, { data, headers: { origin } })).status()).toBe(401)
+  await context.addCookies([cookie()])
+  expect((await context.request.post(url, { data, headers: { origin: "https://foreign.invalid" } })).status()).toBe(403)
+  expect((await context.request.post(url + "?value=04252011000110", { data, headers: { origin } })).status()).toBe(400)
+  expect((await context.request.get(url)).status()).toBe(405)
+  expect(registrationCalls).toBe(0)
+  const response = await context.request.post(url, { data, headers: { origin, "x-tenant-id": tenant } })
+  expect(response.status()).toBe(200)
+  expect(response.headers()["cache-control"]).toContain("no-store")
+  expect((await response.json()).tenantId).toBeUndefined()
+  expect(registrationCalls).toBe(1)
+})
+
+test("CNPJ fills registration and submits complementary configuration without replacing manual names", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/cadastro/empresa")
+  await page.getByLabel("Nome empresarial", { exact: true }).fill("Nome digitado")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04.252.011/0001-10")
+  await expect(page.getByLabel("Cidade", { exact: true })).toHaveValue("São Paulo")
+  await expect(page.getByLabel("Nome empresarial", { exact: true })).toHaveValue("Nome digitado")
+  await expect(page.getByLabel("E-mail da empresa", { exact: true })).toHaveValue("contato@example.test")
+  await page.getByText("Dados complementares da empresa", { exact: true }).click()
+  await expect(page.getByLabel("Telefone", { exact: true })).toHaveValue("1133334444")
+  await expect(page.getByLabel("CNAE principal", { exact: true })).toHaveValue("6201501")
+  await expect(page.getByRole("combobox", { name: "Porte", exact: true })).toHaveValue("micro")
+  await expect(page.getByLabel("Inscrição estadual", { exact: true })).toHaveValue("110042490114")
+  await expect(page.getByRole("combobox", { name: "Regime tributário", exact: true })).toHaveValue("")
+  await page.getByRole("combobox", { name: "Regime tributário", exact: true }).selectOption("real")
+  await page.getByRole("combobox", { name: "Segmento", exact: true }).selectOption("Serviços")
+  await page.getByRole("button", { name: "Cadastrar empresa", exact: true }).click()
+  await expect.poll(() => commands.length).toBe(1)
+  expect(JSON.parse(commands[0].body)).toMatchObject({ legalName: "Nome digitado", complement: "Sala 2", cnae: "6201501", activityDescription: "Atividade declarada", companySize: "micro", phone: "1133334444", email: "contato@example.test", stateRegistration: "110042490114", taxRegime: "real", segments: ["Serviços"] })
+  expect(registrationCalls).toBe(1)
+})
+
+test("CNPJ changes replace only automatically filled fields and preserve subsequent manual edits", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/cadastro/empresa")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04252011000110")
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 04")
+  await page.getByLabel("Nome empresarial", { exact: true }).fill("Minha edição")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("19131243000197")
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 19")
+  await expect(page.getByLabel("Nome empresarial", { exact: true })).toHaveValue("Minha edição")
+  expect(registrationCalls).toBe(2)
+})
+
+test("an explicit Simples option fills an empty regime and never replaces a customer choice", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/company-registration/lookup", route => {
+    const result = registrationReply(route.request().postDataJSON().value)
+    return route.fulfill({ json: { ...result, data: { ...result.data, fields: { ...result.data.fields, taxRegime: "simples" } } } })
+  })
+  await page.goto("/cadastro/empresa")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04252011000110")
+  await expect(page.getByRole("combobox", { name: "Regime tributário", exact: true })).toHaveValue("simples")
+  await page.getByRole("combobox", { name: "Regime tributário", exact: true }).selectOption("real")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("19131243000197")
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 19")
+  await expect(page.getByRole("combobox", { name: "Regime tributário", exact: true })).toHaveValue("real")
+})
+
+test("late CNPJ response never fills a different document", async ({ page, context }) => {
+  let release!: () => void
+  let started!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const received = new Promise<void>(resolve => { started = resolve })
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/company-registration/lookup", async route => {
+    const input = route.request().postDataJSON()
+    if (input.value === "04252011000110") { started(); await gate }
+    await route.fulfill({ json: registrationReply(input.value) }).catch(() => undefined)
+  })
+  await page.goto("/cadastro/empresa")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04252011000110")
+  await received
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("19131243000197")
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 19")
+  release()
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 19")
+})
+
+test("CPF and invalid CNPJ stay manual while a provider failure offers retry", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/cadastro/empresa")
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("52998224725")
+  await page.waitForTimeout(750)
+  expect(registrationCalls).toBe(0)
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04252011000111")
+  await page.waitForTimeout(750)
+  expect(registrationCalls).toBe(0)
+  registrationUnavailable = true
+  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill("04252011000110")
+  await expect(page.getByRole("button", { name: "Tentar consulta novamente", exact: true })).toBeVisible()
+  await page.getByLabel("Cidade", { exact: true }).fill("Cidade manual")
+  registrationUnavailable = false
+  await page.getByRole("button", { name: "Tentar consulta novamente", exact: true }).click()
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia 04")
+  await expect(page.getByLabel("Cidade", { exact: true })).toHaveValue("Cidade manual")
+})
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true

@@ -1,10 +1,13 @@
 mod client;
+mod company_fields;
 pub mod model;
 mod parse;
+pub mod registration;
 #[cfg(test)]
 mod tests;
 
 pub use client::RegistryClient;
+pub use registration::lookup_registration;
 
 use crate::{
     domains::{DomainError, authorized, db, response},

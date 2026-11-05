@@ -72,6 +72,25 @@ test("CNPJ preview requires confirmation and preserves edited names", async ({ p
   await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Nome editado")
 })
 
+test("company CNPJ automatically fills contacts and fiscal activity across sections without saving", async ({ page, context }) => {
+  let saves = 0
+  await context.route("**/api/erp/company", route => {
+    if (route.request().method() === "PUT") saves++
+    return route.fulfill({ json: { tenantId: tenant, revision: 1, canEdit: true, data: { ...Object.fromEntries(companyFields.map(field => [field, ""])), legalName: "Empresa manual", personType: "juridica", taxId: "04252011000110", taxRegime: "real", segments: ["Comércio"], substituteRegistrations: [] } }, headers: { etag: '"1"' } })
+  })
+  await context.route("**/api/erp/registry-lookups", route => route.fulfill({ json: { ...reply("cnpj", "04252011000110"), data: { fields: { legalName: "Fonte", tradeName: "Fantasia automática", email: "contato@example.test", phone: "1133334444", cnae: "6201501", activityDescription: "Atividade da fonte", companySize: "micro", state: "SP" }, stateRegistrations: [], taxpayerStatus: "unknown", genericPostalCode: false } } }))
+  await page.goto("/preferencias/empresa/dados")
+  await expect(page.getByLabel("Nome fantasia", { exact: true })).toHaveValue("Fantasia automática")
+  await expect(page.getByLabel("Nome empresarial *", { exact: true })).toHaveValue("Empresa manual")
+  await page.getByRole("button", { name: "Dados fiscais e atividade", exact: true }).click()
+  await expect(page.locator("input[name=cnae]")).toHaveValue("6201501")
+  await expect(page.locator("select[name=companySize]")).toHaveValue("micro")
+  await expect(page.locator("select[name=taxRegime]")).toHaveValue("real")
+  await expect(page.locator("input[name=email]")).toHaveValue("contato@example.test")
+  await expect(page.locator("input[name=phone]")).toHaveValue("1133334444")
+  expect(saves).toBe(0)
+})
+
 test("a session switched in another tab prevents applying the old company preview", async ({ page, context }) => {
   await page.goto(`/cadastros/clientes-fornecedores/${record}/editar`)
   await page.getByRole("button", { name: "Consultar CNPJ", exact: true }).click()

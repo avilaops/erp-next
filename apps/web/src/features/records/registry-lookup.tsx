@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 type Reply = Schema<"LookupReply">
 type Kind = Schema<"LookupKind">
 type Context = Schema<"LookupContext">
-const labels: Record<string, string> = { postalCode: "CEP", state: "UF", city: "Cidade", street: "Rua", district: "Bairro", legalName: "Razão social", tradeName: "Nome fantasia", number: "Número", complement: "Complemento", cnae: "CNAE", activityDescription: "Atividade", stateRegistration: "Inscrição estadual" }
+const labels: Record<string, string> = { postalCode: "CEP", state: "UF", city: "Cidade", street: "Rua", district: "Bairro", legalName: "Razão social", tradeName: "Nome fantasia", number: "Número", complement: "Complemento", cnae: "CNAE", activityDescription: "Atividade", stateRegistration: "Inscrição estadual", companySize: "Porte", taxRegime: "Regime informado pela fonte", email: "E-mail", phone: "Telefone" }
 const normalized = (value: string) => value.trim().replace(/[.\s/-]/g, "").toUpperCase()
 const date = (value: string) => Number.isNaN(Date.parse(value)) ? "Data não informada" : new Date(value).toLocaleString("pt-BR")
 

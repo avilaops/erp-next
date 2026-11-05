@@ -158,7 +158,7 @@ fn nfce_data(value: &mut NfceSettings) -> Result<Value, DomainError> {
         json!({"environment":value.environment,"state":value.state,"series":value.series,"nextNumber":value.next_number,"cscId":value.csc_id,"cscConfigured":true}),
     )
 }
-#[utoipa::path(get,path="/api/v1/fiscal/settings/{section}",tag="Fiscal",security(("bearerAuth"=[])),params(("section"=String,Path)),responses((status=200,body=FiscalPreferencesSnapshot),(status=403,description="Sem acesso fiscal"),(status=404,description="Seção desconhecida")))]
+#[utoipa::path(get,path="/api/v1/fiscal/settings/{section}",operation_id="get_fiscal_preferences",tag="Fiscal",security(("bearerAuth"=[])),params(("section"=String,Path)),responses((status=200,body=FiscalPreferencesSnapshot),(status=403,description="Sem acesso fiscal"),(status=404,description="Seção desconhecida")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -190,7 +190,7 @@ pub async fn get(
         },
     ))
 }
-#[utoipa::path(put,path="/api/v1/fiscal/settings/{section}",tag="Fiscal",security(("bearerAuth"=[])),params(("section"=String,Path),("If-Match"=String,Header)),request_body=FiscalPreferencesInput,responses((status=200,body=FiscalPreferencesSnapshot),(status=403,description="Sem gestão fiscal"),(status=404,description="Seção desconhecida"),(status=412,description="Revisão desatualizada"),(status=422,description="Configuração inválida"),(status=428,description="If-Match obrigatório"),(status=409,description="Armazenamento seguro indisponível")))]
+#[utoipa::path(put,path="/api/v1/fiscal/settings/{section}",operation_id="put_fiscal_preferences",tag="Fiscal",security(("bearerAuth"=[])),params(("section"=String,Path),("If-Match"=String,Header)),request_body=FiscalPreferencesInput,responses((status=200,body=FiscalPreferencesSnapshot),(status=403,description="Sem gestão fiscal"),(status=404,description="Seção desconhecida"),(status=412,description="Revisão desatualizada"),(status=422,description="Configuração inválida"),(status=428,description="If-Match obrigatório"),(status=409,description="Armazenamento seguro indisponível")))]
 pub async fn put(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -356,7 +356,7 @@ pub struct FiscalEventsPage {
     data: Vec<FiscalEventRecord>,
     next_cursor: Option<Uuid>,
 }
-#[utoipa::path(get,path="/api/v1/fiscal/nfe-events",tag="Fiscal",security(("bearerAuth"=[])),params(EventQuery),responses((status=200,body=FiscalEventsPage),(status=403,description="Sem acesso fiscal"),(status=422,description="Filtros inválidos")))]
+#[utoipa::path(get,path="/api/v1/fiscal/nfe-events",operation_id="list_fiscal_events",tag="Fiscal",security(("bearerAuth"=[])),params(EventQuery),responses((status=200,body=FiscalEventsPage),(status=403,description="Sem acesso fiscal"),(status=422,description="Filtros inválidos")))]
 pub async fn events(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

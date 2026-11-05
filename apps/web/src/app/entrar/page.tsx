@@ -39,7 +39,7 @@ async function LoginForm({ searchParams }: LoginProps) {
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-10 lg:px-12">
         <header className="erp-entry-header flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
           <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-3 rounded-lg">
-            <span aria-hidden="true" className="grid size-10 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground">A</span>
+            <img src="/brand/avila-erp-symbol.svg" alt="" width="40" height="40" className="size-10" />
             <span className="leading-tight"><strong className="block text-base tracking-tight">Ávila ERP</strong><span className="mt-1 block text-sm text-muted-foreground">Avila Ops</span></span>
           </Link>
           <div className="flex items-center gap-3">

@@ -15,7 +15,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
   const [state, setState] = useState<"loading" | "ready" | "error">("loading")
   const suffix = attempt ? `?retry=${attempt}` : ""
 
-  return <span className={expanded ? "relative block" : "relative block max-h-80 overflow-hidden sm:max-h-none"}>
+  return <span className={expanded ? "erp-preview-frame relative block" : "erp-preview-frame relative block max-h-80 overflow-hidden sm:max-h-none"}>
     <picture className={state === "error" ? "hidden" : "block"}>
       <source media={landscapePreviewMedia} srcSet={"/erp-preview-landscape.png" + suffix} width={638} height={208} />
       <source media={mobilePreviewMedia} srcSet={"/erp-preview-mobile.png" + suffix} width={390} height={760} />
@@ -32,6 +32,10 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
         className={"block h-auto w-full" + (state === "ready" ? "" : " opacity-0")}
       />
     </picture>
+    {state === "ready" && <span aria-hidden="true" className="erp-preview-brand">
+      <img src="/brand/avila-erp-symbol.svg" alt="" />
+      <span><strong>Ávila ERP</strong><small>Ávila Ops</small></span>
+    </span>}
     {!expanded && state === "ready" && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-8 bg-gradient-to-t from-white to-transparent portrait:max-sm:block" />}
     {state === "loading" && <span role="status" className="absolute inset-0 flex items-center justify-center gap-2 bg-stone-50 p-4 text-sm text-stone-600">
       <LoaderCircle aria-hidden="true" className="size-5 shrink-0 animate-spin motion-reduce:animate-none" />Carregando prévia…

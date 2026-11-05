@@ -125,7 +125,7 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
     <div className="erp-workspace" data-collapsed={collapsed}>
       <TooltipProvider delay={250}>
         <nav ref={navigation} className="erp-sidebar" aria-label="Módulos do ERP">
-          <Link href="/" className="erp-brand" aria-label="Visão geral do ERP"><span className="erp-brand-mark">A</span><span className="erp-brand-name"><strong>ERP Next</strong><small>Ávila Ops</small></span></Link>
+          <Link href="/" className="erp-brand" aria-label="Visão geral do Ávila ERP"><img className="erp-brand-mark" src="/brand/avila-erp-symbol.svg" alt="" width="32" height="32" /><span className="erp-brand-name"><strong>Ávila ERP</strong><small>Ávila Ops</small></span></Link>
           <div className="erp-sidebar-scroll">
             {homeLinks}
             <p className="erp-nav-caption">Módulos</p>

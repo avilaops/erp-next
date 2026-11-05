@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "ERP Next · Ávila Ops", template: "%s · ERP Next · Ávila Ops" },
+  title: { default: "Ávila ERP", template: "%s · Ávila ERP" },
   description: "Novo ERP modular da Ávila Ops",
+  icons: { icon: "/icon.svg", apple: "/brand/avila-erp-192.png" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

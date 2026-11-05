@@ -22,7 +22,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
         crate::platform::workflows::list, crate::platform::workflows::create, crate::platform::workflows::update, crate::platform::workflows::publish, crate::platform::workflows::archive,
         crate::domains::registry_lookup::lookup,
-        crate::domains::registry_lookup::lookup_registration,
+        crate::domains::registry_lookup::registration::lookup_registration,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,

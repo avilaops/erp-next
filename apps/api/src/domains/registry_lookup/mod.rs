@@ -2,7 +2,7 @@ mod client;
 mod company_fields;
 pub mod model;
 mod parse;
-mod registration;
+pub mod registration;
 #[cfg(test)]
 mod tests;
 

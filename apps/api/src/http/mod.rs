@@ -25,6 +25,8 @@ mod custom_reports_tests;
 #[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
+mod dashboard_tests;
+#[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
@@ -173,6 +175,7 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route("/api/v1/dashboard", get(crate::domains::dashboard::get))
         .route(
             "/api/v1/system/custom-fields",
             get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),

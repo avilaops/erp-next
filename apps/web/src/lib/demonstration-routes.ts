@@ -9,8 +9,6 @@ export const demonstrationRoutes = [
   "/compras/notas-entrada/[id]",
   "/compras/sugestoes",
   "/compras/sugestoes/[id]",
-  "/dashboards",
-  "/dashboards/[kind]",
   "/estoque/inventarios",
   "/estoque/inventarios/novo",
   "/estoque/inventarios/[id]",

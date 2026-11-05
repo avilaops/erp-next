@@ -78,7 +78,7 @@ export function PreferencesOverview() {
                     {item.href ? <Link href={item.href} className="flex min-h-12 items-start gap-2 py-3 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       <ChevronRight className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
                       <span className="min-w-0 flex-1"><span>{item.label}</span>{item.description && <span className="mt-1 block text-xs font-normal text-muted-foreground">{item.description}</span>}</span>
-                      {isDemonstrationRoute(item.href) && <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Prévia</span>}
+                      {isDemonstrationRoute(item.href) && <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Indisponível</span>}
                     </Link> : <div aria-disabled="true" title={item.unavailable} className="flex min-h-12 items-start gap-2 py-3 text-sm text-muted-foreground">
                       <ChevronRight className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       <span className="min-w-0 flex-1"><span>{item.label}</span><span className="sr-only">. {item.unavailable}</span></span>
@@ -89,7 +89,7 @@ export function PreferencesOverview() {
               </section>)}
             </div>
             {selected.sections.some(section => section.items.some(item => !item.href)) && <p className="mt-6 text-xs leading-5 text-muted-foreground">As opções marcadas como indisponíveis ainda não podem ser configuradas no ERP.</p>}
-            {selected.sections.some(section => section.items.some(item => item.href && isDemonstrationRoute(item.href))) && <p className="mt-4 text-xs leading-5 text-muted-foreground">Os links marcados como prévia abrem telas demonstrativas.</p>}
+            {selected.sections.some(section => section.items.some(item => item.href && isDemonstrationRoute(item.href))) && <p className="mt-4 text-xs leading-5 text-muted-foreground">As opções marcadas como indisponíveis ainda não oferecem operações nesta empresa.</p>}
           </section>
         </div>
       </> : <p role="status" className="py-8 text-sm text-muted-foreground">Nenhuma configuração encontrada.</p>}

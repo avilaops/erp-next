@@ -33,7 +33,7 @@ export function WorkspaceAccessNotice({ state }: { state: WorkspaceAccess["state
       ? "O login do ERP ainda não foi configurado neste ambiente. A configuração é necessária para acessar e salvar os cadastros."
       : state === "company"
         ? "Você já entrou. Selecione uma empresa ou cadastre a sua para continuar."
-        : "Entre com sua conta Ávila Ops para acessar os cadastros da sua empresa."}</p>
+        : "Entre com sua conta Avila Ops para acessar os cadastros da sua empresa."}</p>
     {state === "login" && <AccessLink />}
     {state === "company" && <div className="flex flex-wrap gap-4">
       <AccessLink page="/empresas">Selecionar empresa</AccessLink>

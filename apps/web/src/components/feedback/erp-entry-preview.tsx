@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
-const previewAlt = "Interface de produtos do Ávila ERP, com SKU, unidade, preço e situação. Os registros são demonstrativos."
+const previewAlt = "Interface de produtos do Avila ERP, com SKU, unidade, preço e situação. Os registros são demonstrativos."
 
 const landscapePreviewMedia = "(orientation: landscape) and (max-height: 500px) and (max-width: 959px)"
 const mobilePreviewMedia = "(max-width: 639px)"
@@ -34,7 +34,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
     </picture>
     {state === "ready" && <span aria-hidden="true" className="erp-preview-brand">
       <img src="/brand/avila-erp-symbol.svg" alt="" />
-      <span><strong>Ávila ERP</strong><small>Ávila Ops</small></span>
+      <span><strong>Avila ERP</strong><small>Avila Ops</small></span>
     </span>}
     {!expanded && state === "ready" && <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-8 bg-gradient-to-t from-white to-transparent portrait:max-sm:block" />}
     {state === "loading" && <span role="status" className="absolute inset-0 flex items-center justify-center gap-2 bg-stone-50 p-4 text-sm text-stone-600">
@@ -95,7 +95,7 @@ export function ErpEntryPreview() {
       <DialogContent showCloseButton={false} className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-2">
           <div className="space-y-1">
-            <DialogTitle>Por dentro do Ávila ERP</DialogTitle>
+            <DialogTitle>Por dentro do Avila ERP</DialogTitle>
             <DialogDescription>Interface real · Dados demonstrativos</DialogDescription>
           </div>
           <DialogClose render={<Button variant="ghost" className="size-11 shrink-0" aria-label="Fechar prévia" />}>

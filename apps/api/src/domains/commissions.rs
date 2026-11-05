@@ -58,6 +58,8 @@ pub struct CommissionAdjustmentInput {
     competence: String,
     payment_day: u8,
     reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    order_number: Option<String>,
 }
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -452,7 +454,7 @@ async fn book(
 ) -> Result<Value, DomainError> {
     // A single statement keeps revision, totals and the ledger in the same MVCC snapshot.
     let query = format!(
-        "SELECT jsonb_build_object('tenantId',$1::uuid,'canEdit',$3::boolean,'data',jsonb_build_object('sellerStaffId',b.seller_staff_id,'sellerName',b.seller_name,'revision',b.revision,'openAmount',round(b.open_cents::numeric/100,2)::text,'paidAmount',round(b.paid_cents::numeric/100,2)::text),'entries',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',e.id,'kind',e.kind,'sellerName',e.seller_name,'orderId',e.order_id,'receiptId',e.receipt_id,'reversalId',e.reversal_id,'reversesEntryId',e.reverses_entry_id,'competence',to_char(e.competence,'YYYY-MM'),'paymentDue',e.payment_due::text,'amount',(e.amount_cents::numeric/100)::numeric(16,2)::text,'baseAmount',(e.base_cents::numeric/100)::numeric(16,2)::text,'commissionRate',(e.commission_rate::numeric/10000)::numeric(9,4)::text,'ipiRate',(e.ipi_rate::numeric/10000)::numeric(9,4)::text,'reason',e.reason,'paymentId',x.payment_id) ORDER BY e.created_at,e.id) FROM commission_entries e LEFT JOIN commission_payment_entries x ON x.tenant_id=e.tenant_id AND x.entry_id=e.id WHERE e.tenant_id=$1 AND e.seller_staff_id=$2),'[]'::jsonb),'payments',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'throughCompetence',to_char(p.through_competence,'YYYY-MM'),'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'occurredOn',p.occurred_on::text,'reference',p.reference) ORDER BY p.created_at,p.id) FROM commission_payments p WHERE p.tenant_id=$1 AND p.seller_staff_id=$2),'[]'::jsonb)) FROM ({BALANCE} WHERE s.tenant_id=$1 AND s.id=$2 AND (s.is_seller OR a.seller_staff_id IS NOT NULL)) b"
+        "SELECT jsonb_build_object('tenantId',$1::uuid,'canEdit',$3::boolean,'data',jsonb_build_object('sellerStaffId',b.seller_staff_id,'sellerName',b.seller_name,'revision',b.revision,'openAmount',round(b.open_cents::numeric/100,2)::text,'paidAmount',round(b.paid_cents::numeric/100,2)::text),'entries',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',e.id,'kind',e.kind,'sellerName',e.seller_name,'orderId',e.order_id,'orderNumber',(SELECT o.number::text FROM sales_orders o WHERE o.tenant_id=e.tenant_id AND o.id=e.order_id),'receiptId',e.receipt_id,'reversalId',e.reversal_id,'reversesEntryId',e.reverses_entry_id,'competence',to_char(e.competence,'YYYY-MM'),'paymentDue',e.payment_due::text,'amount',(e.amount_cents::numeric/100)::numeric(16,2)::text,'baseAmount',(e.base_cents::numeric/100)::numeric(16,2)::text,'commissionRate',(e.commission_rate::numeric/10000)::numeric(9,4)::text,'ipiRate',(e.ipi_rate::numeric/10000)::numeric(9,4)::text,'reason',e.reason,'paymentId',x.payment_id) ORDER BY e.created_at,e.id) FROM commission_entries e LEFT JOIN commission_payment_entries x ON x.tenant_id=e.tenant_id AND x.entry_id=e.id WHERE e.tenant_id=$1 AND e.seller_staff_id=$2),'[]'::jsonb),'payments',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'throughCompetence',to_char(p.through_competence,'YYYY-MM'),'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'occurredOn',p.occurred_on::text,'reference',p.reference) ORDER BY p.created_at,p.id) FROM commission_payments p WHERE p.tenant_id=$1 AND p.seller_staff_id=$2),'[]'::jsonb)) FROM ({BALANCE} WHERE s.tenant_id=$1 AND s.id=$2 AND (s.is_seller OR a.seller_staff_id IS NOT NULL)) b"
     );
     sqlx::query_scalar(&query)
         .bind(tenant)
@@ -544,15 +546,38 @@ pub async fn adjust(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
+    let order = if let Some(number) = &input.order_number {
+        let normalized = number.trim().to_ascii_uppercase();
+        let raw = normalized.strip_prefix("PV-").unwrap_or(&normalized);
+        let number =
+            raw.parse::<i64>()
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or(DomainError::Invalid(
+                    "Informe o número do pedido, como PV-000001",
+                ))?;
+        let (order, seller) = sqlx::query_as::<_, (Uuid, Uuid)>(
+            "SELECT o.id,t.seller_staff_id FROM sales_orders o JOIN order_commission_terms t ON t.tenant_id=o.tenant_id AND t.order_id=o.id WHERE o.tenant_id=$1 AND o.number=$2 FOR SHARE OF o,t",
+        ).bind(tenant).bind(number).fetch_optional(&mut *tx).await.map_err(db)?
+            .ok_or(DomainError::Invalid("Pedido não encontrado ou sem comissão configurada nesta empresa"))?;
+        if seller != id {
+            return Err(DomainError::Invalid(
+                "O vendedor selecionado não é o vendedor da comissão deste pedido",
+            ));
+        }
+        Some(order)
+    } else {
+        None
+    };
     let name = seller_name(&mut tx, tenant, id, true).await?;
     let current = account(&mut tx, tenant, id).await?;
     if current != expected {
         return Err(DomainError::StaleRevision);
     }
     let entry = Uuid::now_v7();
-    sqlx::query("INSERT INTO commission_entries(id,tenant_id,seller_staff_id,seller_name,kind,competence,payment_due,base_cents,payment_day,amount_cents,reason) VALUES($1,$2,$3,$4,'adjustment',$5,$6,0,$7,$8,$9)").bind(entry).bind(tenant).bind(id).bind(name).bind(competence).bind(due).bind(i16::from(input.payment_day)).bind(amount).bind(&input.reason).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO commission_entries(id,tenant_id,seller_staff_id,seller_name,kind,competence,payment_due,base_cents,payment_day,amount_cents,reason,order_id) VALUES($1,$2,$3,$4,'adjustment',$5,$6,0,$7,$8,$9,$10)").bind(entry).bind(tenant).bind(id).bind(name).bind(competence).bind(due).bind(i16::from(input.payment_day)).bind(amount).bind(&input.reason).bind(order).execute(&mut *tx).await.map_err(db)?;
     bump(&mut tx, tenant, id).await?;
-    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"commission",id:entry,event:"commission.adjusted",details:json!({"sellerStaffId":id,"amount":signed(amount),"reason":input.reason,"competence":input.competence,"previousRevision":expected})}).await?;
+    record(&mut tx,tenant,&identity,&headers,DomainChange{kind:"commission",id:entry,event:"commission.adjusted",details:json!({"sellerStaffId":id,"orderId":order,"amount":signed(amount),"reason":input.reason,"competence":input.competence,"previousRevision":expected})}).await?;
     let result = book(&mut tx, tenant, id, true).await?;
     let rev = result["data"]["revision"].as_i64();
     remember(

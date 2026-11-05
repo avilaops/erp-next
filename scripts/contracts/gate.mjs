@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import reviewedCorrection from './reviewed-correction-avl402.json' with { type: 'json' };
+import reviewedFiscalEnvironments from './reviewed-fiscal-environments.json' with { type: 'json' };
 import baselineRepair from './baseline-1196d52.json' with { type: 'json' };
 import { validateOpenApi } from './consumer/openapi-validation.mjs';
 
@@ -32,21 +33,22 @@ export function evaluateCompatibilityPolicy(report) {
   // A reviewed documentation correction is an admission decision, never a rewrite
   // of oasdiff's compatibility result. Both immutable contracts must match.
   const order = findings => [...findings].sort((a, b) => a.fingerprint.localeCompare(b.fingerprint));
-  const accepted = report.compatible === false
+  const reviewed = [reviewedCorrection, reviewedFiscalEnvironments].find(correction => report.compatible === false
     && report.comparisonScope === 'event_base'
     && report.eventBaseCompatibilityVerified === false
     && report.runtimeVerified === false
-    && report.baselineSha256 === reviewedCorrection.baselineSha256
-    && report.candidateSha256 === reviewedCorrection.candidateSha256
-    && isDeepStrictEqual(report.comparator, reviewedCorrection.comparator)
+    && report.baselineSha256 === correction.baselineSha256
+    && report.candidateSha256 === correction.candidateSha256
+    && isDeepStrictEqual(report.comparator, correction.comparator)
     && Array.isArray(report.findings)
-    && report.findings.length === reviewedCorrection.findings.length
+    && report.findings.length === correction.findings.length
     && report.findings.every(item => item && typeof item.fingerprint === 'string')
-    && isDeepStrictEqual(order(report.findings), order(reviewedCorrection.findings));
+    && isDeepStrictEqual(order(report.findings), order(correction.findings)));
+  const accepted = Boolean(reviewed);
   return {
     accepted,
-    reason: accepted ? 'reviewed_schema_correction' : 'unreviewed_incompatibility',
-    reviewedCorrection: accepted ? reviewedCorrection.id : null,
+    reason: accepted ? reviewed.admissionReason || 'reviewed_schema_correction' : 'unreviewed_incompatibility',
+    reviewedCorrection: accepted ? reviewed.id : null,
   };
 }
 

@@ -4,6 +4,46 @@
     "schemaVersion": "erp-product-flow-definitions/1",
     "product": "erp",
     "flows": [
+{
+  "id": "sales-simulator",
+  "title": "Simulador de preços e criação de pedidos",
+  "goal": "Simular condições a partir de versões publicadas, preservar preços no rascunho e aprovar exceções sem expor custos à equipe.",
+  "kind": "product",
+  "actionGroups": [
+    "sales-simulator"
+  ],
+  "dependencies": [
+    "price-tables",
+    "orders"
+  ],
+  "nextStep": "Conferir a versão implantada com usuários autorizados; CI e merge não comprovam aceite em produção.",
+  "additionalSources": [
+    "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+  ],
+  "journey": [
+    {
+      "id": "simulate",
+      "title": "Simular negociação",
+      "actionIds": [
+        "get-sales-simulator",
+        "quote-sales-simulator"
+      ],
+      "authRefs": [],
+      "externalSystems": []
+    },
+    {
+      "id": "draft",
+      "title": "Criar rascunho e aprovar exceção",
+      "actionIds": [
+        "create-simulated-order",
+        "get-order-pricing",
+        "approve-order-pricing"
+      ],
+      "authRefs": [],
+      "externalSystems": []
+    }
+  ]
+},
       {
         "id": "dashboard",
         "title": "Dashboard com dados da empresa",
@@ -272,8 +312,8 @@
       },
       {
         "id": "fiscal-emission",
-        "title": "Emissão e eventos NF-e em homologação",
-        "goal": "Preparar, validar, assinar, transmitir e reconciliar NF-e em SP/homologação com numeração durável.",
+        "title": "Emissão e eventos NF-e por ambiente",
+        "goal": "Preparar e emitir NF-e SP no ambiente escolhido pelo usuário, com numeração e eventos isolados por ambiente.",
         "kind": "product",
         "actionGroups": [
           "fiscal-emission"
@@ -1256,6 +1296,35 @@
             "externalSystems": []
           }
         ]
+      },
+      {
+        "id": "fiscal-preferences",
+        "title": "Configurações fiscais e consultas de eventos",
+        "goal": "Cadastrar parâmetros NFC-e e naturezas e consultar eventos reais; preenchimento cabe ao usuário.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-preferences"
+        ],
+        "dependencies": [
+          "company_onboarding"
+        ],
+        "nextStep": "Conferir persistência na versão publicada; emissão NFC-e e produção NF-e têm validação separada.",
+        "additionalSources": [
+          "docs/PREFERENCIAS-FISCAIS.md"
+        ],
+        "journey": [
+          {
+            "id": "configure",
+            "title": "Configurar e consultar eventos",
+            "actionIds": [
+              "get-fiscal-preferences",
+              "put-fiscal-preferences",
+              "get-fiscal-events"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
       }
     ]
   },
@@ -1275,7 +1344,10 @@
     {
       "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
       "method": "POST",
-      "actions": ["preview", "match"]
+      "actions": [
+        "preview",
+        "match"
+      ]
     },
     {
       "path": "/api/erp/proposals/[id]/[action]",
@@ -1486,6 +1558,482 @@
     }
   ],
   "actions": [
+    {
+      "id": "get-sales-simulator",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/sales-simulator/{line}"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": null,
+        "query": {
+          "type": "OptionsQuery",
+          "source": "apps/api/src/domains/sales/pricing.rs"
+        }
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "get-sales-simulator"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/sales-simulator/[line]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "quote-sales-simulator",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/sales-simulator/{line}/quote"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": {
+          "type": "QuoteInput",
+          "source": "apps/api/src/domains/sales/pricing_model.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "quote-sales-simulator"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/sales-simulator/[line]/quote"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_model.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "create-simulated-order",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/sales-simulator/{line}/orders"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "line"
+        ],
+        "body": {
+          "type": "CreateInput",
+          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Simulação ou exceção pendente",
+        "to": "Rascunho preservado ou aprovação registrada"
+      },
+      "effects": {
+        "writes": [
+          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "create-simulated-order"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/simulador"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/sales-simulator/[line]/orders"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-order-pricing",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/orders/{id}/pricing"
+      },
+      "actor": "sales_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Estado anterior",
+        "to": "Sem alteração"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem escrita por versão imutável."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "get-order-pricing"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/orders/[id]/pricing"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "approve-order-pricing",
+      "flow": "sales-simulator",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/orders/{id}/pricing/approve"
+      },
+      "actor": "company_manager",
+      "permissions": [
+        "sales.orders.read",
+        "platform.company.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "type": "ApprovalInput",
+          "source": "apps/api/src/domains/sales/pricing_orders.rs"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa e vínculo ativos; preços publicados da mesma empresa e condições válidas."
+      ],
+      "transition": {
+        "from": "Simulação ou exceção pendente",
+        "to": "Rascunho preservado ou aprovação registrada"
+      },
+      "effects": {
+        "writes": [
+          "Pedido ou aprovação, snapshot, revisão, auditoria e idempotência."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera catálogo, preços anteriores ou pedidos existentes; não emite NF-e nem registra pagamento."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Transação por empresa; repetir comando incerto com a mesma chave."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "approve-order-pricing"
+      },
+      "recovery": "Preservar edição e repetir comando incerto; refazer simulação após revisão divergente.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/orders/[id]/pricing/approve"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/pricing_orders.rs",
+        "apps/web/src/features/commercial-settings/simulator.tsx",
+        "apps/web/src/features/commercial-settings/order-pricing.tsx",
+        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
     {
       "id": "get-company-dashboard",
       "flow": "dashboard",
@@ -2596,6 +3144,38 @@
   }
 },
     {
+      "id": "post-company-registration-lookup",
+      "flow": "registry-lookups",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/company-registration/lookup" },
+      "actor": "authenticated_identity",
+      "permissions": [],
+      "input": {
+        "headers": ["Authorization"],
+        "pathParameters": [],
+        "body": { "source": "apps/api/src/domains/registry_lookup/registration.rs", "type": "RegistrationLookupInput" },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade confirmada pelo Auth; não exige empresa ou membership e não consulta dados privados do ERP.",
+        "CNPJ válido; BFF exige origem permitida, sessão válida, JSON limitado e ausência de query.",
+        "Preencher apenas campos vazios, validar documento atual e validade da fonte; falha permite cadastro manual."
+      ],
+      "transition": { "from": "cadastro inicial com CNPJ", "to": "dados cadastrais disponíveis no formulário; empresa ainda não criada" },
+      "effects": {
+        "writes": [],
+        "external": ["BrasilAPI e CNPJ.ws habilitado, com quota global compartilhada e cache/budget isolados por identidade."],
+        "excludes": ["Sem criação de tenant, seleção de empresa ou grants; sem QSA bruto, inferência de regime ou condição de contribuinte."]
+      },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Debounce e cancelamento; resposta tardia nunca preenche outro documento. Edições manuais são preservadas." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,409,415,422,503], "action": "Consultar CNPJ antes da criação da empresa" },
+      "recovery": "Continuar manualmente ou tentar consulta novamente. A criação usa seu próprio contrato idempotente.",
+      "ui": { "pages": ["/cadastro/empresa"], "bff": { "method": "POST", "path": "/api/erp/company-registration/lookup" }, "gap": "Disponibilidade externa e publicação exigem verificação separada." },
+      "sources": ["apps/api/src/domains/registry_lookup/registration.rs", "apps/api/src/domains/registry_lookup/client.rs", "apps/api/src/domains/registry_lookup/company_fields.rs", "apps/web/src/features/records/automatic-cnpj.tsx", "apps/web/src/features/company/company-onboarding.tsx", "apps/web/src/server/bff/erp-proxy.ts"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+
+    {
       "id": "post-registry-lookups",
       "flow": "registry-lookups",
       "status": "implemented",
@@ -2623,7 +3203,7 @@
       "preconditions": [
         "Associação ativa; contexto company exige platform.company.read e contexto party exige catalog.parties.read. Autorizar antes e depois da rede.",
         "CEP válido ou CNPJ com dígitos verificadores válidos, preservando letras; IE exige UF. CNPJ.ws depende de habilitação e cobertura documentada.",
-        "BFF exige origem e empresa da sessão. Preencher exige confirmação, sessão atual, prévia válida e campos vazios; gravar usa contrato próprio."
+        "BFF exige origem e empresa da sessão. CNPJ na configuração da empresa preenche automaticamente campos vazios após conferir a sessão; consultas manuais mantêm prévia e confirmação. Gravar usa contrato próprio."
       ],
       "transition": {
         "from": "entrada manual ou prévia anterior",
@@ -7755,7 +8335,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Cancelamento comercial da empresa com motivo fiscal válido e exatamente um documento vinculado não rejeitado; If-Match da revisão desse documento."
       ],
@@ -7859,7 +8439,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "If-Match inicial 0; ano atual, série válida, faixa de até dez mil números sem número utilizado e justificativa válida."
       ],
@@ -7872,10 +8452,10 @@
           "Evento durável de inutilização, estado/resultado e auditoria."
         ],
         "external": [
-          "Motor privado assina e envia inutilização à SEFAZ em homologação."
+          "Motor privado assina e envia inutilização no ambiente persistido da solicitação."
         ],
         "excludes": [
-          "Não inutiliza números em produção nem substitui cancelamento de NF-e autorizada."
+          "Não substitui cancelamento de NF-e autorizada nem afeta a sequência de outro ambiente."
         ]
       },
       "concurrency": {
@@ -7966,7 +8546,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -7979,7 +8559,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ em homologação."
+          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -8074,7 +8654,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento autorizado; revisão atual; motivo de 15 a 255 caracteres para cancelamento ou texto de 15 a 1000 para CC-e."
       ],
@@ -8087,7 +8667,7 @@
           "Evento, sequência, payload/resultado duráveis, revisão, auditoria e correlação com documento; cancelamento confirmado atualiza status fiscal."
         ],
         "external": [
-          "Motor privado assina e envia evento à SEFAZ em homologação."
+          "Motor privado assina e envia evento à SEFAZ no ambiente persistido do documento."
         ],
         "excludes": [
           "Não estorna automaticamente venda, estoque, recebíveis ou pagamentos."
@@ -8529,7 +9109,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Documento com chave e XML preparado, revisão atual e nenhuma operação concorrente."
       ],
@@ -14565,9 +15145,7 @@
         "path": "/api/v1/fiscal/certificate"
       },
       "actor": "active_tenant_member",
-      "permissions": [
-        "fiscal.config.read"
-      ],
+      "permissions": [],
       "input": {
         "headers": [
           "Authorization",
@@ -14856,7 +15434,7 @@
       },
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
-        "Homologação; alias de certificado não verifica nem contém certificado A1."
+        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
       ],
       "transition": {
         "from": "estado atual",
@@ -14894,7 +15472,7 @@
           "method": "GET",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
+        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -14945,7 +15523,7 @@
       "preconditions": [
         "Sem identidade/empresa/permissão: recusar antes de efeitos de domínio.",
         "If-Match da revisão atual; conflito retorna 412 sem perder a edição do usuário.",
-        "Homologação; alias de certificado não verifica nem contém certificado A1."
+        "Ambiente escolhido pelo usuário; produção exige próxima numeração. Alias de certificado não verifica nem contém A1."
       ],
       "transition": {
         "from": "registro existente",
@@ -14953,7 +15531,7 @@
       },
       "effects": {
         "writes": [
-          "Gravar perfil de homologação com revisão; alias A1 não verifica certificado",
+          "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado",
           "Auditoria e outbox do comando na transação."
         ],
         "external": [],
@@ -14981,7 +15559,7 @@
           428,
           503
         ],
-        "action": "Gravar perfil de homologação com revisão; alias A1 não verifica certificado"
+        "action": "Gravar perfil e próxima numeração no ambiente escolhido, com revisão; alias A1 não verifica certificado"
       },
       "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
       "ui": {
@@ -14992,7 +15570,7 @@
           "method": "PUT",
           "path": "/api/erp/fiscal/config"
         },
-        "gap": "Emissão permanece bloqueada; a conexão do A1 usa a tela própria de certificado."
+        "gap": "A conexão e validação do A1 usam a tela própria de certificado."
       },
       "sources": [
         "apps/api/src/domains/fiscal/mod.rs",
@@ -15494,7 +16072,7 @@
         "Sessão, associação e permissões atuais da empresa; isolamento RLS antes de acessar dados ou aplicar efeitos.",
         "If-Match obrigatório da revisão indicada; ausência retorna 428, formato inválido 400 e revisão antiga 412.",
         "Idempotency-Key UUID obrigatório; mesma chave, ator e intenção recuperam o resultado persistido; intenção diferente é recusada.",
-        "Operação restrita a SP e homologação; motor privado e A1 vigente da empresa necessários para chamadas externas.",
+        "Emissão SP em homologação ou produção, conforme ambiente persistido; motor privado, A1 vigente e regras suportadas exigidos.",
         "Timeout ou resultado incerto mantém estado durável; consultar a chave antes de retransmitir.",
         "Rascunho, snapshots da empresa/perfil, origem comercial, declaração tributária e pagamentos coerentes."
       ],
@@ -15508,10 +16086,10 @@
           "Estado durável da emissão, revisão, lease, auditoria e resultado idempotente."
         ],
         "external": [
-          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite à SEFAZ em homologação."
+          "Motor privado gera XML, valida XSD, assina A1 e consulta/transmite no ambiente persistido (homologação ou produção)."
         ],
         "excludes": [
-          "Não permite emissão em produção; não movimenta estoque, títulos ou dinheiro."
+          "Não movimenta estoque, títulos ou dinheiro; não escolhe o ambiente por variável global ou inferência."
         ]
       },
       "concurrency": {
@@ -24942,6 +25520,287 @@
       "ui": {"pages": [], "bff": {"method": "POST", "path": "/api/erp/catalog-publication"}, "gap": null},
       "sources": ["apps/api/src/domains/catalog_publication.rs", "apps/web/src/app/api/erp/catalog-publication/route.ts"],
       "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+      },
+      {
+      "id": "get-fiscal-preferences",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/settings/{section}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "section"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
+        "NFC-e exige fiscal.config.read; naturezas aceitam fiscal.config.read ou fiscal.nfe.read. Escrita continua exigindo configuração fiscal."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar configurações fiscais"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/nfce",
+          "/preferencias/fiscal/naturezas"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/settings/[section]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-fiscal-preferences",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/fiscal/settings/{section}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read",
+        "fiscal.config.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "section"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/preferences.rs",
+          "type": "FiscalPreferencesInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
+        "If-Match obrigatório; escrita serializada na empresa; revisão divergente retorna 412.",
+        "CSC exigido no primeiro cadastro e ao alterar ambiente, UF, identificador ou CNPJ."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Configuração com revisão; CSC criptografado; auditoria e outbox sem segredo."
+        ],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Salvar configurações fiscais"
+      },
+      "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/nfce",
+          "/preferencias/fiscal/naturezas"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/fiscal/settings/[section]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-fiscal-events",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/nfe-events"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": {
+          "source": "apps/api/src/domains/fiscal/preferences.rs",
+          "type": "EventQuery"
+        }
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar eventos fiscais"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/inutilizacoes",
+          "/preferencias/fiscal/correcoes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe-events"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-events.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "pendingFlows": [
@@ -25021,13 +25880,13 @@
       "planningReference": "AVL-372"
     },
     {
-      "id": "preferences-fiscal-next",
-      "title": "Preferências: NFC-e e consultas fiscais consolidadas",
+      "id": "nfce-emission-next",
+      "title": "Emissão de NFC-e modelo 65",
       "status": "needs_definition",
-      "intent": "Configurações de NFC-e, inutilizações/correções consolidadas e naturezas de operação.",
+      "intent": "Integrar emissão modelo 65 aos parâmetros NFC-e cadastrados pelo usuário.",
       "proposedEndpoints": [],
       "openDecisions": [
-        "Reutilizar eventos NF-e já armazenados; definir emissão NFC-e e configuração fiscal separadamente, com evidências próprias."
+        "Configuração, naturezas e consultas implementadas; emissão NFC-e exige numeração, assinatura, transporte e evidências próprios."
       ],
       "requiredFields": [
         "actor",

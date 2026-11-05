@@ -48,10 +48,10 @@ export const preferenceCategories: PreferenceCategory[] = [
   ] },
   { id: "notas-fiscais", label: "Notas Fiscais", sections: [
     { title: "Configurações de notas fiscais", items: [
-      unavailable("Configurações de NFC-e"), { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
+      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
     ] },
     { title: "Tabelas e configurações adicionais", items: [
-      unavailable("Consulta de inutilizações de NF-es"), unavailable("Consulta de correções de NF-es", "A consulta consolidada ainda não está disponível. Os eventos existentes são consultados em cada NF-e."), unavailable("Naturezas de operação"),
+      { label: "Consulta de inutilizações de NF-es", href: "/preferencias/fiscal/inutilizacoes" }, { label: "Consulta de correções de NF-es", href: "/preferencias/fiscal/correcoes" }, { label: "Naturezas de operação", href: "/preferencias/fiscal/naturezas" },
     ] },
   ] },
   { id: "certificado-digital", label: "Certificado Digital", sections: [

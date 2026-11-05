@@ -1296,6 +1296,35 @@
             "externalSystems": []
           }
         ]
+      },
+      {
+        "id": "fiscal-preferences",
+        "title": "Configurações fiscais e consultas de eventos",
+        "goal": "Cadastrar parâmetros NFC-e e naturezas e consultar eventos reais; preenchimento cabe ao usuário.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-preferences"
+        ],
+        "dependencies": [
+          "company_onboarding"
+        ],
+        "nextStep": "Conferir persistência na versão publicada; emissão NFC-e e produção NF-e têm validação separada.",
+        "additionalSources": [
+          "docs/PREFERENCIAS-FISCAIS.md"
+        ],
+        "journey": [
+          {
+            "id": "configure",
+            "title": "Configurar e consultar eventos",
+            "actionIds": [
+              "get-fiscal-preferences",
+              "put-fiscal-preferences",
+              "get-fiscal-events"
+            ],
+            "authRefs": [],
+            "externalSystems": []
+          }
+        ]
       }
     ]
   },
@@ -1315,7 +1344,10 @@
     {
       "path": "/api/erp/fiscal/received-nfes/[id]/purchase/[action]",
       "method": "POST",
-      "actions": ["preview", "match"]
+      "actions": [
+        "preview",
+        "match"
+      ]
     },
     {
       "path": "/api/erp/proposals/[id]/[action]",
@@ -25368,6 +25400,286 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-fiscal-preferences",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/settings/{section}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "section"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar configurações fiscais"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/nfce",
+          "/preferencias/fiscal/naturezas"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/settings/[section]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-fiscal-preferences",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/fiscal/settings/{section}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.config.read",
+        "fiscal.config.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match"
+        ],
+        "pathParameters": [
+          "section"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/preferences.rs",
+          "type": "FiscalPreferencesInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação.",
+        "If-Match obrigatório; escrita serializada na empresa; revisão divergente retorna 412.",
+        "CSC exigido no primeiro cadastro e ao alterar ambiente, UF, identificador ou CNPJ."
+      ],
+      "transition": {
+        "from": "registro existente",
+        "to": "revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Configuração com revisão; CSC criptografado; auditoria e outbox sem segredo."
+        ],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          500,
+          503
+        ],
+        "action": "Salvar configurações fiscais"
+      },
+      "recovery": "Reler o registro e resolver revisão/validação antes de nova intenção; não repetir automaticamente a gravação.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/nfce",
+          "/preferencias/fiscal/naturezas"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/fiscal/settings/[section]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-preferences.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-fiscal-events",
+      "flow": "fiscal-preferences",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/nfe-events"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": {
+          "source": "apps/api/src/domains/fiscal/preferences.rs",
+          "type": "EventQuery"
+        }
+      },
+      "preconditions": [
+        "Identidade e empresa ativas com permissão fiscal; RLS na transação."
+      ],
+      "transition": {
+        "from": "estado atual",
+        "to": "sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Transmissão NF-e/NFC-e, consulta SEFAZ, tributação inferida e retorno do CSC em texto."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Precondições exatas do handler; não generalizar headers entre recursos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          422,
+          500,
+          503
+        ],
+        "action": "Consultar eventos fiscais"
+      },
+      "recovery": "Repetir leitura; não interpretar resposta indisponível como ausência de dados.",
+      "ui": {
+        "pages": [
+          "/preferencias/fiscal/inutilizacoes",
+          "/preferencias/fiscal/correcoes"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/nfe-events"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/preferences.rs",
+        "apps/web/src/features/fiscal/settings/fiscal-events.tsx",
+        "apps/web/src/server/bff/erp-fiscal-proxy.ts",
+        "migrations/202611051610_fiscal_preferences.sql"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "pendingFlows": [
@@ -25447,13 +25759,13 @@
       "planningReference": "AVL-372"
     },
     {
-      "id": "preferences-fiscal-next",
-      "title": "Preferências: NFC-e e consultas fiscais consolidadas",
+      "id": "nfce-emission-next",
+      "title": "Emissão de NFC-e modelo 65",
       "status": "needs_definition",
-      "intent": "Configurações de NFC-e, inutilizações/correções consolidadas e naturezas de operação.",
+      "intent": "Integrar emissão modelo 65 aos parâmetros NFC-e cadastrados pelo usuário.",
       "proposedEndpoints": [],
       "openDecisions": [
-        "Reutilizar eventos NF-e já armazenados; definir emissão NFC-e e configuração fiscal separadamente, com evidências próprias."
+        "Configuração, naturezas e consultas implementadas; emissão NFC-e exige numeração, assinatura, transporte e evidências próprios."
       ],
       "requiredFields": [
         "actor",

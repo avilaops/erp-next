@@ -101,6 +101,8 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fixed-expenses.sql
       - name: Grant private product costs to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-costs.sql
+      - name: Grant fiscal preference storage to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-preferences.sql
       - name: Grant immutable sales simulation storage
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-simulator.sql
       - name: Grant published price storage to the existing runtime role

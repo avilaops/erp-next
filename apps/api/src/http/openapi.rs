@@ -67,6 +67,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         returns::cancel_completed, returns::reverse_receipt, returns::sale_history, returns::purchase_history,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
+        fiscal::preferences::get, fiscal::preferences::put, fiscal::preferences::events,
         fiscal::certificates::get, fiscal::certificates::put, fiscal::certificates::remove,
         fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::emission::issue, fiscal::order_source::get,
         fiscal::received::import, fiscal::received::list, fiscal::received::get_document, fiscal::received::download_xml,
@@ -370,7 +371,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 201);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 203);
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());

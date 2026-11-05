@@ -1111,15 +1111,13 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
             .execute(&mut *tx)
             .await
             .unwrap();
-        sqlx::query(
-            "INSERT INTO roles(id,tenant_id,code,name) VALUES($1,$2,$3,'Admin')",
-        )
-        .bind(Uuid::new_v4())
-        .bind(tenant)
-        .bind(code)
-        .execute(&mut *tx)
-        .await
-        .unwrap();
+        sqlx::query("INSERT INTO roles(id,tenant_id,code,name) VALUES($1,$2,$3,'Admin')")
+            .bind(Uuid::new_v4())
+            .bind(tenant)
+            .bind(code)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
     }
 
     sqlx::query("SELECT set_config('app.tenant_id','',true)")

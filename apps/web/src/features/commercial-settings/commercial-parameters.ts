@@ -48,11 +48,11 @@ export type Calculation = {
   monthlyExpensesCents: number; breakEvenRevenue: number | null
   destinationLimits: { state: string; taxpayer: boolean; variableCostsBps: number; atTargetBps: number; noLossBps: number }[]
 }
-export type Snapshot = { tenantId: string; line: string; revision: number; canEdit: boolean; status: "draft"; data: Parameters | null; calculation: Calculation | null }
+export type Snapshot = { tenantId: string; line: string; revision: number; canEdit: boolean; status: "draft"; data: Parameters | null; calculation: Calculation | null; monthlyExpensesCents: number }
 
-export function toDraft(data: Parameters | null): Draft {
+export function toDraft(data: Parameters | null, monthlyExpensesCents = 0): Draft {
   const values = Object.fromEntries(fieldGroups.flatMap(group => group.fields.map(([key, , unit]) =>
-    [key, data ? String(data[key] / (unit === "days" ? 1 : 100)).replace(".", ",") : ""]))) as Record<FieldKey, string>
+    [key, data ? String(data[key] / (unit === "days" ? 1 : 100)).replace(".", ",") : key === "monthlyExpensesCents" ? String(monthlyExpensesCents / 100).replace(".", ",") : ""]))) as Record<FieldKey, string>
   return { ...values, originState: data?.originState || "", stateRates: states.map(state => {
     const row = data?.stateRates.find(rate => rate.state === state)
     return { state, internalBps: row ? String(row.internalBps / 100).replace(".", ",") : "", fcpBps: row ? String(row.fcpBps / 100).replace(".", ",") : "", outgoingBps: row?.outgoingBps == null ? "" : String(row.outgoingBps / 100).replace(".", ",") }

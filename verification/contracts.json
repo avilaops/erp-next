@@ -469,9 +469,42 @@
         "kind": "product",
         "actionGroups": ["commercial-settings"],
         "dependencies": ["company_onboarding"],
-        "nextStep": "Cadastrar despesas fixas e publicar tabelas versionadas após conferência.",
+        "nextStep": "Validar cadastro, cálculo e publicação com empresa autorizada na versão implantada.",
         "additionalSources": ["docs/PARAMETROS-COMERCIAIS-2026-11-04.md"],
         "journey": [{ "id": "configure", "title": "Salvar e simular política", "actionIds": ["get-commercial-settings", "put-commercial-settings", "preview-commercial-settings"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
+        "id": "fixed-expenses",
+        "title": "Despesas fixas mensais",
+        "goal": "Cadastrar despesas recorrentes e usar a soma vigente na política comercial.",
+        "kind": "product",
+        "actionGroups": ["fixed-expenses"],
+        "dependencies": ["commercial-settings"],
+        "nextStep": "Conferir soma e vigência com dados reais na versão implantada.",
+        "additionalSources": ["docs/PARAMETROS-COMERCIAIS-2026-11-04.md"],
+        "journey": [{ "id": "register", "title": "Cadastrar despesas", "actionIds": ["get-api-v1-fixed-expenses", "post-api-v1-fixed-expenses", "put-api-v1-fixed-expenses-id"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
+        "id": "product-costs",
+        "title": "Custos dos produtos",
+        "goal": "Registrar custos e linha comercial sem alterar preços existentes.",
+        "kind": "product",
+        "actionGroups": ["product-costs"],
+        "dependencies": ["products"],
+        "nextStep": "Conferir custos com dados reais na versão implantada.",
+        "additionalSources": ["docs/PARAMETROS-COMERCIAIS-2026-11-04.md"],
+        "journey": [{ "id": "cost", "title": "Cadastrar custo", "actionIds": ["get-api-v1-product-costs-id", "put-api-v1-product-costs-id"], "authRefs": [], "externalSystems": [] }]
+      },
+      {
+        "id": "price-tables",
+        "title": "Publicação de tabelas de preços",
+        "goal": "Preparar e publicar versões imutáveis por linha após conferência.",
+        "kind": "product",
+        "actionGroups": ["price-tables"],
+        "dependencies": ["commercial-settings", "fixed-expenses", "product-costs"],
+        "nextStep": "Conferir prévia e publicação com dados reais na versão implantada.",
+        "additionalSources": ["docs/PARAMETROS-COMERCIAIS-2026-11-04.md"],
+        "journey": [{ "id": "publish", "title": "Publicar tabela", "actionIds": ["get-api-v1-price-tables-line", "get-api-v1-price-tables-line-preview", "post-api-v1-price-tables-line-publish"], "authRefs": [], "externalSystems": [] }]
       },
       {
         "id": "sales-settings",
@@ -1360,7 +1393,745 @@
     }
   ],
   "actions": [
-    {
+{
+  "id": "get-api-v1-fixed-expenses",
+  "flow": "fixed-expenses",
+  "status": "implemented",
+  "operation": {
+    "method": "GET",
+    "path": "/api/v1/fixed-expenses"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [],
+    "body": null,
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "get-api-v1-fixed-expenses"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/despesas-fixas"
+    ],
+    "bff": {
+      "method": "GET",
+      "path": "/api/erp/fixed-expenses"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/domains/fixed_expenses.rs",
+    "apps/web/src/features/commercial-settings/fixed-expenses.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "post-api-v1-fixed-expenses",
+  "flow": "fixed-expenses",
+  "status": "implemented",
+  "operation": {
+    "method": "POST",
+    "path": "/api/v1/fixed-expenses"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id",
+      "Idempotency-Key"
+    ],
+    "pathParameters": [],
+    "body": {
+      "source": "apps/api/src/domains/fixed_expenses.rs",
+      "type": "FixedExpenseInput"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Estado versionado"
+  },
+  "effects": {
+    "writes": [
+      "fixed_expenses",
+      "audit_log"
+    ],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": true,
+    "rule": "Comando idempotente."
+  },
+  "response": {
+    "successStatuses": [
+      201
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "post-api-v1-fixed-expenses"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/despesas-fixas"
+    ],
+    "bff": {
+      "method": "POST",
+      "path": "/api/erp/fixed-expenses"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/domains/fixed_expenses.rs",
+    "apps/web/src/features/commercial-settings/fixed-expenses.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "put-api-v1-fixed-expenses-id",
+  "flow": "fixed-expenses",
+  "status": "implemented",
+  "operation": {
+    "method": "PUT",
+    "path": "/api/v1/fixed-expenses/{id}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id",
+      "If-Match",
+      "Idempotency-Key"
+    ],
+    "pathParameters": [
+      "id"
+    ],
+    "body": {
+      "source": "apps/api/src/domains/fixed_expenses.rs",
+      "type": "FixedExpenseInput"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Estado versionado"
+  },
+  "effects": {
+    "writes": [
+      "fixed_expenses",
+      "audit_log"
+    ],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": true,
+    "idempotency": true,
+    "rule": "If-Match exige revisão atual."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "put-api-v1-fixed-expenses-id"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/despesas-fixas"
+    ],
+    "bff": {
+      "method": "PUT",
+      "path": "/api/erp/fixed-expenses/[id]"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/domains/fixed_expenses.rs",
+    "apps/web/src/features/commercial-settings/fixed-expenses.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "get-api-v1-product-costs-id",
+  "flow": "product-costs",
+  "status": "implemented",
+  "operation": {
+    "method": "GET",
+    "path": "/api/v1/product-costs/{id}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [
+      "id"
+    ],
+    "body": null,
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "get-api-v1-product-costs-id"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/cadastros/produtos/[id]/custos"
+    ],
+    "bff": {
+      "method": "GET",
+      "path": "/api/erp/product-costs/[id]"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/product_costs.rs",
+    "apps/web/src/features/catalog/product-costs.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "put-api-v1-product-costs-id",
+  "flow": "product-costs",
+  "status": "implemented",
+  "operation": {
+    "method": "PUT",
+    "path": "/api/v1/product-costs/{id}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id",
+      "If-Match"
+    ],
+    "pathParameters": [
+      "id"
+    ],
+    "body": {
+      "source": "apps/api/src/platform/product_costs.rs",
+      "type": "ProductCostInput"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Estado versionado"
+  },
+  "effects": {
+    "writes": [
+      "product_costs",
+      "audit_log"
+    ],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": true,
+    "idempotency": false,
+    "rule": "If-Match exige revisão atual."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "put-api-v1-product-costs-id"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/cadastros/produtos/[id]/custos"
+    ],
+    "bff": {
+      "method": "PUT",
+      "path": "/api/erp/product-costs/[id]"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/product_costs.rs",
+    "apps/web/src/features/catalog/product-costs.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "get-api-v1-price-tables-line",
+  "flow": "price-tables",
+  "status": "implemented",
+  "operation": {
+    "method": "GET",
+    "path": "/api/v1/price-tables/{line}"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": null,
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "get-api-v1-price-tables-line"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/tabela-precos"
+    ],
+    "bff": {
+      "method": "GET",
+      "path": "/api/erp/price-tables/[line]"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/price_tables.rs",
+    "apps/web/src/features/commercial-settings/price-tables.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "get-api-v1-price-tables-line-preview",
+  "flow": "price-tables",
+  "status": "implemented",
+  "operation": {
+    "method": "GET",
+    "path": "/api/v1/price-tables/{line}/preview"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": null,
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Sem alteração"
+  },
+  "effects": {
+    "writes": [],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": false,
+    "idempotency": false,
+    "rule": "Consulta sem escrita."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "get-api-v1-price-tables-line-preview"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/tabela-precos"
+    ],
+    "bff": {
+      "method": "GET",
+      "path": "/api/erp/price-tables/[line]/preview"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/price_tables.rs",
+    "apps/web/src/features/commercial-settings/price-tables.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
+  "id": "post-api-v1-price-tables-line-publish",
+  "flow": "price-tables",
+  "status": "implemented",
+  "operation": {
+    "method": "POST",
+    "path": "/api/v1/price-tables/{line}/publish"
+  },
+  "actor": "company_manager",
+  "permissions": [
+    "platform.company.manage"
+  ],
+  "input": {
+    "headers": [
+      "Authorization",
+      "X-Tenant-Id",
+      "If-Match",
+      "Idempotency-Key"
+    ],
+    "pathParameters": [
+      "line"
+    ],
+    "body": {
+      "source": "apps/api/src/platform/price_tables.rs",
+      "type": "PublishInput"
+    },
+    "query": null
+  },
+  "preconditions": [
+    "Empresa e vínculo ativos; gestão da empresa exigida."
+  ],
+  "transition": {
+    "from": "Estado anterior",
+    "to": "Estado versionado"
+  },
+  "effects": {
+    "writes": [
+      "price_tables",
+      "audit_log"
+    ],
+    "external": [],
+    "excludes": [
+      "Não altera automaticamente preços de produtos, propostas ou pedidos."
+    ]
+  },
+  "concurrency": {
+    "revision": true,
+    "idempotency": true,
+    "rule": "If-Match exige revisão atual."
+  },
+  "response": {
+    "successStatuses": [
+      200
+    ],
+    "errorStatuses": [
+      400,
+      401,
+      403,
+      404,
+      409,
+      412,
+      422,
+      428,
+      500,
+      503
+    ],
+    "action": "post-api-v1-price-tables-line-publish"
+  },
+  "recovery": "Recarregar após conflito; repetir comando incerto com a mesma chave.",
+  "ui": {
+    "pages": [
+      "/preferencias/tabela-precos"
+    ],
+    "bff": {
+      "method": "POST",
+      "path": "/api/erp/price-tables/[line]/publish"
+    },
+    "gap": null
+  },
+  "sources": [
+    "apps/api/src/platform/price_tables.rs",
+    "apps/web/src/features/commercial-settings/price-tables.tsx"
+  ],
+  "verification": {
+    "status": "not_verified_by_catalog",
+    "criteria": [
+      "interface",
+      "request",
+      "authorization",
+      "domain",
+      "persistence",
+      "effects",
+      "failure",
+      "response"
+    ]
+  }
+},
+{
   "id": "get-commercial-settings",
   "flow": "commercial-settings",
   "status": "implemented",

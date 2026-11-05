@@ -97,6 +97,12 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-proposals.sql
       - name: Grant commercial settings storage to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-commercial-settings.sql
+      - name: Grant recurring expense storage to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fixed-expenses.sql
+      - name: Grant private product costs to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-costs.sql
+      - name: Grant published price storage to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-price-tables.sql
       - name: Grant commercial order numbering to the existing runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-order-numbers.sql
       - name: Grant private template storage to the existing runtime role

@@ -73,8 +73,6 @@ function ProposalEditor({ id }: { id?: string }) {
 function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; tenantId: string; etag: string; reload: () => void }) {
   const router = useRouter()
   const command = useCommand()
-  const access = useResource<{ tenant: { id: string; legalName: string }; permissions: string[] }>("/api/erp/me")
-  const canNegotiate = access.value?.tenant.id === tenantId && access.value.permissions.includes("sales.proposals.negotiate")
   const [customer, setCustomer] = useState<Choice | null>(initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null)
   const [items, setItems] = useState<Selected[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: commercialMoneyInput(item.unitPrice), quantity: item.quantity, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
   const [validUntil, setValidUntil] = useState(initial?.data.validUntil || "")
@@ -119,8 +117,8 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
           <CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} />
           {items.map(item => <section className="min-w-0 space-y-3 rounded-xl border p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
             <h2 className="break-words font-medium">{item.name} · {item.sku}</h2>
-            <label className="grid gap-2">Preço unitário de {item.name}<span className="flex items-center gap-2"><span aria-hidden="true">R$</span><Input aria-label={`Preço unitário de ${item.name}`} className="min-w-0" inputMode="decimal" required readOnly={!canNegotiate} value={item.basePrice || ""} onChange={event => changeItem(item.id, { basePrice: event.target.value })} onBlur={() => { const formatted = commercialMoneyInput(item.basePrice || ""); if (canNegotiate && formatted !== item.basePrice) changeItem(item.id, { basePrice: formatted }) }} /></span></label>
-            {!canNegotiate && <p className="text-sm text-muted-foreground">Alterar preços exige permissão de negociação comercial.</p>}
+            <label className="grid gap-2">Preço unitário de {item.name}<span className="flex items-center gap-2"><span aria-hidden="true">R$</span><Input aria-label={`Preço unitário de ${item.name}`} className="min-w-0" readOnly value={item.basePrice || ""} /></span></label>
+            <p className="text-sm text-muted-foreground">Preço unitário somente para consulta nesta proposta.</p>
             <label className="grid gap-2">Quantidade de {item.name}<Input inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
             <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} /></div>
             <Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>

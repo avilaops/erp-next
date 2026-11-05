@@ -176,3 +176,28 @@ fn quote_zero_discount_preserves_the_published_ipi_ceiling() {
     assert_eq!(value.sale.unit_with_ipi_cents, 11302);
     assert_eq!(value.sale.invoice_total_cents, 11302);
 }
+
+#[test]
+fn quote_free_discount_boundary_does_not_require_approval_for_subcent_rounding() {
+    let mut i = input();
+    i.quantity = 1;
+    i.discount = Discount::Percent(2000);
+    let value = quote(&i, 1256323, &cost(), &example()).unwrap();
+    assert!(!value.sale.needs_approval);
+    assert_eq!(value.sale.discount_bps, 2000);
+    i.discount = Discount::Amount(value.sale.discount_cents);
+    assert!(
+        !quote(&i, 1256323, &cost(), &example())
+            .unwrap()
+            .sale
+            .needs_approval
+    );
+    i.discount = Discount::Amount(value.sale.discount_cents + 1);
+    assert!(
+        quote(&i, 1256323, &cost(), &example())
+            .unwrap()
+            .sale
+            .approval_reasons
+            .contains(&"discount_above_free")
+    );
+}

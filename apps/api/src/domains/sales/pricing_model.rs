@@ -241,7 +241,13 @@ pub fn quote(
         "loss"
     };
     let mut reasons = Vec::new();
-    if (i128::from(price) - unit) * BPS > i128::from(price) * i128::from(p.free_discount_bps) {
+    // The free boundary uses the same unit-cent rounding as a percentage entry.
+    // Otherwise an exact 20% could demand approval because of a fraction of a cent.
+    let free_unit = rounded(
+        i128::from(price) * (BPS - i128::from(p.free_discount_bps)),
+        BPS,
+    );
+    if unit < free_unit {
         reasons.push("discount_above_free");
     }
     if band != "at_target" {
@@ -262,7 +268,7 @@ pub fn quote(
         table_unit_cents: price,
         table_total_cents: cents(table_total)?,
         discount_cents: cents(table_total - net)?,
-        discount_bps: up((table_total - net) * BPS, table_total) as u32,
+        discount_bps: rounded((table_total - net) * BPS, table_total) as u32,
         unit_without_ipi_cents: cents(unit)?,
         unit_with_ipi_cents: cents(gross(unit))?,
         net_sale_cents: cents(net)?,

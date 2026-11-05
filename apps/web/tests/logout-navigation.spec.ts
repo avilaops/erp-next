@@ -66,10 +66,12 @@ test("falha no POST mantém a proteção da edição e permite tentar novamente"
   await page.getByRole("button", { name: "Sair", exact: true }).click()
   await expect(page.getByRole("alert").filter({ hasText: "A saída foi recusada" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeEnabled()
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
   const dialog = page.waitForEvent("dialog")
-  const navigation = page.getByRole("navigation", { name: "Navegação móvel", exact: true }).getByRole("link", { name: "Início", exact: true }).click()
+  const navigation = page.getByRole("dialog").getByRole("link", { name: "Visão geral", exact: true }).click()
   await (await dialog).dismiss()
   await navigation
+  await page.getByRole("dialog").getByRole("button", { name: "Fechar menu", exact: true }).click()
   await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("Edição pendente")
   expect((await context.cookies(origin)).some(cookie => cookie.name === "erp_session")).toBe(true)
 })

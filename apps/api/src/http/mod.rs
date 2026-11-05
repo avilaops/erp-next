@@ -40,6 +40,8 @@ mod incoming_tests;
 #[cfg(test)]
 mod invitation_tests;
 #[cfg(test)]
+mod label_templates_tests;
+#[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
 mod monitor_tests;
@@ -84,6 +86,8 @@ mod supply_catalogs_tests;
 mod supply_settings_tests;
 #[cfg(test)]
 mod template_draft_tests;
+#[cfg(test)]
+mod workflows_tests;
 
 use axum::{
     Router, middleware,
@@ -187,6 +191,31 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-reports/{id}",
             axum::routing::put(crate::platform::custom_reports::update),
+        )
+        .route(
+            "/api/v1/system/label-templates",
+            get(crate::platform::label_templates::list)
+                .post(crate::platform::label_templates::create),
+        )
+        .route(
+            "/api/v1/system/label-templates/{id}",
+            axum::routing::put(crate::platform::label_templates::update),
+        )
+        .route(
+            "/api/v1/system/workflows",
+            get(crate::platform::workflows::list).post(crate::platform::workflows::create),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}",
+            axum::routing::put(crate::platform::workflows::update),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/publish",
+            post(crate::platform::workflows::publish),
+        )
+        .route(
+            "/api/v1/system/workflows/{id}/archive",
+            post(crate::platform::workflows::archive),
         )
         .merge(crate::domains::returns::routes())
         .route(

@@ -1,4 +1,4 @@
-import { forwardErp } from "@/lib/api/forward"
+import { forwardErp } from "@/server/bff/erp-proxy"
 
 export const GET = (request: Request) => forwardErp(request, "/system/label-templates")
 export const POST = (request: Request) => forwardErp(request, "/system/label-templates")

@@ -11602,7 +11602,7 @@
       "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match serializa a publicação." },
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,422,428,500,503], "action": "post-system-workflows-id-publish" },
       "recovery": "Corrigir a definição ou recarregar após conflito antes de publicar novamente.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/{action}", "action": "publish" }, "gap": null },
+      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/publish" }, "gap": null },
       "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
@@ -11620,7 +11620,7 @@
       "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match serializa o arquivamento." },
       "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,428,500,503], "action": "post-system-workflows-id-archive" },
       "recovery": "Recarregar a definição após conflito; definições arquivadas não reabrem.",
-      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/{action}", "action": "archive" }, "gap": null },
+      "ui": { "pages": ["/preferencias/sistema/transicoes"], "bff": { "method": "POST", "path": "/api/erp/system/workflows/{id}/archive" }, "gap": null },
       "sources": ["apps/api/src/platform/workflows.rs","migrations/202611040002_system_configuration.sql","apps/web/src/features/preferences/system/workflow-manager.tsx"],
       "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },

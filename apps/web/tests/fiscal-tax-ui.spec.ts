@@ -25,7 +25,7 @@ test("frete, desconto e alíquotas do destino persistem sem alterar o preço bru
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/fiscal/notas-saida/${record}`)
-  await page.getByLabel("Modalidade de frete", { exact: true }).selectOption("0")
+  await page.getByRole("combobox", { name: "Modalidade de frete", exact: true }).selectOption("0")
   for (const [name, value] of [["Frete cobrado neste item (R$)", "20,00"], ["Desconto incondicional neste item (R$)", "5"], ["Alíquota interna do ICMS no destino (%)", "20"], ["Alíquota do FCP no destino (%)", "2"], ["Valor do pagamento 1", "126,50"]]) {
     await page.getByLabel(name, { exact: true }).fill(value)
   }

@@ -174,7 +174,11 @@ export function NfeDraftEditor({ id, sourceOrderId }: { id?: string; sourceOrder
           <section className="form-section grid gap-4 sm:grid-cols-2" aria-label="Operação fiscal">
             <Field label="Ambiente do rascunho"><select aria-label="Ambiente do rascunho" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={draft.environment} onChange={event => setDraft({ ...draft, environment: event.target.value as DraftInput["environment"] })}><option value="homologation">Homologação</option><option value="production">Produção</option></select></Field>
             <Field label="Natureza da operação"><Input required maxLength={60} value={draft.operationNature} onChange={event => setDraft({ ...draft, operationNature: event.target.value })} /></Field>
-            <Field label="Modalidade de frete"><select required className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={draft.freightMode ?? "9"} onChange={event => setDraft({ ...draft, freightMode: event.target.value })}>{[["0", "0 · Remetente (CIF)"], ["1", "1 · Destinatário (FOB)"], ["2", "2 · Terceiros"], ["3", "3 · Transporte próprio do remetente"], ["4", "4 · Transporte próprio do destinatário"], ["9", "9 · Sem ocorrência de transporte"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <Field label="Modalidade de frete">
+              <select required aria-label="Modalidade de frete" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={draft.freightMode ?? "9"} onChange={event => setDraft({ ...draft, freightMode: event.target.value })}>
+                {[["0", "0 · Remetente (CIF)"], ["1", "1 · Destinatário (FOB)"], ["2", "2 · Terceiros"], ["3", "3 · Transporte próprio do remetente"], ["4", "4 · Transporte próprio do destinatário"], ["9", "9 · Sem ocorrência de transporte"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </Field>
             <Field label="Referência da instrução fiscal"><Input required maxLength={200} value={draft.taxRuleReference} onChange={event => setDraft({ ...draft, taxRuleReference: event.target.value })} /></Field>
           </section>
           <section className="form-section space-y-4" aria-label="Destinatário"><h2 className="text-lg font-semibold">Destinatário</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

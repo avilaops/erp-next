@@ -132,9 +132,50 @@ jobs:
           compression-level: 0
           retention-days: 7
 
+  mlops-evidence:
+    name: MLOps verified release evidence
+    needs: [fiscal-engine, api, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_SHA: ${{ inputs.source_ref || github.sha }}
+      NEEDS_JSON: ${{ toJSON(needs) }}
+      MLOPS_ARTIFACTS_DIR: artifacts/mlops-input
+    steps:
+      - name: Checkout exact evaluated source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Download actual OpenAPI contract from API job
+        uses: actions/download-artifact@v4
+        with:
+          name: erp-release-openapi-${{ inputs.source_ref || github.sha }}
+          path: artifacts/mlops-input/contracts
+      - name: Download actual browser-validated template from web job
+        uses: actions/download-artifact@v4
+        with:
+          name: erp-contract-model-${{ inputs.source_ref || github.sha }}
+          path: artifacts/mlops-input/validation
+      - name: Validate source, job outcomes, contract and evidence digests
+        run: node scripts/mlops/release-gate.mjs
+      - name: Preserve signed-by-digest evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-mlops-evidence-${{ inputs.source_ref || github.sha }}-${{ github.run_attempt }}
+          path: artifacts/mlops-release/
+          retention-days: 30
+          if-no-files-found: error
+
   deploy:
     name: Deploy production
-    needs: [fiscal-engine, api, web]
+    needs: [fiscal-engine, api, web, mlops-evidence]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15

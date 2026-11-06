@@ -12,7 +12,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sqlx::FromRow;
+use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -78,6 +78,84 @@ pub struct FiscalPreferencesSnapshot {
     can_edit: bool,
     secret_storage_available: bool,
     data: Value,
+}
+
+/// Opens the NFC-e CSC only for the in-process fiscal engine call. The secret
+/// never belongs in a preference response or an audit record.
+pub(super) async fn nfce_engine_profile(
+    state: &AppState,
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    environment: &str,
+) -> Result<(i32, i64, Value), DomainError> {
+    let row: Option<Row> = sqlx::query_as("SELECT revision,data,secret_key_id,secret_nonce,secret_ciphertext,secret_context FROM fiscal_preferences WHERE tenant_id=$1 AND section='nfce'")
+        .bind(tenant)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(db)?;
+    let row = row.ok_or(DomainError::Conflict(
+        "Configure o ambiente, série e CSC da NFC-e antes de preparar o modelo 65",
+    ))?;
+    if row.data["environment"] != environment || row.data["cscConfigured"] != true {
+        return Err(DomainError::Conflict(
+            "A configuração da NFC-e não corresponde ao ambiente do documento",
+        ));
+    }
+    let series = row.data["series"]
+        .as_i64()
+        .filter(|value| (1..=999).contains(value))
+        .ok_or(DomainError::Conflict("Série NFC-e inválida ou não configurada"))?;
+    let next_number = row.data["nextNumber"]
+        .as_i64()
+        .filter(|value| (1..=999_999_999).contains(value))
+        .ok_or(DomainError::Conflict("Próxima numeração NFC-e inválida ou não configurada"))?;
+    let key_id = row
+        .secret_key_id
+        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
+    let nonce = row
+        .secret_nonce
+        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
+    let ciphertext = row
+        .secret_ciphertext
+        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
+    let context = row
+        .secret_context
+        .ok_or(DomainError::Conflict("Contexto do CSC NFC-e indisponível"))?;
+    let company_tax_id: String = sqlx::query_scalar("SELECT tax_id FROM tenants WHERE id=$1")
+        .bind(tenant)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+    let expected_prefix = format!(
+        "avila-erp:nfce-csc:v1:{tenant}:{company_tax_id}:{environment}:{}:",
+        row.data["cscId"].as_str().unwrap_or("")
+    );
+    if !context.starts_with(&expected_prefix) {
+        return Err(DomainError::Conflict(
+            "CSC NFC-e não pertence à empresa ou ao ambiente atual",
+        ));
+    }
+    let vault = state
+        .certificates
+        .as_ref()
+        .ok_or(DomainError::Conflict("Armazenamento seguro de CSC indisponível"))?;
+    let secret = vault
+        .open_settings_secret(
+            &context,
+            &super::certificate_crypto::SealedCertificate {
+                key_id,
+                nonce,
+                ciphertext,
+            },
+        )
+        .map_err(|_| DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
+    let secret = String::from_utf8(secret.to_vec())
+        .map_err(|_| DomainError::Conflict("CSC NFC-e inválido ou corrompido"))?;
+    let profile = json!({
+        "version": "2",
+        "csc": {"id": row.data["cscId"], "secret": secret}
+    });
+    Ok((series as i32, next_number, profile))
 }
 #[derive(FromRow)]
 struct Row {

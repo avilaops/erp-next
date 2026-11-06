@@ -253,6 +253,23 @@ pub async fn issue(
     }
     // Revalidate the snapshot and order linkage before permanently allocating a number.
     draft.input.validate(&draft.issuer.profile)?;
+    let mut nfce_profile = None;
+    let (series, initial_number) = if draft.input.model == 65 {
+        let (series, next_number, profile) = super::preferences::nfce_engine_profile(
+            &state,
+            &mut tx,
+            tenant,
+            draft.input.environment.as_str(),
+        )
+        .await?;
+        nfce_profile = Some(profile);
+        (series, next_number)
+    } else {
+        (
+            i32::from(draft.issuer.profile.series),
+            i64::from(draft.issuer.profile.next_number.unwrap_or(1)),
+        )
+    };
     let issue_time = if existing {
         load(&mut tx, tenant, id).await?.issued_at
     } else {
@@ -268,7 +285,7 @@ pub async fn issue(
     }
     if existing && load(&mut tx, tenant, id).await?.signed_xml.is_none() {
         let document = load(&mut tx, tenant, id).await?;
-        if document.series != i32::from(draft.issuer.profile.series)
+        if document.series != series
             || document.environment != draft.input.environment.as_str()
             || document.source_order_id != draft.input.source_order_id
         {
@@ -302,8 +319,7 @@ pub async fn issue(
             )
             .into());
         }
-        let series = i32::from(draft.issuer.profile.series);
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$3,$4,$2,$5) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(i64::from(draft.issuer.profile.next_number.unwrap_or(1))).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$3,$4,$2,$5) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(initial_number).execute(&mut *tx).await.map_err(db)?;
         let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND model=$4 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
         sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,environment,model,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,$8,$9,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).bind(draft.input.environment.as_str()).bind(i16::from(draft.input.model)).execute(&mut *tx).await.map_err(db)?;
@@ -350,6 +366,9 @@ pub async fn issue(
     body["number"] = json!(document.number);
     body["issuedAt"] = json!(document.issued_at);
     body["randomCode"] = json!(document.random_code);
+    if let Some(profile) = nfce_profile {
+        body["nfce"] = profile;
+    }
     tx.commit().await.map_err(db)?;
     let client = engine(&state)?;
     if document.signed_xml.is_none() {
@@ -358,7 +377,7 @@ pub async fn issue(
             validate_prepared(
                 v,
                 &draft.issuer.tax_id,
-                document.series,
+                series,
                 document.number,
                 &document.random_code,
                 document.fiscal_environment(),
@@ -366,9 +385,12 @@ pub async fn issue(
             )
             .ok()
         });
-        if let Some((access_key, signed_xml)) = valid {
+        if let Some((access_key, signed_xml, qr_code)) = valid {
             let mut tx = access::tenant_transaction(&state, tenant).await?;
-            sqlx::query("UPDATE fiscal_nfe_documents SET access_key=$3,signed_xml=$4,status='prepared',revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).bind(access_key).bind(signed_xml).execute(&mut *tx).await.map_err(db)?;
+            let result = qr_code
+                .map(|value| json!({"qrCode": value}))
+                .unwrap_or_else(|| json!({}));
+            sqlx::query("UPDATE fiscal_nfe_documents SET access_key=$3,signed_xml=$4,result=$5,status='prepared',revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).bind(access_key).bind(signed_xml).bind(result).execute(&mut *tx).await.map_err(db)?;
             document = load(&mut tx, tenant, id).await?;
             tx.commit().await.map_err(db)?;
         } else {
@@ -439,7 +461,7 @@ fn validate_prepared(
     random_code: &str,
     environment: super::model::Environment,
     model: u8,
-) -> Result<(String, String), DomainError> {
+) -> Result<(String, String, Option<String>), DomainError> {
     let invalid = || DomainError::Conflict("Motor retornou XML ou chave incompatível");
     let key = value["accessKey"]
         .as_str()
@@ -487,7 +509,11 @@ fn validate_prepared(
     {
         return Err(invalid());
     }
-    Ok((key.into(), xml.into()))
+    let qr_code = value["qrCode"].as_str().map(str::to_owned);
+    if model == 65 && qr_code.is_none() {
+        return Err(invalid());
+    }
+    Ok((key.into(), xml.into(), qr_code))
 }
 
 fn valid_key(key: &str) -> bool {

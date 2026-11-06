@@ -9,6 +9,7 @@ import { AUTHORIZATION_ACTION, CONSULT_ACTION, VOID_ACTION, authorizationEnvelop
 import { EVENT_ACTION, eventEnvelope, eventUrl, eventXml, parseEvent, processedEventXml } from "./lib/fiscal/events.ts";
 import { DISTRIBUTION_ACTION, distributionEnvelope, distributionUrl, parseDistributionResponse } from "./lib/fiscal/distribution.ts";
 import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
+import { createNfceQrPayload } from "./lib/fiscal/nfce-qr.ts";
 import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
 import { inspectReceivedNationalNfse } from "./lib/fiscal/nfse-received.ts";
 import { NationalNfseXmlError } from "./lib/fiscal/nfse-layout.ts";
@@ -348,6 +349,10 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     const mapped = mapDraft(input), credentials = material(input, mapped.issuer.cnpj);
     const generated = buildNfeXml(mapped), signedXml = signNfeXml(generated.xml, signingKeyOf(credentials.pfx, credentials.passphrase));
     await assertFiscalXml(signedXml, "nfe");
+    if (mapped.model === 65) {
+      const qr = await createNfceQrPayload({ signedXml, profile: input.nfce as Parameters<typeof createNfceQrPayload>[0]["profile"] });
+      return { accessKey: generated.key, signedXml, qrCode: qr.payload, qrMode: qr.mode, qrVersion: qr.version, qrSourceSha256: qr.sourceSha256 };
+    }
     return { accessKey: generated.key, signedXml };
   }
   if (operation === "authorize" || operation === "consult") {

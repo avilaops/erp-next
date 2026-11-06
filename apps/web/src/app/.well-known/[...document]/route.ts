@@ -1,5 +1,4 @@
 import { forwardMcp } from "@/server/mcp/transport"
-export const runtime = "nodejs"
 export async function GET(request: Request, context: { params: Promise<{ document: string[] }> }) {
   const { document } = await context.params
   const name = document.join("/")

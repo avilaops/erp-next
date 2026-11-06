@@ -15,7 +15,8 @@ automaticamente um novo cliente.
 
 Os scopes `erp.read` e `erp.write` limitam a conexão, mas não concedem papéis no
 ERP. Uma identidade que só pode consultar continua sem poder alterar. A empresa
-é explícita em `tenant_id` nas ferramentas que operam por empresa. Os vínculos,+papéis e o estado da empresa são conferidos a cada operação pela API original.
+é explícita em `tenant_id` nas ferramentas que operam por empresa. Os vínculos,
+papéis e o estado da empresa são conferidos a cada operação pela API original.
 
 O servidor OAuth pertence ao ERP. Ele utiliza a sessão de identidade existente
 para o consentimento e emite tokens MCP próprios, vinculados ao recurso exato

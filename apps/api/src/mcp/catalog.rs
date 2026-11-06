@@ -75,6 +75,16 @@ pub fn catalog(document: &Value) -> Vec<Tool> {
                 .collect();
             let mut properties = Map::new();
             let mut required = Vec::new();
+            // The ERP business router is tenant-scoped except these identity
+            // operations. Older fiscal annotations omitted the header even
+            // though their handlers require it. Declare the MCP context here
+            // without changing the existing public HTTP contract.
+            if !["/api/v1/companies", "/api/v1/company-registration/lookup"]
+                .contains(&path.as_str())
+            {
+                properties.insert("tenant_id".into(), json!({"type":"string","format":"uuid","description":"Empresa explícita, verificada pelas regras de acesso do ERP."}));
+                required.push(json!("tenant_id"));
+            }
             for (location, argument) in
                 [("path", "path"), ("query", "query"), ("header", "headers")]
             {

@@ -120,25 +120,6 @@ impl Modify for Security {
                 ("trace", &mut item.trace),
             ] {
                 if let Some(operation) = operation {
-                    // Every business operation except identity-level company discovery
-                    // and onboarding operates in an explicit company context.
-                    if path.starts_with("/api/v1/")
-                        && !["/api/v1/companies", "/api/v1/company-registration/lookup"]
-                            .contains(&path.as_str())
-                        && operation.security.as_ref().is_some_and(|requirements| {
-                            requirements.iter().any(|r| {
-                                serde_json::to_value(r).is_ok_and(|v| v.get("bearerAuth").is_some())
-                            })
-                        })
-                    {
-                        let parameters = operation.parameters.get_or_insert_with(Vec::new);
-                        if !parameters
-                            .iter()
-                            .any(|p| p.name.eq_ignore_ascii_case("X-Tenant-Id"))
-                        {
-                            parameters.push(serde_json::from_value(serde_json::json!({"name":"X-Tenant-Id","in":"header","required":true,"schema":{"type":"string","format":"uuid"}})).expect("valid tenant parameter"));
-                        }
-                    }
                     if matches!(
                         operation.operation_id.as_deref(),
                         Some("list" | "create" | "get" | "update")

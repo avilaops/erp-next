@@ -225,6 +225,15 @@ export function mapDraft(value: unknown): NfeInput {
   const issuer = object(input.issuer), company = object(issuer.company), profile = object(issuer.profile), draft = object(input.draft);
   if (draft.environment !== input.environment || (profile.environment ?? "homologation") !== input.environment) refuse("Ambiente deve corresponder ao perfil e ao rascunho de homologação ou produção");
   const model = draft.model === 65 ? 65 : draft.model === 55 ? 55 : refuse("Modelo fiscal deve ser 55 ou 65", "tax_rule_scope");
+  const purpose = draft.purpose == null ? 1 : draft.purpose === 4 ? 4 : draft.purpose === 1 ? 1 : refuse("Finalidade fiscal deve ser 1 ou 4", "tax_rule_scope");
+  const returnDirection = purpose === 4
+    ? draft.returnDirection === "incoming" || draft.returnDirection === "outgoing" ? draft.returnDirection : refuse("Devolução fiscal exige direção explícita", "tax_rule_scope")
+    : undefined;
+  const referencedAccessKeys = draft.referencedAccessKeys == null
+    ? []
+    : Array.isArray(draft.referencedAccessKeys)
+      ? draft.referencedAccessKeys.map((key) => text(key, "Chave referenciada", 44))
+      : refuse("Chaves referenciadas inválidas", "tax_rule_scope");
   if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP") refuse("Emissão fora do recorte: NF-e/NFC-e de SP, CRT 1 ou 3", "tax_rule_scope");
   const recipient = object(draft.recipient), state = text(recipient.state, "UF", 2);
   const rawItems = draft.items;
@@ -261,7 +270,10 @@ export function mapDraft(value: unknown): NfeInput {
   if (ibs && (ibs.cst !== "000" || ibs.classCode !== "000001")) refuse("IBS/CBS fora do recorte tributado integral 000/000001", "tax_rule_scope");
   const ibsCbs = ibs ? { cst: "000", classCode: "000001", ibsStateRate: rate(ibs.ibsStateRate, true), ibsCityRate: rate(ibs.ibsCityRate, true), cbsRate: rate(ibs.cbsRate, true) } : null;
   const cfop = text(first.cfop, "CFOP", 4);
-  if (!new RegExp(`^${state === "SP" ? "5" : "6"}[0-9]{3}$`).test(cfop)) refuse("CFOP incompatível com destino");
+  const expectedPrefix = purpose === 4 && returnDirection === "incoming"
+    ? state === "SP" ? "1" : "2"
+    : state === "SP" ? "5" : "6";
+  if (!new RegExp(`^${expectedPrefix}[0-9]{3}$`).test(cfop)) refuse("CFOP incompatível com finalidade e destino");
   let cents = 0n;
   const freightMode = draft.freightMode == null ? "9" : text(draft.freightMode, "Modalidade de frete", 1);
   if (!["0", "1", "2", "3", "4", "9"].includes(freightMode)) refuse("Modalidade de frete inválida");
@@ -299,11 +311,11 @@ export function mapDraft(value: unknown): NfeInput {
   if (model !== 65 && changeAmount !== 0) refuse("Troco somente pode ser declarado na NFC-e modelo 65", "tax_rule_scope");
   const noPayment = payments.some((payment) => payment.code === "90");
   const mapped: NfeInput = {
-    environment, model, emissionType: emissionType as NfeInput["emissionType"], changeAmount, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
+    environment, model, purpose, returnDirection, referencedAccessKeys, emissionType: emissionType as NfeInput["emissionType"], changeAmount, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
     series: whole(profile.series, 999), number: whole(input.number, 999_999_999), randomCode: text(input.randomCode, "Código aleatório", 8), issuedAt: date(input.issuedAt),
     issuer: { cnpj: taxId, legalName: text(company.legalName, "Razão social", 60), stateRegistration: text(profile.stateRegistration, "IE", 14), taxRegime: normal ? 3 : 1, street: text(company.street), number: text(company.number), district: text(company.district), cityCode: text(profile.municipalityCode), city: city("SP", profile.municipalityCode), uf: "SP", cep: text(company.postalCode, "CEP", 8) },
     recipient: { kind: recipientTaxId.length === 11 ? "PF" : "PJ", document: recipientTaxId, name: text(recipient.legalName, "Destinatário", 60), stateRegistration, taxpayer, street: text(recipient.street), number: text(recipient.number), district: text(recipient.district), cityCode: text(recipient.municipalityCode), city: city(state, recipient.municipalityCode), uf: state, cep: text(recipient.postalCode, "CEP", 8) },
-    rules: { operationNature: text(draft.operationNature, "Natureza", 60), cfopInternal: `5${cfop.slice(1)}`, cfopInterstate: `6${cfop.slice(1)}`, cfopInterstateNonTaxpayer: `6${cfop.slice(1)}`, icmsCode: String(normal ? first.icmsCst : first.csosn), ipiCst, ipiFrameCode, pisCst: String(first.pisCst), pisRate, cofinsCst: String(first.cofinsCst), cofinsRate, finalConsumer, ipiInIcmsBase: declaration ? declaredBoolean(declaration, "ipiInIcmsBase") : false, icmsOutOfContributions: declaration ? declaredBoolean(declaration, "icmsOutOfContributions") : false, additionalInfo: null, ibsCbs },
+    rules: { operationNature: text(draft.operationNature, "Natureza", 60), cfopInternal: `${purpose === 4 && returnDirection === "incoming" ? "1" : "5"}${cfop.slice(1)}`, cfopInterstate: `${purpose === 4 && returnDirection === "incoming" ? "2" : "6"}${cfop.slice(1)}`, cfopInterstateNonTaxpayer: `${purpose === 4 && returnDirection === "incoming" ? "2" : "6"}${cfop.slice(1)}`, icmsCode: String(normal ? first.icmsCst : first.csosn), ipiCst, ipiFrameCode, pisCst: String(first.pisCst), pisRate, cofinsCst: String(first.cofinsCst), cofinsRate, finalConsumer, ipiInIcmsBase: declaration ? declaredBoolean(declaration, "ipiInIcmsBase") : false, icmsOutOfContributions: declaration ? declaredBoolean(declaration, "icmsOutOfContributions") : false, additionalInfo: null, ibsCbs },
     items, icmsRate, destination: { internalIcms: destinationIcms, fcp: destinationFcp },
     payments, software: "ERP Next 0.1",
   };

@@ -54,6 +54,8 @@ pub(super) struct Document {
     pub series: i32,
     pub number: i64,
     pub source_order_id: Option<Uuid>,
+    pub source_return_id: Option<Uuid>,
+    pub source_return_kind: Option<String>,
     pub issued_at: String,
     pub random_code: String,
     pub access_key: Option<String>,
@@ -78,6 +80,8 @@ pub struct EmissionSnapshot {
     pub protocol: Option<String>,
     pub result: Value,
     pub source_order_id: Option<Uuid>,
+    pub source_return_id: Option<Uuid>,
+    pub source_return_kind: Option<String>,
 }
 impl Document {
     fn fiscal_environment(&self) -> super::model::Environment {
@@ -98,6 +102,8 @@ impl Document {
             protocol: self.protocol.clone(),
             result: self.result.clone(),
             source_order_id: self.source_order_id,
+            source_return_id: self.source_return_id,
+            source_return_kind: self.source_return_kind.clone(),
         })
         .expect("serializable snapshot")
     }
@@ -107,7 +113,7 @@ pub(super) async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Document, DomainError> {
-    sqlx::query_as("SELECT id,environment,model,revision,status,series,number,source_order_id,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as("SELECT id,environment,model,revision,status,series,number,source_order_id,source_return_id,source_return_kind,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
 }
 pub(super) fn engine(state: &AppState) -> Result<&FiscalEngine, DomainError> {
@@ -288,6 +294,8 @@ pub async fn issue(
         if document.series != series
             || document.environment != draft.input.environment.as_str()
             || document.source_order_id != draft.input.source_order_id
+            || document.source_return_id != draft.input.source_return_id
+            || document.source_return_kind != draft.input.source_return_kind
         {
             return Err(
                 DomainError::Conflict("Preserve série e origem da tentativa fiscal").into(),
@@ -310,6 +318,14 @@ pub async fn issue(
             && sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_order_id=$2 AND environment=$3 AND status<>'rejected')").bind(tenant).bind(order_id).bind(draft.input.environment.as_str()).fetch_one(&mut *tx).await.map_err(db)? {
                 return Err(DomainError::Conflict("Pedido já possui documento fiscal ou emissão pendente").into());
         }
+        if let Some(return_id) = draft.input.source_return_id
+            && sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND source_return_id=$2 AND status<>'rejected')").bind(tenant).bind(return_id).fetch_one(&mut *tx).await.map_err(db)?
+        {
+            return Err(DomainError::Conflict(
+                "A devolução já possui documento fiscal ou emissão pendente",
+            )
+            .into());
+        }
         let current = super::prepare(&mut tx, tenant, &draft.input).await?.0;
         if current.company_revision != draft.issuer.company_revision
             || current.profile_revision != draft.issuer.profile_revision
@@ -322,7 +338,21 @@ pub async fn issue(
         sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$3,$4,$2,$5) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(initial_number).execute(&mut *tx).await.map_err(db)?;
         let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND model=$4 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
-        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,environment,model,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,$8,$9,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).bind(draft.input.environment.as_str()).bind(i16::from(draft.input.model)).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,source_return_id,source_return_kind,status,series,number,issued_at,random_code,environment,model,lease_until) VALUES($1,$2,$3,$4,$5,'preparing',$6,$7,$8,$9,$10,$11,clock_timestamp()+interval '120 seconds')")
+            .bind(tenant)
+            .bind(id)
+            .bind(draft.input.source_order_id)
+            .bind(draft.input.source_return_id)
+            .bind(&draft.input.source_return_kind)
+            .bind(series)
+            .bind(number)
+            .bind(&issue_time)
+            .bind(random_code)
+            .bind(draft.input.environment.as_str())
+            .bind(i16::from(draft.input.model))
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
         record(
             &mut tx,
             tenant,

@@ -641,14 +641,37 @@ pub async fn create(
             .insert("idempotency-replayed", HeaderValue::from_static("true"));
         return Ok(reply);
     }
-    order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    if value.purpose == 4 {
+        super::returns::validate_fiscal_return_source(
+            &mut tx,
+            tenant,
+            &identity,
+            value.source_return_kind.as_deref().unwrap_or_default(),
+            value.source_return_id.ok_or(DomainError::Invalid(
+                "Devolução exige origem comercial persistida",
+            ))?,
+        )
+        .await?;
+    } else {
+        order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    }
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     let id = Uuid::now_v7();
     let issuer_json = serde_json::to_value(&issuer).map_err(|_| access::AccessError::Internal)?;
-    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,$9,$10,$3,$4,$5,$6,$7,$8)")
-        .bind(tenant).bind(id).bind(issuer.profile_revision).bind(issuer.company_revision).bind(issuer_json).bind(&request).bind(total)
-        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).bind(value.environment.as_str()).bind(i16::from(value.model)).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,source_return_id,source_return_kind,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
+        .bind(tenant)
+        .bind(id)
+        .bind(value.source_return_id)
+        .bind(&value.source_return_kind)
+        .bind(value.environment.as_str())
+        .bind(i16::from(value.model))
+        .bind(issuer.profile_revision)
+        .bind(issuer.company_revision)
+        .bind(issuer_json)
+        .bind(&request)
+        .bind(total)
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,
@@ -707,9 +730,12 @@ pub async fn update(
         return Err(DomainError::StaleRevision.into());
     }
     let value = input(payload)?;
-    if current.input.source_order_id != value.source_order_id {
+    if current.input.source_order_id != value.source_order_id
+        || current.input.source_return_id != value.source_return_id
+        || current.input.source_return_kind != value.source_return_kind
+    {
         return Err(DomainError::Conflict(
-            "O vínculo com o pedido não pode ser trocado ou removido deste rascunho",
+            "O vínculo comercial não pode ser trocado ou removido deste rascunho",
         )
         .into());
     }
@@ -728,7 +754,20 @@ pub async fn update(
         )
         .into());
     }
-    order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    if value.purpose == 4 {
+        super::returns::validate_fiscal_return_source(
+            &mut tx,
+            tenant,
+            &identity,
+            value.source_return_kind.as_deref().unwrap_or_default(),
+            value.source_return_id.ok_or(DomainError::Invalid(
+                "Devolução exige origem comercial persistida",
+            ))?,
+        )
+        .await?;
+    } else {
+        order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    }
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     if let Some((series, model)) = sqlx::query_as::<_, (i32, i16)>(

@@ -40,6 +40,29 @@ test("prepare maps exact draft amounts, uses IBGE name, signs and passes the pin
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE KEY|senha-de-teste|pkcs12Base64/);
 });
 
+test("return preparation emits finNFe 4, incoming tpNF and explicit NFref", async () => {
+  const base = preparation();
+  const input = {
+    ...base,
+    draft: {
+      ...base.draft,
+      purpose: 4,
+      returnDirection: "incoming",
+      referencedAccessKeys: [key],
+      items: [{ ...base.draft.items[0], cfop: "1102" }],
+    },
+  };
+  const mapped = mapDraft(input);
+  assert.equal(mapped.purpose, 4);
+  assert.equal(mapped.returnDirection, "incoming");
+  const result = await dispatch("prepare", input);
+  const signed = String(result.signedXml);
+  assert.match(signed, /<tpNF>0<\/tpNF>/);
+  assert.match(signed, /<finNFe>4<\/finNFe>/);
+  assert.match(signed, new RegExp(`<NFref><refNFe>${key}<\/refNFe><\/NFref>`));
+  assert.match(signed, /<CFOP>1102<\/CFOP>/);
+});
+
 test("prepare refuses missing tax rules, changed totals, incompatible item rules and production", () => {
   const input = preparation();
   input.issuer.profile.crt = 3;

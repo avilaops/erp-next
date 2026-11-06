@@ -152,6 +152,12 @@ export type NfeInput = {
   environment: "homologacao" | "producao";
   /** 55 = NF-e; 65 = NFC-e. Existing callers default to NF-e. */
   model?: 55 | 65;
+  /** 1 normal; 4 devolução com referência fiscal. */
+  purpose?: 1 | 4;
+  /** Direction of a return, declared by the fiscal operator. */
+  returnDirection?: "incoming" | "outgoing";
+  /** Access keys of the fiscal documents that originated the return. */
+  referencedAccessKeys?: string[];
   transport: NfeTransport;
   /** `modFrete`: who hires the freight. */
   freightMode: FreightMode;
@@ -329,11 +335,23 @@ export function nfeProblems(input: NfeInput): string[] {
   const problems: string[] = approximateTaxProblems(input);
   const { issuer, recipient, rules } = input;
   const model = input.model ?? 55;
+  const purpose = input.purpose ?? 1;
+  const returnDirection = input.returnDirection;
+  const references = input.referencedAccessKeys ?? [];
   const emissionType = input.emissionType ?? "1";
   const need = (ok: boolean, message: string) => {
     if (!ok) problems.push(message);
   };
   need(model === 55 || model === 65, "Documento: modelo deve ser 55 (NF-e) ou 65 (NFC-e).");
+  need(purpose === 1 || purpose === 4, "Documento: finalidade deve ser 1 (normal) ou 4 (devolução).");
+  if (purpose === 4) {
+    need(model === 55, "Devolução fiscal exige NF-e modelo 55.");
+    need(returnDirection === "incoming" || returnDirection === "outgoing", "Devolução fiscal exige direção declarada.");
+    need(references.length >= 1 && references.length <= 99, "Devolução fiscal exige de 1 a 99 documentos referenciados.");
+    need(references.every((key) => /^\d{44}$/.test(key)) && new Set(references).size === references.length, "Chaves referenciadas devem ter 44 dígitos e não podem se repetir.");
+  } else {
+    need(returnDirection == null && references.length === 0, "Direção e referências só existem em uma devolução fiscal.");
+  }
   need(model === 65 || emissionType === "1", "NF-e modelo 55 não aceita modalidade de contingência NFC-e.");
   need(model === 65 ? ["1", "3", "4", "9"].includes(emissionType) : emissionType === "1", "Documento: modalidade de emissão inválida para o modelo.");
   const change = input.changeAmount ?? 0;
@@ -366,8 +384,11 @@ export function nfeProblems(input: NfeInput): string[] {
   }
 
   need(rules.operationNature.trim() !== "", "Regras fiscais: natureza da operação.");
+  const cfopPrefixes = purpose === 4
+    ? returnDirection === "incoming" ? /^[12]/ : /^[56]/
+    : /^[56]/;
   for (const [name, cfop] of [["dentro do estado", rules.cfopInternal], ["para outro estado", rules.cfopInterstate], ["para não contribuinte de outro estado", rules.cfopInterstateNonTaxpayer]] as const) {
-    need(/^[56]\d{3}$/.test(cfop), `Regras fiscais: CFOP de venda ${name}.`);
+    need(new RegExp(`${cfopPrefixes.source}\\d{3}$`).test(cfop), `Regras fiscais: CFOP incompatível com a finalidade em ${name}.`);
   }
   const simples = issuer.taxRegime === 1;
   need(simples ? ["102", "103", "300", "400"].includes(rules.icmsCode) : ["00", "40", "41", "50"].includes(rules.icmsCode),
@@ -632,6 +653,8 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
   const { issuer, recipient, rules } = input;
   const model = input.model ?? 55;
   const emissionType = input.emissionType ?? "1";
+  const purpose = input.purpose ?? 1;
+  const incomingReturn = purpose === 4 && input.returnDirection === "incoming";
   const key = accessKey(input);
   const totals = nfeTotals(input);
   const interstate = issuer.uf !== destinationUf(input);
@@ -646,19 +669,20 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
       tag("serie", input.series) +
       tag("nNF", input.number) +
       tag("dhEmi", input.issuedAt) +
-      tag("tpNF", "1") +
+      tag("tpNF", incomingReturn ? "0" : "1") +
       tag("idDest", interstate ? "2" : "1") +
       tag("cMunFG", issuer.cityCode) +
       tag("tpImp", model === 65 ? "4" : "1") +
       tag("tpEmis", emissionType) +
       tag("cDV", key[43]) +
       tag("tpAmb", homologation ? "2" : "1") +
-      tag("finNFe", "1") +
+    tag("finNFe", purpose) +
       tag("indFinal", rules.finalConsumer ? "1" : "0") +
       tag("indPres", "9") +
       tag("indIntermed", "0") +
       tag("procEmi", "0") +
       tag("verProc", clean(input.software, 20)) +
+      (purpose === 4 ? group("NFref", (input.referencedAccessKeys ?? []).map((key) => tag("refNFe", key)).join("")) : "") +
       (emissionType === "9" ? tag("dhCont", input.issuedAt) + tag("xJust", "Contingência offline autorizada para a NFC-e; transmitir posteriormente.") : ""),
   );
 

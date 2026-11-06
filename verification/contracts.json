@@ -28772,7 +28772,7 @@
         ]
       }
     }
-  ],
+  ,
     {
       "id": "get-api-v1-warranty-policies",
       "flow": "warranties", "status": "implemented",

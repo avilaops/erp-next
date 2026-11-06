@@ -6,7 +6,7 @@ import { useCommand, useResource } from "@/hooks/use-operation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-type CaseRow = { id: string; protocol: string; title: string; criticality: string; coverageStatus: string; status: string; serialNumber: string | null; lot: string | null; revision: number; updatedAt: string }
+type CaseRow = { id: string; protocol: string; title: string; criticality: string; coverageStatus: string; status: string; queue: string; assignedTo: string | null; slaDueAt: string | null; serialNumber: string | null; lot: string | null; revision: number; updatedAt: string }
 type CaseDetail = CaseRow & { description: string; productId: string | null; timeline: { id: string; eventType: string; status: string; createdAt: string }[]; serviceOrders: { id: string; revision: number }[]; parts: unknown[]; approvals: unknown[]; rmas: { id: string; revision: number; status: string }[]; quarantines: { id: string; revision: number; status: string }[] }
 type CasesResponse = { tenantId: string; data: CaseRow[] }
 type CaseResponse = { tenantId: string; data: CaseDetail }

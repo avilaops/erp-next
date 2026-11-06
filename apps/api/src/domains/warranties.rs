@@ -14,6 +14,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::Row;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 const READ: &str = "service.warranties.read";
@@ -49,6 +50,14 @@ pub struct CaseInput {
 pub struct TransitionInput {
     pub status: String,
     pub details: Value,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct AssignmentInput {
+    pub assigned_to: Option<Uuid>,
+    pub queue: String,
+    pub sla_due_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -121,6 +130,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/warranty-cases", get(list_cases).post(create_case))
         .route("/api/v1/warranty-cases/{id}", get(get_case))
         .route("/api/v1/warranty-cases/{id}/transition", post(transition))
+        .route("/api/v1/warranty-cases/{id}/assignment", post(assign_case))
         .route(
             "/api/v1/warranty-cases/{id}/service-order",
             post(service_order),
@@ -257,12 +267,14 @@ pub async fn list_cases(
     headers: HeaderMap,
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let rows = sqlx::query("SELECT id,protocol,title,criticality,coverage_status,status,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 ORDER BY updated_at DESC,id DESC LIMIT 200")
+    let rows = sqlx::query("SELECT id,protocol,title,criticality,coverage_status,status,queue,assigned_to,sla_due_at,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 ORDER BY updated_at DESC,id DESC LIMIT 200")
         .bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
     let data: Vec<Value> = rows.into_iter().map(|row| json!({
         "id": row.get::<Uuid,_>("id"), "protocol": row.get::<String,_>("protocol"), "title": row.get::<String,_>("title"),
         "criticality": row.get::<String,_>("criticality"), "coverageStatus": row.get::<String,_>("coverage_status"),
         "status": row.get::<String,_>("status"), "serialNumber": row.get::<Option<String>,_>("serial_number"),
+        "queue": row.get::<String,_>("queue"), "assignedTo": row.get::<Option<Uuid>,_>("assigned_to"),
+        "slaDueAt": row.get::<Option<OffsetDateTime>,_>("sla_due_at"),
         "lot": row.get::<Option<String>,_>("lot"), "revision": row.get::<i64,_>("revision"),
         "createdAt": row.get::<time::OffsetDateTime,_>("created_at"), "updatedAt": row.get::<time::OffsetDateTime,_>("updated_at")
     })).collect();
@@ -343,7 +355,7 @@ pub async fn get_case(
     Path(id): Path<Uuid>,
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let case = sqlx::query("SELECT id,protocol,title,description,criticality,coverage_status,status,product_id,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 AND id=$2")
+    let case = sqlx::query("SELECT id,protocol,title,description,criticality,coverage_status,status,queue,assigned_to,sla_due_at,product_id,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let events = sqlx::query("SELECT id,event_type,status,details,created_at FROM warranty_case_events WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
         .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
@@ -393,8 +405,100 @@ pub async fn get_case(
     Ok(response(
         StatusCode::OK,
         Some(case.get::<i64, _>("revision")),
-        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "productId": case.get::<Option<Uuid>,_>("product_id"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline, "serviceOrders": service_orders, "parts": parts, "approvals": approvals, "rmas": rmas, "quarantines": quarantines}}),
+        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "queue": case.get::<String,_>("queue"), "assignedTo": case.get::<Option<Uuid>,_>("assigned_to"), "slaDueAt": case.get::<Option<OffsetDateTime>,_>("sla_due_at"), "productId": case.get::<Option<Uuid>,_>("product_id"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline, "serviceOrders": service_orders, "parts": parts, "approvals": approvals, "rmas": rmas, "quarantines": quarantines}}),
     ))
+}
+
+pub async fn assign_case(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(input): Json<AssignmentInput>,
+) -> Result<Response, DomainError> {
+    let queue = text(&input.queue, 1, 80)?;
+    let sla_due_at = input
+        .sla_due_at
+        .as_deref()
+        .map(|value| {
+            OffsetDateTime::parse(value, &Rfc3339)
+                .map_err(|_| DomainError::Invalid("SLA deve usar data RFC3339 válida"))
+        })
+        .transpose()?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request = serde_json::to_value(&input)
+        .map_err(|_| DomainError::Invalid("Atribuição inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.case.assignment",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    if let Some(assigned_to) = input.assigned_to {
+        let active: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM staff WHERE tenant_id=$1 AND id=$2 AND status='active')",
+        )
+        .bind(tenant)
+        .bind(assigned_to)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+        if !active {
+            return Err(DomainError::Conflict(
+                "Responsável deve ser um funcionário ativo desta empresa",
+            ));
+        }
+    }
+    let next = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_cases SET queue=$3,assigned_to=$4,sla_due_at=$5,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$6 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(&queue)
+    .bind(input.assigned_to)
+    .bind(sla_due_at)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    let result = json!({"tenantId": tenant, "data": {"id": id, "queue": queue, "assignedTo": input.assigned_to, "slaDueAt": sla_due_at, "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'note','assigned',$4)")
+        .bind(Uuid::now_v7()).bind(tenant).bind(id).bind(&result).execute(&mut *tx).await.map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_case",
+            id,
+            event: "warranty.case.assigned",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.case.assignment",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::OK, Some(next), result))
 }
 
 pub async fn transition(

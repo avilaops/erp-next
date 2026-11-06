@@ -1374,7 +1374,7 @@
         "additionalSources": ["docs/AVL-319-GARANTIAS-ASSISTENCIA.md"],
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
-          {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id"], "authRefs": [], "externalSystems": []},
+{"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id", "post-api-v1-warranty-cases-id-assignment"], "authRefs": [], "externalSystems": []},
           {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts", "post-api-v1-warranty-cases-id-approval", "post-api-v1-warranty-cases-id-rma", "post-api-v1-warranty-rmas-id-transition", "post-api-v1-warranty-cases-id-quarantine", "post-api-v1-warranty-quarantines-id-transition"], "authRefs": [], "externalSystems": []}
         ]
       },
@@ -28829,6 +28829,15 @@
       "preconditions": ["Protocolo pertence à empresa."], "transition": {"from": "Atual", "to": "Sem alteração"}, "effects": {"writes": [], "external": [], "excludes": ["Não altera timeline."]},
       "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."}, "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 500], "action": "get-api-v1-warranty-cases-id"}, "recovery": "Consultar o protocolo correto.",
       "ui": {"pages": ["/vendas/garantias/[id]"], "bff": {"method": "GET", "path": "/api/erp/warranty-cases/[id]"}, "gap": null}, "sources": ["apps/api/src/domains/warranties.rs", "apps/web/src/features/sales/warranty-workspace.tsx"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases-id-assignment",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-cases/{id}/assignment"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "AssignmentInput"}, "query": null},
+      "preconditions": ["Revisão, fila válida, funcionário ativo da empresa quando informado e SLA RFC3339 quando informado."], "transition": {"from": "Triagem atual", "to": "Fila, responsável e vencimento SLA atualizados com evento append-only"},
+      "effects": {"writes": ["warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não cria usuário Auth, não altera folha e não gera efeito financeiro ou fiscal."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente e repetição devolve o mesmo resultado."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-assignment"}, "recovery": "Consultar o protocolo e reenviar com a revisão atual ou repetir a mesma chave em resposta incerta.",
+      "ui": {"pages": ["/vendas/garantias/[id]"], "bff": {"method": "POST", "path": "/api/erp/warranty-cases/[id]/assignment"}, "gap": "tela ainda não expõe o comando"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060007_warranty_triage_assignment.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "post-api-v1-warranty-cases-id-transition",

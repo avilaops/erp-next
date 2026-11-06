@@ -7,7 +7,8 @@ auditoria e outbox.
 
 Também estão implementados os registros de peças utilizadas, decisões de aprovação
 por alçada, RMA com transições de status e quarentena com movimentação autorizada
-no livro de estoque. Esses registros preservam snapshots e histórico, mas não
+no livro de estoque. A triagem agora também persiste fila, responsável ativo e
+vencimento de SLA com revisão, idempotência e timeline. Esses registros preservam snapshots e histórico, mas não
 afirmam efeitos que o contrato ainda não suporta.
 
 Limites explícitos do contrato atual: não inventar CFOP, não emitir documento

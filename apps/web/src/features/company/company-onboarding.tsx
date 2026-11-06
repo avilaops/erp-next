@@ -44,9 +44,6 @@ export function CompanyPicker() {
   const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
-    setCompanies([])
-    setPlatformAdministrator(false)
-    setFeedback({ message: "Carregando suas empresas…", error: false })
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
       if (!response.ok) {
         const result = await response.json().catch(() => ({})) as { title?: string }
@@ -71,6 +68,12 @@ export function CompanyPicker() {
     })
     return () => { active = false }
   }, [reload])
+  function retryDirectory() {
+    setCompanies([])
+    setPlatformAdministrator(false)
+    setFeedback({ message: "Carregando suas empresas…", error: false })
+    setReload(value => value + 1)
+  }
   async function select(company: Schema<"CompanySummary"> & { status?: string }) {
     const name = company.tradeName || company.legalName
     setBusyCompanyId(company.id)
@@ -92,7 +95,7 @@ export function CompanyPicker() {
   return <section className="form-section space-y-4" aria-busy={busy}>
     {platformAdministrator && <p className="font-medium">Administração da plataforma — todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
     <p id="company-picker-feedback" role={feedback.error ? "alert" : "status"} aria-live={feedback.error ? "assertive" : "polite"}>{feedback.message}</p>
-    {feedback.error && <button type="button" className="rounded-xl border px-4 py-2 text-sm" onClick={() => setReload(value => value + 1)}>Tentar novamente</button>}
+    {feedback.error && <button type="button" className="rounded-xl border px-4 py-2 text-sm" onClick={retryDirectory}>Tentar novamente</button>}
     {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
     <AccessLink className="ml-4 inline-block underline" />

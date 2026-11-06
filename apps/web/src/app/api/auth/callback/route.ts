@@ -62,7 +62,10 @@ export async function GET(request: Request) {
     const companies = await access.json()
     if (!isCompanyDirectory(companies)) throw new Error("Lista de empresas inválida")
     if (companies.platformAdministrator === true) tenantId = null
-    else if (tenantId && !companies.data.some((item: { id: string }) => item.id === tenantId)) return callbackFailure(request, origin, "denied", 403, returnTo)
+    else if (tenantId) {
+      const selectedCompany = companies.data.find(item => item.id === tenantId)
+      if (!selectedCompany || selectedCompany.status !== "active") return callbackFailure(request, origin, "denied", 403, returnTo)
+    }
     if (!tenantId) {
       if (companies.data.length === 1 && companies.platformAdministrator !== true && companies.data[0].status === "active") tenantId = companies.data[0].id
       else destination = companies.data.length === 0 && companies.platformAdministrator !== true ? "/cadastro/empresa?" + new URLSearchParams({ returnTo: destination }) : accessHref("/empresas", destination)

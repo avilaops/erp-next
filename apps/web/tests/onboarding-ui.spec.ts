@@ -12,6 +12,7 @@ const tenant = "11111111-1111-4111-8111-111111111111"
 let companyCount = 0
 let platformAdministrator = false
 let suspendedCompany = false
+let firstCompanyStatus = "active"
 let denied = false
 let selectionDelayMs = 0
 let selectionStatus = 204
@@ -33,7 +34,7 @@ const upstream = createServer(async (request, response) => {
     }
     response.end(JSON.stringify(malformedDirectory
       ? { platformAdministrator: false, data: [{ id: "not-a-uuid", legalName: "Empresa inválida", status: "active" }] }
-      : { platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
+      : { platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: index === 0 ? firstCompanyStatus : suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
   }
   if (request.url === "/api/v1/company-selection") {
     expect(request.method).toBe("POST")
@@ -81,7 +82,7 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false })
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true
@@ -408,6 +409,13 @@ test("OIDC callback rejects a malformed company directory before creating a sess
   await page.goto("/entrar?" + new URLSearchParams({ returnTo: "/preferencias/empresa/dados" }))
   await page.getByRole("link", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
+})
+
+test("OIDC callback rejects a preselected suspended company", async ({ page }) => {
+  companyCount = 1; firstCompanyStatus = "suspended"; redirectAuthorization = true
+  await page.goto("/entrar")
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "denied")
 })
 
 test("company selection rejects non-JSON and malformed bodies before forwarding tenant input", async ({ context }) => {

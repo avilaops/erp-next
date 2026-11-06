@@ -21,6 +21,7 @@ for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalid
     sent = route.request().postDataJSON()
     return route.fulfill({ json: { tenantId: tenant, version: 6, digest: "a".repeat(64), sale, director: null } })
   })
+  await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ json: { tenantId: tenant, data: { structureColors: ["Preto"], upholsteryColors: [] } } }))
   await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, data: [], total: 0 } }))
   await page.goto("/vendas/simulador")
   await page.getByRole("combobox", { name: "Equipamento da tabela", exact: true }).selectOption(product)

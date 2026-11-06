@@ -47,13 +47,15 @@ mod invitation_tests;
 mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
+#[path = "../mcp.rs"]
+mod mcp;
+#[cfg(test)]
+mod mcp_tests;
 #[cfg(test)]
 mod monitor_tests;
 #[cfg(test)]
 mod onboarding_tests;
 mod openapi;
-#[cfg(test)]
-mod mcp_tests;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
@@ -462,6 +464,15 @@ pub fn router(state: AppState) -> Router {
     ));
 
     Router::new()
+        .route("/mcp", post(mcp::streamable_http))
+        .route(
+            "/.well-known/oauth-protected-resource/mcp",
+            get(mcp::protected_resource),
+        )
+        .route(
+            "/.well-known/oauth-authorization-server",
+            get(mcp::authorization_server),
+        )
         .route(
             "/api/v1/webhooks/contracts/{tenant}",
             axum::routing::post(crate::domains::contracts::webhook),

@@ -43,9 +43,18 @@ export function invoiceTotal(draft: DraftInput): string {
   const ipiRate = draft.taxDeclaration?.ipiRate
   const rate = ipiRate ? scaled(percent(ipiRate)) : BigInt(0)
   return cents(draft.items.reduce((sum, item) => {
-    const product = scaled(itemTotal(item.quantity, item.unitPrice))
+    const product = commercialItemCents(item)
     return sum + product + (product * rate + BigInt(500_000)) / BigInt(1_000_000)
   }, BigInt(0)))
+}
+
+function commercialItemCents(item: DraftItem): bigint {
+  const gross = scaled(itemTotal(item.quantity, item.unitPrice))
+  const freight = scaled(fixed(item.freightAmount || "0", 2, 13))
+  const discount = scaled(fixed(item.discountAmount || "0", 2, 13))
+  const net = gross + freight - discount
+  if (discount > gross || net <= BigInt(0)) throw new Error("Confira o desconto e o total do item com frete")
+  return net
 }
 
 function declaredTaxes(declaration: TaxDeclaration): Schema<"TaxDeclaration"> {
@@ -61,6 +70,8 @@ function declaredTaxes(declaration: TaxDeclaration): Schema<"TaxDeclaration"> {
     icmsRate: declaration.icmsRate ? percent(declaration.icmsRate) : null,
     pisRate: declaration.pisRate ? percent(declaration.pisRate) : null,
     cofinsRate: declaration.cofinsRate ? percent(declaration.cofinsRate) : null,
+    ...(declaration.destinationIcmsRate ? { destinationIcmsRate: percent(declaration.destinationIcmsRate) } : {}),
+    ...(declaration.destinationFcpRate ? { destinationFcpRate: percent(declaration.destinationFcpRate) } : {}),
     ipiRate: declaration.ipiRate ? percent(declaration.ipiRate) : null,
     ibsCbs: { ...declaration.ibsCbs, ibsStateRate: percent(declaration.ibsCbs.ibsStateRate), ibsCityRate: percent(declaration.ibsCbs.ibsCityRate), cbsRate: percent(declaration.ibsCbs.cbsRate) },
   }
@@ -71,7 +82,10 @@ export function submission(draft: DraftInput): Schema<"DraftInput"> {
   const items = draft.items.map((item, index) => {
     if (item.origin < 0) throw new Error(`Informe a origem da mercadoria no item ${index + 1}`)
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
-    return { ...item, quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
+    commercialItemCents(item)
+    const freightAmount = fixed(item.freightAmount || "0", 2, 13)
+    if (scaled(freightAmount) > BigInt(0) && (draft.freightMode ?? "9") === "9") throw new Error("Frete cobrado exige modalidade de transporte diferente de 9")
+    return { ...item, ...(item.freightAmount === undefined ? {} : { freightAmount }), ...(item.discountAmount === undefined ? {} : { discountAmount: fixed(item.discountAmount || "0", 2, 13) }), quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
   return { ...input, items, productsTotal: productsTotal(items), ...(ibpt === undefined ? {} : { ibpt: ibpt === null ? null : ibptSubmission(ibpt, items.length) }), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }

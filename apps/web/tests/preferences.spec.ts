@@ -320,6 +320,28 @@ test("gerenciador de transições cria, edita e publica rascunhos", async ({ pag
   await expect.poll(() => action).toBe("publish")
 })
 
+test("gerenciador de arquivos filtra, baixa legados e arquiva registros atuais", async ({ page }) => {
+  let archived = false
+  const files = [
+    { id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",origin:"system",filename:"manual.pdf",mediaType:"application/pdf",byteSize:2048,sha256:"a".repeat(64),status:archived?"archived":"available",revision:archived?2:1,versionCount:0,createdAt:"2026-11-05T12:00:00Z" },
+    { id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",origin:"legacy",filename:"nota.xml",mediaType:"application/xml",byteSize:4,sha256:"b".repeat(64),status:"available",revision:1,versionCount:1,createdAt:"2026-10-01T12:00:00Z" },
+  ]
+  await page.route("**/api/erp/system/files**", async route => {
+    const request=route.request()
+    if(request.method()==="POST"){expect(request.headers()["if-match"]).toBe('"1"');archived=true;return route.fulfill({json:{data:{...files[0],status:"archived",revision:2}}})}
+    const current=files.map((file,index)=>index===0&&archived?{...file,status:"archived",revision:2}:file)
+    return route.fulfill({json:{tenantId:"11111111-1111-4111-8111-111111111111",data:current,total:2,offset:0,limit:25,canEdit:true}})
+  })
+  await page.goto("/preferencias/sistema/arquivos")
+  await expect(page.getByRole("heading",{name:"Gerenciador de arquivos"})).toBeVisible()
+  await expect(page.getByRole("link",{name:"Baixar"})).toHaveAttribute("download","nota.xml")
+  await page.getByRole("button",{name:"Arquivar"}).click()
+  await expect.poll(()=>archived).toBe(true)
+  await expect(page.getByRole("status")).toContainText("manual.pdf foi arquivado")
+  await page.getByLabel("Origem").selectOption("legacy")
+  await expect(page.getByText("nota.xml",{exact:true})).toBeVisible()
+})
+
 test("serviços executa fluxos específicos por operação", async ({ page }) => {
   await page.goto("/servicos/ordens")
   await page.getByRole("button", { name: /OS-2048/ }).click()

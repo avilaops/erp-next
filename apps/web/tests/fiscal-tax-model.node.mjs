@@ -35,3 +35,23 @@ test("applying a reusable profile preserves item origin, CFOP, recipient decisio
  applied.taxDeclaration.icmsRate="18.0000";
  assert.equal(applyTaxProfile(applied,profile,5).taxDeclaration.icmsRate,"18.0000");
 });
+
+test("freight and discount retain original gross prices and round IPI per commercial item", () => {
+  const draft = blankDraft();
+  draft.freightMode = "0";
+  draft.items = [{ ...blankItem(), unitPrice: "100", origin: 0, icmsCst: "00", freightAmount: "20,00", discountAmount: "5" }];
+  draft.taxDeclaration = { ...blankTaxDeclaration(), recipientTaxpayer: false, finalConsumer: true, ipiInIcmsBase: true, icmsOutOfContributions: false, ipiRate: "10", destinationIcmsRate: "20", destinationFcpRate: "0", ibsCbs: { cst: "000", classCode: "000001", ibsStateRate: "0,1", ibsCityRate: "0", cbsRate: "0,9" } };
+  assert.equal(invoiceTotal(draft), "126.50");
+  const saved = submission(draft);
+  assert.equal(saved.productsTotal, "100.00");
+  assert.equal(saved.items[0].unitPrice, "100.0000000000");
+  assert.equal(saved.items[0].freightAmount, "20.00");
+  assert.equal(saved.items[0].discountAmount, "5.00");
+  assert.equal(saved.taxDeclaration.destinationIcmsRate, "20.0000");
+  assert.equal(saved.taxDeclaration.destinationFcpRate, "0.0000");
+  draft.freightMode = "9";
+  assert.throws(() => submission(draft), /Frete/);
+  draft.freightMode = "0";
+  draft.items[0].discountAmount = "100,01";
+  assert.throws(() => submission(draft), /desconto/);
+});

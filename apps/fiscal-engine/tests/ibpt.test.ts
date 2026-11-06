@@ -48,6 +48,20 @@ test("IBPT snapshot exports exact per-item and aggregate approximate taxes witho
   await assertFiscalXml(signNfeXml(xml, signingKeyOf(testPfx(), "senha-de-teste")), "nfe");
 });
 
+test("IBPT snapshot binds the commercial item including declared freight and discount", async () => {
+  const input = preparation();
+  input.draft.freightMode = "0";
+  Object.assign(input.draft.items[0], { freightAmount: "10.00", discountAmount: "5.00" });
+  input.draft.payments[0].amount = "105.00";
+  input.ibptSnapshot.items[0].amount = "105.00";
+  const xml = buildNfeXml(mapDraft(input)).xml;
+  assert.match(xml, /<vNF>105.00<\/vNF>/);
+  assert.match(xml, /<vTotTrib>3.06<\/vTotTrib>/);
+  await assertFiscalXml(signNfeXml(xml, signingKeyOf(testPfx(), "senha-de-teste")), "nfe");
+  input.ibptSnapshot.items[0].amount = "100.00";
+  assert.throws(() => mapDraft(input), /Base.*IBPT/);
+});
+
 test("IBPT absent/null selection retains byte-identical XML and does not infer origins", () => {
   const a = preparation(); delete a.draft.ibpt; delete a.ibptSnapshot;
   const b = structuredClone(a); b.draft.ibpt = null; b.ibptSnapshot = null;

@@ -40,7 +40,7 @@ async fn call(
 #[sqlx::test(migrations = "../../migrations")]
 async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
-    sqlx::raw_sql(&format!("GRANT USAGE ON SCHEMA system_config TO {role}; GRANT SELECT,UPDATE ON system_config.files TO {role}; GRANT SELECT ON system_config.file_versions TO {role}; GRANT SELECT ON legacy_files,legacy_history TO {role};")).execute(&admin).await.unwrap();
+    sqlx::raw_sql(&format!("GRANT USAGE ON SCHEMA system_config TO {role}; GRANT EXECUTE ON FUNCTION system_config.has_permission(text) TO {role}; GRANT SELECT,UPDATE ON ALL TABLES IN SCHEMA system_config TO {role}; GRANT SELECT ON legacy_files,legacy_history TO {role};")).execute(&admin).await.unwrap();
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','system.files.read'),('99999999-9999-4999-8999-999999999999','system.files.manage')").execute(&admin).await.unwrap();
     sqlx::raw_sql("INSERT INTO legacy_history(tenant_id,id,collection,title,details) VALUES ('11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000001','files','Importado','{}'),('22222222-2222-4222-8222-222222222222','20000000-0000-4000-8000-000000000001','files','Outro','{}'); INSERT INTO legacy_files(tenant_id,id,history_id,filename,media_type,content,sha256) VALUES ('11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','nota.xml','application/xml',decode('3c612f3e','hex'),'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),('22222222-2222-4222-8222-222222222222','20000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','outra.xml','application/xml',decode('3c622f3e','hex'),'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'); INSERT INTO system_config.files(tenant_id,id,storage_key,original_name,media_type,byte_size,sha256,status,created_by) SELECT tenant_id,'10000000-0000-4000-8000-000000000003','products/manual.pdf','manual.pdf','application/pdf',42,'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','available',identity_id FROM tenant_memberships WHERE tenant_id='11111111-1111-4111-8111-111111111111' ORDER BY identity_id LIMIT 1;").execute(&admin).await.unwrap();
 
@@ -66,7 +66,7 @@ async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool)
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
     let payload: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(payload["total"], 1);
     assert_eq!(payload["data"][0]["origin"], "system");

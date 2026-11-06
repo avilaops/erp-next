@@ -54,9 +54,10 @@ test("IBPT snapshot binds the commercial item including declared freight and dis
   Object.assign(input.draft.items[0], { freightAmount: "10.00", discountAmount: "5.00" });
   input.draft.payments[0].amount = "105.00";
   input.ibptSnapshot.items[0].amount = "105.00";
-  const xml = String((await dispatch("prepare", input)).signedXml);
+  const xml = buildNfeXml(mapDraft(input)).xml;
   assert.match(xml, /<vNF>105.00<\/vNF>/);
   assert.match(xml, /<vTotTrib>3.06<\/vTotTrib>/);
+  await assertFiscalXml(signNfeXml(xml, signingKeyOf(testPfx(), "senha-de-teste")), "nfe");
   input.ibptSnapshot.items[0].amount = "100.00";
   assert.throws(() => mapDraft(input), /Base.*IBPT/);
 });

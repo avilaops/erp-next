@@ -22,6 +22,8 @@ fn fixture() -> (ApprovalRules, SimulationInput, Vec<SourceItem>) {
                 product_id: id,
                 quantity: 1,
                 structure_color: None,
+                plate_holder_color: None,
+                plate_holder_type: None,
                 upholstery_color: None,
             }],
         },

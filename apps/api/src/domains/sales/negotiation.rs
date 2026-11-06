@@ -287,6 +287,24 @@ pub async fn convert(
             product.data.structure_colors.as_deref().unwrap_or_default(),
             None,
         )?;
+        let plate_holder_color = super::select_color(
+            item.plate_holder_color.as_deref(),
+            product
+                .data
+                .plate_holder_colors
+                .as_deref()
+                .unwrap_or_default(),
+            None,
+        )?;
+        let plate_holder_type = super::select_color(
+            item.plate_holder_type.as_deref(),
+            product
+                .data
+                .plate_holder_types
+                .as_deref()
+                .unwrap_or_default(),
+            None,
+        )?;
         let upholstery_color = super::select_color(
             item.upholstery_color.as_deref(),
             product
@@ -305,6 +323,8 @@ pub async fn convert(
             price: item.unit_total_cents,
             amount: item.total_cents,
             structure_color,
+            plate_holder_color,
+            plate_holder_type,
             upholstery_color,
         });
     }

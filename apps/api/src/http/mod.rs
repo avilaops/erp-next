@@ -112,7 +112,7 @@ use tower_http::{
 
 use crate::domains::{
     catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff, staff_payroll,
+    staff, staff_payroll, warranties,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -260,6 +260,7 @@ pub fn router(state: AppState) -> Router {
             post(crate::platform::workflows::archive),
         )
         .merge(crate::domains::returns::routes())
+        .merge(warranties::routes())
         .route(
             "/api/v1/preferences",
             get(crate::platform::preferences::get).put(crate::platform::preferences::put),

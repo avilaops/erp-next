@@ -20,6 +20,7 @@ pub mod registration_settings;
 pub mod registry_lookup;
 pub mod returns;
 pub mod sales;
+pub mod warranties;
 mod settlements;
 pub mod staff;
 pub mod staff_payroll;

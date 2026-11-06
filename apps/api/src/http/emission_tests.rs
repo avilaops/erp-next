@@ -84,7 +84,8 @@ async fn provider(
         }
         let number = body["number"].as_i64().unwrap();
         let random = body["randomCode"].as_str().unwrap();
-        let prefix = format!("3526100425201100011055001{number:09}1{random}");
+        let model = body["draft"]["model"].as_i64().unwrap_or(55);
+        let prefix = format!("35261004252011000110{model:02}001{number:09}1{random}");
         let sum: u32 = prefix
             .bytes()
             .rev()
@@ -97,11 +98,15 @@ async fn provider(
         let issued_at = body["issuedAt"].as_str().unwrap();
         let total = body["draft"]["productsTotal"].as_str().unwrap();
         let xml = format!(
-            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>55</mod><tpAmb>{ambient}</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
+            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>{model}</mod><tpAmb>{ambient}</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
         );
+        let mut result = json!({"accessKey":key,"signedXml":xml});
+        if model == 65 {
+            result["qrCode"] = json!("https://homologacao.nfce.fazenda.sp.gov.br/qrcode?p=synthetic");
+        }
         return (
             StatusCode::OK,
-            Json(json!({"accessKey":key,"signedXml":xml})),
+            Json(result),
         );
     }
     if operation == "void" {
@@ -616,6 +621,90 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
             .unwrap(),
         1
     );
+    for task in tasks {
+        task.abort();
+    }
+    cleanup(&admin, application, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin: PgPool) {
+    let (_, application, auth, role) = setup(&admin).await;
+    let (router, tasks, calls) = services(&admin, application.clone(), "authorized").await;
+    let configured = call(
+        &router,
+        "PUT",
+        "/api/v1/fiscal/settings/nfce",
+        "editor",
+        Some("\"0\""),
+        Some(Uuid::now_v7()),
+        json!({
+            "environment": "homologation",
+            "state": "SP",
+            "series": 1,
+            "nextNumber": 1,
+            "cscId": "000001",
+            "csc": "synthetic-csc-secret-1234"
+        }),
+    )
+    .await;
+    assert_eq!(configured.0, StatusCode::OK, "{}", configured.2);
+    let mut body = draft();
+    body["model"] = json!(65);
+    body["emissionType"] = json!("9");
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        body,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let uri = format!("/api/v1/fiscal/nfe/{id}/issue");
+    let key = Uuid::now_v7();
+    let prepared = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some("\"1\""),
+        Some(key),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(prepared.0, StatusCode::ACCEPTED, "{}", prepared.2);
+    assert_eq!(prepared.2["status"], "prepared");
+    assert_eq!(prepared.2["result"]["code"], "offline_contingency_ready");
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    let replayed = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some("\"1\""),
+        Some(key),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(replayed.2, prepared.2);
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    let transmitted = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some(prepared.1["etag"].to_str().unwrap()),
+        Some(Uuid::now_v7()),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(transmitted.0, StatusCode::OK, "{}", transmitted.2);
+    assert_eq!(transmitted.2["status"], "authorized");
+    assert_eq!(calls.lock().unwrap().len(), 2);
     for task in tasks {
         task.abort();
     }

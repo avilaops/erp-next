@@ -83,6 +83,22 @@ test("filtro e página do catálogo sobrevivem a recarga e histórico", async ({
   await expect(search).toHaveValue("SKU teste")
 })
 
+test("cadastro mantém o retorno ao catálogo filtrado e distingue registro ausente", async ({ page, context }) => {
+  const id = "22222222-2222-4222-8222-222222222222"
+  await context.route(`**/api/erp/products/${id}`, route => route.fulfill({ status: 404, json: { title: "Produto não encontrado" } }))
+  const destination = "/cadastros/produtos?q=leg&status=active&offset=25"
+  await page.goto(`/cadastros/produtos/${id}/editar?` + new URLSearchParams({ returnTo: destination }))
+  await expect(page.getByRole("heading", { name: "Editar produto", exact: true })).toBeVisible()
+  await expect(page.getByRole("alert")).toContainText("Produto não encontrado")
+  await expect(page.getByRole("link", { name: "Voltar ao catálogo", exact: true })).toHaveAttribute("href", destination)
+  await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
+  await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
+  await expect(page).toHaveURL(new URL(destination, origin).toString())
+  await expect(page.getByRole("textbox", { name: "Buscar nome ou SKU", exact: true })).toHaveValue("leg")
+  await expect(page.getByRole("combobox", { name: "Situação", exact: true })).toHaveValue("active")
+  await expect(page.getByText("Página 2", { exact: true })).toBeVisible()
+})
+
 test("preferências mantém conteúdo acessível nos breakpoints e no tema escuro", async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.setItem("erp-theme", "dark"))
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" })
@@ -95,6 +111,15 @@ test("preferências mantém conteúdo acessível nos breakpoints e no tema escur
     await expect(page.getByRole("heading", { name: "Empresa", exact: true })).toBeVisible()
     if (width === 390 || width === 1749) await page.screenshot({ path: testInfo.outputPath(`preferencias-${width}.png`), fullPage: true })
   }
+})
+
+test("tema Avila pode ser escolhido e persiste neste navegador", async ({ page }) => {
+  await page.goto("/preferencias/sistema")
+  await page.getByRole("radio", { name: "Avila" }).check()
+  await expect(page.locator("html")).toHaveClass(/avila-theme/)
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim())).toBe("#0759f8")
+  await page.reload()
+  await expect(page.getByRole("radio", { name: "Avila" })).toBeChecked()
 })
 
 test("painel mobile fecha após navegar para uma configuração", async ({ page }) => {

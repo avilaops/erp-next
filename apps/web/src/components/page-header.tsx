@@ -1,10 +1,13 @@
 import { GuardedLink } from "@/components/shell/navigation-guard"
+import { ArrowLeft } from "lucide-react"
+import type { ReactNode } from "react"
 
 type Breadcrumb = { label: string; href?: string }
 
-export function PageHeader({ eyebrow, title, description, breadcrumbs }: { eyebrow: string; title: string; description: string; breadcrumbs?: Breadcrumb[] }) {
+export function PageHeader({ eyebrow, title, description, breadcrumbs, back, actions }: { eyebrow: string; title: string; description: string; breadcrumbs?: Breadcrumb[]; back?: { href: string; label: string }; actions?: ReactNode }) {
   return (
-    <header className="mb-8">
+    <header className="erp-page-header mb-8">
+      {back && <GuardedLink href={back.href} className="erp-page-back"><ArrowLeft aria-hidden="true" className="size-4" />{back.label}</GuardedLink>}
       {breadcrumbs?.length ? <nav aria-label="Caminho de navegação" className="mb-2 text-sm font-medium text-primary">
         <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {breadcrumbs.map((item, index) => <li key={`${item.label}:${index}`} className="flex min-w-0 items-center gap-2">
@@ -13,7 +16,7 @@ export function PageHeader({ eyebrow, title, description, breadcrumbs }: { eyebr
           </li>)}
         </ol>
       </nav> : <p className="mb-2 text-sm font-medium text-primary">{eyebrow}</p>}
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4"><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>{actions && <div className="flex flex-wrap gap-2">{actions}</div>}</div>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{description}</p>
     </header>
   )

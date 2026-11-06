@@ -39,8 +39,8 @@ async function LoginForm({ searchParams }: LoginProps) {
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-10 lg:px-12">
         <header className="erp-entry-header flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
           <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-3 rounded-lg">
-            <span aria-hidden="true" className="grid size-10 place-items-center rounded-xl bg-primary text-lg font-bold text-primary-foreground">A</span>
-            <span className="leading-tight"><strong className="block text-base tracking-tight">Ávila ERP</strong><span className="mt-1 block text-sm text-muted-foreground">Avila Ops</span></span>
+            <img src="/brand/avila-erp-symbol.svg" alt="" width="40" height="40" className="size-10" />
+            <span className="leading-tight"><strong className="block text-base tracking-tight">Avila ERP</strong><span className="mt-1 block text-sm text-muted-foreground">Avila Ops</span></span>
           </Link>
           <div className="flex items-center gap-3">
             <Link href="https://avilaops.com/erp" className="hidden min-h-11 items-center gap-1.5 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:text-primary sm:flex">
@@ -69,7 +69,7 @@ async function LoginForm({ searchParams }: LoginProps) {
               </>}
 
               <section id="acesso" aria-labelledby="access-title" className={"erp-entry-access scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary " + (errorMessage ? "mt-5" : "mt-7 sm:mt-9")} tabIndex={-1}>
-                <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Ávila Ops</h2>
+                <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Avila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
                     <a href={"/api/auth/login?" + new URLSearchParams({ returnTo })} aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
@@ -90,7 +90,6 @@ async function LoginForm({ searchParams }: LoginProps) {
                 <h2 className="mt-3 max-w-sm text-2xl font-medium leading-tight tracking-tight sm:text-[1.75rem]">Menos caminhos.<br />Mais clareza para operar.</h2>
               </figcaption>
               <ErpEntryPreview />
-              <p className="mt-3 text-xs leading-5 text-teal-100">Interface real · Dados demonstrativos</p>
             </figure>
           </div>
 
@@ -105,7 +104,6 @@ async function LoginForm({ searchParams }: LoginProps) {
         </main>
 
         <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm text-muted-foreground">
-          <span>Avila Ops</span>
           <nav aria-label="Informações legais" className="flex flex-wrap gap-x-5">
             <Link href="https://avilaops.com/erp" className="inline-flex min-h-11 items-center rounded-md hover:text-primary sm:hidden">Conhecer o ERP</Link>
             <Link href="https://avilaops.com/politica-de-privacidade" className="inline-flex min-h-11 items-center rounded-md hover:text-primary">Privacidade</Link>
@@ -121,7 +119,7 @@ export async function generateMetadata() {
  return {
   metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"),
   title: "Entrar",
-  description: "Acesse o Ávila ERP: produtos, compras, vendas e financeiro em um só lugar.",
-  openGraph: { title: "Ávila ERP · Sua operação, sob controle", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Ávila ERP: produtos, vendas e financeiro" }] },
+  description: "Acesse o Avila ERP: produtos, compras, vendas e financeiro em um só lugar.",
+  openGraph: { title: "Avila ERP · Sua operação, sob controle", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Avila ERP: produtos, vendas e financeiro" }] },
 }
 }

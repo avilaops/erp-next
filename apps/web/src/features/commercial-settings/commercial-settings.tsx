@@ -64,6 +64,17 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
     </fieldset>
     {error && <p role="alert">{error}. Sua edição foi preservada.</p>}
     {blocked && <Button type="button" onClick={() => { if (window.confirm("Descartar edição e recarregar?")) { setDirty(false); reload() } }}>Recarregar</Button>}
-    {calculation && <section className="form-section space-y-2"><h2 className="font-semibold">Resultado gerencial</h2><p>Pior destino: {calculation.worstState}</p><p>Preço de tabela: custo ajustado × {calculation.tableCostMultiplier.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</p><p>Markup: {calculation.markupPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</p><p>Tributos, taxas e provisões: {(calculation.variableCostsBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</p><p>Faturamento de equilíbrio: {calculation.breakEvenRevenue == null ? "Sem equilíbrio nesta condição" : calculation.breakEvenRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p></section>}
+    {calculation && <section className="form-section space-y-5" aria-label="Resultado gerencial"><h2 className="font-semibold">Resultado gerencial</h2>
+      <div><p className="text-sm text-muted-foreground">Preço de tabela</p><p className="mt-1 text-3xl font-semibold">custo ajustado × {calculation.tableCostMultiplier.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</p><p className="mt-1 text-sm text-muted-foreground">Markup de {calculation.markupPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</p></div>
+      <dl className="grid gap-4 sm:grid-cols-2">{[
+        ["Pior destino", `${calculation.worstState}, ${calculation.worstNonContributor ? "não contribuinte" : "contribuinte"} · ICMS ${(calculation.worstIcmsBps / 100).toLocaleString("pt-BR")}%`],
+        ["Tributos, taxas e provisões", `${(calculation.variableCostsBps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`],
+        ["Lucro antes do IR necessário", `${calculation.requiredPretaxMarginPercent.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`],
+        ["Venda com desconto", `custo ajustado × ${calculation.discountedCostMultiplier.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`],
+        ["Despesas fixas por mês", (calculation.monthlyExpensesCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })],
+        ["Faturamento de equilíbrio", calculation.breakEvenRevenue == null ? "Sem equilíbrio nesta condição" : calculation.breakEvenRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })],
+      ].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>
+      <p className="text-sm text-muted-foreground">Venda com desconto = custo ajustado ÷ (1 − tributos, taxas e provisões − lucro antes do IR). A tabela considera também o desconto livre. Alterações só chegam à tabela publicada após preparar e confirmar uma nova versão.</p>
+    </section>}
   </form>
 }

@@ -92,7 +92,7 @@ test("NFS-e BFF fixa tenant da sessão, exige origem e limita filtros e métodos
 test("central mostra origem e pendências, consulta atores distintos e baixa XML íntegro", async ({ page }) => {
   await page.goto("/fiscal/nfses")
   await expect(page.getByRole("heading", { name: "NFS-e recebidas", exact: true })).toBeVisible()
-  await expect(page.getByText("Empresa NFS-e sintética", { exact: true })).toBeVisible()
+  await expect(page.locator("#conteudo-principal").getByText("Empresa NFS-e sintética", { exact: true })).toBeVisible()
   await expect(page.getByText("Assinatura e situação atual não verificadas", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Ver dados do serviço" }).click()
   await expect(page.getByText("Prestador sintético", { exact: true }).last()).toBeVisible()

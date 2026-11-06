@@ -1,8 +1,9 @@
+import { CatalogEditorLoading } from "@/features/catalog/catalog-loading"
 import { CatalogAccess } from "@/features/catalog/catalog-access";
 import { Suspense } from "react";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return <Suspense fallback={<p role="status">Carregando produto…</p>}><ResolvedProduct params={params} /></Suspense>;
+  return <Suspense fallback={<CatalogEditorLoading title="Produto" />}><ResolvedProduct params={params} /></Suspense>;
 }
 
 async function ResolvedProduct({

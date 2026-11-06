@@ -20,7 +20,7 @@ function WorkspaceNavigation({ children }: { children: React.ReactNode }) {
   return <NavigationGuardProvider><MenuNavigation>
     <header className="erp-header">
       <MenuButton />
-      <Link href="/" className="erp-header-brand" aria-label="Visão geral do ERP"><strong>ERP Next</strong></Link>
+      <Link href="/" className="erp-header-brand" aria-label="Visão geral do Avila ERP"><img src="/brand/avila-erp-symbol.svg" alt="" width="28" height="28" /><strong>Avila ERP</strong></Link>
       <PreferencesCommand />
       <HeaderTools />
     </header>

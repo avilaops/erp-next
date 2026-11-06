@@ -6,7 +6,8 @@ import type { Schema } from "@/lib/api/types"
 
 import { normalizeDecimal } from "@/lib/decimal-input"
 
-import { AccessLink } from "@/components/feedback/session-recovery"
+import { CatalogFormSkeleton } from "./catalog-loading"
+import { AccessLink, RequestError } from "@/components/feedback/session-recovery"
 
 import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navigation-guard"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { readProductDraft, writeProductDraft, type ProductInput, type ProductCommand, type ProductDraft } from "./product-draft"
-import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
+import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, catalogReturnHref, type CatalogQuery } from "./catalog-query"
 
 import { ProductPhoto } from "./product-photo"
 import { CatalogProfile } from "./catalog-profile"
@@ -45,6 +46,9 @@ export function CatalogList() {
 
 function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
   const { q, status, offset, categoryId } = query
+  const search = catalogQueryString(query)
+  const listHref = `/cadastros/produtos${search ? `?${search}` : ""}`
+  const returnQuery = listHref.includes("?") ? `?${new URLSearchParams({ returnTo: listHref })}` : ""
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -71,7 +75,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
     <CatalogPublish />
     <section className="form-section space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/novo${returnQuery}`}>Novo produto</Link>}</div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget)
         navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || ""), category_id: categoryId || "" })))
@@ -83,7 +87,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
       </form>
       {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={`${catalogLink} flex items-center gap-3`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span>{product.name}</span></Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
+        {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={`${catalogLink} flex items-center gap-3`} href={`/cadastros/produtos/${product.id}${returnQuery}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span>{product.name}</span></Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
         <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - pageSize) })}>Anterior</Button><span className="text-center text-sm"><span>Página {Math.floor(offset / pageSize) + 1}</span> · {pageSize} por página</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + pageSize >= result.total} onClick={() => navigate({ ...query, offset: offset + pageSize })}>Próxima</Button></div>
         {offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
@@ -93,6 +97,10 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
 
 export function CatalogEditor({ id, view = false, draftScope }: { id?: string; view?: boolean; draftScope: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const listHref = catalogReturnHref(searchParams.get("returnTo"))
+  const returnQuery = listHref.includes("?") ? `?${new URLSearchParams({ returnTo: listHref })}` : ""
+  const [loadStatus, setLoadStatus] = useState<number | undefined>(undefined)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [draft, setDraft] = useState<ProductInput>({ ...empty })
   const [baseline, setBaseline] = useState(JSON.stringify(empty))
@@ -119,6 +127,8 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const controller = new AbortController()
     erpFetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
+      if (controller.signal.aborted) return
+      setLoadStatus(response.status)
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
       const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], armColors: value.data.armColors || [], plateHolderColors: value.data.plateHolderColors || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
@@ -168,7 +178,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       }
       writeProductDraft(storageKey, null)
       setUncertain(false); command.current = null; setBaseline(JSON.stringify(draft)); setSaved(true); setRecovered(false)
-      if (!id) { if (active.current) router.replace(`/cadastros/produtos/${value.data.id}`) }
+      if (!id) { if (active.current) router.replace(`/cadastros/produtos/${value.data.id}${returnQuery}`) }
       else { setSnapshot(value); setEtag(response.headers.get("etag") || "") }
     } catch { setError("Não foi possível confirmar a gravação. Sua edição foi preservada."); if (id) setConflict(true); else setUncertain(true) }
     finally { pending.current = false; setSaving(false) }
@@ -180,11 +190,10 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     setStorageInvalid(false); command.current = null
     setLoading(true); setRetry(value => value + 1); setSaved(false); setRecovered(false); setStorageError("")
   }
-  return <div>
-    <PageHeader eyebrow="Cadastros · Produtos" title={view ? snapshot?.data?.name || "Produto" : id ? "Editar produto" : "Novo produto"} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." />
-    <Link className={catalogLink} href="/cadastros/produtos">Voltar ao catálogo</Link>
+  return <div className="erp-editor">
+    <PageHeader back={{ href: listHref, label: "Voltar ao catálogo" }} breadcrumbs={[{ label: "Cadastros", href: "/cadastros" }, { label: "Produtos", href: listHref }, { label: view ? "Detalhes" : id ? "Editar" : "Novo" }]} eyebrow="Cadastros · Produtos" title={view ? snapshot?.data?.name || "Produto" : id ? "Editar produto" : "Novo produto"} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." />
     <section className="form-section mt-5 space-y-5">
-      {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button onClick={reload}>Tentar novamente</Button></> : <>
+      {loading ? <CatalogFormSkeleton /> : !snapshot ? <div className="space-y-4"><div role="alert"><RequestError message={loadStatus === 404 ? "Produto não encontrado. Ele pode ter sido removido ou não estar disponível nesta empresa." : loadStatus === 403 ? "Você não tem permissão para consultar este produto." : error} status={loadStatus} /></div>{loadStatus !== 403 && loadStatus !== 404 && <Button onClick={reload}>Tentar novamente</Button>}</div> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar produtos.</p>}
         {recovered && <p role="status">Rascunho recuperado nesta aba. Confira os dados antes de salvar.</p>}
@@ -192,7 +201,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {!view && snapshot.canEdit && (dirty || recovered || storageError) && <Button variant="outline" onClick={reload} disabled={saving || uncertain}>Descartar rascunho</Button>}
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
-        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoUrl || snapshot.data.photoDataUrl || undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
+        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoUrl || snapshot.data.photoDataUrl || undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar${returnQuery}`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={snapshot.data.photoUrl || draft.photoDataUrl || undefined} readOnly={!!snapshot.data.photoUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">

@@ -14,6 +14,105 @@ const SELLER: &str = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const ORDER: &str = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const ACCOUNT: &str = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn commission_adjustment_links_order_and_rejects_wrong_seller(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let number: i64 = sqlx::query_scalar("SELECT number FROM sales_orders WHERE id=$1")
+        .bind(Uuid::parse_str(ORDER).unwrap())
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    let uri = format!("/api/v1/commissions/{SELLER}/adjustments");
+    let input = json!({"amount":"4.00","competence":"2026-11","paymentDay":5,"reason":"Complemento do pedido conferido","orderNumber":format!("PV-{number:06}")});
+    let missing = call(
+        &router,
+        "POST",
+        &uri,
+        (TENANT, "editor"),
+        Some(1),
+        Some(Uuid::now_v7()),
+        input.clone(),
+    )
+    .await;
+    assert_eq!(
+        missing.0,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "Pedido sem comissão deve ser recusado"
+    );
+    configure(&router, &admin).await;
+    let wrong = call(
+        &router,
+        "POST",
+        "/api/v1/commissions/cccccccc-cccc-4ccc-8ccc-cccccccccccc/adjustments",
+        (TENANT, "editor"),
+        Some(1),
+        Some(Uuid::now_v7()),
+        input.clone(),
+    )
+    .await;
+    assert_eq!(
+        wrong.0,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "Vendedor diferente deve ser recusado"
+    );
+    for invalid in ["0", "PV-0", "pedido inválido", "99999999999999999999999999"] {
+        let mut invalid_input = input.clone();
+        invalid_input["orderNumber"] = json!(invalid);
+        let result = call(
+            &router,
+            "POST",
+            &uri,
+            (TENANT, "editor"),
+            Some(1),
+            Some(Uuid::now_v7()),
+            invalid_input,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+    let key = Uuid::now_v7();
+    let created = call(
+        &router,
+        "POST",
+        &uri,
+        (TENANT, "editor"),
+        Some(1),
+        Some(key),
+        input.clone(),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
+    assert_eq!(created.1["entries"][0]["orderId"], ORDER);
+    assert_eq!(created.1["entries"][0]["orderNumber"], number.to_string());
+    let repeated = call(
+        &router,
+        "POST",
+        &uri,
+        (TENANT, "editor"),
+        Some(1),
+        Some(key),
+        input,
+    )
+    .await;
+    assert_eq!(repeated.1, created.1);
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM commission_entries WHERE tenant_id=$1")
+            .bind(Uuid::parse_str(TENANT).unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(count, 1, "Repetir o comando não duplica comissão");
+    let receipts: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM receivable_payments WHERE tenant_id=$1")
+            .bind(Uuid::parse_str(TENANT).unwrap())
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(receipts, 0, "Ajuste não registra recebimento de cliente");
+    cleanup(&admin, app, server, &role).await;
+}
+
 async fn seed(admin: &PgPool) {
     super::returns_tests::seed(admin).await;
     sqlx::raw_sql("INSERT INTO staff(id,tenant_id,code,name,is_employee,is_seller,status) VALUES('dddddddd-dddd-4ddd-8ddd-dddddddddddd','11111111-1111-4111-8111-111111111111','SELLER','Vendedora original',true,true,'active'); INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','11111111-1111-4111-8111-111111111111','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Cliente fornecedor','04252011000110','2026-11-01',11000,'draft'); INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code LIKE 'finance.commissions.%' ON CONFLICT DO NOTHING; INSERT INTO role_permissions(role_id,permission_code) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','finance.commissions.read');").execute(admin).await.unwrap();

@@ -56,6 +56,11 @@
   box-shadow: 0 20px 60px #103f3b18;
 }
 .erp-entry-showcase figcaption { position: relative; }
+.avila-theme .erp-entry-showcase {
+  background: #17202c;
+  background-image: radial-gradient(ellipse at 100% 0%, #263343, transparent 65%);
+  box-shadow: 0 20px 60px #17202c18;
+}
 .erp-entry-showcase figcaption h2 { max-width: none; font-size: clamp(1.65rem, 2.8vw, 2.5rem); letter-spacing: -0.045em; }
 @media (max-width: 639px) {
   .erp-entry-header { padding-block: 1rem; }

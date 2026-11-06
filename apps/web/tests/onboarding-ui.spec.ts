@@ -20,6 +20,7 @@ let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
 let redirectAuthorization = false
 let malformedDirectory = false
+let malformedAuthMetadata = false
 const upstream = createServer(async (request, response) => {
   upstreamCalls++
   expect(request.headers.authorization).toBe("Bearer onboarding-fixture-token")
@@ -51,7 +52,7 @@ const issuer = "http://127.0.0.1:33120"
 const auth = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json")
   if (request.url === "/.well-known/openid-configuration") {
-    response.end(JSON.stringify({ issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, code_challenge_methods_supported: ["S256"] })); return
+    response.end(JSON.stringify({ issuer, authorization_endpoint: malformedAuthMetadata ? "http://user:password@127.0.0.1:33120/authorize" : `${issuer}/authorize`, token_endpoint: `${issuer}/token`, code_challenge_methods_supported: ["S256"] })); return
   }
   if (request.url === "/token") {
     response.end(JSON.stringify({ access_token: "onboarding-fixture-token", token_type: "Bearer", expires_in: 3600 })); return
@@ -82,7 +83,7 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false; malformedAuthMetadata = false })
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true
@@ -409,6 +410,13 @@ test("OIDC callback rejects a malformed company directory before creating a sess
   await page.goto("/entrar?" + new URLSearchParams({ returnTo: "/preferencias/empresa/dados" }))
   await page.getByRole("link", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
+})
+
+test("OIDC login rejects metadata endpoints containing userinfo", async ({ context }) => {
+  malformedAuthMetadata = true
+  const response = await context.request.get("/api/auth/login", { maxRedirects: 0 })
+  expect(response.status()).toBe(503)
+  expect(await response.json()).toEqual({ title: "Não foi possível iniciar a autenticação" })
 })
 
 test("OIDC callback rejects a preselected suspended company", async ({ page }) => {

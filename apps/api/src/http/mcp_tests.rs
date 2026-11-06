@@ -243,6 +243,10 @@ async fn mcp_oauth_pkce_refresh_replay_and_existing_permissions(admin: sqlx::PgP
     let (status, init) = json_call(&app,"POST","/mcp",Some(access_token),json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}})).await;
     assert_eq!(status, 200);
     assert!(init["result"]["capabilities"]["tools"].is_object());
+    for version in ["2025-03-26", "2025-06-18", "2025-11-25"] {
+        let (_, init) = json_call(&app,"POST","/mcp",Some(access_token),json!({"jsonrpc":"2.0","id":101,"method":"initialize","params":{"protocolVersion":version,"capabilities":{},"clientInfo":{"name":"test","version":"1"}}})).await;
+        assert_eq!(init["result"]["protocolVersion"], version);
+    }
     // Request all catalog pages and exercise real business authorization.
     let mut tools = Vec::new();
     let mut cursor = serde_json::Value::Null;
@@ -272,6 +276,28 @@ async fn mcp_oauth_pkce_refresh_replay_and_existing_permissions(admin: sqlx::PgP
         }
     }
     assert!(tools.len() > 150, "full ERP catalog, not just fiscal tools");
+    for path in [
+        "/api/v1/fiscal/nfe/{id}/consult",
+        "/api/v1/fiscal/nfe/{id}/emission",
+        "/api/v1/fiscal/issued-nfes",
+        "/api/v1/fiscal/nfe/{id}/xml",
+    ] {
+        let tool = tools
+            .iter()
+            .find(|t| t["_meta"]["erp/path"] == path)
+            .unwrap();
+        assert!(
+            tool["inputSchema"]["properties"]["tenant_id"].is_object(),
+            "{path}"
+        );
+        assert!(
+            tool["inputSchema"]["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("tenant_id")),
+            "{path}"
+        );
+    }
     let get_company = tools
         .iter()
         .find(|t| t["_meta"]["erp/path"] == "/api/v1/company" && t["_meta"]["erp/method"] == "GET")
@@ -342,4 +368,172 @@ async fn mcp_registration_rejects_unsafe_redirects_without_touching_storage() {
             "{uri}"
         );
     }
+}
+
+#[tokio::test]
+async fn oauth_browser_preflights_allow_only_configured_origins() {
+    for path in [
+        "/mcp/oauth/register",
+        "/mcp/oauth/token",
+        "/mcp/oauth/revoke",
+    ] {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri(path)
+                    .header("origin", "https://chatgpt.com")
+                    .header("access-control-request-method", "POST")
+                    .header(
+                        "access-control-request-headers",
+                        "authorization,content-type",
+                    )
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 204, "{path}");
+        assert_eq!(
+            response.headers()["access-control-allow-origin"],
+            "https://chatgpt.com"
+        );
+        assert!(
+            response.headers()["access-control-allow-headers"]
+                .to_str()
+                .unwrap()
+                .contains("Authorization")
+        );
+        let denied = app()
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri(path)
+                    .header("origin", "https://attacker.invalid")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), 403);
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn confidential_client_authentication_read_scope_and_revocation(admin: sqlx::PgPool) {
+    use base64::{
+        Engine,
+        engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+    };
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+    let (app, pool, server, _) = super::company_tests::setup(&admin).await;
+    let (_,client)=json_call(&app,"POST","/mcp/oauth/register",None,json!({"redirect_uris":["https://client.example/callback"],"token_endpoint_auth_method":"client_secret_basic"})).await;
+    let client_id = client["client_id"].as_str().unwrap();
+    let secret = client["client_secret"].as_str().unwrap();
+    let verifier = "v".repeat(64);
+    let (_,grant)=json_call(&app,"POST","/mcp/oauth/grant",Some("editor"),json!({"client_id":client_id,"redirect_uri":"https://client.example/callback","response_type":"code","code_challenge":URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes())),"code_challenge_method":"S256","scope":"erp.read","resource":"https://erp.avilaops.com/mcp"})).await;
+    let redirect = reqwest::Url::parse(grant["redirect_uri"].as_str().unwrap()).unwrap();
+    let code = redirect
+        .query_pairs()
+        .find(|(key, _)| key == "code")
+        .unwrap()
+        .1
+        .into_owned();
+    let fields = [
+        ("grant_type", "authorization_code"),
+        ("client_id", client_id),
+        ("client_secret", secret),
+        ("code", code.as_str()),
+        ("code_verifier", verifier.as_str()),
+        ("redirect_uri", "https://client.example/callback"),
+        ("resource", "https://erp.avilaops.com/mcp"),
+    ];
+    assert_eq!(
+        token_call(&app, &fields).await.0,
+        401,
+        "Basic client cannot use secret_post"
+    );
+    let mut url = reqwest::Url::parse("https://erp.invalid").unwrap();
+    for (key, value) in fields {
+        if key != "client_secret" {
+            url.query_pairs_mut().append_pair(key, value);
+        }
+    }
+    let basic = format!("Basic {}", STANDARD.encode(format!("{client_id}:{secret}")));
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/mcp/oauth/token")
+                .header("content-type", "application/x-www-form-urlencoded")
+                .header("authorization", &basic)
+                .body(Body::from(url.query().unwrap().to_owned()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let bytes = axum::body::to_bytes(response.into_body(), 16384)
+        .await
+        .unwrap();
+    let token: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let access = token["access_token"].as_str().unwrap();
+    let (_, list) = json_call(
+        &app,
+        "POST",
+        "/mcp",
+        Some(access),
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await;
+    assert!(
+        list["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t["annotations"]["readOnlyHint"] == true)
+    );
+    // The scope check also applies to calls by known name, independently of listing.
+    let (_,write)=json_call(&app,"POST","/mcp",Some(access),json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"erp_put_company","arguments":{}}})).await;
+    assert_eq!(write["result"]["structuredContent"]["status"], 403);
+    url.set_query(None);
+    url.query_pairs_mut()
+        .append_pair("token", access)
+        .append_pair("client_id", client_id);
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/mcp/oauth/revoke")
+                .header("content-type", "application/x-www-form-urlencoded")
+                .header("authorization", basic)
+                .body(Body::from(url.query().unwrap().to_owned()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        json_call(
+            &app,
+            "POST",
+            "/mcp",
+            Some(access),
+            json!({"jsonrpc":"2.0","id":3,"method":"ping"})
+        )
+        .await
+        .0,
+        401
+    );
+    let plaintext: i64 = sqlx::query_scalar("SELECT count(*) FROM mcp_oauth_tokens WHERE hash=$1")
+        .bind(access)
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(plaintext, 0, "tokens must never be stored in plaintext");
+    server.abort();
+    pool.close().await;
 }

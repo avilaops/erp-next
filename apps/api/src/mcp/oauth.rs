@@ -428,7 +428,10 @@ pub struct Credential {
     pub verified_email: bool,
     pub scope: String,
 }
-pub async fn credential(state: &McpState, headers: &HeaderMap) -> Result<Credential, Response> {
+pub async fn credential(
+    state: &McpState,
+    headers: &HeaderMap,
+) -> Result<Credential, Box<Response>> {
     let challenge = || {
         let mut response = error(StatusCode::UNAUTHORIZED, "invalid_token").into_response();
         response.headers_mut().insert(
@@ -440,7 +443,7 @@ pub async fn credential(state: &McpState, headers: &HeaderMap) -> Result<Credent
             .parse()
             .expect("validated origin"),
         );
-        response
+        Box::new(response)
     };
     let value = headers
         .get("authorization")
@@ -451,5 +454,5 @@ pub async fn credential(state: &McpState, headers: &HeaderMap) -> Result<Credent
         .filter(|s| s.starts_with("mcp_at_") && s.len() < 200)
         .ok_or_else(challenge)?;
     sqlx::query_as("SELECT g.subject,g.email,g.name,g.verified_email,g.scope FROM mcp_oauth_tokens t JOIN mcp_oauth_grants g ON g.id=t.grant_id WHERE t.hash=$1 AND t.kind='access' AND t.expires_at>now() AND g.resource=$2 AND g.revoked_at IS NULL AND g.expires_at>now()")
-        .bind(hash(value)).bind(state.resource()).fetch_optional(&state.app.database).await.map_err(|e|db(e).into_response())?.ok_or_else(challenge)
+        .bind(hash(value)).bind(state.resource()).fetch_optional(&state.app.database).await.map_err(|e|Box::new(db(e).into_response()))?.ok_or_else(challenge)
 }

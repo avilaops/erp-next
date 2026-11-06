@@ -184,7 +184,7 @@ async fn authorization_metadata(State(state): State<McpState>) -> Json<Value> {
 }
 async fn no_stream(State(state): State<McpState>, headers: HeaderMap) -> Response {
     if let Err(response) = oauth::credential(&state, &headers).await {
-        return response;
+        return *response;
     }
     (StatusCode::METHOD_NOT_ALLOWED, [("allow", "POST, OPTIONS")]).into_response()
 }
@@ -202,7 +202,7 @@ fn tool_error(status: u16, code: &str) -> Value {
 async fn handle(State(state): State<McpState>, headers: HeaderMap, body: Bytes) -> Response {
     let credential = match oauth::credential(&state, &headers).await {
         Ok(c) => c,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if headers
         .get("mcp-protocol-version")
@@ -240,10 +240,10 @@ async fn handle(State(state): State<McpState>, headers: HeaderMap, body: Bytes) 
         };
     }
     let params = &message["params"];
-    let protocol_version = match params["protocolVersion"].as_str() {
-        Some(version @ ("2025-11-25" | "2025-06-18" | "2025-03-26")) => version,
-        _ => "2025-11-25",
-    };
+    let protocol_version = params["protocolVersion"]
+        .as_str()
+        .filter(|version| ["2025-11-25", "2025-06-18", "2025-03-26"].contains(version))
+        .unwrap_or("2025-11-25");
     match method {
         "initialize" => rpc(
             id,

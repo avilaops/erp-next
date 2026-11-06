@@ -16,8 +16,8 @@ presente em aceite de produção sem a evidência correspondente.
 
 - AVL-369: `migrations/202610280003_staff.sql`.
 - AVL-370: `migrations/202610280004_purchase_payment_chain.sql`.
-- AVL-319: `migrations/202611060002_warranty_service.sql` até
-  `migrations/202611060007_warranty_triage_assignment.sql`.
+- AVL-319: `migrations/202611060101_warranty_service.sql` até
+  `migrations/202611060106_warranty_triage_assignment.sql`.
 - AVL-432: contratos comerciais, snapshots e aprovação existentes no domínio de
   vendas; a versão da tabela usada permanece no snapshot do pedido.
 

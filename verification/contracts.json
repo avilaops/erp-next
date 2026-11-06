@@ -1356,7 +1356,7 @@
       "path": "/api/auth/callback",
       "method": "GET",
       "action": "Trocar código e verificar Auth na API; descobrir empresas ou validar seleção explícita; criar sessão cifrada",
-      "recovery": "Recusar state/código inválido; zero empresas permite apenas onboarding e não concede acesso a empresa existente"
+      "recovery": "Recusar state/código inválido ou diretório de empresas malformado; zero empresas permite apenas onboarding e não concede acesso a empresa existente; auto-seleção exige exatamente uma empresa ativa"
     },
     {
       "path": "/api/auth/logout",

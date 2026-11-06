@@ -104,20 +104,24 @@ pub(super) async fn nfce_engine_profile(
     let series = row.data["series"]
         .as_i64()
         .filter(|value| (1..=999).contains(value))
-        .ok_or(DomainError::Conflict("Série NFC-e inválida ou não configurada"))?;
+        .ok_or(DomainError::Conflict(
+            "Série NFC-e inválida ou não configurada",
+        ))?;
     let next_number = row.data["nextNumber"]
         .as_i64()
         .filter(|value| (1..=999_999_999).contains(value))
-        .ok_or(DomainError::Conflict("Próxima numeração NFC-e inválida ou não configurada"))?;
-    let key_id = row
-        .secret_key_id
-        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
-    let nonce = row
-        .secret_nonce
-        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
-    let ciphertext = row
-        .secret_ciphertext
-        .ok_or(DomainError::Conflict("CSC NFC-e indisponível; informe novamente"))?;
+        .ok_or(DomainError::Conflict(
+            "Próxima numeração NFC-e inválida ou não configurada",
+        ))?;
+    let key_id = row.secret_key_id.ok_or(DomainError::Conflict(
+        "CSC NFC-e indisponível; informe novamente",
+    ))?;
+    let nonce = row.secret_nonce.ok_or(DomainError::Conflict(
+        "CSC NFC-e indisponível; informe novamente",
+    ))?;
+    let ciphertext = row.secret_ciphertext.ok_or(DomainError::Conflict(
+        "CSC NFC-e indisponível; informe novamente",
+    ))?;
     let context = row
         .secret_context
         .ok_or(DomainError::Conflict("Contexto do CSC NFC-e indisponível"))?;
@@ -135,10 +139,9 @@ pub(super) async fn nfce_engine_profile(
             "CSC NFC-e não pertence à empresa ou ao ambiente atual",
         ));
     }
-    let vault = state
-        .certificates
-        .as_ref()
-        .ok_or(DomainError::Conflict("Armazenamento seguro de CSC indisponível"))?;
+    let vault = state.certificates.as_ref().ok_or(DomainError::Conflict(
+        "Armazenamento seguro de CSC indisponível",
+    ))?;
     let secret = vault
         .open_settings_secret(
             &context,

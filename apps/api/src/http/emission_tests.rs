@@ -1315,6 +1315,52 @@ async fn emission_order_cancellation_records_commercial_request_before_fiscal_co
     )
     .await;
     assert_eq!(fiscal_after.2["status"], "cancelled");
+
+    let mut return_body = draft();
+    return_body["purpose"] = json!(4);
+    return_body["returnDirection"] = json!("incoming");
+    return_body["referencedAccessKeys"] = json!([issued.2["accessKey"]]);
+    return_body["sourceReturnId"] = json!(cancellation_id);
+    return_body["sourceReturnKind"] = json!("sale_cancellation");
+    return_body["operationNature"] = json!("Devolução sintética de venda");
+    return_body["items"][0]["cfop"] = json!("1102");
+    let return_created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        return_body,
+    )
+    .await;
+    assert_eq!(return_created.0, StatusCode::CREATED, "{}", return_created.2);
+    let return_id = return_created.2["data"]["id"].as_str().unwrap();
+    let return_issued = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{return_id}/issue"),
+        "editor",
+        Some(return_created.1["etag"].to_str().unwrap()),
+        Some(Uuid::now_v7()),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(return_issued.2["status"], "authorized", "{}", return_issued.2);
+    let prepare = calls
+        .lock()
+        .unwrap()
+        .iter()
+        .rev()
+        .find(|(operation, _)| operation == "prepare")
+        .map(|(_, body)| body.clone())
+        .unwrap();
+    assert_eq!(prepare["draft"]["purpose"], 4);
+    assert_eq!(prepare["draft"]["returnDirection"], "incoming");
+    assert_eq!(
+        prepare["draft"]["referencedAccessKeys"][0],
+        issued.2["accessKey"]
+    );
     for task in tasks {
         task.abort();
     }

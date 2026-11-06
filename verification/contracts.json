@@ -1364,6 +1364,21 @@
         ]
       },
       {
+        "id": "warranties",
+        "title": "Garantias e assistência técnica",
+        "goal": "Registrar o protocolo de pós-venda, acompanhar a tratativa e preservar a linha do tempo da assistência.",
+        "kind": "product",
+        "actionGroups": ["warranties"],
+        "dependencies": ["orders", "products", "parties"],
+        "nextStep": "Completar peças, logística reversa, quarentena e efeitos financeiros somente com contratos aprovados.",
+        "additionalSources": ["docs/AVL-319-GARANTIAS-ASSISTENCIA.md"],
+        "journey": [
+          {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
+          {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id"], "authRefs": [], "externalSystems": []},
+          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order"], "authRefs": [], "externalSystems": []}
+        ]
+      },
+      {
         "id": "fiscal-integrations",
         "title": "Monitor fiscal de produção e integração com Lojas",
         "goal": "Consultar e manifestar documentos de produção com cursor próprio, preservar NF-e e administrar chaves de serviço para Lojas.",
@@ -28756,6 +28771,80 @@
           "response"
         ]
       }
+    }
+  ],
+    {
+      "id": "get-api-v1-warranty-policies",
+      "flow": "warranties", "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/warranty-policies"},
+      "actor": "company_member", "permissions": ["service.warranties.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null},
+      "preconditions": ["Empresa ativa e vínculo autorizado."], "transition": {"from": "Atual", "to": "Sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Não altera políticas ou casos."]},
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 500], "action": "get-api-v1-warranty-policies"},
+      "recovery": "Repetir a consulta após renovar a sessão.", "ui": {"pages": [], "bff": null, "gap": "backend_only"},
+      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-policies",
+      "flow": "warranties", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/warranty-policies"},
+      "actor": "company_manager", "permissions": ["service.warranties.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "PolicyInput"}, "query": null},
+      "preconditions": ["Chave UUID e política válida."], "transition": {"from": "Ausente", "to": "Política ativa"},
+      "effects": {"writes": ["warranty_policies", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não altera casos existentes automaticamente."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "Repetição devolve o mesmo resultado."},
+      "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 409, 422, 428, 500], "action": "post-api-v1-warranty-policies"},
+      "recovery": "Repetir a mesma chave após resposta incerta.", "ui": {"pages": [], "bff": null, "gap": "backend_only"},
+      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
+    },
+    {
+      "id": "get-api-v1-warranty-cases",
+      "flow": "warranties", "status": "implemented",
+      "operation": {"method": "GET", "path": "/api/v1/warranty-cases"},
+      "actor": "company_member", "permissions": ["service.warranties.read"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": null},
+      "preconditions": ["Empresa ativa e vínculo autorizado."], "transition": {"from": "Atual", "to": "Sem alteração"},
+      "effects": {"writes": [], "external": [], "excludes": ["Não cria protocolo."]}, "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."},
+      "response": {"successStatuses": [200], "errorStatuses": [401, 403, 500], "action": "get-api-v1-warranty-cases"}, "recovery": "Repetir após renovar a sessão.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases",
+      "flow": "warranties", "status": "implemented",
+      "operation": {"method": "POST", "path": "/api/v1/warranty-cases"},
+      "actor": "company_member", "permissions": ["service.warranties.manage"],
+      "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "CaseInput"}, "query": null},
+      "preconditions": ["Descrição, criticidade, vínculos e chave válidos."], "transition": {"from": "Ausente", "to": "Protocolo aberto"},
+      "effects": {"writes": ["warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta estoque nem gera cobrança automaticamente."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "Protocolo e timeline são gravados juntos."},
+      "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 409, 422, 428, 500], "action": "post-api-v1-warranty-cases"}, "recovery": "Repetir a mesma chave após resposta incerta.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
+    },
+    {
+      "id": "get-api-v1-warranty-cases-id",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "GET", "path": "/api/v1/warranty-cases/{id}"},
+      "actor": "company_member", "permissions": ["service.warranties.read"], "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null},
+      "preconditions": ["Protocolo pertence à empresa."], "transition": {"from": "Atual", "to": "Sem alteração"}, "effects": {"writes": [], "external": [], "excludes": ["Não altera timeline."]},
+      "concurrency": {"revision": true, "idempotency": false, "rule": "Retorna ETag da revisão."}, "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 500], "action": "get-api-v1-warranty-cases-id"}, "recovery": "Consultar o protocolo correto.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases-id-transition",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-cases/{id}/transition"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "TransitionInput"}, "query": null},
+      "preconditions": ["Revisão, chave e estado válidos."], "transition": {"from": "Protocolo atual", "to": "Novo estado com evento append-only"}, "effects": {"writes": ["warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não autoriza troca, crédito ou reembolso sem aprovação própria."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-transition"}, "recovery": "Consultar e reconciliar a revisão antes de reenviar.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "concurrency", "timeline", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases-id-service-order",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-cases/{id}/service-order"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "ServiceOrderInput"}, "query": null},
+      "preconditions": ["Protocolo versionado e mão de obra não negativa."], "transition": {"from": "Diagnóstico ou tratativa", "to": "Ordem de serviço aberta"}, "effects": {"writes": ["warranty_service_orders", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta peças ou estoque até contrato específico."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "Uma ordem de serviço por protocolo."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-service-order"}, "recovery": "Consultar o protocolo e repetir a mesma chave.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
     }
   ],
   "pendingFlows": [

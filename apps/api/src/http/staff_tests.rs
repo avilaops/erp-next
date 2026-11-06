@@ -1091,7 +1091,7 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
     .unwrap();
 
     let migrator = sqlx::migrate!("../../migrations");
-    for migration in migrator.iter().filter(|m| m.version < 202611051702) {
+    for migration in migrator.iter().filter(|m| m.version < 202611050005) {
         sqlx::raw_sql(&migration.sql)
             .execute(&mut *tx)
             .await
@@ -1125,7 +1125,7 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
         .await
         .unwrap();
     sqlx::raw_sql(include_str!(
-        "../../../../migrations/202611051702_staff_permissions.sql"
+        "../../../../migrations/202611050005_staff_permissions.sql"
     ))
     .execute(&mut *tx)
     .await

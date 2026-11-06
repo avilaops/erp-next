@@ -26,7 +26,7 @@ for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalid
   await page.goto("/vendas/simulador")
   await page.getByRole("combobox", { name: "Equipamento da tabela", exact: true }).selectOption(product)
   await page.getByRole("button", { name: "Adicionar", exact: true }).click()
-  await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("no")
+  await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("false")
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toContainText("R$ 226,00")
   expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, upholsteryColor: null }] })

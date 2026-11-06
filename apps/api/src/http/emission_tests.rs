@@ -729,9 +729,10 @@ async fn production_numbers_and_events_follow_the_document_after_the_profile_swi
     )
     .await;
     assert_eq!(current.2["data"]["nextNumber"], 42);
-    // Homologation number 1 cannot prohibit voiding a gap in production.
+    // São Paulo no longer accepts inutilização de NF-e/NFC-e from 01/11/2026.
     let voided = call(&router,"POST","/api/v1/fiscal/number-voids","editor",Some("\"0\""),Some(Uuid::now_v7()),json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":1,"text":"Lacuna declarada no ambiente de produção"})).await;
-    assert_eq!(voided.2["status"], "registered", "{}", voided.2);
+    assert_eq!(voided.0, StatusCode::CONFLICT, "{}", voided.2);
+    assert!(voided.2["title"].as_str().unwrap_or_default().contains("não se aplica"), "{}", voided.2);
     profile["environment"] = json!("homologation");
     profile["nextNumber"] = json!(2);
     assert_eq!(
@@ -774,11 +775,7 @@ async fn production_numbers_and_events_follow_the_document_after_the_profile_swi
     .await;
     assert_eq!(corrected.2["status"], "registered", "{}", corrected.2);
     let recorded = calls.lock().unwrap().clone();
-    assert!(
-        recorded
-            .iter()
-            .any(|(operation, body)| operation == "void" && body["environment"] == "production")
-    );
+    assert!(!recorded.iter().any(|(operation, _)| operation == "void"));
     assert!(
         recorded
             .iter()
@@ -999,7 +996,7 @@ async fn emission_preparation_blockers_allow_fixing_draft_without_renumbering(ad
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(admin: PgPool) {
+async fn emission_voids_are_rejected_without_reservation_and_preserve_tenant_rls(admin: PgPool) {
     let (_, application, auth, role) = setup(&admin).await;
     let (router, tasks, calls) = services(&admin, application.clone(), "authorized").await;
     let body = json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":3,"text":"Inutilização sintética de faixa não utilizada"});
@@ -1014,8 +1011,8 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         body.clone(),
     )
     .await;
-    assert_eq!(first.0, StatusCode::OK, "{}", first.2);
-    assert_eq!(first.2["status"], "registered");
+    assert_eq!(first.0, StatusCode::CONFLICT, "{}", first.2);
+    assert!(first.2["title"].as_str().unwrap_or_default().contains("não se aplica"), "{}", first.2);
     assert_eq!(
         call(
             &router,
@@ -1030,7 +1027,7 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         .2,
         first.2
     );
-    assert_eq!(calls.lock().unwrap().len(), 1);
+    assert_eq!(calls.lock().unwrap().len(), 0);
     let created = call(
         &router,
         "POST",
@@ -1052,7 +1049,7 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         Value::Null,
     )
     .await;
-    assert_eq!(issued.2["number"], 4, "{}", issued.2);
+    assert_eq!(issued.2["number"], 1, "{}", issued.2);
     let mut tx = application.begin().await.unwrap();
     sqlx::query("SELECT set_config('app.tenant_id','22222222-2222-4222-8222-222222222222',true)")
         .execute(&mut *tx)

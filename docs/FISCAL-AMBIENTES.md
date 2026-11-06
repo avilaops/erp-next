@@ -13,9 +13,9 @@ já reservados. Alterar o ambiente ou a série no formulário limpa o campo da
 numeração para exigir nova declaração do usuário.
 
 As sequências e vínculos de pedido são separados por empresa, ambiente e série.
-Uma nota ou inutilização de homologação não ocupa números de produção. O banco
-vincula cada documento ao mesmo ambiente de seu rascunho. Depois de reservar
-número, o ambiente do documento não pode mudar.
+Uma nota de homologação não ocupa números de produção. O banco vincula cada
+documento ao mesmo ambiente de seu rascunho. Depois de reservar número, o
+ambiente do documento não pode mudar.
 
 ## Transmissão e eventos
 
@@ -25,9 +25,12 @@ O backend confere ambiente no XML preparado, protocolo e recibos dos eventos.
 Consulta, CC-e, cancelamento e reconciliação continuam no ambiente gravado no
 documento, mesmo que o usuário altere depois o perfil da empresa.
 
-Inutilização utiliza o ambiente persistido na solicitação; uma repetição não
-troca o ambiente ao ler um perfil mais recente. Somente o comando fiscal
-explícito transmite. Salvar dados não emite nota.
+Para emitentes paulistas, o endpoint de inutilização recusa a operação antes
+de reservar numeração ou chamar a autoridade. Desde 01/11/2026, a SEFAZ-SP
+determinou que não se deve solicitar inutilização de NF-e modelo 55 ou NFC-e
+modelo 65 por lacunas de numeração; a empresa deve continuar da próxima
+numeração e manter a quebra registrada na escrituração. Somente o comando
+fiscal explícito transmite eventos autorizados. Salvar dados não emite nota.
 
 A variável antiga NFE_PRODUCTION_ENABLED é aceita como booleano para
 compatibilidade de implantação. Ela não escolhe o ambiente nem dispara

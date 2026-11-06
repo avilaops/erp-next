@@ -132,15 +132,16 @@ test("authorization verifies the signed content, duplicates require reconciliati
   assert.equal(consulted.status, "authorized"); assert.deepEqual(consulted.events, []);
 });
 
-test("inutilization retains the exact signed request and the actual correlated authority receipt", async () => {
-  const result = await dispatch("void", { environment: "homologation", certificate, state: "SP", issuerTaxId: "12345678000195", year: 2026, series: 1, first: 124, last: 125, text: "Numeração não utilizada no sistema" }, async (_url, _action, envelope) => {
-    assert.match(envelope, /<nNFIni>124<\/nNFIni><nNFFin>125<\/nNFFin>/);
-    return '<retInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infInut><tpAmb>2</tpAmb><cStat>102</cStat><xMotivo>Homologado</xMotivo><cUF>35</cUF><ano>26</ano><CNPJ>12345678000195</CNPJ><mod>55</mod><serie>1</serie><nNFIni>124</nNFIni><nNFFin>125</nNFFin><nProt>135260000000002</nProt></infInut></retInutNFe>';
-  });
-  assert.equal(result.registered, true);
-  assert.match(String(result.xml), /<procInutNFe /);
-  assert.match(String(result.xml), /<retInutNFe /);
-  assert.match(String(result.xml), /<cStat>102<\/cStat>/);
+test("inutilization is refused before any authority call for São Paulo", async () => {
+  let calls = 0;
+  await assert.rejects(
+    dispatch("void", { environment: "homologation", certificate, state: "SP", issuerTaxId: "12345678000195", year: 2026, series: 1, first: 124, last: 125, text: "Numeração não utilizada no sistema" }, async () => {
+      calls += 1;
+      return "";
+    }),
+    /não se aplica.*São Paulo/i,
+  );
+  assert.equal(calls, 0);
 });
 
 test("HTTP boundary authenticates, bounds requests and never reflects secrets", async () => {

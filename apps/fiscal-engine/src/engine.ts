@@ -402,7 +402,8 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     return { ...parsed, xml: parsed.registered ? processedEventXml(signed, rawXml) : signed, rawXml };
   }
   if (operation === "void") {
-    if (input.state !== "SP") refuse("Inutilização ainda restrita a São Paulo");
+    if (input.state === "SP") refuse("Inutilização de NF-e e NFC-e não se aplica a São Paulo desde 01/11/2026; mantenha a numeração sequencial e registre a quebra na escrituração", "void_not_applicable");
+    refuse("Inutilização ainda restrita a São Paulo", "void_not_applicable");
     const cnpj = text(input.issuerTaxId, "CNPJ", 14), credentials = material(input, cnpj);
     const year = String(input.year);
     if (!/^\d{2}$/.test(year) && !/^20\d{2}$/.test(year)) refuse("Ano de inutilização inválido");

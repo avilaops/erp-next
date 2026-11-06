@@ -1,6 +1,6 @@
 use super::{
-    DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
-    revision,
+    DomainChange, DomainError, authorized, command_key, db, fixed, record, remember, replay,
+    response, revision,
 };
 use crate::platform::{auth::AuthenticatedIdentity, state::AppState};
 use axum::{
@@ -58,6 +58,14 @@ pub struct ServiceOrderInput {
     pub labor_cents: i64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct PartInput {
+    pub product_id: Uuid,
+    pub quantity: String,
+    pub amount_cents: i64,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -71,6 +79,7 @@ pub fn routes() -> Router<AppState> {
             "/api/v1/warranty-cases/{id}/service-order",
             post(service_order),
         )
+        .route("/api/v1/warranty-service-orders/{id}/parts", post(add_part))
 }
 
 fn text(value: &str, min: usize, max: usize) -> Result<String, DomainError> {
@@ -420,4 +429,106 @@ pub async fn service_order(
     .await?;
     tx.commit().await.map_err(db)?;
     Ok(response(StatusCode::CREATED, Some(expected + 1), result))
+}
+
+pub async fn add_part(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(input): Json<PartInput>,
+) -> Result<Response, DomainError> {
+    let quantity = fixed(&input.quantity, 6)?;
+    if quantity <= 0 {
+        return Err(DomainError::Invalid("Quantidade de peça inválida"));
+    }
+    if input.amount_cents < 0 || input.amount_cents > 99_999_999_999_999 {
+        return Err(DomainError::Invalid("Valor da peça inválido"));
+    }
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.service-order.part.create",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    let service = sqlx::query(
+        "SELECT so.case_id, so.revision, p.name, p.sku FROM warranty_service_orders so JOIN products p ON p.tenant_id=$1 AND p.id=$2 AND p.status='active' WHERE so.tenant_id=$1 AND so.id=$3 AND so.revision=$4 FOR UPDATE OF so",
+    )
+    .bind(tenant)
+    .bind(input.product_id)
+    .bind(id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    let part_id = Uuid::now_v7();
+    sqlx::query("INSERT INTO warranty_service_order_parts(id,tenant_id,service_order_id,product_id,product_name,sku,quantity_micros,amount_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+        .bind(part_id)
+        .bind(tenant)
+        .bind(id)
+        .bind(input.product_id)
+        .bind(service.get::<String, _>("name"))
+        .bind(service.get::<String, _>("sku"))
+        .bind(quantity)
+        .bind(input.amount_cents)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let next = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_service_orders SET status='in_repair', revision=revision+1, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$3 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(expected)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let case_id = service.get::<Uuid, _>("case_id");
+    let result = json!({"tenantId": tenant, "data": {"id": part_id, "serviceOrderId": id, "caseId": case_id, "productId": input.product_id, "productName": service.get::<String, _>("name"), "sku": service.get::<String, _>("sku"), "quantity": input.quantity, "amountCents": input.amount_cents, "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'treated','in_repair',$4)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(case_id)
+        .bind(&result)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_service_order_part",
+            id: part_id,
+            event: "warranty.service_order.part_added",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.service-order.part.create",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::CREATED, Some(next), result))
 }

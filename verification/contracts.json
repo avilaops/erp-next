@@ -1375,7 +1375,7 @@
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
           {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id"], "authRefs": [], "externalSystems": []},
-          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order"], "authRefs": [], "externalSystems": []}
+          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts"], "authRefs": [], "externalSystems": []}
         ]
       },
       {
@@ -28845,6 +28845,14 @@
       "preconditions": ["Protocolo versionado e mão de obra não negativa."], "transition": {"from": "Diagnóstico ou tratativa", "to": "Ordem de serviço aberta"}, "effects": {"writes": ["warranty_service_orders", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta peças ou estoque até contrato específico."]},
       "concurrency": {"revision": true, "idempotency": true, "rule": "Uma ordem de serviço por protocolo."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-service-order"}, "recovery": "Consultar o protocolo e repetir a mesma chave.",
       "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-service-orders-id-parts",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-service-orders/{id}/parts"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "PartInput"}, "query": null},
+      "preconditions": ["Ordem de serviço versionada, produto ativo, quantidade positiva em seis casas e valor não negativo."], "transition": {"from": "Ordem aberta", "to": "Peça registrada e ordem em reparo"}, "effects": {"writes": ["warranty_service_order_parts", "warranty_service_orders", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta estoque físico até contrato de integração com o livro de estoque."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente e repetição devolve o mesmo resultado."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-service-orders-id-parts"}, "recovery": "Consultar a ordem e reenviar com nova revisão ou repetir a mesma chave em resposta incerta.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060003_warranty_service_parts.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

@@ -361,12 +361,12 @@ fn legacy_plate_holder_color<'a>(
     plate_holder_color: Option<&'a str>,
     arm_color: Option<&'a str>,
 ) -> Result<Option<&'a str>, DomainError> {
-    if let (Some(current), Some(legacy)) = (plate_holder_color, arm_color) {
-        if !current.trim().eq_ignore_ascii_case(legacy.trim()) {
-            return Err(DomainError::Invalid(
-                "Informe a cor dos anilheiros apenas em plateHolderColor",
-            ));
-        }
+    if let (Some(current), Some(legacy)) = (plate_holder_color, arm_color)
+        && !current.trim().eq_ignore_ascii_case(legacy.trim())
+    {
+        return Err(DomainError::Invalid(
+            "Informe a cor dos anilheiros apenas em plateHolderColor",
+        ));
     }
     Ok(plate_holder_color.or(arm_color))
 }
@@ -732,6 +732,7 @@ async fn transition(
         }
         if matches!(action, Action::Confirm) {
             negotiation::require_approval(&mut tx, tenant, id).await?;
+            pricing_orders::validate_confirmation(&mut tx, tenant, id).await?;
             settings::validate_confirmation(&mut tx, tenant, &current).await?;
         }
         for item in &current.items {

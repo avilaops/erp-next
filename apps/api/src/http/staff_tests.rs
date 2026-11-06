@@ -1076,3 +1076,94 @@ async fn payroll_migration_and_discovery_work_with_a_force_rls_owner(admin: PgPo
     assert_eq!(temporary_policy, 0);
     tx.rollback().await.unwrap();
 }
+
+#[sqlx::test(migrations = false)]
+async fn staff_permissions_migration_backfills_existing_administrators_with_force_rls(
+    admin: PgPool,
+) {
+    let owner = format!("staff_permissions_owner_{}", Uuid::new_v4().simple());
+    let mut tx = admin.begin().await.unwrap();
+    sqlx::raw_sql(&format!(
+        "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner};"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    let migrator = sqlx::migrate!("../../migrations");
+    for migration in migrator.iter().filter(|m| m.version < 202611050005) {
+        sqlx::raw_sql(&migration.sql)
+            .execute(&mut *tx)
+            .await
+            .unwrap_or_else(|error| panic!("migration {} failed: {error}", migration.version));
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(Uuid::nil().to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    sqlx::raw_sql(&format!(
+        "ALTER TABLE tenants OWNER TO {owner}; ALTER TABLE roles OWNER TO {owner}; ALTER TABLE role_permissions OWNER TO {owner}; ALTER TABLE permissions OWNER TO {owner}; SET LOCAL ROLE {owner};"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    let first = Uuid::new_v4();
+    let second = Uuid::new_v4();
+    for (tenant, code) in [(first, "administrator"), (second, "admin")] {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO tenants(id,legal_name,tax_id) VALUES($1,'Fixture',$1::text)")
+            .bind(tenant)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO roles(id,tenant_id,code,name) VALUES($1,$2,$3,'Admin')")
+            .bind(Uuid::new_v4())
+            .bind(tenant)
+            .bind(code)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+
+    sqlx::query("SELECT set_config('app.tenant_id','',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!(
+        "../../../../migrations/202611050005_staff_permissions.sql"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    for tenant in [first, second] {
+        sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
+            .bind(tenant.to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.tenant_id=$1 AND rp.permission_code LIKE 'catalog.staff.%'",
+        )
+        .bind(tenant)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    let temporary_policy: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM pg_policies WHERE policyname='staff_permissions_migration_scan'",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(temporary_policy, 0);
+    tx.rollback().await.unwrap();
+}

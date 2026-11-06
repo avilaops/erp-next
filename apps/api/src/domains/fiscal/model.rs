@@ -242,6 +242,12 @@ impl Recipient {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftItem {
+    /// Explicit item allocation, never silently distributed across products.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freight_amount: Option<String>,
+    /// Unconditional commercial discount, preserving the original unit price.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discount_amount: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub additional_info: Option<String>,
     pub code: String,
@@ -268,6 +274,21 @@ pub struct DraftPayment {
     pub amount: String,
 }
 
+impl DraftItem {
+    pub fn commercial_total(&self) -> Result<i128, DomainError> {
+        let gross = exact_decimal(&self.gross_total, 13, 2)?;
+        let freight = exact_decimal(self.freight_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+        let discount = exact_decimal(self.discount_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+        let net = gross + freight - discount;
+        if discount > gross || net <= 0 || net > 999_999_999_999_999 {
+            return Err(DomainError::Invalid(
+                "Desconto não pode superar o produto; total com frete deve ser positivo e respeitar o limite fiscal",
+            ));
+        }
+        Ok(net)
+    }
+}
+
 /// Percentages, never fractions: fixed four decimal places, e.g. 18.0000.
 /// These are declarations by the fiscal operator, not rates inferred by ERP.
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
@@ -283,6 +304,10 @@ pub struct IbsCbsDeclaration {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TaxDeclaration {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_icms_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_fcp_rate: Option<String>,
     pub recipient_taxpayer: bool,
     pub recipient_state_registration: Option<String>,
     pub final_consumer: bool,
@@ -321,9 +346,9 @@ fn rounded_tax(base: i128, rate: i128) -> i128 {
 
 impl TaxDeclaration {
     fn validate(&self, draft: &DraftInput, profile: &ProfileInput) -> Result<i128, DomainError> {
-        if profile.crt != 3 || profile.state != "SP" || draft.recipient.state != "SP" {
+        if profile.crt != 3 || profile.state != "SP" {
             return Err(DomainError::Invalid(
-                "Declaração tributária disponível para CRT 3 em operação interna SP",
+                "Declaração tributária disponível para emitente SP no CRT 3",
             ));
         }
         let first = &draft.items[0];
@@ -360,6 +385,25 @@ impl TaxDeclaration {
             ));
         }
         let icms_rate = declared_rate(self.icms_rate.as_deref(), taxed_icms)?;
+        let interstate = profile.state != draft.recipient.state;
+        if interstate && taxed_icms && ![40_000, 70_000, 120_000].contains(&icms_rate) {
+            return Err(DomainError::Invalid(
+                "ICMS interestadual tributado exige alíquota declarada de 4%, 7% ou 12%",
+            ));
+        }
+        let difal = interstate && !self.recipient_taxpayer && self.final_consumer;
+        if difal && !taxed_icms {
+            return Err(DomainError::Invalid(
+                "Venda interestadual a não contribuinte disponível somente com ICMS CST 00 e DIFAL declarado",
+            ));
+        }
+        let destination_rate = declared_rate(self.destination_icms_rate.as_deref(), difal)?;
+        let fcp_rate = declared_rate(self.destination_fcp_rate.as_deref(), difal)?;
+        if difal && destination_rate < icms_rate {
+            return Err(DomainError::Invalid(
+                "Alíquota interna do destino não pode ser menor que a interestadual neste recorte de DIFAL",
+            ));
+        }
         let pis_rate = declared_rate(
             self.pis_rate.as_deref(),
             ["01", "02"].contains(&first.pis_cst.as_str()),
@@ -398,7 +442,7 @@ impl TaxDeclaration {
         let ibs_city_rate = declared_rate(Some(&self.ibs_cbs.ibs_city_rate), true)?;
         let cbs_rate = declared_rate(Some(&self.ibs_cbs.cbs_rate), true)?;
         let mut total_ipi = 0;
-        let mut tax_totals = [0_i128; 8];
+        let mut tax_totals = [0_i128; 10];
         for item in &draft.items {
             if item.icms_cst != first.icms_cst
                 || item.csosn != first.csosn
@@ -410,7 +454,7 @@ impl TaxDeclaration {
                     "Declaração exige a mesma classificação fiscal por item",
                 ));
             }
-            let product = exact_decimal(&item.gross_total, 13, 2)?;
+            let product = item.commercial_total()?;
             let ipi = rounded_tax(product, ipi_rate);
             let base = if taxed_icms {
                 product
@@ -431,7 +475,17 @@ impl TaxDeclaration {
                 };
             let pis = rounded_tax(contribution_base, pis_rate);
             let cofins = rounded_tax(contribution_base, cofins_rate);
-            let reform_base = product - icms - pis - cofins;
+            let difal_amount = if difal {
+                rounded_tax(base, destination_rate - icms_rate)
+            } else {
+                0
+            };
+            let fcp_amount = if difal {
+                rounded_tax(base, fcp_rate)
+            } else {
+                0
+            };
+            let reform_base = product - icms - pis - cofins - difal_amount - fcp_amount;
             if contribution_base < 0 || reform_base < 0 {
                 return Err(DomainError::Invalid(
                     "Base tributária negativa fora do recorte",
@@ -446,6 +500,8 @@ impl TaxDeclaration {
                 rounded_tax(reform_base, ibs_state_rate),
                 rounded_tax(reform_base, ibs_city_rate),
                 rounded_tax(reform_base, cbs_rate),
+                difal_amount,
+                fcp_amount,
             ]) {
                 *total += amount;
             }
@@ -468,6 +524,9 @@ impl TaxDeclaration {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftInput {
+    /// Historical drafts without this declaration retain mode 9 and zero freight.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freight_mode: Option<String>,
     /// Full domestic sales order copied into this draft; no billing effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_order_id: Option<uuid::Uuid>,
@@ -507,6 +566,10 @@ impl DraftInput {
             ));
         }
         self.recipient.validate()?;
+        let freight_mode = self.freight_mode.as_deref().unwrap_or("9");
+        if !["0", "1", "2", "3", "4", "9"].contains(&freight_mode) {
+            return Err(DomainError::Invalid("Modalidade de frete inválida"));
+        }
         if self.items.is_empty() || self.items.len() > 990 {
             return Err(DomainError::Invalid("Informe de 1 a 990 itens"));
         }
@@ -519,7 +582,15 @@ impl DraftInput {
             b'6'
         };
         let mut total = 0_i64;
+        let mut commercial_total = 0_i128;
         for item in &self.items {
+            let freight = exact_decimal(item.freight_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+            if freight > 0 && freight_mode == "9" {
+                return Err(DomainError::Invalid(
+                    "Frete cobrado exige modalidade de transporte diferente de 9",
+                ));
+            }
+            commercial_total += item.commercial_total()?;
             if item
                 .additional_info
                 .as_deref()
@@ -583,7 +654,7 @@ impl DraftInput {
             .map(|declaration| declaration.validate(self, profile))
             .transpose()?
             .unwrap_or(0);
-        let invoice_total = i128::from(total) + ipi_total;
+        let invoice_total = commercial_total + ipi_total;
         if invoice_total > 999_999_999_999_999 {
             return Err(DomainError::Invalid(
                 "Total da NF-e incluindo IPI excede o limite fiscal",
@@ -776,6 +847,61 @@ mod tests {
         declaration.ipi_rate = Some("0.0000".into());
         zero.payments.as_mut().unwrap()[0].amount = "1.00".into();
         assert!(zero.validate(&profile).is_ok());
+    }
+
+    #[test]
+    fn commercial_values_preserve_gross_total_and_validate_transport_and_payments() {
+        let (mut value, profile) = declared_normal_draft();
+        value.freight_mode = Some("0".into());
+        value.items[0].freight_amount = Some("0.20".into());
+        value.items[0].discount_amount = Some("0.05".into());
+        value.payments.as_mut().unwrap()[0].amount = "1.27".into();
+        assert_eq!(value.validate(&profile).unwrap(), 100);
+        let mut invalid = value.clone();
+        invalid.freight_mode = None;
+        assert!(invalid.validate(&profile).is_err());
+        let mut invalid = value.clone();
+        invalid.items[0].discount_amount = Some("1.01".into());
+        assert!(invalid.validate(&profile).is_err());
+        let mut invalid = value.clone();
+        invalid.items[0].freight_amount = Some("0.201".into());
+        assert!(invalid.validate(&profile).is_err());
+        value.payments.as_mut().unwrap()[0].amount = "1.10".into();
+        assert!(value.validate(&profile).is_err());
+    }
+
+    #[test]
+    fn interstate_non_taxpayer_requires_destination_rates_and_correct_payment() {
+        let (mut value, profile) = declared_normal_draft();
+        value.recipient.state = "MG".into();
+        value.recipient.municipality_code = "3106200".into();
+        value.items[0].cfop = "6108".into();
+        let declaration = value.tax_declaration.as_mut().unwrap();
+        declaration.icms_rate = Some("12.0000".into());
+        declaration.recipient_taxpayer = false;
+        declaration.recipient_state_registration = None;
+        declaration.final_consumer = true;
+        declaration.ipi_in_icms_base = true;
+        declaration.destination_icms_rate = Some("20.0000".into());
+        declaration.destination_fcp_rate = Some("2.0000".into());
+        assert_eq!(value.validate(&profile).unwrap(), 100);
+        let mut invalid = value.clone();
+        invalid
+            .tax_declaration
+            .as_mut()
+            .unwrap()
+            .destination_fcp_rate = None;
+        assert!(invalid.validate(&profile).is_err());
+        let mut invalid = value.clone();
+        invalid
+            .tax_declaration
+            .as_mut()
+            .unwrap()
+            .destination_icms_rate = Some("7.0000".into());
+        assert!(invalid.validate(&profile).is_err());
+        let mut invalid = value.clone();
+        invalid.tax_declaration.as_mut().unwrap().icms_rate = Some("18.0000".into());
+        assert!(invalid.validate(&profile).is_err());
     }
 
     #[test]

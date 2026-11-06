@@ -99,6 +99,8 @@ export type NfeRules = {
 };
 
 export type NfeItem = {
+  freightAmount?: number;
+  discountAmount?: number;
   additionalInfo?: string | null;
   code: string;
   name: string;
@@ -108,7 +110,7 @@ export type NfeItem = {
   origin: number;
   unit: string;
   quantity: number;
-  /** Price of one unit after the discount of the order, without IPI. */
+  /** Unit price without IPI, before any separately declared item discount. */
   unitPrice: number;
   /** As a fraction: the IPI of the table version of the order. */
   ipiRate: number;
@@ -386,6 +388,10 @@ export function nfeProblems(input: NfeInput): string[] {
     need(/^\d{8}$/.test(item.ncm), `${which}: NCM com oito dígitos (tela do equipamento).`);
     need(Number.isInteger(item.origin) && item.origin >= 0 && item.origin <= 8, `${which}: origem da mercadoria (tela do equipamento).`);
     need(item.quantity > 0 && item.unitPrice > 0, `${which}: quantidade e preço maiores que zero.`);
+    const freight = item.freightAmount ?? 0, discount = item.discountAmount ?? 0;
+    need(Number.isFinite(freight) && freight >= 0 && Number.isFinite(discount) && discount >= 0, `${which}: frete e desconto não podem ser negativos.`);
+    need(discount <= roundCents(item.quantity * item.unitPrice) && commercialItemValue(item) > 0, `${which}: desconto não pode superar o produto e o total deve ser positivo.`);
+    need(freight === 0 || input.freightMode !== "9", `${which}: frete cobrado exige modalidade de transporte diferente de 9.`);
   });
 
   const total = nfeTotals(input).invoice;
@@ -401,26 +407,31 @@ export function nfeProblems(input: NfeInput): string[] {
 type ItemFigures = { product: number; contributionBase: number; ipi: number; icmsBase: number; icms: number; pis: number; cofins: number; difalBase: number; difal: number; fcp: number; reformBase: number; ibsState: number; ibsCity: number; cbs: number };
 
 /** The account of one item. The ICMS base takes the IPI only in a sale to a final consumer, when the rules say so. */
+export function commercialItemValue(item: NfeItem): number {
+  return roundCents(roundCents(item.quantity * item.unitPrice) + (item.freightAmount ?? 0) - (item.discountAmount ?? 0));
+}
+
 function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
   const { rules, issuer, recipient } = input;
   const product = roundCents(item.quantity * item.unitPrice);
+  const commercial = commercialItemValue(item);
     // Keep the IPI agreed in the order visible while its CST is still missing.
     // nfeProblems blocks XML generation until that classification is supplied.
-    const ipi = roundCents(product * item.ipiRate);
+    const ipi = roundCents(commercial * item.ipiRate);
   const taxed = issuer.taxRegime !== 1 && rules.icmsCode === "00";
-  const icmsBase = taxed ? roundCents(product + (rules.finalConsumer && rules.ipiInIcmsBase ? ipi : 0)) : 0;
+  const icmsBase = taxed ? roundCents(commercial + (rules.finalConsumer && rules.ipiInIcmsBase ? ipi : 0)) : 0;
   const interstate = issuer.uf !== destinationUf(input);
   const owesDifal = taxed && interstate && !recipient.taxpayer && rules.finalConsumer;
   const icms = roundCents(icmsBase * input.icmsRate);
   // A CST without figures (04 to 09) writes no value in the item: counting one would leave the total different from the sum of the items (rules W13-10 and W14-10).
   // Only the ICMS of the operation itself leaves the base; the DIFAL belongs to the state of destination and stays out of this account.
-  const contributionBase = rules.icmsOutOfContributions ? roundCents(product - icms) : product;
+  const contributionBase = rules.icmsOutOfContributions ? roundCents(commercial - icms) : commercial;
   const pis = CONTRIBUTION_UNTAXED_CSTS.includes(rules.pisCst) ? 0 : roundCents(contributionBase * rules.pisRate);
   const cofins = CONTRIBUTION_UNTAXED_CSTS.includes(rules.cofinsCst) ? 0 : roundCents(contributionBase * rules.cofinsRate);
   const difal = owesDifal ? roundCents(icmsBase * Math.max(0, input.destination.internalIcms - input.icmsRate)) : 0;
   const fcp = owesDifal ? roundCents(icmsBase * input.destination.fcp) : 0;
   // Base of IBS and CBS (rule UB16-10): the product less the taxes it carries inside.
-  const reformBase = rules.ibsCbs ? roundCents(product - pis - cofins - icms - difal - fcp) : 0;
+  const reformBase = rules.ibsCbs ? roundCents(commercial - pis - cofins - icms - difal - fcp) : 0;
   return {
     product,
     contributionBase,
@@ -439,14 +450,18 @@ function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
   };
 }
 
-export type NfeTotals = { products: number; ipi: number; icmsBase: number; icms: number; pis: number; cofins: number; difal: number; fcp: number; invoice: number; reformBase: number; ibsState: number; ibsCity: number; cbs: number };
+export type NfeTotals = { freight: number; discount: number; products: number; ipi: number; icmsBase: number; icms: number; pis: number; cofins: number; difal: number; fcp: number; invoice: number; reformBase: number; ibsState: number; ibsCity: number; cbs: number };
 
-/** The totals of the invoice: the sum of the items, each already in cents. The invoice total is products plus IPI. */
+/** Sum item-rounded figures, preserving gross products, freight and discount separately. */
 export function nfeTotals(input: NfeInput): NfeTotals {
   const sum = (pick: (figures: ItemFigures) => number) => roundCents(input.items.reduce((total, item) => total + pick(figuresOf(item, input)), 0));
   const products = sum((figures) => figures.product);
   const ipi = sum((figures) => figures.ipi);
+  const freight = roundCents(input.items.reduce((total, item) => total + (item.freightAmount ?? 0), 0));
+  const discount = roundCents(input.items.reduce((total, item) => total + (item.discountAmount ?? 0), 0));
   return {
+    freight,
+    discount,
     products,
     ipi,
     icmsBase: sum((figures) => figures.icmsBase),
@@ -456,7 +471,7 @@ export function nfeTotals(input: NfeInput): NfeTotals {
     difal: sum((figures) => figures.difal),
     fcp: sum((figures) => figures.fcp),
     // In 2026 IBS and CBS are informed and do not add to the total of the invoice.
-    invoice: roundCents(products + ipi),
+    invoice: roundCents(products + freight - discount + ipi),
     reformBase: sum((figures) => figures.reformBase),
     ibsState: sum((figures) => figures.ibsState),
     ibsCity: sum((figures) => figures.ibsCity),
@@ -498,6 +513,8 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
       tag("uTrib", item.unit) +
       tag("qTrib", quantity) +
       tag("vUnTrib", unit) +
+      ((item.freightAmount ?? 0) > 0 ? tag("vFrete", money(item.freightAmount!)) : "") +
+      ((item.discountAmount ?? 0) > 0 ? tag("vDesc", money(item.discountAmount!)) : "") +
       tag("indTot", "1"),
   );
 
@@ -516,7 +533,7 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
           "IPI",
           tag("cEnq", rules.ipiFrameCode) +
             (IPI_TAXED_CSTS.includes(rules.ipiCst)
-              ? group("IPITrib", tag("CST", rules.ipiCst) + tag("vBC", money(figures.product)) + tag("pIPI", rate(item.ipiRate)) + tag("vIPI", money(figures.ipi)))
+              ? group("IPITrib", tag("CST", rules.ipiCst) + tag("vBC", money(commercialItemValue(item))) + tag("pIPI", rate(item.ipiRate)) + tag("vIPI", money(figures.ipi)))
               : group("IPINT", tag("CST", rules.ipiCst))),
         );
 
@@ -674,9 +691,9 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
         tag("vFCPST", "0.00") +
         tag("vFCPSTRet", "0.00") +
         tag("vProd", money(totals.products)) +
-        tag("vFrete", "0.00") +
+        tag("vFrete", money(totals.freight)) +
         tag("vSeg", "0.00") +
-        tag("vDesc", "0.00") +
+        tag("vDesc", money(totals.discount)) +
         tag("vII", "0.00") +
         tag("vIPI", money(totals.ipi)) +
         tag("vIPIDevol", "0.00") +

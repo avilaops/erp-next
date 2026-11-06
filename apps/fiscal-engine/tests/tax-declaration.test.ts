@@ -29,6 +29,63 @@ test("CRT3 explicit declaration generates signed XSD-valid ICMS/PIS/COFINS/IPI a
   assert.match(xml, /<Signature /);
 });
 
+test("freight and unconditional discount retain gross product prices and balance signed XML totals", async () => {
+  const input = preparation();
+  input.draft.freightMode = "0";
+  Object.assign(input.draft.items[0], { freightAmount: "20.00", discountAmount: "5.00" });
+  input.draft.payments[0].amount = "126.50";
+  const xml = String((await dispatch("prepare", input)).signedXml);
+  for (const tag of ["<vProd>100.00</vProd>", "<vFrete>20.00</vFrete>", "<vDesc>5.00</vDesc>", "<vIPI>11.50</vIPI>", "<vICMS>20.70</vICMS>", "<vPIS>1.56</vPIS>", "<vCOFINS>7.17</vCOFINS>", "<vNF>126.50</vNF>", "<modFrete>0</modFrete>"]) assert.ok(xml.includes(tag), tag);
+  assert.equal(mapDraft(input).items[0].unitPrice, 100);
+});
+
+function interstatePreparation(): any {
+  const input = preparation();
+  Object.assign(input.draft.recipient, { state: "MG", municipalityCode: "3106200", postalCode: "30110000" });
+  input.draft.items[0].cfop = "6102";
+  input.draft.taxDeclaration.icmsRate = "12.0000";
+  return input;
+}
+
+test("interstate CRT3 taxpayer operation has declared ICMS and no consumer DIFAL", async () => {
+  const xml = String((await dispatch("prepare", interstatePreparation())).signedXml);
+  assert.match(xml, /<idDest>2<\/idDest>/);
+  assert.match(xml, /<CFOP>6102<\/CFOP>/);
+  assert.match(xml, /<vICMS>12.00<\/vICMS>/);
+  assert.doesNotMatch(xml, /<ICMSUFDest>/);
+});
+
+test("interstate non-taxpayer requires explicit destination rates and emits item and total DIFAL/FCP", async () => {
+  const input = interstatePreparation();
+  Object.assign(input.draft.taxDeclaration, { recipientTaxpayer: false, recipientStateRegistration: null, finalConsumer: true, ipiInIcmsBase: true, destinationIcmsRate: "20.0000", destinationFcpRate: "2.0000" });
+  input.draft.items[0].cfop = "6108";
+  const xml = String((await dispatch("prepare", input)).signedXml);
+  for (const tag of ["<ICMSUFDest>", "<vBCUFDest>110.00</vBCUFDest>", "<pICMSUFDest>20.0000</pICMSUFDest>", "<pICMSInter>12.00</pICMSInter>", "<vICMSUFDest>8.80</vICMSUFDest>", "<vFCPUFDest>2.20</vFCPUFDest>", "<vBCIBSCBS>67.77</vBCIBSCBS>"]) assert.ok(xml.includes(tag), tag);
+  for (const change of [
+    (value: any) => { delete value.draft.taxDeclaration.destinationIcmsRate; },
+    (value: any) => { delete value.draft.taxDeclaration.destinationFcpRate; },
+    (value: any) => { value.draft.taxDeclaration.destinationIcmsRate = "7.0000"; },
+    (value: any) => { value.draft.taxDeclaration.icmsRate = "18.0000"; },
+  ]) {
+    const invalid = structuredClone(input); change(invalid);
+    assert.throws(() => mapDraft(invalid));
+  }
+});
+
+test("freight and discount reject inconsistent transport, excessive discounts, precision and payment mismatches", () => {
+  for (const change of [
+    (input: any) => { input.draft.items[0].freightAmount = "1.00"; },
+    (input: any) => { input.draft.freightMode = "8"; },
+    (input: any) => { input.draft.items[0].discountAmount = "100.01"; },
+    (input: any) => { input.draft.items[0].discountAmount = "-1.00"; },
+    (input: any) => { input.draft.items[0].discountAmount = "1.001"; },
+    (input: any) => { input.draft.items[0].discountAmount = "5.00"; },
+  ]) {
+    const input = preparation(); change(input);
+    assert.throws(() => mapDraft(input));
+  }
+});
+
 test("CRT3 missing, malformed, unknown or unsupported tax declarations fail closed", () => {
   for (const change of [
     (input: any) => { delete input.draft.taxDeclaration; },

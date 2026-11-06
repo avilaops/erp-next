@@ -422,6 +422,14 @@ test("company selection rejects non-JSON and malformed bodies before forwarding 
   expect(upstreamCalls).toBe(0)
 })
 
+test("company selection rejects oversized bodies while streaming before forwarding tenant input", async ({ context }) => {
+  await context.addCookies([cookie(null)])
+  const oversized = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "application/json" }, data: JSON.stringify({ tenantId: tenant, padding: "x".repeat(1100) }) })
+  expect(oversized.status()).toBe(413)
+  expect(await oversized.json()).toEqual({ title: "Pedido muito grande" })
+  expect(upstreamCalls).toBe(0)
+})
+
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)

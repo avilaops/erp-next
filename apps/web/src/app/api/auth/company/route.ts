@@ -1,6 +1,23 @@
 import { cookies } from "next/headers"
 import { cookieName, cookieOptions, currentIdentitySession, erpConfiguration, seal, uuidPattern } from "@/server/auth/erp-session"
 
+async function readLimitedBody(request: Request, limit: number) {
+  const reader = request.body?.getReader()
+  if (!reader) return ""
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) return Buffer.concat(chunks).toString("utf8")
+    size += value.byteLength
+    if (size > limit) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+}
+
 export async function POST(request: Request) {
   const output = { "Cache-Control": "no-store" }
   try {
@@ -10,8 +27,8 @@ export async function POST(request: Request) {
     if (!session) return Response.json({ title: "Entre novamente" }, { status: 401, headers: output })
     const contentType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase()
     if (contentType !== "application/json") return Response.json({ title: "O pedido precisa ser JSON" }, { status: 415, headers: output })
-    const body = await request.text()
-    if (Buffer.byteLength(body) > 1024) return Response.json({ title: "Pedido muito grande" }, { status: 413, headers: output })
+    const body = await readLimitedBody(request, 1024)
+    if (body === null) return Response.json({ title: "Pedido muito grande" }, { status: 413, headers: output })
     let payload: unknown
     try { payload = JSON.parse(body) } catch { return Response.json({ title: "Pedido inválido" }, { status: 400, headers: output }) }
     const { tenantId } = payload && typeof payload === "object" ? payload as { tenantId?: unknown } : {}

@@ -76,6 +76,17 @@ pub(super) async fn require_approval(
         ));
     }
     if status.is_none() {
+        let simulated: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
+        )
+        .bind(tenant)
+        .bind(order)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+        if simulated {
+            return Ok(());
+        }
         let bypass: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sales_orders o JOIN sales_order_lines l ON l.tenant_id=o.tenant_id AND l.order_id=o.id JOIN price_table_items i ON i.tenant_id=l.tenant_id AND i.product_id=l.product_id JOIN commercial_settings s ON s.tenant_id=i.tenant_id AND s.active_price_version_id=i.version_id JOIN price_table_versions v ON v.tenant_id=i.tenant_id AND v.id=i.version_id WHERE o.tenant_id=$1 AND o.id=$2 AND o.created_at>=v.published_at AND NOT EXISTS(SELECT 1 FROM sales_proposals sp WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND sp.created_at<v.published_at))")
             .bind(tenant).bind(order).fetch_one(&mut **tx).await.map_err(db)?;
         if bypass {

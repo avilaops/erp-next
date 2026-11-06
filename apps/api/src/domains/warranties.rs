@@ -1304,3 +1304,35 @@ pub async fn transition_quarantine(
     tx.commit().await.map_err(db)?;
     Ok(response(StatusCode::OK, Some(next), result))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::valid_case_transition;
+
+    #[test]
+    fn case_lifecycle_allows_only_forward_transitions() {
+        for (from, to) in [
+            ("opened", "triage"),
+            ("opened", "cancelled"),
+            ("triage", "diagnosis"),
+            ("diagnosis", "treatment"),
+            ("treatment", "resolved"),
+            ("resolved", "closed"),
+        ] {
+            assert!(valid_case_transition(from, to), "{from} -> {to}");
+        }
+    }
+
+    #[test]
+    fn case_lifecycle_rejects_regressions_and_terminal_changes() {
+        for (from, to) in [
+            ("closed", "diagnosis"),
+            ("cancelled", "triage"),
+            ("resolved", "treatment"),
+            ("treatment", "opened"),
+            ("opened", "closed"),
+        ] {
+            assert!(!valid_case_transition(from, to), "{from} -> {to}");
+        }
+    }
+}

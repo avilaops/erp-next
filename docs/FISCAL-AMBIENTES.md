@@ -1,8 +1,10 @@
-# Ambientes de emissão NF-e
+# Ambientes de emissão NF-e e NFC-e
 
 A escolha do ambiente pertence ao usuário, no perfil fiscal da empresa. O
-software oferece homologação e produção para o recorte NF-e 55/SP existente,
-com as mesmas validações de cadastro, certificado e regras tributárias.
+software oferece homologação e produção para o recorte NF-e 55/SP e NFC-e
+65/SP implementado, com as mesmas validações de cadastro, certificado e regras
+tributárias. O motor recusa UFs e combinações fora do recorte explicitamente
+suportado.
 Não há preenchimento ou alteração automática da configuração de empresas.
 
 ## Configuração e numeração
@@ -38,9 +40,11 @@ emissão; a escolha efetiva é o perfil persistido pelo usuário.
 
 ## Escopo e evidências
 
-Mantêm-se as validações do recorte tributário já implementado. Esta alteração
-não acrescenta emissão NFC-e 65, transportes de outras UFs ou contingência.
-Distribuição CT-e e a distribuição NF-e de homologação mantêm seus contratos.
+Mantêm-se as validações do recorte tributário já implementado. A NFC-e 65
+possui geração, assinatura, QR Code, pagamentos, troco, contingência offline e
+transmissão posterior no motor, além de cancelamento, consulta e reimpressão
+pelos fluxos fiscais persistentes. Transportes de outras UFs continuam fora do
+recorte. Distribuição CT-e e distribuição NF-e mantêm seus contratos.
 
 Testes usam certificados e autoridades sintéticos: verificam geração,
 assinatura, XSD, endpoints de cada ambiente, isolamento da numeração, sequência

@@ -90,7 +90,7 @@ export function FiscalPreferences({ section }: { section: "nfce" | "operation-na
       <fieldset disabled={!snapshot.canEdit || saving || blocked} className="min-w-0 space-y-6">
         {section === "nfce" ? <section className="form-section space-y-4">
           <h2 className="text-lg font-semibold">Ambiente e identificação</h2>
-          <p className="text-sm text-muted-foreground">O CSC é exclusivo do ambiente e da empresa. O código salvo fica criptografado e não volta na consulta. A configuração não transmite cupons; a emissão de NFC-e modelo 65 ainda depende da integração própria.</p>
+          <p className="text-sm text-muted-foreground">O CSC é exclusivo do ambiente e da empresa. O código salvo fica criptografado e não volta na consulta. Salvar não transmite cupons; a emissão modelo 65 usa o rascunho fiscal e só fica disponível quando o ambiente, certificado, motor e regras fiscais estiverem prontos.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-sm">Ambiente<select aria-label="Ambiente" className={selectClass} required value={nfce.environment} onChange={event => setDraft({ ...nfce, environment: event.target.value })}><option value="">Selecione</option><option value="homologation">Homologação</option><option value="production">Produção</option></select></label>
             <label className="grid gap-2 text-sm">UF do emitente<Input value={nfce.state} required pattern="[A-Z]{2}" maxLength={2} onChange={event => setDraft({ ...nfce, state: event.target.value.toUpperCase() })} /></label>

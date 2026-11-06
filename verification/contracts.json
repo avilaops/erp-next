@@ -45,6 +45,21 @@
   ]
 },
       {
+        "id": "mcp-oauth",
+        "title": "Descoberta OAuth do MCP",
+        "goal": "Expor os metadados públicos mínimos para que um cliente MCP descubra o recurso protegido sem executar ferramentas ou acessar dados empresariais.",
+        "kind": "support",
+        "actionGroups": [
+          "mcp-oauth"
+        ],
+        "dependencies": [],
+        "nextStep": "Implementar registro, autorização, token e despacho autenticado antes de declarar a integração MCP operacional.",
+        "additionalSources": [
+          "apps/api/src/mcp.rs",
+          "docs/superpowers/plans/2026-11-06-erp-mcp-oauth.md"
+        ]
+      },
+      {
         "id": "dashboard",
         "title": "Dashboard com dados da empresa",
         "goal": "Consultar indicadores reais por período e permissão, sem dados demonstrativos ou operações simuladas.",
@@ -25803,7 +25818,10 @@
           "response"
         ]
       }
-    }
+    },
+    {"id":"get-mcp-oauth-authorization-server","flow":"mcp-oauth","status":"implemented","operation":{"method":"GET","path":"/.well-known/oauth-authorization-server"},"actor":"mcp_client","permissions":[],"input":{"headers":[],"pathParameters":[],"body":null,"query":null},"preconditions":["Endpoint público fixo; não aceita nem cria sessão, token ou credencial."],"transition":{"from":"Sem estado de autorização","to":"Sem alteração"},"effects":{"writes":[],"external":[],"excludes":["Não registra cliente, não emite token e não executa ferramenta MCP."]},"concurrency":{"revision":false,"idempotency":false,"rule":"Metadado estático sem escrita."},"response":{"successStatuses":[200],"errorStatuses":[500],"action":"Descobrir os endpoints OAuth declarados"},"recovery":"Repetir a leitura; a descoberta não autoriza acesso a dados.","ui":{"pages":[],"gap":"Não há tela ERP: descoberta para clientes MCP."},"sources":["apps/api/src/mcp.rs","docs/superpowers/plans/2026-11-06-erp-mcp-oauth.md"],"verification":{"status":"not_verified_by_catalog","criteria":["interface","request","authorization","domain","persistence","effects","failure","response"]}},
+    {"id":"get-mcp-oauth-protected-resource","flow":"mcp-oauth","status":"implemented","operation":{"method":"GET","path":"/.well-known/oauth-protected-resource/mcp"},"actor":"mcp_client","permissions":[],"input":{"headers":[],"pathParameters":[],"body":null,"query":null},"preconditions":["Endpoint público fixo; não aceita nem cria sessão, token ou credencial."],"transition":{"from":"Sem estado de autorização","to":"Sem alteração"},"effects":{"writes":[],"external":[],"excludes":["Não registra cliente, não emite token e não executa ferramenta MCP."]},"concurrency":{"revision":false,"idempotency":false,"rule":"Metadado estático sem escrita."},"response":{"successStatuses":[200],"errorStatuses":[500],"action":"Descobrir o recurso MCP protegido"},"recovery":"Repetir a leitura; a descoberta não autoriza acesso a dados.","ui":{"pages":[],"gap":"Não há tela ERP: descoberta para clientes MCP."},"sources":["apps/api/src/mcp.rs","docs/superpowers/plans/2026-11-06-erp-mcp-oauth.md"],"verification":{"status":"not_verified_by_catalog","criteria":["interface","request","authorization","domain","persistence","effects","failure","response"]}},
+    {"id":"post-mcp-streamable-http","flow":"mcp-oauth","status":"implemented","operation":{"method":"POST","path":"/mcp"},"actor":"mcp_client","permissions":[],"input":{"headers":["Origin","Authorization"],"pathParameters":[],"body":null,"query":null},"preconditions":["Origem de navegador, quando presente, deve ser https://erp.avilaops.com. Nesta etapa não existe token OAuth emitido pelo ERP."],"transition":{"from":"Cliente sem token aceito","to":"Sem alteração"},"effects":{"writes":[],"external":[],"excludes":["Não despacha ferramentas, não lê dados empresariais, não cria sessão e não emite token."]},"concurrency":{"revision":false,"idempotency":false,"rule":"Recusa determinística antes de qualquer acesso persistente."},"response":{"successStatuses":[],"errorStatuses":[401,403,500],"action":"Desafiar cliente não autenticado com resource metadata"},"recovery":"Cliente deve descobrir OAuth e obter token em etapa futura; origem estrangeira não deve ser reenviada.","ui":{"pages":[],"gap":"Despacho autenticado MCP permanece pendente."},"sources":["apps/api/src/mcp.rs","docs/superpowers/plans/2026-11-06-erp-mcp-oauth.md"],"verification":{"status":"not_verified_by_catalog","criteria":["interface","request","authorization","domain","persistence","effects","failure","response"]}}
   ],
   "pendingFlows": [
     {

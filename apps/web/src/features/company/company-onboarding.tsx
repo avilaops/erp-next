@@ -26,6 +26,8 @@ export function CompanyPicker() {
   const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
+    setCompanies([])
+    setPlatformAdministrator(false)
     setFeedback({ message: "Carregando suas empresas…", error: false })
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
       if (!response.ok) {
@@ -41,7 +43,13 @@ export function CompanyPicker() {
       }
       const body = await response.json()
       if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setFeedback({ message: body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas", error: false }) }
-    }).catch(error => { if (active) setFeedback({ message: error.message, error: true }) })
+    }).catch(error => {
+      if (active) {
+        setCompanies([])
+        setPlatformAdministrator(false)
+        setFeedback({ message: error.message, error: true })
+      }
+    })
     return () => { active = false }
   }, [reload])
   async function select(company: Schema<"CompanySummary"> & { status?: string }) {

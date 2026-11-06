@@ -489,6 +489,25 @@ test("company picker distinguishes an unavailable company service from an expire
   await page.unroute("**/api/erp/companies")
 })
 
+test("company picker removes stale companies when a refresh fails", async ({ page, context }) => {
+  companyCount = 1
+  let attempts = 0
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => {
+    attempts += 1
+    return route.fulfill(attempts === 1
+      ? { status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }] } }
+      : { status: 503, json: { title: "Consulta indisponível" } })
+  })
+  await page.goto("/empresas")
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toHaveCount(0)
+  expect(attempts).toBe(2)
+  await page.unroute("**/api/erp/companies")
+})
+
 test("company picker does not open a page when the selected tenant is not confirmed", async ({ page, context }) => {
   companyCount = 1
   const destination = "/cadastros/produtos?status=archived"

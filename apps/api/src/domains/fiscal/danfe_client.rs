@@ -195,6 +195,11 @@ impl DanfeClient {
         key: &str,
         model: u8,
     ) -> Result<Vec<u8>, RenderError> {
+        let model_code = match model {
+            55 => "55",
+            65 => "65",
+            _ => return Err(RenderError::Gateway),
+        };
         let mut session = None;
         let mut protocol = PROTOCOL.to_owned();
         let result = tokio::time::timeout(Duration::from_secs(50), async {
@@ -203,7 +208,7 @@ impl DanfeClient {
             self.rpc(&mut session, &protocol, json!({"jsonrpc":"2.0","method":"notifications/initialized"})).await?;
             let schema = tool_value(self.rpc(&mut session, &protocol, call(2, "fiscal_validar_xml_fiscal", json!({"xml_content":xml,"tipo":"nfe"}))).await?)?;
             if schema["valido"] == false { return Err(RenderError::Invalid); }
-            if schema["valido"] != true || schema["tipo"] != "nfe" || schema["modelo"] != model.to_string() || schema["documento"] != "nfeProc" || schema["chave_acesso"] != key { return Err(RenderError::Gateway); }
+            if schema["valido"] != true || schema["tipo"] != "nfe" || schema["modelo"].as_str() != Some(model_code) || schema["documento"] != "nfeProc" || schema["chave_acesso"] != key { return Err(RenderError::Gateway); }
             let mut arguments = json!({"xml_content":xml});
             if let Some(bundle) = &self.ca_bundle { arguments["ca_bundle"] = Value::String(bundle.to_string()); }
             let signature = tool_value(self.rpc(&mut session, &protocol, call(3, "fiscal_validar_assinatura_nfe", arguments)).await?)?;

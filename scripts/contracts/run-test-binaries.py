@@ -22,5 +22,6 @@ for executable in manifest["executables"]:
         raise ValueError("TEST_ARTIFACT_HASH_MISMATCH")
     file.chmod(0o700)
     environment = {**os.environ, "ERP_OPENAPI_OUTPUT": str(root / "artifacts/contracts/candidate.json"),
+                   "ERP_MCP_CATALOG_OUTPUT": str(root / "artifacts/contracts/mcp-catalog.json"),
                    "ERP_COMPANY_CONTRACT_OUTPUT": str(root / "artifacts/contracts/company.json")}
     subprocess.run([str(file), "--test-threads=4"], cwd=root / "apps/api", env=environment, check=True)

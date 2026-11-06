@@ -1,0 +1,314 @@
+[
+  {
+    "layer": "api",
+    "path": "/mcp",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp",
+    "method": "DELETE",
+    "action": "Protocolo MCP/OAuth: DELETE /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/.well-known/oauth-protected-resource",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /.well-known/oauth-protected-resource",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/.well-known/oauth-protected-resource/mcp",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /.well-known/oauth-protected-resource/mcp",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/.well-known/oauth-authorization-server",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /.well-known/oauth-authorization-server",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/register",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/register",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/register",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp/oauth/register",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/token",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/token",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/token",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp/oauth/token",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/revoke",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/revoke",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/revoke",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp/oauth/revoke",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/authorization-request",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /mcp/oauth/authorization-request",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "api",
+    "path": "/mcp/oauth/grant",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/grant",
+    "authorization": "Bearer do Auth verificado pela API; identidade da sessao autoriza concessao.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp",
+    "method": "DELETE",
+    "action": "Protocolo MCP/OAuth: DELETE /mcp",
+    "authorization": "Bearer MCP opaco, recurso exato e concessao nao revogada; permissoes de empresa no handler empresarial.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp/oauth/[operation]",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/[operation]",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp/oauth/[operation]",
+    "method": "OPTIONS",
+    "action": "Protocolo MCP/OAuth: OPTIONS /mcp/oauth/[operation]",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp/oauth/authorize",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /mcp/oauth/authorize",
+    "authorization": "Sessao cifrada do ERP, consentimento explicito; POST valida Origin e CSRF vinculado a sessao.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/mcp/oauth/authorize",
+    "method": "POST",
+    "action": "Protocolo MCP/OAuth: POST /mcp/oauth/authorize",
+    "authorization": "Sessao cifrada do ERP, consentimento explicito; POST valida Origin e CSRF vinculado a sessao.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  },
+  {
+    "layer": "bff",
+    "path": "/.well-known/[...document]",
+    "method": "GET",
+    "action": "Protocolo MCP/OAuth: GET /.well-known/[...document]",
+    "authorization": "Descoberta, registro e preflight publicos; Origin validado. Token/revogacao validam cliente e PKCE/refresh quando aplicavel.",
+    "recovery": "Reiniciar descoberta ou login; falha de comando exige consultar estado antes de repetir.",
+    "sources": [
+      "docs/integrations/MCP-OAUTH.md",
+      "apps/api/src/mcp/mod.rs",
+      "apps/api/src/mcp/oauth.rs"
+    ]
+  }
+]

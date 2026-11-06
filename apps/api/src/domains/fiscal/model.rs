@@ -535,6 +535,8 @@ pub struct DraftInput {
     pub operation_nature: String,
     /// Reference to the accountant-approved instruction, not an approval assertion by this API.
     pub tax_rule_reference: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additional_information: Option<String>,
     pub recipient: Recipient,
     pub items: Vec<DraftItem>,
     pub products_total: String,

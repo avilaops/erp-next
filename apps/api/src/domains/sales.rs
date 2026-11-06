@@ -38,6 +38,10 @@ pub struct OrderItemInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    plate_holder_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    plate_holder_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     upholstery_color: Option<String>,
 }
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -73,6 +77,10 @@ pub struct OrderLine {
     amount: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    plate_holder_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    plate_holder_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     upholstery_color: Option<String>,
 }
@@ -193,7 +201,7 @@ async fn load(
 ) -> Result<OrderSnapshot, DomainError> {
     let data=sqlx::query_as::<_,OrderSummary>("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     Ok(OrderSnapshot {
         tenant_id: tenant,
@@ -300,6 +308,8 @@ struct PreparedLine {
     price: i64,
     amount: i64,
     structure_color: Option<String>,
+    plate_holder_color: Option<String>,
+    plate_holder_type: Option<String>,
     upholstery_color: Option<String>,
 }
 
@@ -404,6 +414,24 @@ async fn prepare_order(
             product.data.structure_colors.as_deref().unwrap_or_default(),
             saved.and_then(|line| line.structure_color.as_deref()),
         )?;
+        let plate_holder_color = select_color(
+            item.plate_holder_color.as_deref(),
+            product
+                .data
+                .plate_holder_colors
+                .as_deref()
+                .unwrap_or_default(),
+            saved.and_then(|line| line.plate_holder_color.as_deref()),
+        )?;
+        let plate_holder_type = select_color(
+            item.plate_holder_type.as_deref(),
+            product
+                .data
+                .plate_holder_types
+                .as_deref()
+                .unwrap_or_default(),
+            saved.and_then(|line| line.plate_holder_type.as_deref()),
+        )?;
         let upholstery_color = select_color(
             item.upholstery_color.as_deref(),
             product
@@ -443,6 +471,8 @@ async fn prepare_order(
             price,
             amount,
             structure_color,
+            plate_holder_color,
+            plate_holder_type,
             upholstery_color,
         });
     }
@@ -467,8 +497,8 @@ async fn store_lines(
     lines: &[PreparedLine],
 ) -> Result<(), DomainError> {
     for (index, line) in lines.iter().enumerate() {
-        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
-            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.upholstery_color).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,plate_holder_color,plate_holder_type,upholstery_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
+            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.plate_holder_color).bind(&line.plate_holder_type).bind(&line.upholstery_color).execute(&mut **tx).await.map_err(db)?;
     }
     Ok(())
 }

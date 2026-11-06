@@ -4,6 +4,24 @@ import { NextResponse } from "next/server"
 import { authEndpoints, cookieName, cookieOptions, erpConfiguration, seal, unseal, uuidPattern } from "@/server/auth/erp-session"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
 
+type CompanyDirectory = { data: { id: string; legalName: string; tradeName?: string | null; status: string }[]; platformAdministrator: boolean }
+
+function isCompanyDirectory(value: unknown): value is CompanyDirectory {
+  if (!value || typeof value !== "object") return false
+  const body = value as { data?: unknown; platformAdministrator?: unknown }
+  return typeof body.platformAdministrator === "boolean"
+    && Array.isArray(body.data)
+    && body.data.every(item => {
+      if (!item || typeof item !== "object") return false
+      const company = item as Record<string, unknown>
+      return typeof company.id === "string"
+        && uuidPattern.test(company.id)
+        && typeof company.legalName === "string"
+        && (company.tradeName === undefined || company.tradeName === null || typeof company.tradeName === "string")
+        && typeof company.status === "string"
+    })
+}
+
 function callbackFailure(request: Request, origin: string | undefined, reason: "restart" | "denied" | "unavailable", status: number, destination: string) {
   const title = reason === "restart" ? "Sessão de autenticação inválida ou expirada" : reason === "denied" ? "Não foi possível verificar seu acesso" : "Não foi possível concluir o acesso. Tente entrar novamente"
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" }
@@ -42,11 +60,11 @@ export async function GET(request: Request) {
     const access = await fetch(`${config.api}/api/v1/companies`, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${token.access_token}` } })
     if (!access.ok) return callbackFailure(request, origin, access.status === 401 || access.status === 403 ? "denied" : "unavailable", access.status === 401 || access.status === 403 ? access.status : 503, returnTo)
     const companies = await access.json()
-    if (!Array.isArray(companies.data) || companies.data.some((item: { id?: unknown }) => typeof item?.id !== "string" || !uuidPattern.test(item.id))) throw new Error("Lista de empresas inválida")
+    if (!isCompanyDirectory(companies)) throw new Error("Lista de empresas inválida")
     if (companies.platformAdministrator === true) tenantId = null
     else if (tenantId && !companies.data.some((item: { id: string }) => item.id === tenantId)) return callbackFailure(request, origin, "denied", 403, returnTo)
     if (!tenantId) {
-      if (companies.data.length === 1 && companies.platformAdministrator !== true) tenantId = companies.data[0].id
+      if (companies.data.length === 1 && companies.platformAdministrator !== true && companies.data[0].status === "active") tenantId = companies.data[0].id
       else destination = companies.data.length === 0 && companies.platformAdministrator !== true ? "/cadastro/empresa?" + new URLSearchParams({ returnTo: destination }) : accessHref("/empresas", destination)
     }
     const maxAge = Math.min(3600, Math.floor(token.expires_in))

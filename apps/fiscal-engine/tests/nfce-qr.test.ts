@@ -17,6 +17,21 @@ const csc = { id: "000001", secret: "0123456789ABCDEF0123456789ABCDEF" };
 const version2: NfceQrProfile = { version: "2", csc };
 const invalid = (error: unknown) => error instanceof NfceQrError && error.reason === "invalid";
 
+test("NFC-e modelo 65: builder usa chave própria, DANFE NFC-e e troco declarado", () => {
+  const invoice = qrInvoice(key);
+  assert.equal(invoice.accessKey.slice(20, 22), "65");
+  assert.match(invoice.xml, /<mod>65<\/mod>/);
+  assert.match(invoice.xml, /<tpImp>4<\/tpImp>/);
+
+  const built = buildNfeXml({
+    ...layoutInvoice(),
+    model: 65,
+    changeAmount: 2,
+    payments: [{ code: "17", description: null, amount: 102 }],
+  });
+  assert.match(built.xml, /<vTroco>2\.00<\/vTroco>/);
+});
+
 test("QR: aceita raiz e assinatura XMLDSig com prefixos sem reescrever os bytes assinados", async () => {
   const { xml, accessKey } = qrInvoice(key);
   for (const prefixRoot of [false, true]) {

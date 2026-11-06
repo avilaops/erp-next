@@ -400,6 +400,12 @@ pub async fn void_numbers(
             .ok_or(DomainError::Conflict("Configure o perfil fiscal"))?;
         let profile = super::super::profile_data(&profile)?;
         let (_, company) = super::super::issuer(&mut tx, tenant, &profile).await?;
+        if profile.state == "SP" {
+            return Err(DomainError::Conflict(
+                "Inutilização de NF-e e NFC-e não se aplica a São Paulo desde 01/11/2026; mantenha a numeração sequencial e registre a quebra na escrituração",
+            )
+            .into());
+        }
         if profile.state != "SP" || i32::from(profile.series) != value.series {
             return Err(DomainError::Conflict(
                 "Inutilização exige série configurada e emitente SP",

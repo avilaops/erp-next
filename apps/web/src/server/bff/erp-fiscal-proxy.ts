@@ -31,7 +31,7 @@ export async function forwardFiscal(request: Request, resource: string) {
   const cteCommercialWrite = /^\/cte-distribution\/documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/commercial-links(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/unlink)?$/i.test(resource)
   const nfseRead = resource === "/received-nfses" || /^\/received-nfses\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resource)
   const nfseImport = resource === "/received-nfses/import"
-  const fiscalSettings = /^\/settings\/(?:nfce|operation-natures)$/.test(resource)
+  const fiscalSettings = /^\/settings\/(?:nfce|operation-natures|delivery)$/.test(resource)
   const operationRead = /^\/nfe\/[a-f0-9-]{36}\/(?:emission|events)$|^\/distribution\/(?:status|documents(?:\/[0-9]{15})?)$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase$|^\/manifestations\/[a-f0-9-]{36}$/i.test(resource)
   const operationWrite = /^\/nfe\/[a-f0-9-]{36}\/(?:issue|consult|cancel|correction)$|^\/distribution\/query$|^\/received-nfes\/[1-9][0-9]{0,18}\/purchase(?:\/(?:preview|match))?$|^\/order-cancellations\/[a-f0-9-]{36}\/process$|^\/manifestations\/[a-f0-9-]{36}\/reconcile$/i.test(resource) || cteInspect
   const valid = request.method === "GET"

@@ -61,7 +61,7 @@ pub struct IbptDocumentItem {
     pub code: String,
     pub ex: String,
     pub origin: GoodsOrigin,
-    /// Product value plus the declared per-item IPI in the supported NF-e scope.
+    /// Item value with declared freight, unconditional discount and per-item IPI.
     pub amount: String,
     pub metadata: IbptMetadata,
     pub amounts: IbptAmounts,
@@ -78,7 +78,7 @@ pub struct IbptDocumentSnapshot {
 }
 
 fn base(draft: &DraftInput, index: usize) -> Result<String, DomainError> {
-    let product = exact_decimal(&draft.items[index].gross_total, 13, 2)?;
+    let product = draft.items[index].commercial_total()?;
     let ipi_rate = draft
         .tax_declaration
         .as_ref()

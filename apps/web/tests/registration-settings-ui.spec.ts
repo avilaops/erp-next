@@ -31,6 +31,44 @@ test("configuração NFC-e salva dados do usuário e não devolve o CSC", async 
   await testInfo.attach("nfce-config-mobile",{body:await page.screenshot({fullPage:true}),contentType:"image/png"})
 })
 
+test("e-mail e pessoas autorizadas ao XML persistem por revisão e empresa", async ({ page }, testInfo) => {
+  let saved: Record<string, unknown> | null = null
+  await page.route("**/api/erp/fiscal/settings/delivery", async route => {
+    if (route.request().method() === "PUT") {
+      expect(route.request().headers()["if-match"]).toBe('"1"')
+      expect(route.request().headers()["x-tenant-id"]).toBe(tenant)
+      saved = route.request().postDataJSON()
+    }
+    await route.fulfill({
+      headers: { ETag: saved ? '"2"' : '"1"' },
+      json: {
+        tenantId: tenant,
+        revision: saved ? 2 : 1,
+        canEdit: true,
+        secretStorageAvailable: true,
+        data: saved || { notificationEmail: null, authorizedPeople: [] }
+      }
+    })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/preferencias/fiscal/delivery")
+  await page.getByLabel("E-mail fiscal para avisos").fill("fiscal@example.test")
+  await page.getByRole("button", { name: "Adicionar pessoa" }).click()
+  const person = page.getByRole("region", { name: "Pessoa autorizada 1", exact: true })
+  await person.getByLabel("Nome completo").fill("Transportadora Teste")
+  await person.getByLabel("E-mail autorizado").fill("xml@example.test")
+  await person.getByLabel("CPF ou CNPJ").fill("04.252.011/0001-10")
+  await person.getByLabel("Função ou relação").fill("transportadora")
+  await page.getByRole("button", { name: "Salvar configuração", exact: true }).click()
+  await expect(page.getByRole("status")).toHaveText("Configuração salva no servidor.")
+  expect(saved).toMatchObject({ notificationEmail: "fiscal@example.test" })
+  await page.reload()
+  await expect(page.getByLabel("E-mail fiscal para avisos")).toHaveValue("fiscal@example.test")
+  await expect(person.getByLabel("CPF ou CNPJ")).toHaveValue("04.252.011/0001-10")
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await testInfo.attach("fiscal-delivery-mobile", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+})
+
 test("naturezas persistem e conflito preserva a edição sem repetir gravação",async ({page},testInfo)=>{
   let saved: unknown = {items:[]}
   let writes=0

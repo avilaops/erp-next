@@ -268,7 +268,7 @@ pub async fn get_profile(
     let current = row.as_ref().map_or(0, |row| row.revision);
     let mut data = row.as_ref().map(profile_data).transpose()?;
     if let Some(profile) = data.as_mut()
-        && let Some(number) = sqlx::query_scalar::<_, i64>("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND series=$3")
+        && let Some(number) = sqlx::query_scalar::<_, i64>("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND model=55 AND series=$3")
             .bind(tenant).bind(profile.environment.as_str()).bind(i32::from(profile.series)).fetch_optional(&mut *tx).await.map_err(db)? {
         profile.next_number = Some(number.try_into().map_err(|_| access::AccessError::Internal)?);
     }
@@ -317,12 +317,12 @@ pub async fn put_profile(
         .ok_or(access::AccessError::Internal)?;
     let details = serde_json::to_value(&value).map_err(|_| access::AccessError::Internal)?;
     if let Some(number) = value.next_number {
-        let current_number: Option<i64> = sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND series=$3")
+        let current_number: Option<i64> = sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND model=55 AND series=$3")
             .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).fetch_optional(&mut *tx).await.map_err(db)?;
         if current_number.is_some_and(|current| i64::from(number) < current) {
             return Err(DomainError::Conflict("A próxima numeração não pode ser menor que a já reservada. Recarregue a configuração").into());
         }
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,$2,$3,$4) ON CONFLICT(tenant_id,environment,series) DO UPDATE SET next_number=$4")
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$2,55,$3,$4) ON CONFLICT(tenant_id,environment,model,series) DO UPDATE SET next_number=$4")
             .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).bind(i64::from(number)).execute(&mut *tx).await.map_err(db)?;
     }
     sqlx::query("INSERT INTO fiscal_profiles(tenant_id,revision,environment,details) VALUES($1,$2,$4,$3) ON CONFLICT(tenant_id) DO UPDATE SET revision=excluded.revision,environment=excluded.environment,details=excluded.details,updated_at=now()")
@@ -641,14 +641,37 @@ pub async fn create(
             .insert("idempotency-replayed", HeaderValue::from_static("true"));
         return Ok(reply);
     }
-    order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    if value.purpose == 4 {
+        super::returns::validate_fiscal_return_source(
+            &mut tx,
+            tenant,
+            &identity,
+            value.source_return_kind.as_deref().unwrap_or_default(),
+            value.source_return_id.ok_or(DomainError::Invalid(
+                "Devolução exige origem comercial persistida",
+            ))?,
+        )
+        .await?;
+    } else {
+        order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    }
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
     let id = Uuid::now_v7();
     let issuer_json = serde_json::to_value(&issuer).map_err(|_| access::AccessError::Internal)?;
-    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,$9,55,$3,$4,$5,$6,$7,$8)")
-        .bind(tenant).bind(id).bind(issuer.profile_revision).bind(issuer.company_revision).bind(issuer_json).bind(&request).bind(total)
-        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).bind(value.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO fiscal_nfe_drafts(tenant_id,id,source_return_id,source_return_kind,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents,ibpt_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)")
+        .bind(tenant)
+        .bind(id)
+        .bind(value.source_return_id)
+        .bind(&value.source_return_kind)
+        .bind(value.environment.as_str())
+        .bind(i16::from(value.model))
+        .bind(issuer.profile_revision)
+        .bind(issuer.company_revision)
+        .bind(issuer_json)
+        .bind(&request)
+        .bind(total)
+        .bind(ibpt_snapshot.map(serde_json::to_value).transpose().map_err(|_| access::AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,
@@ -658,7 +681,7 @@ pub async fn create(
             kind: "nfe_draft",
             id,
             event: "fiscal.nfe.draft.created",
-            details: serde_json::json!({"revision":1,"environment":value.environment,"model":55}),
+            details: serde_json::json!({"revision":1,"environment":value.environment,"model":value.model}),
         },
     )
     .await?;
@@ -707,9 +730,12 @@ pub async fn update(
         return Err(DomainError::StaleRevision.into());
     }
     let value = input(payload)?;
-    if current.input.source_order_id != value.source_order_id {
+    if current.input.source_order_id != value.source_order_id
+        || current.input.source_return_id != value.source_return_id
+        || current.input.source_return_kind != value.source_return_kind
+    {
         return Err(DomainError::Conflict(
-            "O vínculo com o pedido não pode ser trocado ou removido deste rascunho",
+            "O vínculo comercial não pode ser trocado ou removido deste rascunho",
         )
         .into());
     }
@@ -728,22 +754,38 @@ pub async fn update(
         )
         .into());
     }
-    order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    if value.purpose == 4 {
+        super::returns::validate_fiscal_return_source(
+            &mut tx,
+            tenant,
+            &identity,
+            value.source_return_kind.as_deref().unwrap_or_default(),
+            value.source_return_id.ok_or(DomainError::Invalid(
+                "Devolução exige origem comercial persistida",
+            ))?,
+        )
+        .await?;
+    } else {
+        order_source::validate(&mut tx, tenant, &identity, &value).await?;
+    }
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
-    if let Some(series) = sqlx::query_scalar::<_, i32>(
-        "SELECT series FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
+    if let Some((series, model)) = sqlx::query_as::<_, (i32, i16)>(
+        "SELECT series,model FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
     )
     .bind(tenant)
     .bind(id)
     .fetch_optional(&mut *tx)
     .await
     .map_err(db)?
-        && (series != i32::from(issuer.profile.series) || issuer.tax_id != current.issuer.tax_id)
+        && (series != i32::from(issuer.profile.series)
+            || model != i16::from(value.model)
+            || issuer.tax_id != current.issuer.tax_id)
     {
-        return Err(
-            DomainError::Conflict("Preserve série e emitente da numeração já reservada").into(),
-        );
+        return Err(DomainError::Conflict(
+            "Preserve modelo, série e emitente da numeração já reservada",
+        )
+        .into());
     }
     let next = expected
         .checked_add(1)

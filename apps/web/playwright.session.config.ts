@@ -6,7 +6,7 @@ export const secret = "session-cookie-browser-fixture-not-a-production-secret"
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "session-cookies.spec.ts",
+  testMatch: ["session-cookies.spec.ts", "mcp-oauth.spec.ts"],
   workers: 1,
   timeout: 60_000,
   use: { browserName: "chromium", channel: process.env.ERP_BROWSER_CHANNEL },

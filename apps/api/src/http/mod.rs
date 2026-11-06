@@ -31,6 +31,8 @@ mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
 #[cfg(test)]
+mod files_tests;
+#[cfg(test)]
 mod financial_settings_tests;
 #[cfg(test)]
 mod fiscal_preferences_tests;
@@ -48,10 +50,12 @@ mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
+mod mcp_tests;
+#[cfg(test)]
 mod monitor_tests;
 #[cfg(test)]
 mod onboarding_tests;
-mod openapi;
+pub(crate) mod openapi;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
@@ -105,8 +109,8 @@ use tower_http::{
 };
 
 use crate::domains::{
-    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff, staff_payroll,
+    catalog, data_transfer, finance, fiscal, inventory, parties, payables, purchasing,
+    reference_data, sales, staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -116,7 +120,7 @@ use crate::platform::{
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
-    let protected = Router::new()
+    let business = Router::new()
         .route(
             "/api/v1/registry-lookups",
             axum::routing::post(crate::domains::registry_lookup::lookup),
@@ -209,6 +213,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-fields/{id}",
             axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route("/api/v1/system/files", get(crate::platform::files::list))
+        .route(
+            "/api/v1/system/files/{id}/archive",
+            post(crate::platform::files::archive),
+        )
+        .route(
+            "/api/v1/system/files/{id}/content",
+            get(crate::platform::files::content),
         )
         .route(
             "/api/v1/system/custom-reports",
@@ -393,6 +406,19 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/products", get(catalog::list).post(catalog::create))
         .route(
+            "/api/v1/products/import",
+            axum::routing::post(data_transfer::preview),
+        )
+        .route(
+            "/api/v1/products/import/{id}",
+            get(data_transfer::get_import),
+        )
+        .route(
+            "/api/v1/products/import/{id}/confirm",
+            axum::routing::post(data_transfer::confirm),
+        )
+        .route("/api/v1/products/export", get(data_transfer::export))
+        .route(
             "/api/v1/products/{id}/catalog",
             get(crate::domains::catalog_publication::get)
                 .put(crate::domains::catalog_publication::put)
@@ -448,11 +474,11 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/users/{id}",
             get(access_management::get_member).put(access_management::update_member),
-        )
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth::require_auth,
-        ));
+        );
+    let protected = business.clone().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_auth,
+    ));
 
     let service = fiscal::service_routes().layer(middleware::from_fn_with_state(
         state.clone(),
@@ -470,7 +496,11 @@ pub fn router(state: AppState) -> Router {
         .merge(service)
         .route("/api/health", get(health::api_health))
         .merge(protected)
-        .with_state(state)
+        .with_state(state.clone())
+        .merge(crate::mcp::router(
+            state.clone(),
+            business.with_state(state),
+        ))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))

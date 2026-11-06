@@ -12,8 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 275);
-  assert.equal(assessment.bffOperations, 246);
+  assert.equal(assessment.apiOperations, 297);
+  assert.equal(assessment.bffOperations, 262);
   assert.equal(assessment.pendingFlows, 34);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
@@ -23,6 +23,17 @@ test('every production API operation and BFF has a contract without claiming ver
       const { source, type } = action.input.body;
       assert.match(await readFile(new URL(source, root), 'utf8'), new RegExp(`\\b(?:struct|enum)\\s+${type}\\b`));
     }
+  }
+});
+
+test('protocol contracts cannot exempt undocumented business endpoints or omit authentication', async () => {
+  const inventory = await discover(fileURLToPath(root));
+  for (const replacement of [{ layer: 'api', method: 'GET', path: '/api/v1/undocumented' }, { layer: 'api', method: 'POST', path: '/mcp', action: 'MCP', sources: ['apps/api/src/mcp/mod.rs'], recovery: 'Reconnect' }]) {
+    const changed=structuredClone(catalogue);
+    changed.protocolActions=[replacement];
+    const result=assessContracts(changed,inventory);
+    assert.ok(result.findings.some(item=>item.code==='invalid_protocol_contract'));
+    assert.ok(result.findings.some(item=>item.code==='api_without_action_contract'));
   }
 });
 

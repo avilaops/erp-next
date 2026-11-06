@@ -1,5 +1,6 @@
 import { normalizedRoute } from './discovery.mjs';
 import { validateProductFlows } from './product-context.mjs';
+import mcpProtocolActions from './mcp/protocol-actions.json' with { type: 'json' };
 
 const dimensions = ['interface', 'request', 'authorization', 'domain', 'persistence', 'effects', 'failure', 'response'];
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
@@ -17,11 +18,12 @@ export function assessContracts(catalogue, inventory) {
     fail('invalid_contract_catalogue', 'contracts', 'Formato de catálogo incompatível ou coleções ausentes.');
     return { status: 'invalid', findings, runtimeVerdict: 'not_verified_by_catalog' };
   }
+  const actions = [...catalogue.actions, ...(catalogue.actionsAppendix ?? [])];
   const api = new Set(inventory.api.flatMap(route => route.methods.map(method => key({ method, path: route.path }))));
   const bff = new Set(inventory.bff.flatMap(route => route.methods.map(method => key({ method, path: route.path }))));
   const pages = new Set(inventory.pages.map(page => normalizedRoute(page.path)));
   const covered = new Set(), coveredBff = new Set(), ids = new Set();
-  for (const action of catalogue.actions) {
+  for (const action of actions) {
     const operation = action?.operation;
     if (!text(action?.id) || ids.has(action.id)) fail('duplicate_or_missing_action_id', action?.id, 'Cada ação precisa de identidade única.');
     ids.add(action?.id);
@@ -96,7 +98,7 @@ export function assessContracts(catalogue, inventory) {
     dispatchKeys.add(target);
     for (const value of values) {
       const property = catchAll ? 'resource' : 'action';
-      if (!catalogue.actions.some(action => action.ui?.bff?.path === dispatch.path
+        if (!actions.some(action => action.ui?.bff?.path === dispatch.path
           && action.ui.bff.method === dispatch.method && action.ui.bff[property] === value)) {
         fail('dispatch_without_action_contract', target, `Destino dinâmico sem ficha canônica: ${value}`);
       }
@@ -106,6 +108,19 @@ export function assessContracts(catalogue, inventory) {
     if (!methods.has(auth?.method) || !text(auth?.path) || !auth.path.startsWith('/api/auth/') || !bff.has(key(auth))
         || !text(auth.action) || !text(auth.recovery)) fail('invalid_auth_contract', auth?.path, 'Contrato de autenticação incompleto ou handler ausente.');
     else coveredBff.add(key(auth));
+  }
+  // Protocol endpoints have no commercial transition. They still require an
+  // explicit per-method inventory and authentication/recovery contract.
+  for (const protocol of catalogue.protocolActions ?? (api.has('POST /mcp') ? mcpProtocolActions : [])) {
+    const target = text(protocol?.path) && methods.has(protocol?.method) ? key(protocol) : '';
+    const inventorySet = protocol?.layer === 'api' ? api : protocol?.layer === 'bff' ? bff : null;
+    const coverage = protocol?.layer === 'api' ? covered : coveredBff;
+    if (!inventorySet || !methods.has(protocol?.method) || !text(protocol?.path)
+        || !(/^\/mcp(?:\/|$)/.test(protocol.path) || protocol.path.startsWith('/.well-known/'))
+        || !inventorySet.has(target) || coverage.has(target) || !text(protocol.action)
+        || !text(protocol.authorization) || !text(protocol.recovery) || !texts(protocol.sources) || !protocol.sources.length) {
+      fail('invalid_protocol_contract', protocol?.path, 'Protocolo exige operação existente, camada, autorização, recuperação e fontes explícitas.');
+    } else coverage.add(target);
   }
   for (const target of api) if (!covered.has(target)) fail('api_without_action_contract', target, 'Operação descoberta sem ficha de ação.');
   for (const asset of catalogue.assetActions || []) {
@@ -127,7 +142,7 @@ export function assessContracts(catalogue, inventory) {
   for (const finding of validateProductFlows(catalogue)) fail(finding.code, finding.path, finding.detail);
   return {
     status: findings.length ? 'invalid' : 'catalogued', runtimeVerdict: 'not_verified_by_catalog',
-    apiOperations: api.size, cataloguedOperations: catalogue.actions.length, bffOperations: bff.size,
+    apiOperations: api.size, cataloguedOperations: actions.length, bffOperations: bff.size,
     pendingFlows: catalogue.pendingFlows.length, p0Ready: !findings.length && !catalogue.pendingFlows.length,
     findings, catalogue,
   };

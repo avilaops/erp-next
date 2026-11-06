@@ -16,7 +16,7 @@ test("configuração fiscal organiza as sete etapas e preserva o layout nos tama
     await expect(navigation).toBeVisible()
     await expect(navigation.getByRole("link")).toHaveCount(7)
     await expect(page.locator("#fiscal-stage-1")).toBeVisible()
-    await expect(page.locator("#fiscal-stage-7")).toContainText("ainda não possuem contrato de persistência")
+    await expect(page.locator("#fiscal-stage-7")).toContainText("dados são persistidos com revisão concorrente")
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })

@@ -508,6 +508,15 @@ test("company picker removes stale companies when a refresh fails", async ({ pag
   await page.unroute("**/api/erp/companies")
 })
 
+test("company picker rejects a malformed company directory response", async ({ page, context }) => {
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 200, json: { platformAdministrator: false, data: [{ id: "not-a-uuid", legalName: "Empresa inválida", status: "active" }] } }))
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Empresa inválida", exact: true })).toHaveCount(0)
+  await page.unroute("**/api/erp/companies")
+})
+
 test("company picker does not open a page when the selected tenant is not confirmed", async ({ page, context }) => {
   companyCount = 1
   const destination = "/cadastros/produtos?status=archived"

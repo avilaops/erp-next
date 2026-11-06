@@ -16,6 +16,24 @@ function companySelectionError(status: number, title?: string) {
   return title || "Não foi possível selecionar esta empresa. Tente novamente."
 }
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isCompanyDirectory(value: unknown): value is { data: (Schema<"CompanySummary"> & { status?: string })[]; platformAdministrator: boolean } {
+  if (!value || typeof value !== "object") return false
+  const body = value as { data?: unknown; platformAdministrator?: unknown }
+  return typeof body.platformAdministrator === "boolean"
+    && Array.isArray(body.data)
+    && body.data.every(item => {
+      if (!item || typeof item !== "object") return false
+      const company = item as Partial<Schema<"CompanySummary">> & { status?: unknown }
+      return typeof company.id === "string"
+        && uuidPattern.test(company.id)
+        && typeof company.legalName === "string"
+        && (company.tradeName === undefined || company.tradeName === null || typeof company.tradeName === "string")
+        && typeof company.status === "string"
+    })
+}
+
 export function CompanyPicker() {
   const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
@@ -42,6 +60,7 @@ export function CompanyPicker() {
         throw new Error(message)
       }
       const body = await response.json()
+      if (!isCompanyDirectory(body)) throw new Error("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
       if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setFeedback({ message: body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas", error: false }) }
     }).catch(error => {
       if (active) {

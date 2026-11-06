@@ -20,11 +20,11 @@ pub mod registration_settings;
 pub mod registry_lookup;
 pub mod returns;
 pub mod sales;
-pub mod warranties;
 mod settlements;
 pub mod staff;
 pub mod staff_payroll;
 pub mod supply_settings;
+pub mod warranties;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};
 use axum::{

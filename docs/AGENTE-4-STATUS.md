@@ -27,11 +27,11 @@ Este documento separa implementação, teste, CI, integração, publicação e f
 
 ## Coordenação dos demais agentes
 
-Os status dos Agentes 1, 2 e 3 precisam ser preenchidos a partir das evidências próprias de cada branch e issue. Nenhum estado é inferido neste documento.
+Os estados abaixo são os estados atuais do Linear consultados em 2026-11-06. Eles não representam aprovação de implementação, CI, integração ou deploy.
 
-| Agente | Issues | Evidência consolidada nesta revisão |
-| --- | --- | --- |
-| Agente 1 — Fiscal e CI | AVL-320, AVL-396, AVL-110, AVL-136, AVL-358 | Não auditado nesta revisão |
-| Agente 2 — Comercial e Operação | AVL-432, AVL-370, AVL-319, AVL-17, AVL-369 | Não auditado nesta revisão |
-| Agente 3 — Preferências e Integrações | AVL-372, AVL-378, AVL-379, AVL-380, AVL-381 | Não auditado nesta revisão |
-| Agente 4 — Contratos, Auth e Coordenação | AVL-359, AVL-387, AVL-399, AVL-407, AVL-413 | Parcialmente consolidado acima |
+| Agente | Issues e estado no Linear | Branch/worktree | Evidência consolidada nesta revisão |
+| --- | --- | --- | --- |
+| Agente 1 — Fiscal e CI | AVL-320 `In Review`; AVL-396 `In Review`; AVL-110 `Backlog`; AVL-136 `In Progress`; AVL-358 `In Progress` | `codex/agente-1-fiscal-ci` / `erp-next-agent1-fiscal-ci` | Estado administrativo consultado; não auditado tecnicamente |
+| Agente 2 — Comercial e Operação | AVL-432 `In Progress`; AVL-370 `In Review`; AVL-319 `Backlog`; AVL-17 `In Progress`; AVL-369 `In Review` | `codex/agente-2-comercial-operacao` / `erp-next-agent2` | Estado administrativo consultado; não auditado tecnicamente |
+| Agente 3 — Preferências e Integrações | AVL-372 `In Progress`; AVL-378 `Todo`; AVL-379 `Backlog`; AVL-380 `Backlog`; AVL-381 `Backlog` | `codex/agente-3-preferencias-integracoes` / `erp-next-agent3-preferencias` | Estado administrativo consultado; não auditado tecnicamente |
+| Agente 4 — Contratos, Auth e Coordenação | AVL-359 `In Progress`; AVL-387 `Todo`; AVL-399 `Todo`; AVL-407 `Backlog`; AVL-413 `Backlog` | `codex/agente-4-contratos-auth-coordenacao` / `erp-next-agent4` | Parcialmente consolidado acima |

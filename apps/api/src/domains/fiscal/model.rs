@@ -999,9 +999,6 @@ mod tests {
         let mut value = draft();
         value.recipient.tax_id = "00000000000".into();
         assert!(value.validate(&profile()).is_err());
-        let mut value = draft();
-        value.model = 65;
-        assert!(value.validate(&profile()).is_err());
     }
     #[test]
     fn environment_selection_requires_numbering_and_secret_payloads_remain_invalid() {

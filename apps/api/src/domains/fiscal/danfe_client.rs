@@ -179,7 +179,7 @@ impl DanfeClient {
         rpc_result(value, id.as_ref().expect("request id"))
     }
 
-    pub async fn render(&self, xml: &str, key: &str) -> Result<Vec<u8>, RenderError> {
+    pub async fn render(&self, xml: &str, key: &str, model: u8) -> Result<Vec<u8>, RenderError> {
         crate::platform::langfuse::observe(
             "render-danfe",
             "span",
@@ -198,14 +198,14 @@ impl DanfeClient {
             self.rpc(&mut session, &protocol, json!({"jsonrpc":"2.0","method":"notifications/initialized"})).await?;
             let schema = tool_value(self.rpc(&mut session, &protocol, call(2, "fiscal_validar_xml_fiscal", json!({"xml_content":xml,"tipo":"nfe"}))).await?)?;
             if schema["valido"] == false { return Err(RenderError::Invalid); }
-            if schema["valido"] != true || schema["tipo"] != "nfe" || schema["modelo"] != "55" || schema["documento"] != "nfeProc" || schema["chave_acesso"] != key { return Err(RenderError::Gateway); }
+            if schema["valido"] != true || schema["tipo"] != "nfe" || schema["modelo"] != model.to_string() || schema["documento"] != "nfeProc" || schema["chave_acesso"] != key { return Err(RenderError::Gateway); }
             let mut arguments = json!({"xml_content":xml});
             if let Some(bundle) = &self.ca_bundle { arguments["ca_bundle"] = Value::String(bundle.to_string()); }
             let signature = tool_value(self.rpc(&mut session, &protocol, call(3, "fiscal_validar_assinatura_nfe", arguments)).await?)?;
             if signature["assinatura_valida"] == false { return Err(RenderError::Invalid); }
             if signature["assinatura_valida"] != true { return Err(RenderError::Gateway); }
             let document = tool_value(self.rpc(&mut session, &protocol, call(4, "fiscal_gerar_danfe", json!({"xml_content":xml}))).await?)?;
-            if document["modelo"] != 55 || document["chave_acesso"] != key { return Err(RenderError::Gateway); }
+            if document["modelo"] != model || document["chave_acesso"] != key { return Err(RenderError::Gateway); }
             let encoded = document["pdf_base64"].as_str().filter(|value| value.len() <= MAX_RESPONSE).ok_or(RenderError::Gateway)?;
             let pdf = STANDARD.decode(encoded).map_err(|_| RenderError::Gateway)?;
             if pdf.len() < 100 || pdf.len() > MAX_PDF || !pdf.starts_with(b"%PDF-") || !pdf[pdf.len().saturating_sub(1024)..].windows(5).any(|bytes| bytes == b"%%EOF") { return Err(RenderError::Gateway); }
@@ -278,7 +278,7 @@ mod tests {
     async fn json_sse_and_structured_results_validate_before_rendering_and_close_the_session() {
         for mode in ["json", "sse", "structured"] {
             let (client, server, calls) = provider(mode).await;
-            let pdf = client.render(FIXTURE, KEY).await.unwrap();
+            let pdf = client.render(FIXTURE, KEY, 55).await.unwrap();
             server.abort();
             assert_eq!(pdf, STANDARD.decode(PDF.trim()).unwrap());
             assert_eq!(
@@ -298,7 +298,7 @@ mod tests {
     async fn schema_and_signature_refusals_never_reach_the_renderer() {
         for mode in ["schema-invalid", "signature-invalid"] {
             let (client, server, calls) = provider(mode).await;
-            let result = client.render(FIXTURE, KEY).await;
+            let result = client.render(FIXTURE, KEY, 55).await;
             server.abort();
             assert_eq!(result, Err(RenderError::Invalid));
             assert!(
@@ -317,7 +317,7 @@ mod tests {
     async fn provider_errors_invalid_pdf_and_wrong_invoice_are_not_successful_downloads() {
         for mode in ["tool-error", "invalid-pdf", "wrong-key"] {
             let (client, server, _) = provider(mode).await;
-            let result = client.render(FIXTURE, KEY).await;
+            let result = client.render(FIXTURE, KEY, 55).await;
             server.abort();
             assert_eq!(result, Err(RenderError::Gateway));
             assert!(!format!("{result:?}").contains("private-sentinel"));

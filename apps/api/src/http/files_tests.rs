@@ -73,15 +73,29 @@ async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool)
         1
     );
     let visible_catalog: Vec<uuid::Uuid> = sqlx::query_scalar(
-        "WITH catalog AS (\
-         SELECT f.id,'system'::text origin,f.original_name filename,f.media_type,f.byte_size,f.sha256,f.status,f.revision,\
-           (SELECT count(*) FROM system_config.file_versions v WHERE v.tenant_id=f.tenant_id AND v.file_id=f.id) version_count,f.created_at\
-         FROM system_config.files f WHERE f.tenant_id=$1\
-         UNION ALL SELECT f.id,'legacy',f.filename,f.media_type,octet_length(f.content)::bigint,f.sha256,'available',1,1,h.imported_at\
-         FROM legacy_files f JOIN legacy_history h ON h.tenant_id=f.tenant_id AND h.id=f.history_id WHERE f.tenant_id=$1)\
-         SELECT id FROM catalog WHERE ($2::text IS NULL OR filename ILIKE '%' || $2 || '%' OR media_type ILIKE '%' || $2 || '%' OR sha256 ILIKE $2 || '%')\
-           AND ($3::text IS NULL OR origin=$3) AND ($4::text IS NULL OR status=$4)\
-         ORDER BY created_at DESC,id DESC LIMIT $5 OFFSET $6",
+        r#"WITH catalog AS (
+            SELECT f.id, 'system'::text origin, f.original_name filename, f.media_type,
+                f.byte_size, f.sha256, f.status, f.revision,
+                (SELECT count(*) FROM system_config.file_versions v
+                    WHERE v.tenant_id=f.tenant_id AND v.file_id=f.id) version_count,
+                f.created_at
+            FROM system_config.files f
+            WHERE f.tenant_id=$1
+            UNION ALL
+            SELECT f.id, 'legacy', f.filename, f.media_type,
+                octet_length(f.content)::bigint, f.sha256, 'available', 1, 1, h.imported_at
+            FROM legacy_files f
+            JOIN legacy_history h ON h.tenant_id=f.tenant_id AND h.id=f.history_id
+            WHERE f.tenant_id=$1
+        )
+        SELECT id
+        FROM catalog
+        WHERE ($2::text IS NULL OR filename ILIKE '%' || $2 || '%'
+            OR media_type ILIKE '%' || $2 || '%' OR sha256 ILIKE $2 || '%')
+            AND ($3::text IS NULL OR origin=$3)
+            AND ($4::text IS NULL OR status=$4)
+        ORDER BY created_at DESC, id DESC
+        LIMIT $5 OFFSET $6"#,
     )
     .bind(uuid::Uuid::parse_str(TENANT).unwrap())
     .bind(Some(".pdf"))

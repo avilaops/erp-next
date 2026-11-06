@@ -12,6 +12,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FileQuery {
     q: Option<String>,

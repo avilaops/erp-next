@@ -199,6 +199,44 @@ fn tool_error(status: u16, code: &str) -> Value {
     json!({"isError":true,"content":[{"type":"text","text":result.to_string()}],"structuredContent":result})
 }
 
+fn decode_response(content_type: &str, bytes: &[u8]) -> (Value, bool) {
+    if content_type.contains("ndjson") {
+        return match String::from_utf8_lossy(bytes)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(serde_json::from_str::<Value>)
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(events) => {
+                let failed = events
+                    .iter()
+                    .any(|e| e["type"] == "error" || e["event"] == "error");
+                (json!({"events":events}), failed)
+            }
+            Err(_) => (json!({"error":"invalid_upstream_ndjson"}), true),
+        };
+    }
+    if bytes.is_empty() {
+        return (Value::Null, false);
+    }
+    if content_type.contains("json") {
+        return match serde_json::from_slice(bytes) {
+            Ok(value) => (value, false),
+            Err(_) => (json!({"error":"invalid_upstream_json"}), true),
+        };
+    }
+    if content_type.starts_with("text/") || content_type.contains("xml") {
+        return (
+            json!({"mimeType":content_type,"text":String::from_utf8_lossy(bytes)}),
+            false,
+        );
+    }
+    (
+        json!({"mimeType":content_type,"encoding":"base64","base64":STANDARD.encode(bytes)}),
+        false,
+    )
+}
+
 async fn handle(State(state): State<McpState>, headers: HeaderMap, body: Bytes) -> Response {
     let credential = match oauth::credential(&state, &headers).await {
         Ok(c) => c,
@@ -345,37 +383,8 @@ async fn handle(State(state): State<McpState>, headers: HeaderMap, body: Bytes) 
                 Ok(Ok(b)) => b,
                 _ => return rpc(id, tool_error(502, "response_unavailable_or_too_large")),
             };
-            let mut response_error = !status.is_success();
-            let data = if content_type.contains("ndjson") {
-                match String::from_utf8_lossy(&bytes)
-                    .lines()
-                    .filter(|line| !line.trim().is_empty())
-                    .map(serde_json::from_str::<Value>)
-                    .collect::<Result<Vec<_>, _>>()
-                {
-                    Ok(events) => {
-                        response_error |= events
-                            .iter()
-                            .any(|e| e["type"] == "error" || e["event"] == "error");
-                        json!({"events":events})
-                    }
-                    Err(_) => {
-                        response_error = true;
-                        json!({"error":"invalid_upstream_ndjson"})
-                    }
-                }
-            } else if bytes.is_empty() {
-                Value::Null
-            } else if content_type.contains("json") {
-                serde_json::from_slice(&bytes).unwrap_or_else(|_| {
-                    response_error = true;
-                    json!({"error":"invalid_upstream_json"})
-                })
-            } else if content_type.starts_with("text/") || content_type.contains("xml") {
-                json!({"mimeType":content_type,"text":String::from_utf8_lossy(&bytes)})
-            } else {
-                json!({"mimeType":content_type,"encoding":"base64","base64":STANDARD.encode(bytes)})
-            };
+            let (data, payload_error) = decode_response(&content_type, &bytes);
+            let response_error = !status.is_success() || payload_error;
             let result = json!({"status":status.as_u16(),"headers":result_headers,"data":data});
             rpc(
                 id,
@@ -383,5 +392,36 @@ async fn handle(State(state): State<McpState>, headers: HeaderMap, body: Bytes) 
             )
         }
         _ => failure(id, -32601, "Method not found"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn assistant_streams_preserve_answers_and_report_stream_failures() {
+        let (data,failed)=decode_response("application/x-ndjson; charset=utf-8",b"{\"type\":\"status\"}\n{\"type\":\"answer\",\"text\":\"Resposta\"}\n{\"type\":\"done\"}\n");
+        assert!(!failed);
+        assert_eq!(data["events"][1]["text"], "Resposta");
+        let (data, failed) = decode_response(
+            "application/x-ndjson",
+            b"{\"type\":\"error\",\"text\":\"Indisponivel\"}\n{\"type\":\"done\"}\n",
+        );
+        assert!(failed);
+        assert_eq!(data["events"][0]["text"], "Indisponivel");
+        assert!(decode_response("application/json", b"{broken").1);
+        assert!(decode_response("application/x-ndjson", b"{\"type\":\"answer\"}\nbroken").1);
+    }
+    #[test]
+    fn binary_and_xml_files_keep_their_content_and_mime_type() {
+        let (data, failed) = decode_response("application/pdf", &[1, 2, 3]);
+        assert!(!failed);
+        assert_eq!(
+            data,
+            json!({"mimeType":"application/pdf","encoding":"base64","base64":"AQID"})
+        );
+        let (data, failed) = decode_response("application/xml", b"<nfe/>");
+        assert!(!failed);
+        assert_eq!(data["text"], "<nfe/>");
     }
 }

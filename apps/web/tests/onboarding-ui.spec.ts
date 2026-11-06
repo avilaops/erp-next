@@ -413,8 +413,7 @@ test("OIDC callback rejects a malformed company directory before creating a sess
 
 test("OIDC callback rejects a preselected suspended company", async ({ page }) => {
   companyCount = 1; firstCompanyStatus = "suspended"; redirectAuthorization = true
-  await page.goto("/entrar")
-  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await page.goto("/api/auth/login?" + new URLSearchParams({ returnTo: "/", tenant }))
   await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "denied")
 })
 

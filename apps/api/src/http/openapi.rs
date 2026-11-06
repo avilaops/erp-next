@@ -8,8 +8,7 @@ use super::health;
 use crate::domains::{
     assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance, fiscal,
     inventory, legacy, parties, payables, production, purchasing, reference_data, registry_lookup,
-    returns, sales, staff,
-    staff_payroll,
+    returns, sales, staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, company, invitations, onboarding, service_auth, workflows,

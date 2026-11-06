@@ -64,7 +64,7 @@ export const preferenceGroups = [
   { label: "Fundação", items: [
     { label: "Empresa", href: "/preferencias/empresa" },
     { label: "Usuários e acessos", href: "/preferencias/usuarios" },
-    { label: "Papéis e horários", href: "/preferencias/papeis" },
+    { label: "Papéis e permissões", href: "/preferencias/papeis" },
     { label: "Sistema", href: "/preferencias/sistema" },
     { label: "Segurança e auditoria", href: "/preferencias/seguranca" },
   ] },

@@ -16,10 +16,10 @@ export const preferenceCategories: PreferenceCategory[] = [
   { id: "sistema", label: "Sistema", sections: [
     { title: "Configurações do sistema", items: [{ label: "Interface", href: "/preferencias/sistema", description: "Aparência e quantidade de produtos por página." }] },
     { title: "Tabelas e configurações adicionais", items: [
-      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, unavailable("Gerenciador de arquivos"), { label: "Relatórios customizados", href: "/preferencias/sistema/relatorios-customizados" }, { label: "Etiquetas customizadas", href: "/preferencias/sistema/etiquetas-customizadas" },
+      { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, { label: "Gerenciador de arquivos", href: "/preferencias/sistema/arquivos" }, { label: "Relatórios customizados", href: "/preferencias/sistema/relatorios-customizados" }, { label: "Etiquetas customizadas", href: "/preferencias/sistema/etiquetas-customizadas" },
       { label: "Registro de atividades", href: "/preferencias/seguranca" },
       { label: "Usuários", href: "/preferencias/usuarios" },
-      { label: "Papéis e horários", href: "/preferencias/papeis" },
+      { label: "Papéis e permissões", href: "/preferencias/papeis" },
       { label: "Gerenciador de transições", href: "/preferencias/sistema/transicoes" }, { label: "Campos customizados", href: "/preferencias/sistema/campos-customizados" },
     ] },
   ] },
@@ -99,7 +99,7 @@ export const preferenceCategories: PreferenceCategory[] = [
   ] },
   { id: "importacao", label: "Importações de Dados", sections: [
     { title: "Produtos", items: [
-      unavailable("Importar e atualizar produtos"), unavailable("Importar e atualizar vínculo produtos multilojas"), unavailable("Importar e atualizar composições"), unavailable("Importar campos customizados"), unavailable("Importar e atualizar produtos de balança comercial"), unavailable("Importar lista de preços"),
+      { label: "Importar e atualizar produtos", href: "/preferencias/dados/importacao", description: "CSV com prévia, confirmação, idempotência e resultado recuperável." }, unavailable("Importar e atualizar vínculo produtos multilojas"), unavailable("Importar e atualizar composições"), unavailable("Importar campos customizados"), unavailable("Importar e atualizar produtos de balança comercial"), unavailable("Importar lista de preços"),
     ] },
     { title: "Contatos", items: [unavailable("Importar e atualizar contatos")] },
     { title: "Suprimentos", items: [unavailable("Importar pedidos de compra"), unavailable("Importar movimentações de estoque em massa"), unavailable("Importar e atualizar fornecedores de produto")] },
@@ -108,6 +108,7 @@ export const preferenceCategories: PreferenceCategory[] = [
     { title: "Vendas", items: [unavailable("Importar vendas")] },
   ] },
   { id: "exportacao", label: "Backup e Exportação de Dados", sections: [
+    { title: "Produtos", items: [{ label: "Exportar produtos", href: "/preferencias/dados/exportacao", description: "CSV filtrado com os produtos autorizados da empresa." }] },
     { title: "Tabelas e configurações adicionais", items: [unavailable("Backup", "A geração e o download de backup ainda não estão disponíveis nesta tela.")] },
   ] },
 ]

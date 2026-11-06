@@ -31,6 +31,8 @@ mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
 #[cfg(test)]
+mod files_tests;
+#[cfg(test)]
 mod financial_settings_tests;
 #[cfg(test)]
 mod fiscal_preferences_tests;
@@ -109,8 +111,8 @@ use tower_http::{
 };
 
 use crate::domains::{
-    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff, staff_payroll,
+    catalog, data_transfer, finance, fiscal, inventory, parties, payables, purchasing,
+    reference_data, sales, staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -213,6 +215,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/system/custom-fields/{id}",
             axum::routing::put(crate::platform::custom_fields::update),
+        )
+        .route("/api/v1/system/files", get(crate::platform::files::list))
+        .route(
+            "/api/v1/system/files/{id}/archive",
+            post(crate::platform::files::archive),
+        )
+        .route(
+            "/api/v1/system/files/{id}/content",
+            get(crate::platform::files::content),
         )
         .route(
             "/api/v1/system/custom-reports",
@@ -436,6 +447,19 @@ pub fn router(state: AppState) -> Router {
             get(parties::get).put(parties::update),
         )
         .route("/api/v1/products", get(catalog::list).post(catalog::create))
+        .route(
+            "/api/v1/products/import",
+            axum::routing::post(data_transfer::preview),
+        )
+        .route(
+            "/api/v1/products/import/{id}",
+            get(data_transfer::get_import),
+        )
+        .route(
+            "/api/v1/products/import/{id}/confirm",
+            axum::routing::post(data_transfer::confirm),
+        )
+        .route("/api/v1/products/export", get(data_transfer::export))
         .route(
             "/api/v1/products/{id}/catalog",
             get(crate::domains::catalog_publication::get)

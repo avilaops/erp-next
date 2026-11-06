@@ -111,8 +111,8 @@ use tower_http::{
 };
 
 use crate::domains::{
-    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff, staff_payroll, warranties,
+    catalog, data_transfer, finance, fiscal, inventory, parties, payables, purchasing,
+    reference_data, sales, staff, staff_payroll, warranties,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -448,6 +448,19 @@ pub fn router(state: AppState) -> Router {
             get(parties::get).put(parties::update),
         )
         .route("/api/v1/products", get(catalog::list).post(catalog::create))
+        .route(
+            "/api/v1/products/import",
+            axum::routing::post(data_transfer::preview),
+        )
+        .route(
+            "/api/v1/products/import/{id}",
+            get(data_transfer::get_import),
+        )
+        .route(
+            "/api/v1/products/import/{id}/confirm",
+            axum::routing::post(data_transfer::confirm),
+        )
+        .route("/api/v1/products/export", get(data_transfer::export))
         .route(
             "/api/v1/products/{id}/catalog",
             get(crate::domains::catalog_publication::get)

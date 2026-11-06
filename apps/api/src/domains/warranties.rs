@@ -160,6 +160,17 @@ fn choice<'a>(value: &'a str, allowed: &[&str]) -> Result<&'a str, DomainError> 
         .ok_or(DomainError::Invalid("Opção não suportada"))
 }
 
+fn valid_case_transition(from: &str, to: &str) -> bool {
+    matches!(
+        (from, to),
+        ("opened", "triage" | "cancelled")
+            | ("triage", "diagnosis" | "cancelled")
+            | ("diagnosis", "treatment" | "cancelled")
+            | ("treatment", "resolved" | "cancelled")
+            | ("resolved", "closed")
+    )
+}
+
 pub async fn list_policies(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -421,6 +432,21 @@ pub async fn transition(
     {
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::OK, None, result));
+    }
+    let current = sqlx::query_scalar::<_, String>(
+        "SELECT status FROM warranty_cases WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    if !valid_case_transition(&current, status) {
+        return Err(DomainError::Conflict(
+            "Transição de garantia não permitida para o estado atual",
+        ));
     }
     let next = sqlx::query_scalar::<_, i64>("UPDATE warranty_cases SET status=$3,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$4 RETURNING revision")
         .bind(tenant).bind(id).bind(status).bind(expected).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::StaleRevision)?;

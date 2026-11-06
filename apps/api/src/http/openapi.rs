@@ -6,8 +6,9 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, commissions, contracts, finance, fiscal, inventory, legacy, parties,
-    payables, production, purchasing, reference_data, returns, sales, staff, staff_payroll,
+    assistant, catalog, commissions, contracts, dashboard, finance, fiscal, inventory, legacy,
+    parties, payables, production, purchasing, reference_data, returns, sales, staff,
+    staff_payroll,
 };
 use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
 
@@ -93,6 +94,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke,
+        dashboard::get,
         crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
         crate::platform::product_costs::get, crate::platform::product_costs::put,
         crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),

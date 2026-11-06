@@ -1334,7 +1334,12 @@ async fn emission_order_cancellation_records_commercial_request_before_fiscal_co
         return_body,
     )
     .await;
-    assert_eq!(return_created.0, StatusCode::CREATED, "{}", return_created.2);
+    assert_eq!(
+        return_created.0,
+        StatusCode::CREATED,
+        "{}",
+        return_created.2
+    );
     let return_id = return_created.2["data"]["id"].as_str().unwrap();
     let return_issued = call(
         &router,
@@ -1346,7 +1351,11 @@ async fn emission_order_cancellation_records_commercial_request_before_fiscal_co
         Value::Null,
     )
     .await;
-    assert_eq!(return_issued.2["status"], "authorized", "{}", return_issued.2);
+    assert_eq!(
+        return_issued.2["status"], "authorized",
+        "{}",
+        return_issued.2
+    );
     let prepare = calls
         .lock()
         .unwrap()

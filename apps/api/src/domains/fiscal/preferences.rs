@@ -201,11 +201,7 @@ impl FiscalDeliverySettings {
             {
                 return Err(DomainError::Invalid("CPF ou CNPJ do autorizado inválido"));
             }
-            person.tax_id = person
-                .tax_id
-                .chars()
-                .filter(char::is_ascii_digit)
-                .collect();
+            person.tax_id = person.tax_id.chars().filter(char::is_ascii_digit).collect();
             let person_type = match person.tax_id.len() {
                 11 => "fisica",
                 14 => "juridica",

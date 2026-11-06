@@ -214,7 +214,10 @@ async fn delivery_settings_validate_people_and_isolate_revision_by_tenant(admin:
     .await;
     assert_eq!(status, StatusCode::OK, "{saved}");
     assert_eq!(saved["data"]["notificationEmail"], "fiscal@example.test");
-    assert_eq!(saved["data"]["authorizedPeople"][0]["taxId"], "04252011000110");
+    assert_eq!(
+        saved["data"]["authorizedPeople"][0]["taxId"],
+        "04252011000110"
+    );
     assert_eq!(
         call(&router, "GET", path, "reader", TENANT, None, Value::Null)
             .await

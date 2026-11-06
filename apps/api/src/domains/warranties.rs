@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 const READ: &str = "service.warranties.read";
 const MANAGE: &str = "service.warranties.manage";
+const APPROVE: &str = "service.warranties.approve";
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -66,6 +67,16 @@ pub struct PartInput {
     pub amount_cents: i64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ApprovalInput {
+    pub action: String,
+    pub decision: String,
+    pub amount_cents: Option<i64>,
+    #[serde(default)]
+    pub notes: String,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -80,6 +91,7 @@ pub fn routes() -> Router<AppState> {
             post(service_order),
         )
         .route("/api/v1/warranty-service-orders/{id}/parts", post(add_part))
+        .route("/api/v1/warranty-cases/{id}/approval", post(approve_case))
 }
 
 fn text(value: &str, min: usize, max: usize) -> Result<String, DomainError> {
@@ -525,6 +537,111 @@ pub async fn add_part(
         &identity.subject,
         key,
         "warranty.service-order.part.create",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::CREATED, Some(next), result))
+}
+
+pub async fn approve_case(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(input): Json<ApprovalInput>,
+) -> Result<Response, DomainError> {
+    let action = choice(&input.action, &["exchange", "credit", "refund"])?;
+    let decision = choice(&input.decision, &["approved", "rejected"])?;
+    if input
+        .amount_cents
+        .is_some_and(|value| !(0..=99_999_999_999_999).contains(&value))
+    {
+        return Err(DomainError::Invalid("Valor da aprovação inválido"));
+    }
+    let notes = text(&input.notes, 0, 2000)?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, APPROVE, true).await?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.case.approval.create",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    sqlx::query(
+        "SELECT id FROM warranty_cases WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    let approval_id = Uuid::now_v7();
+    sqlx::query("INSERT INTO warranty_approvals(id,tenant_id,case_id,action,decision,amount_cents,notes) VALUES($1,$2,$3,$4,$5,$6,$7)")
+        .bind(approval_id)
+        .bind(tenant)
+        .bind(id)
+        .bind(action)
+        .bind(decision)
+        .bind(input.amount_cents)
+        .bind(&notes)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let next = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_cases SET resolution=jsonb_build_object('approvalId',$3::text,'action',$4::text,'decision',$5::text), revision=revision+1, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$6 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(approval_id)
+    .bind(action)
+    .bind(decision)
+    .bind(expected)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let result = json!({"tenantId": tenant, "data": {"id": approval_id, "caseId": id, "action": action, "decision": decision, "amountCents": input.amount_cents, "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'approval',$4,$5)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(id)
+        .bind(decision)
+        .bind(&result)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_approval",
+            id: approval_id,
+            event: "warranty.case.approval.created",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.case.approval.create",
         &request,
         &result,
     )

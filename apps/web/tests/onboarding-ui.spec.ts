@@ -474,10 +474,18 @@ test("signup requires a session and picker exposes only the companies returned b
 })
 
 test("company picker distinguishes an unavailable company service from an expired session", async ({ page, context }) => {
+  companyCount = 1
+  let attempts = 0
   await context.addCookies([cookie(null)])
-  await page.route("**/api/erp/companies", route => route.fulfill({ status: 503, json: { title: "Consulta indisponível" } }))
+  await page.route("**/api/erp/companies", route => {
+    attempts += 1
+    return route.fulfill(attempts === 1 ? { status: 503, json: { title: "Consulta indisponível" } } : { status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }] } })
+  })
   await page.goto("/empresas")
   await expect(page.getByRole("alert")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeVisible()
+  expect(attempts).toBe(2)
   await page.unroute("**/api/erp/companies")
 })
 

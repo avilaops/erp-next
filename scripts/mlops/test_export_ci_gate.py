@@ -11,11 +11,14 @@ class AttestationTests(unittest.TestCase):
     def setUp(self):
         self.kw = dict(
             source_sha="a" * 40, repository="avilaops/ERP-Next",
-            run_id="123456", attempt="1", workflow="CI", event="pull_request",
+            run_id="123456", attempt="1", workflow="CI", event="pull_request", tested_sha="b" * 40,
         )
     def test_all_green_still_no_human_approval(self):
         result=attest({"rust":{"result":"success"}, "contracts":{"result":"success"}}, **self.kw)
         self.assertEqual(result["ciGate"],"passed")
+        self.assertEqual(result["sourceSha"], "a" * 40)
+        self.assertEqual(result["testedSha"], "b" * 40)
+        self.assertEqual(result["testTarget"], "github-pr-merge-ref")
         self.assertIsNone(result["humanApproval"])
         self.assertIsNone(result["deployment"])
         self.assertIsNone(result["postDeployHealth"])

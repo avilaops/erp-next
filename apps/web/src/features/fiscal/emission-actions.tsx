@@ -17,7 +17,9 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
   const [text, setText] = useState("")
   const [notice, setNotice] = useState("")
   const document = resource.value
-  const documentLabel = (document?.model || model) === 65 ? "NFC-e" : "NF-e"
+  const documentModel = document?.model || model
+  const documentLabel = documentModel === 65 ? "NFC-e" : "NF-e"
+  const cancellationLabel = documentModel === 65 ? "Cancelamento da NFC-e" : "Cancelamento da NF-e"
   const environmentLabel = (document?.environment || environment) === "production" ? "produção" : "homologação"
   const selectedEvent = event === "cancel" && canCancel ? "cancel" : canCorrect ? "correction" : "cancel"
   const allowed = (action: string) => action === "cancel" ? canCancel : action === "correction" ? canCorrect : ["issue", "consult"].includes(action) && canIssue
@@ -61,7 +63,7 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
     </div>}
     {(canCancel || canCorrect) && document?.status === "authorized" && <form className="space-y-3 rounded-xl border p-4" onSubmit={e => { e.preventDefault(); void act(selectedEvent) }}>
       <fieldset className="space-y-3" disabled={command.busy || command.uncertain || dirty || mismatched}>
-        <label className="grid gap-2 text-sm">Evento fiscal<select className="min-h-11 min-w-0 rounded-lg border bg-background px-3" value={selectedEvent} onChange={e => setEvent(e.target.value)}>{canCorrect && <option value="correction">Carta de correção</option>}{canCancel && <option value="cancel">Cancelamento da NF-e</option>}</select></label>
+        <label className="grid gap-2 text-sm">Evento fiscal<select className="min-h-11 min-w-0 rounded-lg border bg-background px-3" value={selectedEvent} onChange={e => setEvent(e.target.value)}>{canCorrect && <option value="correction">Carta de correção</option>}{canCancel && <option value="cancel">{cancellationLabel}</option>}</select></label>
         <label className="grid gap-2 text-sm">Texto do evento<Input className="min-h-11" value={text} minLength={15} maxLength={selectedEvent === "cancel" ? 255 : 1000} required onChange={e => setText(e.target.value)} /></label>
         <Button className="min-h-11" type="submit" disabled={command.stale}>Transmitir evento fiscal</Button>
       </fieldset>

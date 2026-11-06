@@ -9,6 +9,6 @@ export default function Page({ searchParams }: { searchParams: Promise<{ pedido?
 
 async function Preparation({ searchParams }: { searchParams: Promise<{ pedido?: string; modelo?: string }> }) {
   const { pedido, modelo } = await searchParams
-  const initialModel = modelo === "65" ? 65 : 55
+  const initialModel: 55 | 65 = modelo === "65" ? 65 : 55
   return <NfeDraftEditor key={`${pedido || "manual"}-${initialModel}`} sourceOrderId={pedido} initialModel={initialModel} />
 }

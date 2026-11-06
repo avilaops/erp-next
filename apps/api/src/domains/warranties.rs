@@ -337,10 +337,52 @@ pub async fn get_case(
     let events = sqlx::query("SELECT id,event_type,status,details,created_at FROM warranty_case_events WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
         .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
     let timeline: Vec<Value> = events.into_iter().map(|row| json!({"id": row.get::<Uuid,_>("id"), "eventType": row.get::<String,_>("event_type"), "status": row.get::<Option<String>,_>("status"), "details": row.get::<Value,_>("details"), "createdAt": row.get::<time::OffsetDateTime,_>("created_at")})).collect();
+    let service_orders = sqlx::query("SELECT id,status,diagnosis,report,scheduled_at,labor_cents,revision,created_at,updated_at FROM warranty_service_orders WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
+        .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let service_orders: Vec<Value> = service_orders.into_iter().map(|row| json!({
+        "id": row.get::<Uuid,_>("id"), "status": row.get::<String,_>("status"),
+        "diagnosis": row.get::<Option<String>,_>("diagnosis"), "report": row.get::<Value,_>("report"),
+        "scheduledAt": row.get::<Option<time::OffsetDateTime>,_>("scheduled_at"),
+        "laborCents": row.get::<i64,_>("labor_cents"), "revision": row.get::<i64,_>("revision"),
+        "createdAt": row.get::<time::OffsetDateTime,_>("created_at"), "updatedAt": row.get::<time::OffsetDateTime,_>("updated_at")
+    })).collect();
+    let parts = sqlx::query("SELECT p.id,p.service_order_id,p.product_id,p.product_name,p.sku,p.quantity_micros,p.amount_cents,p.created_at FROM warranty_service_order_parts p JOIN warranty_service_orders so ON so.tenant_id=p.tenant_id AND so.id=p.service_order_id WHERE p.tenant_id=$1 AND so.case_id=$2 ORDER BY p.created_at,p.id")
+        .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let parts: Vec<Value> = parts.into_iter().map(|row| json!({
+        "id": row.get::<Uuid,_>("id"), "serviceOrderId": row.get::<Uuid,_>("service_order_id"),
+        "productId": row.get::<Uuid,_>("product_id"), "productName": row.get::<String,_>("product_name"),
+        "sku": row.get::<String,_>("sku"), "quantityMicros": row.get::<i64,_>("quantity_micros"),
+        "amountCents": row.get::<i64,_>("amount_cents"), "createdAt": row.get::<time::OffsetDateTime,_>("created_at")
+    })).collect();
+    let approvals = sqlx::query("SELECT id,action,decision,amount_cents,notes,created_at FROM warranty_approvals WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
+        .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let approvals: Vec<Value> = approvals.into_iter().map(|row| json!({
+        "id": row.get::<Uuid,_>("id"), "action": row.get::<String,_>("action"),
+        "decision": row.get::<String,_>("decision"), "amountCents": row.get::<Option<i64>,_>("amount_cents"),
+        "notes": row.get::<String,_>("notes"), "createdAt": row.get::<time::OffsetDateTime,_>("created_at")
+    })).collect();
+    let rmas = sqlx::query("SELECT id,reference,status,supplier_id,carrier,tracking_code,notes,revision,created_at,updated_at FROM warranty_rmas WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
+        .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let rmas: Vec<Value> = rmas.into_iter().map(|row| json!({
+        "id": row.get::<Uuid,_>("id"), "reference": row.get::<String,_>("reference"),
+        "status": row.get::<String,_>("status"), "supplierId": row.get::<Option<Uuid>,_>("supplier_id"),
+        "carrier": row.get::<Option<String>,_>("carrier"), "trackingCode": row.get::<Option<String>,_>("tracking_code"),
+        "notes": row.get::<String,_>("notes"), "revision": row.get::<i64,_>("revision"),
+        "createdAt": row.get::<time::OffsetDateTime,_>("created_at"), "updatedAt": row.get::<time::OffsetDateTime,_>("updated_at")
+    })).collect();
+    let quarantines = sqlx::query("SELECT id,product_id,quantity_micros,stock_movement_id,release_movement_id,status,reason,revision,created_at,updated_at FROM warranty_quarantines WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
+        .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let quarantines: Vec<Value> = quarantines.into_iter().map(|row| json!({
+        "id": row.get::<Uuid,_>("id"), "productId": row.get::<Uuid,_>("product_id"),
+        "quantityMicros": row.get::<i64,_>("quantity_micros"), "stockMovementId": row.get::<Uuid,_>("stock_movement_id"),
+        "releaseMovementId": row.get::<Option<Uuid>,_>("release_movement_id"), "status": row.get::<String,_>("status"),
+        "reason": row.get::<String,_>("reason"), "revision": row.get::<i64,_>("revision"),
+        "createdAt": row.get::<time::OffsetDateTime,_>("created_at"), "updatedAt": row.get::<time::OffsetDateTime,_>("updated_at")
+    })).collect();
     Ok(response(
         StatusCode::OK,
         Some(case.get::<i64, _>("revision")),
-        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline}}),
+        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline, "serviceOrders": service_orders, "parts": parts, "approvals": approvals, "rmas": rmas, "quarantines": quarantines}}),
     ))
 }
 

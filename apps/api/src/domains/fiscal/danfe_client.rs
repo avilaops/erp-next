@@ -183,13 +183,13 @@ impl DanfeClient {
         crate::platform::langfuse::observe(
             "render-danfe",
             "span",
-            self.render_untraced(xml, key),
+            self.render_untraced(xml, key, model),
             |_| false,
         )
         .await
     }
 
-    async fn render_untraced(&self, xml: &str, key: &str) -> Result<Vec<u8>, RenderError> {
+    async fn render_untraced(&self, xml: &str, key: &str, model: u8) -> Result<Vec<u8>, RenderError> {
         let mut session = None;
         let mut protocol = PROTOCOL.to_owned();
         let result = tokio::time::timeout(Duration::from_secs(50), async {

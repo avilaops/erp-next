@@ -12,7 +12,7 @@ Este documento separa implementação, teste, CI, integração, publicação e f
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | AVL-359 | Matriz e catálogo atualizados | `contracts.test.mjs`: 9/9; `product-context.test.mjs`: 9/9 | Não acompanhado nesta sessão | Branch do Agente 4 | Não observado | Não verificado pelo catálogo | 34 fluxos pendentes; `p0Ready=false`; runtime não verificado |
 | AVL-387 | Fluxo Auth → empresa e seleção server-side existentes | Cobertura sintética de zero/uma/múltiplas empresas, convites, expiração e retorno interno registrada | Não acompanhado nesta sessão | Branch do Agente 4 | Não observado | Banco integrado não validado | Confirmar vínculo e persistência com PostgreSQL isolado e ambiente autorizado |
-| AVL-399 | Leitor Ruby com validações de caminho existentes | `product-context.test.mjs`: 9/9; captura completa inclui o controller Ruby declarado | Não acompanhado nesta sessão | Correção já presente no histórico | Snapshot publicado não observado | Execução funcional não observada | Confirmar captura completa executada e snapshot da versão publicada |
+| AVL-399 | Leitor Ruby com validações de caminho existentes | `product-context.test.mjs`: 9/9; captura completa executada com 51 fluxos e 249 ações | Não acompanhado nesta sessão | Correção já presente no histórico | Snapshot publicado não observado | Execução funcional não observada | Conferir snapshot da versão publicada |
 | AVL-407 | Nenhuma implementação técnica, conforme escopo | N/A | N/A | N/A | N/A | Aceite comercial pendente | Levantar escopo, responsáveis e aceite de Godoi |
 | AVL-413 | Marco administrativo, sem código próprio | N/A | N/A | N/A | N/A | Aceite do prazo pendente | Consolidar 20 issues, bloqueios, dependências e checklist de entrega |
 

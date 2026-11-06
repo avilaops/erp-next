@@ -136,7 +136,7 @@ route,title,ui_classification,source
 "/preferencias/integracoes","Integrações","unavailable","apps/web/src/app/preferencias/integracoes/page.tsx"
 "/preferencias/integracoes/lojas","Integração com lojas","api-or-auth","apps/web/src/app/preferencias/integracoes/lojas/page.tsx"
 "/preferencias/integracoes/[provider]","Detalhes da integração","unavailable","apps/web/src/app/preferencias/integracoes/[provider]/page.tsx"
-"/preferencias/papeis","Papéis e horários","api-or-auth","apps/web/src/app/preferencias/papeis/page.tsx"
+"/preferencias/papeis","Papéis e permissões","api-or-auth","apps/web/src/app/preferencias/papeis/page.tsx"
 "/preferencias/plano","Plano e limites","api-or-auth","apps/web/src/app/preferencias/plano/page.tsx"
 "/preferencias/seguranca","Segurança e auditoria","api-or-auth","apps/web/src/app/preferencias/seguranca/page.tsx"
 "/preferencias/sistema","Sistema","navigation-or-local","apps/web/src/app/preferencias/sistema/page.tsx"

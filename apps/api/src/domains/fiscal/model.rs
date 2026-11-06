@@ -572,7 +572,11 @@ impl DraftInput {
             ));
         }
         let emission_type = self.emission_type.as_deref().unwrap_or("1");
-        if !(if self.model == 65 { ["1", "3", "4", "9"].contains(&emission_type) } else { emission_type == "1" }) {
+        if !(if self.model == 65 {
+            ["1", "3", "4", "9"].contains(&emission_type)
+        } else {
+            emission_type == "1"
+        }) {
             return Err(DomainError::Invalid(
                 "Modalidade de emissão incompatível com o modelo fiscal",
             ));

@@ -27,7 +27,7 @@ test("NFC-e modelo 65: builder usa chave própria, DANFE NFC-e e troco declarado
     ...layoutInvoice(),
     model: 65,
     changeAmount: 2,
-    payments: [{ code: "17", description: null, amount: 62.9 }],
+    payments: [{ code: "17", description: null, amount: 102 }],
   });
   assert.match(built.xml, /<vTroco>2\.00<\/vTroco>/);
 });

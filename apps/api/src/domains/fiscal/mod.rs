@@ -743,9 +743,10 @@ pub async fn update(
             || model != i16::from(value.model)
             || issuer.tax_id != current.issuer.tax_id)
     {
-        return Err(
-            DomainError::Conflict("Preserve modelo, série e emitente da numeração já reservada").into(),
-        );
+        return Err(DomainError::Conflict(
+            "Preserve modelo, série e emitente da numeração já reservada",
+        )
+        .into());
     }
     let next = expected
         .checked_add(1)

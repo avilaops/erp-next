@@ -1,5 +1,7 @@
 name: Production data migration
 on:
+  push:
+    branches: [codex/erp-mcp-oauth-provision]
   workflow_run:
     workflows: [Production release]
     types: [completed]
@@ -25,6 +27,73 @@ concurrency:
   group: erp-production-migration
   cancel-in-progress: false
 jobs:
+  provision_mcp:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/erp-mcp-oauth-provision'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: mcp_provision_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_ephemeral_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mcp_provision_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_REF: 32f1b58875d3c153e891a2187576c920b31ca5d0
+      RELEASE_RUN: '42147290413'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify the approved OAuth source
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .conclusion)" = success
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .head_sha)" = "$SOURCE_REF"
+          test "$(sha384sum migrations/202611060001_mcp_oauth.sql | cut -d ' ' -f 1)" = 06b87bd0a634d147074ba76c87b01767073e5df6fd43b39af787d26122eeee9de818c0e90c7e86a89a709ed9d8c00670
+          gh api "repos/$GITHUB_REPOSITORY/contents/migrations/202611060001_mcp_oauth.sql?ref=$SOURCE_REF" --jq .content | base64 -d | cmp - migrations/202611060001_mcp_oauth.sql
+          gh api "repos/$GITHUB_REPOSITORY/contents/deploy/grant-mcp-oauth.sql?ref=$SOURCE_REF" --jq .content | base64 -d | cmp - deploy/grant-mcp-oauth.sql
+      - name: Verify provisioning on an isolated CI database
+        env:
+          TEST_DATABASE_URL: postgres://postgres:ci_ephemeral_only@127.0.0.1:5432/mcp_provision_test
+        run: bash deploy/test-mcp-oauth-provision.sh
+      - name: Open existing restricted database tunnel
+        env:
+          SSH_KEY: ${{ secrets.ERP_DB_TUNNEL_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ERP_DB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.ERP_DB_SSH_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/erp-db
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
+      - name: Configure private migration connection
+        env:
+          MIGRATION_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit,urlunsplit
+          value=os.environ['MIGRATION_URL']
+          parsed=urlsplit(value)
+          assert parsed.scheme in ('postgres','postgresql') and parsed.username and not any(c in value for c in '\r\n')
+          credentials=parsed.netloc.rsplit('@',1)[0]
+          url=urlunsplit(parsed._replace(netloc=credentials+'@127.0.0.1:15435'))
+          print('::add-mask::'+url)
+          with open(os.environ['GITHUB_ENV'],'a') as file:file.write('DATABASE_URL='+url+'\n')
+          PY
+      - name: Provision only the approved OAuth tables and grants
+        run: |
+          checksum=$(sha384sum migrations/202611060001_mcp_oauth.sql | cut -d ' ' -f 1)
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -v "mcp_checksum=$checksum" -f deploy/provision-mcp-oauth.sql
+      - name: Verify the published OAuth endpoints without user credentials
+        run: python3 deploy/verify-mcp-oauth.py
   select:
     runs-on: ubuntu-latest
     timeout-minutes: 2

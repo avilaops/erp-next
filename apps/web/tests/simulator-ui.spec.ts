@@ -13,8 +13,14 @@ test.beforeEach(async ({ context, page }) => {
   await installFrontendFixture(context)
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["sales.orders.read", "sales.orders.manage"] } }))
 })
-for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalida resultado após editar em ${width}px`, async ({ page }) => {
-  await page.setViewportSize({ width, height: 844 })
+for (const viewport of [
+  { width: 360, height: 640 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+]) test(`simula sem custos privados e invalida resultado após editar em ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  await page.setViewportSize(viewport)
   await page.route(/\/api\/erp\/commercial\/tables\/imported(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, line: "imported", canManage: false, data: table } }))
   let sent: Record<string, unknown> | undefined
   await page.route("**/api/erp/commercial/simulate", route => {
@@ -34,7 +40,7 @@ for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalid
   await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.evaluate(() => { window.scrollTo(0, 0) })
-  await page.screenshot({ path: test.info().outputPath(`simulador-${width}.png`), fullPage: true })
+  await page.screenshot({ path: test.info().outputPath(`simulador-${viewport.width}x${viewport.height}.png`), fullPage: true })
   await page.getByLabel(`Quantidade de ${equipment.name}`, { exact: true }).fill("3")
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toHaveCount(0)
@@ -60,8 +66,8 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   await expect(page.getByText("Desconto máximo sem prejuízo", { exact: true })).toBeVisible()
   await page.getByLabel("Buscar cliente", { exact: true }).fill("Cliente")
   await page.getByRole("button", { name: "Selecionar Cliente de teste", exact: true }).click()
-  await page.getByLabel("Vencimento", { exact: true }).fill("2026-12-30")
-  await page.getByLabel("Cor da estrutura", { exact: true }).selectOption("Preto")
+  await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2026-12-30")
+  await page.getByLabel(`Cor da estrutura de ${equipment.name}`, { exact: true }).selectOption("Preto")
   await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
   await expect(page.getByRole("button", { name: "Conferir criação com o mesmo comando", exact: true })).toBeVisible()
   await expect(page.getByRole("combobox", { name: "Linha comercial", exact: true })).toBeDisabled()

@@ -1,4 +1,4 @@
-import { WarrantyForm } from "@/features/sales/sales-details";
-export default function Page() { return <WarrantyForm />; }
+import { WarrantyList } from "@/features/sales/warranty-workspace"
+export default function Page() { return <WarrantyList /> }
 
 export const metadata = { title: "Nova garantia" }

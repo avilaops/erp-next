@@ -1,4 +1,4 @@
-import type { TaxProfile } from "./settings/tax-profile-model"
+import type { TaxProfile, FiscalScenario } from "./settings/tax-profile-model"
 
 import type { Schema } from "@/lib/api/types"
 export type DraftItem = Schema<"DraftItem">
@@ -125,7 +125,13 @@ export const blockerLabels: Record<string, string> = {
 
 
 /** Copies only accountant-declared defaults; all other fiscal decisions stay unchanged. */
-export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision: number): DraftInput {
+export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision: number, scenario?: FiscalScenario): DraftInput {
  const taxes = draft.taxDeclaration || blankTaxDeclaration()
- return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate, ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode } } }
+ const rules = profile.lineRules
+ const cfop = rules && scenario ? scenario === "sameState" ? rules.cfopSameState : scenario === "interstateTaxpayer" ? rules.cfopInterstateTaxpayer : rules.cfopInterstateNonTaxpayer : null
+ return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, ...(rules ? { additionalInformation: rules.additionalInformation } : {}),
+   items: draft.items.map(item => ({ ...item, ...(rules ? { icmsCst: rules.icmsCst, csosn: null, pisCst: rules.pisCst, cofinsCst: rules.cofinsCst } : {}), ...(cfop ? { cfop } : {}) })),
+   taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate,
+     ...(rules ? { icmsRate: rules.icmsRate, ipiRate: rules.ipiRate, ipiCst: rules.ipiCst, ipiFrameCode: rules.ipiFrameCode, finalConsumer: rules.finalConsumer, ipiInIcmsBase: rules.ipiInIcmsBase, icmsOutOfContributions: rules.icmsOutOfContributions, ...(scenario && scenario !== "sameState" ? { recipientTaxpayer: scenario === "interstateTaxpayer", ...(scenario === "interstateNonTaxpayer" ? { recipientStateRegistration: null } : {}) } : {}) } : {}),
+     ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode, ...(rules ? { ibsStateRate: rules.ibsStateRate, ibsCityRate: rules.ibsCityRate, cbsRate: rules.cbsRate } : {}) } } }
 }

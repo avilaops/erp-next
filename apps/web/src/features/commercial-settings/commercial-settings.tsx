@@ -15,7 +15,7 @@ export function CommercialSettings() {
   const resource = useResource<Snapshot>(`/api/erp/commercial-settings/${line}`)
   return <main className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Preferências" title="Parâmetros comerciais" description="Política de preço por linha e simulação gerencial. Acesso restrito à gestão da empresa." />
-    <div className="flex gap-4"><Link className="text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="text-primary underline" href="/preferencias/tabela-precos">Tabela de preços</Link></div>
+    <div className="flex flex-wrap gap-4"><Link className="text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="text-primary underline" href="/preferencias/tabela-precos">Publicar tabela</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link><Link className="text-primary underline" href="/vendas/simulador">Simulador comercial</Link></div>
     <div className="flex gap-2" aria-label="Linha de produto">
       <Button type="button" variant={line === "imported" ? "default" : "outline"} aria-pressed={line === "imported"} onClick={() => { if (line !== "imported" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("imported") }}>Importada</Button>
       <Button type="button" variant={line === "national" ? "default" : "outline"} aria-pressed={line === "national"} onClick={() => { if (line !== "national" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("national") }}>Nacional</Button>
@@ -31,8 +31,9 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [calculation, setCalculation] = useState<Calculation | null>(snapshot.calculation)
+  const [suggestion, setSuggestion] = useState(snapshot.suggestedDownPayment || null)
   useNavigationGuard(dirty ? "Descartar os parâmetros comerciais não salvos?" : null)
-  function change(next: Draft) { setDraft(next); setDirty(true); setCalculation(null); setError(""); setNotice("") }
+  function change(next: Draft) { setDraft(next); setDirty(true); setCalculation(null); setSuggestion(null); setError(""); setNotice("") }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (busy || blocked || !snapshot.canEdit) return
@@ -48,7 +49,7 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
       const result = await response.json()
       if (!response.ok) throw Error(result.title || "Operação recusada")
       if (result.tenantId !== snapshot.tenantId || result.line !== snapshot.line || !result.calculation || (save && (!response.headers.get("etag") || result.revision !== snapshot.revision + 1))) throw Error("Confirmação incompleta. Recarregue para conferir.")
-      if (save) { setDirty(false); setNotice("Parâmetros salvos. A tabela de preços ainda não foi publicada."); reload() } else setCalculation(result.calculation)
+      if (save) { setDirty(false); setNotice("Parâmetros salvos. A tabela de preços ainda não foi publicada."); reload() } else { setCalculation(result.calculation); setSuggestion(result.suggestedDownPayment || null) }
     } catch (reason) { if (save) setBlocked(true); setError(reason instanceof Error ? reason.message : "Falha na operação") }
     finally { setBusy(false) }
   }
@@ -74,6 +75,7 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
         ["Faturamento de equilíbrio", calculation.breakEvenRevenue == null ? "Sem equilíbrio nesta condição" : calculation.breakEvenRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })],
       ].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl>
       <p className="text-sm text-muted-foreground">Venda com desconto = custo ajustado ÷ (1 − tributos, taxas e provisões − lucro antes do IR). A tabela considera também o desconto livre. Alterações só chegam à tabela publicada após preparar e confirmar uma nova versão.</p>
+      {suggestion && <div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold">Entrada mínima sugerida: {(suggestion.recommendedBps / 100).toLocaleString("pt-BR")}%</h3><p className="text-sm">Pior produto: {suggestion.worstSku}. Necessidade de {(suggestion.exactBps / 100).toLocaleString("pt-BR")}% no desconto livre, arredondada para cima em passos de 5 pontos percentuais.</p>{suggestion.canApply ? <Button type="button" variant="outline" disabled={busy || blocked} onClick={() => { change({ ...draft, minimumDownPaymentBps: String(suggestion.recommendedBps / 100).replace(".", ",") }); setNotice("Sugestão aplicada à edição. Salve os parâmetros para confirmar.") }}>Usar entrada sugerida</Button> : <p role="alert">A necessidade supera 100% da venda. Revise custos e política antes de adotar uma entrada.</p>}</div>}
     </section>}
   </form>
 }

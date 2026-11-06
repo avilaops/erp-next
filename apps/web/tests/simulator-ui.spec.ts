@@ -5,9 +5,9 @@ const product = "33333333-3333-4333-8333-333333333333"
 const version = "55555555-5555-4555-8555-555555555555"
 const customer = "44444444-4444-4444-8444-444444444444"
 const equipment = { productId: product, sku: "LD-TEST", name: "Equipamento de teste", unit: "UN", priceWithoutIpiCents: 20000, priceWithIpiCents: 22600, structureColors: ["Preto"], upholsteryColors: [] }
-const table = { id: version, version: 6, publishedAt: "2026-10-14T12:00:00Z", originState: "SP", freeDiscountBps: 2000, minimumDownPaymentBps: 7000, ipiBps: 1300, items: [equipment] }
-const sale = { quantity: 1, tableUnitCents: 20000, tableTotalCents: 20000, discountCents: 0, discountBps: 0, unitWithoutIpiCents: 20000, unitWithIpiCents: 22600, netSaleCents: 20000, ipiCents: 2600, ipiBps: 1300, invoiceTotalCents: 22600, minimumDownPaymentBps: 7000, minimumDownPaymentCents: 15820, freeDiscountBps: 2000, freightCents: 0, band: "at_target", needsApproval: false, approvalReasons: [] }
-const director = { icmsCents: 3600, pisCofinsCents: 1850, channelCents: 500, provisionsCents: 500, equipmentCostCents: 5000, fixedFeeCents: 0, roundingCents: 0, profitBeforeIncomeTaxCents: 8550, incomeTaxCents: 2907, netProfitCents: 5643, netProfitBps: 2821, targetMarginBps: 1500, atTargetBps: 3000, noLossBps: 5000, minimumTargetUnitWithIpiCents: 15820, supplierPaymentCents: 7000, targetProfitCents: 3000, downPaymentCommissionCents: 180, requiredDownPaymentCents: 10180, requiredDownPaymentBps: 4505 }
+const table = { id: version, version: 6, publishedAt: "2026-10-14T12:00:00Z", originState: "SP", freeDiscountBps: 2000, minimumDownPaymentBps: 7000, items: [equipment] }
+const sale = { calculatorVersion: "fixture", items: [{ productId: product, sku: equipment.sku, name: equipment.name, quantity: 1, tableUnitCents: 20000, netCents: 20000, ipiCents: 2600, totalCents: 22600 }], tableTotalCents: 20000, discountCents: 0, discountBps: 0, netSaleCents: 20000, ipiBps: 1300, ipiCents: 2600, totalCents: 22600, freeDiscountBps: 2000, minimumDownPaymentBps: 7000, minimumDownPaymentCents: 15820, downPaymentCents: 15820, freightCents: 0, approvalReasons: [] }
+const director = { band: "atTarget", targetBps: 1500, taxBps: 0, taxesCents: 0, difalBps: 0, difalCents: 0, equipmentCostCents: 5000, fixedFeeCents: 0, profitBeforeIncomeTaxCents: 8550, incomeTaxCents: 2907, netProfitCents: 5643, netProfitBps: 2821, supplierPaymentCents: 7000, targetProfitCents: 3000, downPaymentCommissionCents: 180, requiredDownPaymentCents: 10180, requiredDownPaymentBps: 4505, minimumAtTargetCents: 15820, maximumAtTargetDiscountBps: 1500, maximumNoLossDiscountBps: 5000 }
 
 test.beforeEach(async ({ context, page }) => {
   await installFrontendFixture(context)
@@ -15,27 +15,28 @@ test.beforeEach(async ({ context, page }) => {
 })
 for (const width of [320, 390, 1280]) test(`simula sem custos privados e invalida resultado após editar em ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 })
-  await page.route(/\/api\/erp\/sales-simulator\/imported(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, line: "imported", canCreate: true, versions: [table], data: table } }))
+  await page.route(/\/api\/erp\/commercial\/tables\/imported(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, line: "imported", canManage: false, data: table } }))
   let sent: Record<string, unknown> | undefined
-  await page.route("**/api/erp/sales-simulator/imported/quote", route => {
+  await page.route("**/api/erp/commercial/simulate", route => {
     sent = route.request().postDataJSON()
-    return route.fulfill({ json: { tenantId: tenant, line: "imported", versionId: version, version: 6, digest: "a".repeat(64), product: { sku: equipment.sku, name: equipment.name, unit: "UN" }, input: sent, sale } })
+    return route.fulfill({ json: { tenantId: tenant, version: 6, digest: "a".repeat(64), sale, director: null } })
   })
   await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, data: [], total: 0 } }))
   await page.goto("/vendas/simulador")
-  await page.getByRole("combobox", { name: "Equipamento", exact: true }).selectOption(product)
+  await page.getByRole("combobox", { name: "Equipamento da tabela", exact: true }).selectOption(product)
+  await page.getByRole("button", { name: "Adicionar", exact: true }).click()
   await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("no")
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toContainText("R$ 226,00")
-  expect(sent).toEqual({ versionId: version, productId: product, quantity: 1, destination: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0 })
-  await expect(page.getByText("Custos e lucro — acesso da gestão")).toHaveCount(0)
-  await expect(page.getByLabel("Criar pedido da simulação")).toBeVisible()
+  expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, upholsteryColor: null }] })
+  await expect(page.getByText("Custos e lucro — gestão autorizada")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.evaluate(() => { window.scrollTo(0, 0) })
   await page.screenshot({ path: test.info().outputPath(`simulador-${width}.png`), fullPage: true })
-  await page.getByLabel("Quantidade", { exact: true }).fill("3")
+  await page.getByLabel(`Quantidade de ${equipment.name}`, { exact: true }).fill("3")
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toHaveCount(0)
-  await expect(page.getByLabel("Criar pedido da simulação")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toHaveCount(0)
 })
 test("gestão vê composição, limites e entrada; comando incerto conserva chave e condições", async ({ page }) => {
   await page.route(/\/api\/erp\/sales-simulator\/imported(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, line: "imported", canCreate: true, versions: [table], data: table } }))

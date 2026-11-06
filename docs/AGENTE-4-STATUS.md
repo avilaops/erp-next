@@ -18,7 +18,7 @@ Este documento separa implementação, teste, CI, integração, publicação e f
 
 ## Limites de validação
 
-- Captura de contexto não equivale a publicação do portal de contratos.
+- Captura de contexto não equivale a publicação do portal de contratos. A captura estática mais recente foi gerada no commit `0a7a996cbc2a0f448bd63c23350ba5b029ef73d7`, com SHA de conteúdo `efd8975783919d202429a1af52b631159d3101d581d7a4dba8cf8df936d32822`, 51 fluxos, 249 ações e 34 grupos pendentes; publicação e execução permanecem não observadas.
 - Contrato estático não equivale a execução autenticada.
 - Teste sintético não equivale a vínculo real no PostgreSQL.
 - PR ou branch não equivale a código integrado na versão publicada.

@@ -6,6 +6,21 @@ const profile = { environment: "homologation", state: "SP", municipalityCode: "3
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("configuração fiscal organiza as sete etapas e preserva o layout nos tamanhos aceitos", async ({ page }) => {
+  await page.route("**/api/erp/company", route => route.fulfill({ json: { tenantId: tenant, data: company } }))
+  await page.route("**/api/erp/fiscal/config", route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, revision: 1, canEdit: true, certificateVerified: true, data: profile } }))
+  for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1366, height: 768 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    await page.goto("/preferencias/fiscal")
+    const navigation = page.getByRole("navigation", { name: "Etapas da configuração fiscal", exact: true })
+    await expect(navigation).toBeVisible()
+    await expect(navigation.getByRole("link")).toHaveCount(7)
+    await expect(page.locator("#fiscal-stage-1")).toBeVisible()
+    await expect(page.locator("#fiscal-stage-7")).toContainText("ainda não possuem contrato de persistência")
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
 test("usuário escolhe produção e informa a numeração sem transmitir uma nota", async ({page},testInfo) => {
   let saved: Record<string,unknown> = {...profile}
   let writes=0

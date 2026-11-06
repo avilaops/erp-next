@@ -634,7 +634,7 @@ async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin:
         "PUT",
         "/api/v1/fiscal/settings/nfce",
         "editor",
-        Some("\"0\""),
+        Some("\"1\""),
         Some(Uuid::now_v7()),
         json!({
             "environment": "homologation",
@@ -662,6 +662,7 @@ async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin:
     .await;
     assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
     let id = created.2["data"]["id"].as_str().unwrap();
+    let created_etag = created.1["etag"].to_str().unwrap().to_owned();
     let uri = format!("/api/v1/fiscal/nfe/{id}/issue");
     let key = Uuid::now_v7();
     let prepared = call(
@@ -669,7 +670,7 @@ async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin:
         "POST",
         &uri,
         "editor",
-        Some("\"1\""),
+        Some(&created_etag),
         Some(key),
         Value::Null,
     )
@@ -683,7 +684,7 @@ async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin:
         "POST",
         &uri,
         "editor",
-        Some("\"1\""),
+        Some(&created_etag),
         Some(key),
         Value::Null,
     )

@@ -1084,7 +1084,7 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
     let owner = format!("staff_permissions_owner_{}", Uuid::new_v4().simple());
     let mut tx = admin.begin().await.unwrap();
     sqlx::raw_sql(&format!(
-        "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner}; SET LOCAL ROLE {owner};"
+        "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE ROLE {owner} NOSUPERUSER NOBYPASSRLS; GRANT CREATE ON SCHEMA public TO {owner};"
     ))
     .execute(&mut *tx)
     .await
@@ -1097,6 +1097,12 @@ async fn staff_permissions_migration_backfills_existing_administrators_with_forc
             .await
             .unwrap();
     }
+    sqlx::raw_sql(&format!(
+        "ALTER TABLE tenants OWNER TO {owner}; ALTER TABLE roles OWNER TO {owner}; ALTER TABLE role_permissions OWNER TO {owner}; ALTER TABLE permissions OWNER TO {owner}; SET LOCAL ROLE {owner};"
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
 
     let first = Uuid::new_v4();
     let second = Uuid::new_v4();

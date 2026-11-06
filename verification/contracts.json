@@ -1375,7 +1375,7 @@
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
           {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id"], "authRefs": [], "externalSystems": []},
-          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts", "post-api-v1-warranty-cases-id-approval", "post-api-v1-warranty-cases-id-rma", "post-api-v1-warranty-rmas-id-transition"], "authRefs": [], "externalSystems": []}
+          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts", "post-api-v1-warranty-cases-id-approval", "post-api-v1-warranty-cases-id-rma", "post-api-v1-warranty-rmas-id-transition", "post-api-v1-warranty-cases-id-quarantine", "post-api-v1-warranty-quarantines-id-transition"], "authRefs": [], "externalSystems": []}
         ]
       },
       {
@@ -28877,6 +28877,22 @@
       "preconditions": ["RMA versionado e estado operacional permitido."], "transition": {"from": "Estado atual do RMA", "to": "Novo estado com evento na timeline"}, "effects": {"writes": ["warranty_rmas", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não executa coleta, recebimento físico ou operação fiscal automaticamente."]},
       "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-rmas-id-transition"}, "recovery": "Consultar o RMA e reconciliar a revisão antes de reenviar.",
       "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060005_warranty_rma.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases-id-quarantine",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-cases/{id}/quarantine"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage", "inventory.stock.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "QuarantineInput"}, "query": null},
+      "preconditions": ["Protocolo versionado, produto ativo, quantidade positiva e saldo disponível."], "transition": {"from": "Produto sob garantia", "to": "Produto retirado do saldo disponível e colocado em quarentena"}, "effects": {"writes": ["stock_balances", "stock_movements", "warranty_quarantines", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não cria documento fiscal nem altera saldo bancário."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "Transação única para estoque, quarentena e protocolo."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-quarantine"}, "recovery": "Repetir a mesma chave em resposta incerta; em falha transacional nenhum efeito é persistido.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060006_warranty_quarantine.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-quarantines-id-transition",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-quarantines/{id}/transition"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage", "inventory.stock.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "QuarantineTransitionInput"}, "query": null},
+      "preconditions": ["Quarentena versionada e ainda no estado quarantined."], "transition": {"from": "quarantined", "to": "released ou disposed"}, "effects": {"writes": ["warranty_quarantines", "stock_balances", "stock_movements quando released", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não gera remessa fiscal ou pagamento automaticamente."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "Uma única resolução por item em quarentena; liberação usa estorno do movimento original."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-quarantines-id-transition"}, "recovery": "Consultar a quarentena e repetir a mesma chave em resposta incerta.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060006_warranty_quarantine.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

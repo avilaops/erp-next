@@ -2,6 +2,7 @@ use super::{
     DomainChange, DomainError, authorized, command_key, db, fixed, record, remember, replay,
     response, revision,
 };
+use crate::platform::access::{load_access, require_permission};
 use crate::platform::{auth::AuthenticatedIdentity, state::AppState};
 use axum::{
     Extension, Json, Router,
@@ -95,6 +96,22 @@ pub struct RmaTransitionInput {
     pub details: Value,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct QuarantineInput {
+    pub product_id: Uuid,
+    pub quantity: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct QuarantineTransitionInput {
+    pub status: String,
+    #[serde(default)]
+    pub details: Value,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -114,6 +131,14 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/api/v1/warranty-rmas/{id}/transition",
             post(transition_rma),
+        )
+        .route(
+            "/api/v1/warranty-cases/{id}/quarantine",
+            post(create_quarantine),
+        )
+        .route(
+            "/api/v1/warranty-quarantines/{id}/transition",
+            post(transition_quarantine),
         )
 }
 
@@ -876,6 +901,334 @@ pub async fn transition_rma(
         &identity.subject,
         key,
         "warranty.rma.transition",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::OK, Some(next), result))
+}
+
+pub async fn create_quarantine(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(case_id): Path<Uuid>,
+    Json(input): Json<QuarantineInput>,
+) -> Result<Response, DomainError> {
+    let quantity = fixed(&input.quantity, 6)?;
+    if quantity <= 0 {
+        return Err(DomainError::Invalid("Quantidade de quarentena inválida"));
+    }
+    let reason = text(&input.reason, 3, 500)?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    require_permission(
+        &load_access(&mut tx, tenant, &identity.subject).await?,
+        "inventory.stock.manage",
+    )?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.quarantine.create",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    sqlx::query(
+        "SELECT id FROM warranty_cases WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(case_id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    let active = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM products WHERE tenant_id=$1 AND id=$2 AND status='active')",
+    )
+    .bind(tenant)
+    .bind(input.product_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    if !active {
+        return Err(DomainError::Conflict("Produto ativo não encontrado"));
+    }
+    sqlx::query(
+        "INSERT INTO stock_balances(tenant_id,product_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+    )
+    .bind(tenant)
+    .bind(input.product_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(db)?;
+    let previous = sqlx::query_scalar::<_, i64>(
+        "SELECT quantity_micros FROM stock_balances WHERE tenant_id=$1 AND product_id=$2 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(input.product_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let next = previous
+        .checked_sub(quantity)
+        .filter(|value| *value >= 0)
+        .ok_or(DomainError::Conflict(
+            "Saldo insuficiente para colocar o produto em quarentena",
+        ))?;
+    let reserved = super::sales::reserved(&mut tx, tenant, input.product_id).await?;
+    if next < reserved {
+        return Err(DomainError::Conflict(
+            "Saldo disponível insuficiente: parte do estoque está reservada",
+        ));
+    }
+    sqlx::query(
+        "UPDATE stock_balances SET quantity_micros=$3 WHERE tenant_id=$1 AND product_id=$2",
+    )
+    .bind(tenant)
+    .bind(input.product_id)
+    .bind(next)
+    .execute(&mut *tx)
+    .await
+    .map_err(db)?;
+    let movement_id = Uuid::now_v7();
+    let movement_reason = format!("Garantia {case_id}: {reason}");
+    sqlx::query("INSERT INTO stock_movements(id,tenant_id,product_id,direction,quantity_micros,balance_after_micros,reason) VALUES($1,$2,$3,'issue',$4,$5,$6)")
+        .bind(movement_id)
+        .bind(tenant)
+        .bind(input.product_id)
+        .bind(quantity)
+        .bind(next)
+        .bind(&movement_reason)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let quarantine_id = Uuid::now_v7();
+    sqlx::query("INSERT INTO warranty_quarantines(id,tenant_id,case_id,product_id,quantity_micros,stock_movement_id,reason) VALUES($1,$2,$3,$4,$5,$6,$7)")
+        .bind(quarantine_id)
+        .bind(tenant)
+        .bind(case_id)
+        .bind(input.product_id)
+        .bind(quantity)
+        .bind(movement_id)
+        .bind(&reason)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let next_case_revision = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_cases SET revision=revision+1, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$3 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(case_id)
+    .bind(expected)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let result = json!({"tenantId": tenant, "data": {"id": quarantine_id, "caseId": case_id, "productId": input.product_id, "quantity": input.quantity, "status": "quarantined", "stockMovementId": movement_id, "revision": 1, "caseRevision": next_case_revision}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'note','quarantined',$4)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(case_id)
+        .bind(&result)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_quarantine",
+            id: quarantine_id,
+            event: "warranty.quarantine.created",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "stock_movement",
+            id: movement_id,
+            event: "stock.moved_to_warranty_quarantine",
+            details: json!({"caseId": case_id, "quarantineId": quarantine_id, "productId": input.product_id, "quantity": input.quantity}),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.quarantine.create",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(
+        StatusCode::CREATED,
+        Some(next_case_revision),
+        result,
+    ))
+}
+
+pub async fn transition_quarantine(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(input): Json<QuarantineTransitionInput>,
+) -> Result<Response, DomainError> {
+    let status = choice(&input.status, &["released", "disposed"])?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    require_permission(
+        &load_access(&mut tx, tenant, &identity.subject).await?,
+        "inventory.stock.manage",
+    )?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.quarantine.transition",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    let current = sqlx::query("SELECT case_id,product_id,quantity_micros,stock_movement_id,status FROM warranty_quarantines WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE")
+        .bind(tenant)
+        .bind(id)
+        .bind(expected)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(db)?
+        .ok_or(DomainError::StaleRevision)?;
+    if current.get::<String, _>("status") != "quarantined" {
+        return Err(DomainError::Conflict("Quarentena já foi encerrada"));
+    }
+    let case_id = current.get::<Uuid, _>("case_id");
+    let product_id = current.get::<Uuid, _>("product_id");
+    let quantity = current.get::<i64, _>("quantity_micros");
+    let original_movement = current.get::<Uuid, _>("stock_movement_id");
+    let release_movement = if status == "released" {
+        sqlx::query(
+            "INSERT INTO stock_balances(tenant_id,product_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+        )
+        .bind(tenant)
+        .bind(product_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        let previous = sqlx::query_scalar::<_, i64>("SELECT quantity_micros FROM stock_balances WHERE tenant_id=$1 AND product_id=$2 FOR UPDATE")
+            .bind(tenant)
+            .bind(product_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(db)?;
+        let next = previous
+            .checked_add(quantity)
+            .filter(|value| *value <= 999999999999999999)
+            .ok_or(DomainError::Conflict("Limite de estoque excedido"))?;
+        sqlx::query(
+            "UPDATE stock_balances SET quantity_micros=$3 WHERE tenant_id=$1 AND product_id=$2",
+        )
+        .bind(tenant)
+        .bind(product_id)
+        .bind(next)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+        let movement_id = Uuid::now_v7();
+        sqlx::query("INSERT INTO stock_movements(id,tenant_id,product_id,direction,quantity_micros,balance_after_micros,reason,reverses_id) VALUES($1,$2,$3,'receipt',$4,$5,$6,$7)")
+            .bind(movement_id)
+            .bind(tenant)
+            .bind(product_id)
+            .bind(quantity)
+            .bind(next)
+            .bind("Liberação de quarentena de garantia")
+            .bind(original_movement)
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        Some(movement_id)
+    } else {
+        None
+    };
+    let next = sqlx::query_scalar::<_, i64>("UPDATE warranty_quarantines SET status=$3,release_movement_id=$4,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$5 RETURNING revision")
+        .bind(tenant)
+        .bind(id)
+        .bind(status)
+        .bind(release_movement)
+        .bind(expected)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    let result = json!({"tenantId": tenant, "data": {"id": id, "caseId": case_id, "status": status, "releaseMovementId": release_movement, "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'note',$4,$5)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(case_id)
+        .bind(status)
+        .bind(&input.details)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_quarantine",
+            id,
+            event: "warranty.quarantine.transitioned",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    if let Some(movement_id) = release_movement {
+        record(
+            &mut tx,
+            tenant,
+            &identity,
+            &headers,
+            DomainChange {
+                kind: "stock_movement",
+                id: movement_id,
+                event: "stock.restored_from_warranty_quarantine",
+                details: json!({"caseId": case_id, "quarantineId": id, "productId": product_id, "quantityMicros": quantity, "reversesId": original_movement}),
+            },
+        )
+        .await?;
+    }
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.quarantine.transition",
         &request,
         &result,
     )

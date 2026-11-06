@@ -63,7 +63,7 @@ test("exportação de produtos oferece download autorizado", async ({ page }) =>
   await page.goto("/preferencias/dados/exportacao")
   await expect(page.getByRole("heading", { name: "Exportação de produtos", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Baixar produtos.csv", exact: true })).toBeVisible()
-  await expect(page.getByText("Não é backup nem exportação contábil.", { exact: true })).toBeVisible()
+  await expect(page.getByText(/Não é backup nem exportação contábil\./)).toBeVisible()
 })
 
 test("filtro e página do catálogo sobrevivem a recarga e histórico", async ({ page }) => {

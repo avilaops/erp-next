@@ -243,6 +243,20 @@ pub async fn preview(
             "O CSV precisa conter as colunas SKU e nome",
         ));
     }
+    if headers_csv
+        .iter()
+        .any(|header| !allowed.contains(&header.as_str()))
+    {
+        return Err(DomainError::Invalid("O CSV contém uma coluna desconhecida"));
+    }
+    if headers_csv
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        != headers_csv.len()
+    {
+        return Err(DomainError::Invalid("O CSV não pode repetir colunas"));
+    }
     let skus: Vec<String> = table
         .iter()
         .skip(1)
@@ -255,6 +269,9 @@ pub async fn preview(
             .fetch_all(&mut *tx)
             .await
             .map_err(db)?;
+    let (_, settings) = super::registration_settings::load(&mut tx, tenant, "products").await?;
+    let require_ncm = settings["requireNcm"] == true;
+    let require_cest = settings["requireCest"] == true;
     let mut rows = Vec::new();
     for (index, raw) in table.iter().skip(1).enumerate() {
         let mut item = ProductInput {
@@ -284,6 +301,14 @@ pub async fn preview(
         let error = item
             .validate()
             .err()
+            .or_else(|| {
+                (require_ncm && item.ncm.is_none())
+                    .then_some(DomainError::Invalid("NCM obrigatório"))
+            })
+            .or_else(|| {
+                (require_cest && item.cest.is_none())
+                    .then_some(DomainError::Invalid("CEST obrigatório"))
+            })
             .map(|_| "Linha inválida: confira SKU, nome, unidade, preço, NCM e CEST".to_owned());
         let conflict = error.is_none()
             && (existing.iter().any(|sku| sku == &item.sku) || skus[..index].contains(&item.sku));

@@ -473,6 +473,14 @@ test("signup requires a session and picker exposes only the companies returned b
   expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe(tenant)
 })
 
+test("company picker distinguishes an unavailable company service from an expired session", async ({ page, context }) => {
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 503, json: { title: "Consulta indisponível" } }))
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await page.unroute("**/api/erp/companies")
+})
+
 test("expired access preserves the internal path and filters through the login form", async ({ page, context }) => {
   await context.addCookies([cookie(tenant, Date.now() - 1000)])
   const destination = "/cadastros/produtos?status=archived&offset=25"

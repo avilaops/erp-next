@@ -26,7 +26,17 @@ export function CompanyPicker() {
   useEffect(() => {
     let active = true
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
-      if (!response.ok) throw new Error(response.status === 401 ? "Entre novamente para continuar" : "Não foi possível consultar suas empresas")
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { title?: string }
+        const message = response.status === 401
+          ? "Sua sessão expirou. Entre novamente para continuar."
+          : response.status === 403
+            ? "Seu acesso às empresas não foi autorizado."
+            : response.status === 503
+              ? "O serviço de empresas está temporariamente indisponível. Tente novamente."
+              : result.title || "Não foi possível consultar suas empresas"
+        throw new Error(message)
+      }
       const body = await response.json()
       if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setFeedback({ message: body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas", error: false }) }
     }).catch(error => { if (active) setFeedback({ message: error.message, error: true }) })

@@ -56,8 +56,9 @@ test("metas e prévias não apresentam números fixos nem controles simulados", 
   await expect(page.getByRole("button", { name: "Exportar visão" })).toHaveCount(0)
   await expect(page.getByRole("combobox", { name: "Período do dashboard" })).toHaveCount(0)
   await testInfo.attach("metas-sem-dados-inventados", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
-  await page.goto("/preferencias/integracoes/mercado-livre")
-  await expect(page.getByRole("heading", { name: "Integração ainda indisponível", exact: true })).toBeVisible()
+  await page.goto("/preferencias/integracoes")
+  await expect(page.getByRole("heading", { name: "Integrações", exact: true })).toBeVisible()
+  await expect(page.getByText("Ávila Lojas", { exact: true })).toBeVisible()
   await expect(page.locator("main").getByText(/4821|10:42|Conexão saudável|Sincronizar estoque/)).toHaveCount(0)
   for (const path of ["/eventos", "/novidades", "/vendas/pdv", "/financeiro/relatorios", "/logistica/envios", "/servicos/ordens"]) {
     await page.goto(path)
@@ -80,13 +81,14 @@ test("títulos distinguem lista, criação, configuração e dashboard", async (
   }
 })
 
-test("importadores indisponíveis não aceitam arquivo nem inventam resultados", async ({ page }) => {
-  for (const path of ["/vendas/importacao", "/preferencias/dados/importacao"]) {
-    await page.goto(path)
-    await expect(page.getByRole("heading", { name: "Importação indisponível", exact: true })).toBeVisible()
-    await expect(page.locator('input[type="file"]')).toHaveCount(0)
-    await expect(page.getByText(/10 pedidos estariam aptos|118 válidas|12 linhas lidas/)).toHaveCount(0)
-  }
+test("importação de produtos aceita CSV sem inventar resultados", async ({ page }) => {
+  await page.goto("/vendas/importacao")
+  await expect(page.getByRole("heading", { name: "Importação indisponível", exact: true })).toBeVisible()
+  await expect(page.locator('input[type="file"]')).toHaveCount(0)
+  await page.goto("/preferencias/dados/importacao")
+  await expect(page.getByRole("heading", { name: "Importação de produtos", exact: true })).toBeVisible()
+  await expect(page.locator('input[type="file"]')).toHaveAttribute("accept", ".csv,text/csv")
+  await expect(page.getByText(/10 pedidos estariam aptos|118 válidas|12 linhas lidas/)).toHaveCount(0)
 })
 
 test("funcionalidade sem integração não monta dados ou operações fictícias", async ({ page }, testInfo) => {

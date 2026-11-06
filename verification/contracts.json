@@ -1380,7 +1380,11 @@
       "path": "/api/auth/company",
       "method": "POST",
       "action": "Validar vínculo na API e selecionar empresa na sessão cifrada sem prolongar expiração",
-      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; preservar sessão anterior"
+      "input": {
+        "headers": ["Origin", "Content-Type: application/json"],
+        "body": { "tenantId": "UUID da empresa autorizada" }
+      },
+      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; rejeitar corpo não JSON ou malformado sem encaminhar ao serviço; preservar sessão anterior"
     }
   ],
   "assetActions": [

@@ -317,13 +317,13 @@ pub async fn put_profile(
         .ok_or(access::AccessError::Internal)?;
     let details = serde_json::to_value(&value).map_err(|_| access::AccessError::Internal)?;
     if let Some(number) = value.next_number {
-        let current_number: Option<i64> = sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND model=$4 AND series=$3")
-            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).bind(i32::from(value.model)).fetch_optional(&mut *tx).await.map_err(db)?;
+        let current_number: Option<i64> = sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$2 AND model=55 AND series=$3")
+            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).fetch_optional(&mut *tx).await.map_err(db)?;
         if current_number.is_some_and(|current| i64::from(number) < current) {
             return Err(DomainError::Conflict("A próxima numeração não pode ser menor que a já reservada. Recarregue a configuração").into());
         }
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$2,$3,$4,$5) ON CONFLICT(tenant_id,environment,model,series) DO UPDATE SET next_number=$5")
-            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.model)).bind(i32::from(value.series)).bind(i64::from(number)).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$2,55,$3,$4) ON CONFLICT(tenant_id,environment,model,series) DO UPDATE SET next_number=$4")
+            .bind(tenant).bind(value.environment.as_str()).bind(i32::from(value.series)).bind(i64::from(number)).execute(&mut *tx).await.map_err(db)?;
     }
     sqlx::query("INSERT INTO fiscal_profiles(tenant_id,revision,environment,details) VALUES($1,$2,$4,$3) ON CONFLICT(tenant_id) DO UPDATE SET revision=excluded.revision,environment=excluded.environment,details=excluded.details,updated_at=now()")
         .bind(tenant).bind(next).bind(details).bind(value.environment.as_str()).execute(&mut *tx).await.map_err(db)?;

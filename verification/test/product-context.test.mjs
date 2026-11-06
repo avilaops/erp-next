@@ -66,6 +66,16 @@ test('a task includes its transitive dependencies and real Auth handler sources 
   assert.match(contextMarkdown(context), /platform\.users\.manage/);
 });
 
+test('the complete context includes the Ruby contracts portal source declared by the catalogue', async () => {
+  const inventory = await inventoryPromise;
+  const definitions = selectProductFlows(catalogue);
+  const paths = contextSourcePaths(catalogue, inventory, definitions);
+  const rubyPath = 'deploy/contracts-portal/overlay/app/controllers/api/avila_templates_controller.rb';
+
+  assert.ok(paths.includes(rubyPath));
+  assert.match((await readContextFile(root, rubyPath)).toString('utf8'), /class AvilaTemplatesController/);
+});
+
 test('unknown references, duplicate ownership, and invented runtime state are rejected', () => {
   const unknown = structuredClone(catalogue);
   unknown.productFlows.flows.find(flow => flow.id === 'users').journey[0].actionIds.push('invented-action');

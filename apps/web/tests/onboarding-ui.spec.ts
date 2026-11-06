@@ -399,6 +399,18 @@ test("identity-only sessions cannot access existing tenant data and company sele
   expect(selected.expiresAt).toBe(expiresAt)
 })
 
+test("company selection rejects non-JSON and malformed bodies before forwarding tenant input", async ({ context }) => {
+  await context.addCookies([cookie(null)])
+  const nonJson = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "text/plain" }, data: JSON.stringify({ tenantId: tenant }) })
+  expect(nonJson.status()).toBe(415)
+  expect(await nonJson.json()).toEqual({ title: "O pedido precisa ser JSON" })
+
+  const malformed = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "application/json" }, data: "{" })
+  expect(malformed.status()).toBe(400)
+  expect(await malformed.json()).toEqual({ title: "Pedido inválido" })
+  expect(upstreamCalls).toBe(0)
+})
+
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)

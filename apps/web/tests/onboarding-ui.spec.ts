@@ -481,6 +481,16 @@ test("company picker distinguishes an unavailable company service from an expire
   await page.unroute("**/api/erp/companies")
 })
 
+test("company picker does not open a page when the selected tenant is not confirmed", async ({ page, context }) => {
+  companyCount = 1
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/auth/company", route => route.fulfill({ status: 200, json: { tenantId: "22222222-2222-4222-8222-222222222222" } }))
+  await page.goto("/empresas")
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await expect(page.getByRole("alert")).toHaveText("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
+  await page.unroute("**/api/auth/company")
+})
+
 test("expired access preserves the internal path and filters through the login form", async ({ page, context }) => {
   await context.addCookies([cookie(tenant, Date.now() - 1000)])
   const destination = "/cadastros/produtos?status=archived&offset=25"

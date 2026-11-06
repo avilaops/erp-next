@@ -48,8 +48,9 @@ export function CompanyPicker() {
     setFeedback({ message: `Acessando ${name}…`, error: false })
     try {
       const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: company.id }), signal: AbortSignal.timeout(10000) })
-      const result = await response.json().catch(() => ({})) as { title?: string }
+      const result = await response.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
       if (!response.ok) throw new Error(companySelectionError(response.status, result.title))
+      if (result.tenantId !== company.id) throw new Error("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
       router.push(returnTo)
       router.refresh()
     } catch (error) {
@@ -96,13 +97,14 @@ export function CompanySignup() {
         setCreated(tenantId)
       }
       const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
-      const selectedResult = await selected.json().catch(() => ({})) as { title?: string }
+      const selectedResult = await selected.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
       if (!selected.ok) {
         const selectionFailure = [401, 403, 503].includes(selected.status)
           ? companySelectionError(selected.status, selectedResult.title)
           : selectedResult.title || "Empresa cadastrada. Acesse Suas empresas para selecioná-la"
         throw new Error(selectionFailure)
       }
+      if (selectedResult.tenantId !== tenantId) throw new Error("A empresa cadastrada não foi confirmada. Acesse Suas empresas para tentar novamente.")
       router.push(returnTo)
       router.refresh()
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }

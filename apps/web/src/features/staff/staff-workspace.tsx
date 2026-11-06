@@ -10,10 +10,10 @@ import Link from "next/link"
 import Image from "next/image"
 import { StaffPayroll } from "./payroll-workspace"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { RecordCompany } from "@/components/record-company"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 
@@ -39,9 +39,22 @@ export function StaffList({ kind }: { kind: StaffKind }) {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
+  const [showResults, setShowResults] = useState(false)
+  const searchSection = useRef<HTMLElement>(null)
+  const resultsId = useId()
+  const pageSize = kind === "vendedores" ? 10 : 25
+  useEffect(() => {
+    if (kind !== "vendedores") return
+    function dismiss(event: PointerEvent) {
+      if (event.target instanceof Node && !searchSection.current?.contains(event.target)) setShowResults(false)
+    }
+    document.addEventListener("pointerdown", dismiss)
+    return () => document.removeEventListener("pointerdown", dismiss)
+  }, [kind])
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
+    const search = kind === "vendedores" && query.q.trim() === "%%" ? "" : query.q
+    const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: String(pageSize) })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
     erpFetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -51,7 +64,51 @@ export function StaffList({ kind }: { kind: StaffKind }) {
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [query, retry])
+  }, [query, retry, kind, pageSize])
+
+  if (kind === "vendedores") return <>
+    <PageHeader eyebrow="Cadastros" title="Vendedores" description="Pesquise um vendedor para consultar ou editar seu cadastro." />
+    <section ref={searchSection} aria-label="Busca de vendedores" className="relative min-w-0 max-w-2xl"
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setShowResults(false) }}
+      onKeyDown={event => { if (event.key === "Escape") { setShowResults(false); searchSection.current?.querySelector("input")?.focus() } }}>
+      <form className="space-y-3" onSubmit={event => {
+        event.preventDefault(); const form = new FormData(event.currentTarget)
+        searchSection.current?.querySelector("input")?.focus()
+        setLoading(true); setQuery({ q: String(form.get("q") || ""), role: "seller", status: String(form.get("status") || ""), offset: 0 }); setShowResults(true)
+      }}>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="min-w-0 flex-1 space-y-2">Buscar vendedor<SearchInput name="q" maxLength={160} aria-expanded={showResults} aria-controls={showResults ? resultsId : undefined}
+            onChange={() => setShowResults(false)} onSearch={(q, form) => {
+              const fields = form ? new FormData(form) : null
+              setLoading(true); setQuery({ q, role: "seller", status: String(fields?.get("status") || ""), offset: 0 })
+              if (searchSection.current?.contains(document.activeElement)) setShowResults(true)
+            }} /></label>
+          <Button type="submit" disabled={loading}>Pesquisar vendedor</Button>
+        </div>
+        <label className="flex w-fit max-w-full items-center gap-2 text-sm text-muted-foreground">Situação<select aria-label="Filtrar por situação" name="status" className={`${selectClass} w-auto`}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
+      </form>
+      {!showResults && result?.canEdit && <Link className={`${linkClass} mt-2 inline-flex min-h-11 items-center`} href="/cadastros/vendedores/novo">Cadastrar vendedor</Link>}
+      {!showResults && result && !result.canEdit && <p className="mt-3 text-sm text-muted-foreground">Somente consulta.</p>}
+      {showResults && <div id={resultsId} role="region" aria-label="Resultados de vendedores" className="absolute inset-x-0 top-full z-40 mt-2 max-h-[min(24rem,50dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl">
+        {loading ? <p role="status">Consultando vendedores…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+          <ul className="space-y-2">{result.data.map(staff => <li className="min-w-0" key={staff.id}>
+            <Link aria-label={`Consultar ${staff.name}`} href={`/cadastros/vendedores/${staff.id}`} className={buttonVariants({ variant: "outline", className: "h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal px-3 py-2 text-left" })}>
+              <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">{staff.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("")}</span>
+              <span className="min-w-0"><span className="block font-medium">{staff.name}</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">{staff.code} · {staff.status === "active" ? "Ativo" : "Desligado"}</span></span>
+            </Link>
+          </li>)}</ul>
+          {!result.data.length && <p>Nenhum vendedor encontrado.</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+            <Button variant="outline" aria-label="Anterior vendedor" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: Math.max(0, query.offset - pageSize) }) }}>Anterior</Button>
+            <span className="order-last w-full text-center text-xs text-muted-foreground sm:order-none sm:w-auto" aria-live="polite">{result.total} {result.total === 1 ? "vendedor" : "vendedores"} · página {query.offset / pageSize + 1}</span>
+            <Button variant="outline" aria-label="Próximo vendedor" disabled={query.offset + pageSize >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + pageSize }) }}>Próximo</Button>
+          </div>
+          {result.canEdit && <Link className={`${linkClass} inline-flex min-h-11 items-center`} href="/cadastros/vendedores/novo">Cadastrar vendedor</Link>}
+          {!result.canEdit && <p className="text-sm text-muted-foreground">Somente consulta.</p>}
+        </>}
+      </div>}
+    </section>
+  </>
 
   return <>
     <PageHeader eyebrow="Cadastros" title={kind === "funcionarios" ? "Funcionários" : "Vendedores"} description="Cadastros da empresa ativa. Uma pessoa pode exercer as duas funções no mesmo registro." />
@@ -67,7 +124,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
         <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(staff => <li key={staff.id} className="min-w-0 rounded-xl border p-4">
           <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${staff.id}`}>Consultar {staff.name}</Link>

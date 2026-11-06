@@ -6,8 +6,7 @@ import type { Schema } from "@/lib/api/types"
 
 import { normalizeDecimal } from "@/lib/decimal-input"
 
-import { CatalogFormSkeleton } from "./catalog-loading"
-import { AccessLink, RequestError } from "@/components/feedback/session-recovery"
+import { AccessLink } from "@/components/feedback/session-recovery"
 
 import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navigation-guard"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -18,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { readProductDraft, writeProductDraft, type ProductInput, type ProductCommand, type ProductDraft } from "./product-draft"
-import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, catalogReturnHref, type CatalogQuery } from "./catalog-query"
+import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQuery } from "./catalog-query"
 
 import { ProductPhoto } from "./product-photo"
 import { CatalogProfile } from "./catalog-profile"
@@ -30,7 +29,7 @@ import type { PersonalPreferences } from "@/features/preferences/system/system-p
 
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], armColors: [], plateHolderColors: [] }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderColors: [], plateHolderTypes: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal
@@ -46,9 +45,6 @@ export function CatalogList() {
 
 function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
   const { q, status, offset, categoryId } = query
-  const search = catalogQueryString(query)
-  const listHref = `/cadastros/produtos${search ? `?${search}` : ""}`
-  const returnQuery = listHref.includes("?") ? `?${new URLSearchParams({ returnTo: listHref })}` : ""
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -75,19 +71,22 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
     <PageHeader eyebrow="Cadastros" title="Produtos" description="Catálogo da empresa ativa. NCM e CEST informados não representam classificação fiscal validada." />
     <CatalogPublish />
     <section className="form-section space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Catálogo de produtos</h2>{result?.canEdit && <Link className={catalogLink} href={`/cadastros/produtos/novo${returnQuery}`}>Novo produto</Link>}</div>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4"><div><h2 className="text-lg font-semibold tracking-tight">Catálogo de produtos</h2><p className="mt-1 text-sm text-muted-foreground">Localize, consulte e edite os produtos da empresa ativa.</p></div>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
+      <form className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_minmax(12rem,0.45fr)_9rem_auto]" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget)
         navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || ""), category_id: categoryId || "" })))
       }}>
-        <label className="min-w-48 flex-1 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status, category_id: categoryId || "" })))} name="q" maxLength={160} defaultValue={q} /></label>
+        <label className="min-w-0 space-y-2">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status, category_id: categoryId || "" })))} name="q" maxLength={160} defaultValue={q} /></label>
         <ProductCategory all value={categoryId || ""} onChange={categoryId => navigate({ ...query, categoryId, offset: 0 })} />
-        <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-8 rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-        <Button type="submit" disabled={loading}>Buscar</Button>
+        <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-10 w-full rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <Button className="h-10" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Ávila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-3">Produto</th><th className="p-3">SKU</th><th className="p-3">Unidade</th><th className="p-3">Preço base</th><th className="p-3">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-b"><td className="p-3"><Link className={`${catalogLink} flex items-center gap-3`} href={`/cadastros/produtos/${product.id}${returnQuery}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span>{product.name}</span></Link></td><td className="p-3">{product.sku}</td><td className="p-3">{product.unit}</td><td className="whitespace-nowrap p-3">R$ {product.basePrice.replace(".", ",")}</td><td className="p-3">{product.status === "active" ? "Ativo" : "Arquivado"}</td></tr>)}</tbody></table></div> : <p>Nenhum produto encontrado.</p>}
+        {result.data.length ? <>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block"><table aria-label="Catálogo de produtos" className="min-w-[860px] w-full text-left text-sm"><thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="w-[44%] px-5 py-3.5 font-semibold">Produto</th><th className="w-[18%] px-4 py-3.5 font-semibold">SKU</th><th className="w-[11%] px-4 py-3.5 font-semibold">Unidade</th><th className="w-[16%] px-4 py-3.5 text-right font-semibold">Preço base</th><th className="w-[11%] px-5 py-3.5 font-semibold">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-t border-border transition-colors hover:bg-muted/40"><td className="px-5 py-4"><Link className={`${catalogLink} flex min-w-0 items-center gap-4 text-base`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span className="min-w-0 truncate">{product.name}</span></Link></td><td className="px-4 py-4 font-medium text-muted-foreground">{product.sku}</td><td className="px-4 py-4">{product.unit}</td><td className="whitespace-nowrap px-4 py-4 text-right font-semibold">R$ {product.basePrice.replace(".", ",")}</td><td className="px-5 py-4"><span className={product.status === "active" ? "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary" : "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"}>{product.status === "active" ? "Ativo" : "Arquivado"}</span></td></tr>)}</tbody></table></div>
+          <div aria-label="Lista de produtos" className="space-y-3 lg:hidden">{result.data.map(product => <article key={product.id} className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex min-w-0 items-start gap-4"><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><div className="min-w-0 flex-1"><Link className={`${catalogLink} block truncate text-base`} href={`/cadastros/produtos/${product.id}`}>{product.name}</Link><p className="mt-1 text-sm text-muted-foreground">SKU {product.sku} · {product.unit}</p><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><strong>R$ {product.basePrice.replace(".", ",")}</strong><span className={product.status === "active" ? "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary" : "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"}>{product.status === "active" ? "Ativo" : "Arquivado"}</span></div></div></div></article>)}</div>
+        </> : <p>Nenhum produto encontrado.</p>}
         <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - pageSize) })}>Anterior</Button><span className="text-center text-sm"><span>Página {Math.floor(offset / pageSize) + 1}</span> · {pageSize} por página</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + pageSize >= result.total} onClick={() => navigate({ ...query, offset: offset + pageSize })}>Próxima</Button></div>
         {offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
@@ -97,10 +96,6 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
 
 export function CatalogEditor({ id, view = false, draftScope }: { id?: string; view?: boolean; draftScope: string }) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const listHref = catalogReturnHref(searchParams.get("returnTo"))
-  const returnQuery = listHref.includes("?") ? `?${new URLSearchParams({ returnTo: listHref })}` : ""
-  const [loadStatus, setLoadStatus] = useState<number | undefined>(undefined)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [draft, setDraft] = useState<ProductInput>({ ...empty })
   const [baseline, setBaseline] = useState(JSON.stringify(empty))
@@ -127,11 +122,9 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const controller = new AbortController()
     erpFetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
-      if (controller.signal.aborted) return
-      setLoadStatus(response.status)
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], armColors: value.data.armColors || [], plateHolderColors: value.data.plateHolderColors || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -160,7 +153,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
     const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
-    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []), armColors: normalizeColors(draft.armColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []) })
+    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []), plateHolderTypes: normalizeColors(draft.plateHolderTypes || []) })
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body }
     // Persist the in-flight command before dispatch. A reload must not create a new command.
     if (!writeProductDraft(storageKey, { version: 1, draft, baseline, etag, uncertain: !id, conflict: !!id, command: command.current })) {
@@ -178,7 +171,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       }
       writeProductDraft(storageKey, null)
       setUncertain(false); command.current = null; setBaseline(JSON.stringify(draft)); setSaved(true); setRecovered(false)
-      if (!id) { if (active.current) router.replace(`/cadastros/produtos/${value.data.id}${returnQuery}`) }
+      if (!id) { if (active.current) router.replace(`/cadastros/produtos/${value.data.id}`) }
       else { setSnapshot(value); setEtag(response.headers.get("etag") || "") }
     } catch { setError("Não foi possível confirmar a gravação. Sua edição foi preservada."); if (id) setConflict(true); else setUncertain(true) }
     finally { pending.current = false; setSaving(false) }
@@ -190,10 +183,11 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     setStorageInvalid(false); command.current = null
     setLoading(true); setRetry(value => value + 1); setSaved(false); setRecovered(false); setStorageError("")
   }
-  return <div className="erp-editor">
-    <PageHeader back={{ href: listHref, label: "Voltar ao catálogo" }} breadcrumbs={[{ label: "Cadastros", href: "/cadastros" }, { label: "Produtos", href: listHref }, { label: view ? "Detalhes" : id ? "Editar" : "Novo" }]} eyebrow="Cadastros · Produtos" title={view ? snapshot?.data?.name || "Produto" : id ? "Editar produto" : "Novo produto"} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." />
+  return <div>
+    <PageHeader eyebrow="Cadastros · Produtos" title={view ? snapshot?.data?.name || "Produto" : id ? "Editar produto" : "Novo produto"} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." />
+    <Link className={catalogLink} href="/cadastros/produtos">Voltar ao catálogo</Link>
     <section className="form-section mt-5 space-y-5">
-      {loading ? <CatalogFormSkeleton /> : !snapshot ? <div className="space-y-4"><div role="alert"><RequestError message={loadStatus === 404 ? "Produto não encontrado. Ele pode ter sido removido ou não estar disponível nesta empresa." : loadStatus === 403 ? "Você não tem permissão para consultar este produto." : error} status={loadStatus} /></div>{loadStatus !== 403 && loadStatus !== 404 && <Button onClick={reload}>Tentar novamente</Button>}</div> : <>
+      {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><AccessLink className={catalogLink} >Entrar com Avila Ops</AccessLink><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar produtos.</p>}
         {recovered && <p role="status">Rascunho recuperado nesta aba. Confira os dados antes de salvar.</p>}
@@ -201,22 +195,22 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         {!view && snapshot.canEdit && (dirty || recovered || storageError) && <Button variant="outline" onClick={reload} disabled={saving || uncertain}>Descartar rascunho</Button>}
         {saved && <p role="status">Produto salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
-        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoUrl || snapshot.data.photoDataUrl || undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar${returnQuery}`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
+        {view ? <><div className="grid items-start gap-6 lg:grid-cols-2"><ProductPhoto value={snapshot.data.photoUrl || snapshot.data.photoDataUrl || undefined} readOnly /><dl className="grid gap-4 sm:grid-cols-2">{[["SKU", snapshot.data.sku], ["Unidade", snapshot.data.unit], ["Preço base", `R$ ${snapshot.data.basePrice.replace(".", ",")}`], ["NCM", snapshot.data.ncm || "Não informado"], ["CEST", snapshot.data.cest || "Não informado"], ["Situação", snapshot.data.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{value}</dd></div>)}</dl></div>{snapshot.canEdit && <div className="flex flex-wrap gap-4"><Link className={catalogLink} href={`/cadastros/produtos/${id}/editar`}>Editar produto</Link><Link className={catalogLink} href={`/cadastros/produtos/${id}/custos`}>Custos e linha comercial</Link></div>}</> : <form className="space-y-5" onSubmit={save}>
           <ProductPhoto value={snapshot.data.photoUrl || draft.photoDataUrl || undefined} readOnly={!!snapshot.data.photoUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <ProductCategory value={draft.categoryId || ""} disabled={!snapshot.canEdit || saving || uncertain} onChange={categoryId => setDraft(previous => ({ ...previous, categoryId }))} />
           <fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="space-y-4 rounded-xl border p-4">
-            <legend className="px-2 font-semibold">Cores disponíveis do equipamento</legend>
-            <p className="text-sm text-muted-foreground">Cadastre uma cor por linha, com até 32 opções por acabamento. As opções serão oferecidas ao montar o pedido. Deixe vazio quando não se aplicar.</p>
-            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["armColors", "Cores dos braços"], ["plateHolderColors", "Cores do anilheiro"], ["upholsteryColors", "Cores do estofado"]] as const).filter(([field]) => field !== "upholsteryColors" || snapshot.data.upholsteryConfigurable !== false).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={"Uma cor por linha"} /></label>)}</div>
+            <legend className="px-2 font-semibold">Acabamentos disponíveis do equipamento</legend>
+            <p className="text-sm text-muted-foreground">Cadastre uma cor por linha para estrutura, anilheiros e estofado. O tipo de anilheiro deve ser Olímpico ou Standard. As opções serão oferecidas ao montar a proposta e o pedido.</p>
+            <div className="grid gap-4 sm:grid-cols-2">{([["structureColors", "Cores da estrutura"], ["plateHolderColors", "Cores dos anilheiros"], ["plateHolderTypes", "Tipo de anilheiro"], ["upholsteryColors", "Cores do estofado"]] as const).filter(([field]) => field !== "upholsteryColors" || snapshot.data.upholsteryConfigurable !== false).map(([field, label]) => <label key={field} className="grid gap-2">{label}<textarea rows={field === "plateHolderTypes" ? 2 : 4} maxLength={1951} className="w-full min-w-0 rounded-lg border border-input bg-background p-3 text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder={field === "plateHolderTypes" ? "Olímpico\nStandard" : "Uma cor por linha"} /></label>)}</div>
           </fieldset>
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-8 rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid gap-5 sm:grid-cols-2">{([ ["name", "Nome do produto", 200], ["sku", "SKU", 80], ["unit", "Unidade", 6], ["basePrice", "Preço base (R$)", 15], ["ncm", "NCM (8 dígitos, opcional)", 8], ["cest", "CEST (7 dígitos, opcional)", 7] ] as const).map(([field, label, max]) => <label key={field} className="space-y-2">{label}<Input aria-label={label} inputMode={field === "basePrice" ? "decimal" : field === "ncm" || field === "cest" ? "numeric" : undefined} aria-describedby={field === "basePrice" ? "product-price-help" : undefined} value={draft[field] || ""} maxLength={max} required={field !== "ncm" && field !== "cest"} onChange={event => setDraft({ ...draft, [field]: event.target.value || (field === "ncm" || field === "cest" ? null : "") })} /></label>)}<label className="space-y-2">Situação<select className="block h-10 w-full rounded-lg border bg-background px-3" value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label></fieldset>
           <p id="product-price-help" className="text-sm text-muted-foreground">Use vírgula ou ponto, com até duas casas decimais. Exemplo: 12,50. Não use separador de milhar.</p>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
         {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.armColors?.length || snapshot.data.plateHolderColors?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Cores disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Braços", snapshot.data.armColors], ["Anilheiro", snapshot.data.plateHolderColors], ["Estofado", snapshot.data.upholsteryColors]] as const).filter(([label, colors]) => label !== "Estofado" || snapshot.data.upholsteryConfigurable !== false || !!colors?.length).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
+        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.plateHolderColors?.length || snapshot.data.plateHolderTypes?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Acabamentos disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Anilheiros", snapshot.data.plateHolderColors], ["Tipo de anilheiro", snapshot.data.plateHolderTypes], ["Estofado", snapshot.data.upholsteryColors]] as const).filter(([label, colors]) => label !== "Estofado" || snapshot.data.upholsteryConfigurable !== false || !!colors?.length).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
       </>}
     </section>
   </div>

@@ -15,7 +15,7 @@ async function LojasAccess() {
   const session = configured ? await currentSession() : null
   return <div className="mx-auto w-full min-w-0 max-w-5xl px-4 pb-24 pt-8 lg:px-6">
     <PageHeader eyebrow="Preferências / Integrações" title="Integração com Lojas" description="Gerencie as chaves de serviço da empresa ativa. Criar uma chave não configura automaticamente o Lojas." />
-    {session ? <ServiceKeys key={session.tenantId} tenantId={session.tenantId} /> : <p role="status">Entre para gerenciar integrações. <Link href="/entrar" className="text-primary underline">Entrar com Ávila Ops</Link></p>}
+    {session ? <ServiceKeys key={session.tenantId} tenantId={session.tenantId} /> : <p role="status">Entre para gerenciar integrações. <Link href="/entrar" className="text-primary underline">Entrar com Avila Ops</Link></p>}
   </div>
 }
 

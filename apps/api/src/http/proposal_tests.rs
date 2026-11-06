@@ -57,14 +57,70 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code LIKE 'sales.%' OR code LIKE 'catalog.%' ON CONFLICT DO NOTHING;
         INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES('11111111-2222-4333-8444-555555555555','11111111-1111-4111-8111-111111111111','fisica','Cliente de teste','52998224725',true,false,'active');
-        INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status,structure_colors,arm_colors,plate_holder_colors) VALUES('11111111-2222-4333-8444-666666666666','11111111-1111-4111-8111-111111111111','COMPONENT-TEST','Equipamento de teste','UN',1999,'active',ARRAY['Piano Black'],ARRAY['Azul','Preto'],ARRAY['Amarelo','Preto']);")
+        INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status,structure_colors,plate_holder_colors,plate_holder_types) VALUES('11111111-2222-4333-8444-666666666666','11111111-1111-4111-8111-111111111111','COMPONENT-TEST','Equipamento de teste','UN',1999,'active',ARRAY['Piano Black'],ARRAY['Azul','Preto'],ARRAY['Olímpico','Standard']);")
         .execute(&admin).await.unwrap();
+    let legacy_product = call(
+        &router,
+        "POST",
+        "/api/v1/products",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        json!({"sku":"LEGACY-ARM-COLORS","name":"Produto legado","unit":"UN","ncm":null,"cest":null,"basePrice":"10.00","status":"active","armColors":["Azul"],"plateHolderType":"olympic"}),
+    )
+    .await;
+    assert_eq!(
+        legacy_product.0,
+        StatusCode::CREATED,
+        "{}",
+        legacy_product.1
+    );
+    assert_eq!(
+        legacy_product.1["data"]["plateHolderColors"],
+        json!(["Azul"])
+    );
+    assert_eq!(
+        legacy_product.1["data"]["plateHolderTypes"],
+        json!(["Olímpico"])
+    );
+    assert_eq!(legacy_product.1["data"]["plateHolderType"], "olympic");
+    assert!(legacy_product.1["data"].get("armColors").is_none());
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/products",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            json!({"sku":"CONFLICTING-HOLDER-TYPE","name":"Produto divergente","unit":"UN","ncm":null,"cest":null,"basePrice":"10.00","status":"active","plateHolderType":"standard","plateHolderTypes":["Olímpico"]}),
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
     let mut input = proposal();
     input["items"][0]["structureColor"] = json!("Piano Black");
     input["items"][0]["armColor"] = json!("Azul");
-    input["items"][0]["plateHolderColor"] = json!("Amarelo");
+    input["items"][0]["plateHolderType"] = json!("Olímpico");
+    let mut conflicting = input.clone();
+    conflicting["items"][0]["plateHolderColor"] = json!("Preto");
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/proposals",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            conflicting
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
     let mut invalid = input.clone();
-    invalid["items"][0]["plateHolderColor"] = json!("Azul");
+    invalid["items"][0]["plateHolderType"] = json!("Cônico");
     assert_eq!(
         call(
             &router,
@@ -90,8 +146,9 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
     )
     .await;
     assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
-    assert_eq!(created.1["items"][0]["armColor"], "Azul");
-    assert_eq!(created.1["items"][0]["plateHolderColor"], "Amarelo");
+    assert_eq!(created.1["items"][0]["plateHolderColor"], "Azul");
+    assert_eq!(created.1["items"][0]["plateHolderType"], "Olímpico");
+    assert!(created.1["items"][0].get("armColor").is_none());
     assert!(created.1["items"][0]["upholsteryColor"].is_null());
     let url = format!(
         "/api/v1/proposals/{}",
@@ -111,7 +168,7 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
         assert_eq!(result.0, StatusCode::OK, "{}", result.1);
     }
     // A later catalog change must not rewrite the customer's agreed finish.
-    sqlx::query("UPDATE products SET arm_colors=ARRAY['Preto'],plate_holder_colors=ARRAY['Preto'] WHERE id=$1")
+    sqlx::query("UPDATE products SET plate_holder_colors=ARRAY['Preto'],plate_holder_types=ARRAY['Standard'] WHERE id=$1")
         .bind(Uuid::parse_str(PRODUCT).unwrap()).execute(&admin).await.unwrap();
     let converted = call(
         &router,
@@ -136,14 +193,14 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
     )
     .await;
     assert_eq!(order.0, StatusCode::OK, "{}", order.1);
-    assert_eq!(order.1["items"][0]["armColor"], "Azul");
-    assert_eq!(order.1["items"][0]["plateHolderColor"], "Amarelo");
+    assert_eq!(order.1["items"][0]["plateHolderColor"], "Azul");
+    assert_eq!(order.1["items"][0]["plateHolderType"], "Olímpico");
     assert_eq!(order.1["items"][0]["unitPrice"], "19.99");
     let edited = call(&router, "PUT", &format!("/api/v1/orders/{order_id}"), "editor", Some(1), Some(Uuid::now_v7()),
-        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3.000000"}]})).await;
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3.000000","armColor":"Azul"}]})).await;
     assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
-    assert_eq!(edited.1["items"][0]["armColor"], "Azul");
-    assert_eq!(edited.1["items"][0]["plateHolderColor"], "Amarelo");
+    assert_eq!(edited.1["items"][0]["plateHolderColor"], "Azul");
+    assert_eq!(edited.1["items"][0]["plateHolderType"], "Olímpico");
     super::company_tests::cleanup(&admin, application, server, &role).await;
 }
 

@@ -57,7 +57,7 @@ export function SystemPreferences() {
       <p className="text-sm text-muted-foreground">O tema é aplicado imediatamente e salvo somente neste navegador.</p>
       <fieldset><legend className="sr-only">Tema</legend><div className="grid gap-3 sm:grid-cols-4">
         {(["light", "dark", "system", "avila"] as const).map(value => <label className="flex min-h-11 items-center gap-3 rounded-xl border p-4 has-[:checked]:border-primary" key={value}>
-          <input type="radio" name="theme" checked={theme === value} onChange={() => setTheme(value)} />{value === "light" ? "Claro" : value === "dark" ? "Escuro" : value === "system" ? "Sistema" : "Ávila"}
+          <input type="radio" name="theme" checked={theme === value} onChange={() => setTheme(value)} />{value === "light" ? "Claro" : value === "dark" ? "Escuro" : value === "system" ? "Sistema" : "Avila"}
         </label>)}
       </div></fieldset>
     </section>

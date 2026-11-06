@@ -24,9 +24,9 @@ release="$ROOT/releases/$source_sha"
 cleanup() { rm -rf -- "$staging"; }
 trap cleanup EXIT
 
-tar --extract --gzip --no-same-owner --directory "$staging" \
-  --file - -- \
-  api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz compose.yaml fiscal-compose.yaml
+# Extract the complete stream first, then enforce the allow-list below. GNU tar
+# does not reliably match the selected names when the sender emits ./ prefixes.
+tar --extract --gzip --no-same-owner --directory "$staging" --file -
 
 for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz compose.yaml fiscal-compose.yaml; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"
@@ -45,6 +45,19 @@ if [[ -f "$previous_release/compose.json" ]]; then
   # Keep its private runtime configuration on the server and replace only the
   # three immutable image references.
   cp -p "$previous_release/compose.json" "$release/compose.json"
+  python3 - "$release/compose.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+target = Path(sys.argv[1])
+config = json.loads(target.read_text())
+config["services"]["fiscal-engine"]["healthcheck"]["test"] = ["CMD", "node", "scripts/healthcheck.mjs"]
+target.write_text(json.dumps(config, indent=2))
+PY
+  # The generated JSON carries the public release marker in the web
+  # environment; update it together with the immutable image references.
+  sed -i "s|\"ERP_RELEASE_SHA\": \"[0-9a-f]*\"|\"ERP_RELEASE_SHA\": \"$source_sha\"|g" "$release/compose.json"
   previous_api=$(docker inspect --format '{{.Config.Image}}' erp-next-api-1)
   previous_web=$(docker inspect --format '{{.Config.Image}}' erp-next-web-1)
   previous_fiscal=$(docker inspect --format '{{.Config.Image}}' erp-next-fiscal-engine-1)
@@ -60,6 +73,7 @@ if [[ -f "$previous_release/compose.json" ]]; then
   grep -q "erp-next-api:sha-$source_sha" "$release/compose.json" || fail 'API image was not pinned'
   grep -q "erp-next-web:sha-$source_sha" "$release/compose.json" || fail 'web image was not pinned'
   grep -q "erp-next-fiscal:sha-$source_sha" "$release/compose.json" || fail 'fiscal image was not pinned'
+  grep -q "\\\"ERP_RELEASE_SHA\\\": \\\"$source_sha\\\"" "$release/compose.json" || fail 'release SHA was not pinned'
   compose_file=compose.json
   compose_env_args=()
 else

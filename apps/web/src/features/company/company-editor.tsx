@@ -82,7 +82,7 @@ export function CompanyEditor({ partner = false }: { partner?: boolean }) {
   if (!snapshot) return <section className="form-section space-y-4" aria-live="polite">
     {status === "loading" ? <p role="status">Carregando dados da empresa…</p> : <>
       <p role="alert">{problem?.title || "Empresa indisponível"}</p>
-      {status === "unauthorized" ? <AccessLink className="font-medium text-primary underline" >Entrar com Ávila Ops</AccessLink> : <Button onClick={reload}>Tentar novamente</Button>}
+      {status === "unauthorized" ? <AccessLink className="font-medium text-primary underline" >Entrar com Avila Ops</AccessLink> : <Button onClick={reload}>Tentar novamente</Button>}
     </>}
   </section>
 

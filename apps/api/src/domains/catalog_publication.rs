@@ -23,6 +23,35 @@ pub struct MediaGateway {
     tenant: Uuid,
 }
 impl MediaGateway {
+    pub(super) async fn upload(
+        &self,
+        key: &str,
+        media_type: &str,
+        sha: &str,
+        bytes: Vec<u8>,
+    ) -> Result<(), DomainError> {
+        let path = key
+            .strip_prefix("ludus/catalogo/uploads/")
+            .ok_or(DomainError::Invalid("Localizador de imagem inválido"))?;
+        let result = self
+            .client
+            .put(format!("{}/midias/_upload/{path}", self.origin))
+            .bearer_auth(&self.token)
+            .header("Content-Type", media_type)
+            .header("X-Content-Sha256", sha)
+            .body(bytes)
+            .send()
+            .await
+            .map_err(|_| {
+                DomainError::Conflict("Envio não confirmado; a versão anterior foi preservada")
+            })?;
+        if !result.status().is_success() {
+            return Err(DomainError::Conflict(
+                "Não foi possível registrar a foto no R2",
+            ));
+        }
+        Ok(())
+    }
     pub fn from_env() -> anyhow::Result<Option<Self>> {
         let Ok(origin) = std::env::var("CATALOG_MEDIA_ORIGIN") else {
             return Ok(None);
@@ -68,6 +97,8 @@ pub struct CatalogProfileInput {
     pub weight: String,
     pub weight_stack: String,
     pub main_media_id: Uuid,
+    #[serde(default)]
+    pub new_image: Option<String>,
 }
 impl CatalogProfileInput {
     fn validate(&self) -> Result<(), DomainError> {
@@ -149,7 +180,7 @@ pub async fn put(
     Extension(identity): Extension<AuthenticatedIdentity>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-    Json(input): Json<CatalogProfileInput>,
+    Json(mut input): Json<CatalogProfileInput>,
 ) -> Result<Response, DomainError> {
     input.validate()?;
     let expected = revision(&headers)?;
@@ -162,6 +193,23 @@ pub async fn put(
         true,
     )
     .await?;
+    let current: Option<i64> = sqlx::query_scalar("SELECT revision FROM product_catalog_profiles WHERE tenant_id=$1 AND product_id=$2 FOR UPDATE").bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+    if current != Some(expected) {
+        return Err(DomainError::StaleRevision);
+    }
+    if let Some(image) = input.new_image.take() {
+        let gateway = MediaGateway::for_tenant(&state, tenant)?;
+        input.main_media_id = super::catalog_images::store(
+            &mut tx,
+            gateway,
+            tenant,
+            id,
+            &identity.subject,
+            &input.collection,
+            image,
+        )
+        .await?;
+    }
     if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND m.id=$3 AND m.variant IN ('webp','black','thumbnail') AND f.status='available')")
         .bind(tenant).bind(id).bind(input.main_media_id).fetch_one(&mut *tx).await.map_err(db)? { return Err(DomainError::Invalid("Selecione uma imagem de apresentação deste produto")); }
     let changed=sqlx::query("UPDATE product_catalog_profiles SET collection=$4,muscle_group=$5,technical_category=$6,dimensions_mm=$7,description=$8,weight=$9,weight_stack=$10,main_media_id=$11,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND product_id=$2 AND revision=$3")
@@ -186,7 +234,7 @@ pub async fn put(
     Ok(response(
         StatusCode::OK,
         Some(expected + 1),
-        json!({"saved":true,"revision":expected+1}),
+        json!({"saved":true,"revision":expected+1,"mainMediaId":input.main_media_id}),
     ))
 }
 #[utoipa::path(get,operation_id="catalog_media_get",path="/api/v1/products/{id}/media/{media_id}",tag="Catalog",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("media_id"=Uuid,Path)),responses((status=200,description="Imagem privada autorizada")))]

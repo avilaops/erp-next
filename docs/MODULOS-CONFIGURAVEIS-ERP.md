@@ -33,3 +33,10 @@ permissões específicas já adotadas pelo domínio fiscal.
 - Cancelamentos comerciais e fiscais permanecem fora dessa consulta.
 - A consulta exige `platform.audit.read` e nunca expõe detalhes, identificadores
   internos ou metadados privados da auditoria.
+- O Gerenciador de transições mantém definições versionadas por empresa. Apenas
+  rascunhos podem ser editados; versões publicadas são imutáveis e podem ser
+  arquivadas, sem reabertura.
+- Estados finais não aceitam transições de saída. Cada transição referencia uma
+  permissão existente e pode exigir motivo.
+- Essas definições são configuracionais: não substituem nem alteram as máquinas
+  de estado de vendas, fiscal, estoque, produção ou pagamentos.

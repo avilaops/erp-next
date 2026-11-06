@@ -29,10 +29,13 @@ pub struct ProposalItemInput {
     unit_price: Option<String>,
     structure_color: Option<String>,
     upholstery_color: Option<String>,
+    /// Campo legado: armColor representa a cor dos anilheiros.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     arm_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    plate_holder_type: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
@@ -44,6 +47,29 @@ pub struct ProposalInput {
     delivery_terms: String,
     notes: String,
     items: Vec<ProposalItemInput>,
+}
+
+impl ProposalInput {
+    fn normalize_legacy_component_colors(&mut self) -> Result<(), DomainError> {
+        for item in &mut self.items {
+            let Some(legacy) = item.arm_color.take() else {
+                continue;
+            };
+            if item
+                .plate_holder_color
+                .as_deref()
+                .is_some_and(|current| !current.trim().eq_ignore_ascii_case(legacy.trim()))
+            {
+                return Err(DomainError::Invalid(
+                    "Informe a cor dos anilheiros apenas em plateHolderColor",
+                ));
+            }
+            if item.plate_holder_color.is_none() {
+                item.plate_holder_color = Some(legacy);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(FromRow, Serialize, ToSchema)]
@@ -86,9 +112,9 @@ pub struct ProposalLine {
     structure_color: Option<String>,
     upholstery_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    arm_color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    plate_holder_type: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -150,7 +176,7 @@ async fn load_version(
     .await
     .map_err(db)?
     .ok_or(DomainError::NotFound)?;
-    let items = sqlx::query_as::<_, ProposalLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(catalog_price_cents::numeric/100)::numeric(16,2)::text AS catalog_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color,arm_color,plate_holder_color FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3 ORDER BY line_number")
+    let items = sqlx::query_as::<_, ProposalLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(catalog_price_cents::numeric/100)::numeric(16,2)::text AS catalog_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,upholstery_color,plate_holder_color,plate_holder_type FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3 ORDER BY line_number")
         .bind(tenant).bind(id).bind(data.version).fetch_all(&mut **tx).await.map_err(db)?;
     let versions = sqlx::query_as::<_, ProposalSummary>(&format!(
         "{SUMMARY} WHERE p.tenant_id=$1 AND p.id=$2 ORDER BY v.version DESC"
@@ -271,8 +297,8 @@ struct PreparedLine {
     amount: i64,
     structure_color: Option<String>,
     upholstery_color: Option<String>,
-    arm_color: Option<String>,
     plate_holder_color: Option<String>,
+    plate_holder_type: Option<String>,
 }
 
 #[utoipa::path(post,path="/api/v1/proposals/{id}/revise",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=ProposalSnapshot),(status=409,description="Revisão não permitida"),(status=412,description="Versão divergente")))]
@@ -326,7 +352,7 @@ pub async fn revise(
         .ok_or(DomainError::Conflict("Limite de versões atingido"))?;
     sqlx::query("INSERT INTO sales_proposal_versions(tenant_id,proposal_id,version,customer_id,customer_name,customer_tax_id,valid_until,payment_terms,delivery_terms,notes,amount_cents,created_by) SELECT tenant_id,proposal_id,$4,customer_id,customer_name,customer_tax_id,valid_until,payment_terms,delivery_terms,notes,amount_cents,$5 FROM sales_proposal_versions WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).bind(next_version).bind(&identity.subject).execute(&mut *tx).await.map_err(db)?;
-    sqlx::query("INSERT INTO sales_proposal_lines(tenant_id,proposal_id,version,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,arm_color,plate_holder_color) SELECT tenant_id,proposal_id,$4,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,arm_color,plate_holder_color FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
+    sqlx::query("INSERT INTO sales_proposal_lines(tenant_id,proposal_id,version,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,plate_holder_color,plate_holder_type) SELECT tenant_id,proposal_id,$4,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,plate_holder_color,plate_holder_type FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).bind(next_version).execute(&mut *tx).await.map_err(db)?;
     sqlx::query("UPDATE sales_proposal_versions SET status='superseded' WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).execute(&mut *tx).await.map_err(db)?;
@@ -420,7 +446,7 @@ pub async fn convert(
     let order = Uuid::now_v7();
     sqlx::query("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) SELECT $4,tenant_id,customer_id,customer_name,customer_tax_id,$5,amount_cents,'draft' FROM sales_proposal_versions WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).bind(order).bind(due).execute(&mut *tx).await.map_err(db)?;
-    sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color,arm_color,plate_holder_color) SELECT tenant_id,$4,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color,arm_color,plate_holder_color FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
+    sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color,plate_holder_color,plate_holder_type) SELECT tenant_id,$4,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,upholstery_color,plate_holder_color,plate_holder_type FROM sales_proposal_lines WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).bind(order).execute(&mut *tx).await.map_err(db)?;
     sqlx::query("UPDATE sales_proposals SET order_id=$3,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).bind(order).execute(&mut *tx).await.map_err(db)?;
@@ -576,8 +602,9 @@ async fn save_draft(
         StatusCode::CREATED
     };
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
-    let Json(input) =
+    let Json(mut input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
+    input.normalize_legacy_component_colors()?;
     let request = serde_json::json!({"id":existing_id,"revision":expected,"input":input});
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
     {
@@ -642,11 +669,6 @@ async fn save_draft(
             product.data.structure_colors.as_deref().unwrap_or_default(),
             saved.and_then(|line| line.structure_color.as_deref()),
         )?;
-        let arm_color = super::select_color(
-            item.arm_color.as_deref(),
-            product.data.arm_colors.as_deref().unwrap_or_default(),
-            saved.and_then(|line| line.arm_color.as_deref()),
-        )?;
         let plate_holder_color = super::select_color(
             item.plate_holder_color.as_deref(),
             product
@@ -655,6 +677,15 @@ async fn save_draft(
                 .as_deref()
                 .unwrap_or_default(),
             saved.and_then(|line| line.plate_holder_color.as_deref()),
+        )?;
+        let plate_holder_type = super::select_color(
+            item.plate_holder_type.as_deref(),
+            product
+                .data
+                .plate_holder_types
+                .as_deref()
+                .unwrap_or_default(),
+            saved.and_then(|line| line.plate_holder_type.as_deref()),
         )?;
         let upholstery_color = super::select_color(
             item.upholstery_color.as_deref(),
@@ -695,8 +726,8 @@ async fn save_draft(
             amount,
             structure_color,
             upholstery_color,
-            arm_color,
             plate_holder_color,
+            plate_holder_type,
         });
     }
     let total = rules::total(lines.iter().map(|line| line.amount))?;
@@ -738,8 +769,8 @@ async fn save_draft(
             .bind(tenant).bind(id).execute(&mut *tx).await.map_err(db)?;
     }
     for (index, line) in lines.iter().enumerate() {
-        sqlx::query("INSERT INTO sales_proposal_lines(tenant_id,proposal_id,version,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,arm_color,plate_holder_color) VALUES($1,$2,$13,$3,$4,$5,$6,$7,$8,$14,$9,$10,$11,$12,$15,$16)")
-            .bind(tenant).bind(id).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.upholstery_color).bind(version).bind(line.catalog_price).bind(&line.arm_color).bind(&line.plate_holder_color).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO sales_proposal_lines(tenant_id,proposal_id,version,line_number,product_id,sku,name,unit,quantity_micros,catalog_price_cents,price_cents,amount_cents,structure_color,upholstery_color,plate_holder_color,plate_holder_type) VALUES($1,$2,$13,$3,$4,$5,$6,$7,$8,$14,$9,$10,$11,$12,$15,$16)")
+            .bind(tenant).bind(id).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.upholstery_color).bind(version).bind(line.catalog_price).bind(&line.plate_holder_color).bind(&line.plate_holder_type).execute(&mut *tx).await.map_err(db)?;
     }
     record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "sales_proposal", id, event: if existing_id.is_some() { "proposal.updated" } else { "proposal.created" }, details: serde_json::json!({"revision":new_revision,"version":version,"amount":decimal(total,2),"items":lines.len()}) }).await?;
     let value = serde_json::to_value(load(&mut tx, tenant, id, true).await?)

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -131,6 +131,23 @@ test('context file reads reject traversal and private environment files', async 
   for (const invalid of ['../outside.json', '/outside.json', 'src/../../outside.json', '.env', 'src/.env.json', 'src/.env.rb', 'src/../../outside.rb', 'src\\module.ts']) {
     await assert.rejects(() => readContextFile(directory, invalid), /arquivo de fonte relativo/);
   }
+});
+
+test('context file reads reject symlinked source files', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'erp-context-symlink-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(path.join(directory, 'src'));
+  await writeFile(path.join(directory, 'outside.rb'), 'class Outside; end');
+  try {
+    await symlink(path.join(directory, 'outside.rb'), path.join(directory, 'src', 'controller.rb'));
+  } catch (error) {
+    if (['EACCES', 'EPERM'].includes(error.code)) {
+      t.skip('O ambiente não permite criar symlink para o teste');
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(() => readContextFile(directory, 'src/controller.rb'), /Referência indireta ou inválida/);
 });
 
 test('artifact retries preserve identical bytes and refuse to overwrite a different existing file', async t => {

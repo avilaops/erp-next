@@ -1,0 +1,104 @@
+name: Update eligible PR branches
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: update-pr-branches-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update internal, ready PRs and surface merge conflicts
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const conflictLabel = 'merge-conflict';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function ensureConflictLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: conflictLabel });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: conflictLabel,
+                  color: 'd73a4a',
+                  description: 'PR requires a semantic conflict resolution before it can merge.',
+                });
+              }
+            }
+
+            async function markConflict(pr) {
+              await ensureConflictLabel();
+              const labels = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: pr.number });
+              if (!labels.data.some(label => label.name === conflictLabel)) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [conflictLabel] });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: 'A atualização automática com `main` encontrou conflito. Esta PR foi bloqueada para resolução semântica; o robô não escolhe entre regras concorrentes.',
+                });
+              }
+            }
+
+            async function clearConflict(pr) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name: conflictLabel });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+
+            const pullRequests = context.eventName === 'pull_request_target'
+              ? [context.payload.pull_request]
+              : await github.paginate(github.rest.pulls.list, {
+                  owner,
+                  repo,
+                  state: 'open',
+                  base: 'main',
+                  per_page: 100,
+                });
+
+            for (const pullRequest of pullRequests) {
+              if (pullRequest.draft || pullRequest.base.ref !== 'main' || pullRequest.head.repo?.full_name !== `${owner}/${repo}`) continue;
+              const pr = await github.rest.pulls.get({ owner, repo, pull_number: pullRequest.number });
+              if (pr.data.mergeable_state === 'dirty') {
+                await markConflict(pr.data);
+                continue;
+              }
+              if (pr.data.mergeable_state !== 'behind') {
+                await clearConflict(pr.data);
+                continue;
+              }
+              try {
+                await github.rest.pulls.updateBranch({
+                  owner,
+                  repo,
+                  pull_number: pr.data.number,
+                  expected_head_sha: pr.data.head.sha,
+                });
+                await clearConflict(pr.data);
+              } catch (error) {
+                if (error.status !== 422) throw error;
+                const refreshed = await github.rest.pulls.get({ owner, repo, pull_number: pr.data.number });
+                if (refreshed.data.mergeable_state === 'dirty') await markConflict(refreshed.data);
+                else core.warning(`PR #${pr.data.number} was not updated: ${error.message}`);
+              }
+            }

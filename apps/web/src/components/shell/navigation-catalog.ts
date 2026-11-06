@@ -16,7 +16,7 @@ export const desktopMenus = [
   {
     label: "Vendas",
     columns: [
-      { title: "Operação", items: [{ label: "Simulador de preços", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
+      { title: "Operação", items: [{ label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
       { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/vendas/relatorios" }] },
       { title: "Documentos fiscais", items: [{ label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }] },
     ],
@@ -70,6 +70,7 @@ export const preferenceGroups = [
   ] },
   { label: "Operação", items: [
     { label: "Parâmetros comerciais", href: "/preferencias/comercial" },
+    { label: "Regras de aprovação comercial", href: "/preferencias/aprovacao-comercial" },
     { label: "Despesas fixas", href: "/preferencias/despesas-fixas" },
     { label: "Tabela de preços", href: "/preferencias/tabela-precos" },
     { label: "Configurações financeiras", href: "/preferencias/financeiro" },

@@ -151,6 +151,8 @@ jobs:
       - name: Grant published price storage to the existing runtime role
         if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-price-tables.sql
+      - name: Grant commercial negotiation storage to the existing runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-commercial-negotiation.sql
       - name: Grant commercial order numbering to the existing runtime role
         if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-order-numbers.sql

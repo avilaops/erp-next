@@ -86,7 +86,13 @@ export function CompanySignup() {
         setCreated(tenantId)
       }
       const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
-      if (!selected.ok) throw new Error("Empresa cadastrada. Acesse Suas empresas para selecioná-la")
+      const selectedResult = await selected.json().catch(() => ({})) as { title?: string }
+      if (!selected.ok) {
+        const selectionFailure = [401, 403, 503].includes(selected.status)
+          ? companySelectionError(selected.status, selectedResult.title)
+          : selectedResult.title || "Empresa cadastrada. Acesse Suas empresas para selecioná-la"
+        throw new Error(selectionFailure)
+      }
       router.push(returnTo)
       router.refresh()
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }

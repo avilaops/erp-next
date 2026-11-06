@@ -446,6 +446,20 @@ test("company signup keeps input and command key after an ambiguous failure, the
   expect(await page.content()).not.toContain("onboarding-fixture-token")
 })
 
+test("company signup exposes selection expiration after creation and keeps the created company recoverable", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/cadastro/empresa")
+  for (const [label, value] of [["Nome empresarial", "Empresa de seleção"], ["CPF ou CNPJ", "12ABC34501DE35"], ["CEP", "01001000"], ["Cidade", "São Paulo"], ["Rua", "Praça"], ["Número", "1"], ["Bairro", "Centro"]]) await page.getByLabel(label, { exact: true }).fill(value)
+  await page.getByLabel("Regime tributário").selectOption("simples")
+  await page.getByLabel("UF", { exact: true }).selectOption("SP")
+  await page.getByLabel("Segmento", { exact: true }).selectOption("Serviços")
+  await page.route("**/api/auth/company", async route => route.fulfill({ status: 401, json: { title: "Entre novamente" } }))
+  await page.getByRole("button", { name: "Cadastrar empresa", exact: true }).click()
+  await expect(page.getByRole("status")).toContainText("Sua sessão expirou. Entre novamente para continuar.")
+  await expect(page.getByRole("button", { name: "Acessar empresa cadastrada", exact: true })).toBeVisible()
+  await page.unroute("**/api/auth/company")
+})
+
 test("signup requires a session and picker exposes only the companies returned by the verified API", async ({ page, context }) => {
   await page.goto("/cadastro/empresa")
   await page.waitForURL("**/entrar?*")

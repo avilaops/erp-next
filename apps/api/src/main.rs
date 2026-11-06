@@ -1,6 +1,7 @@
 mod config;
 mod domains;
 mod http;
+mod mcp;
 mod platform;
 
 use anyhow::Context;

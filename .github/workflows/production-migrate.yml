@@ -87,6 +87,8 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
       - name: Grant system configuration storage to the runtime role
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-system-configuration.sql
+      - name: Grant OAuth issuer storage to the runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-mcp-oauth.sql
       - name: Grant invitation storage to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_invitations TO erp_next_app'

@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { WarrantyDetail } from "@/features/sales/sales-details";
+import { WarrantyDetail } from "@/features/sales/warranty-workspace";
 
 export function generateStaticParams() { return [{ id: "gar-091" }]; }
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {

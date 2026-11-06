@@ -37,6 +37,9 @@ pub struct OrderItemInput {
     quantity: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
+    /// Campo legado: armColor representa a cor dos anilheiros.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    arm_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -89,6 +92,7 @@ pub struct OrderLine {
 pub struct OrderSnapshot {
     tenant_id: Uuid,
     can_edit: bool,
+    pricing_origin: bool,
     data: OrderSummary,
     items: Vec<OrderLine>,
 }
@@ -203,9 +207,18 @@ async fn load(
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+    let pricing_origin: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
     Ok(OrderSnapshot {
         tenant_id: tenant,
         can_edit,
+        pricing_origin,
         data,
         items,
     })
@@ -344,6 +357,20 @@ fn select_color(
         ))
 }
 
+fn legacy_plate_holder_color(
+    plate_holder_color: Option<&str>,
+    arm_color: Option<&str>,
+) -> Result<Option<&str>, DomainError> {
+    if let (Some(current), Some(legacy)) = (plate_holder_color, arm_color) {
+        if !current.trim().eq_ignore_ascii_case(legacy.trim()) {
+            return Err(DomainError::Invalid(
+                "Informe a cor dos anilheiros apenas em plateHolderColor",
+            ));
+        }
+    }
+    Ok(plate_holder_color.or(arm_color))
+}
+
 struct PreparedOrder {
     customer_name: String,
     customer_tax_id: String,
@@ -415,7 +442,10 @@ async fn prepare_order(
             saved.and_then(|line| line.structure_color.as_deref()),
         )?;
         let plate_holder_color = select_color(
-            item.plate_holder_color.as_deref(),
+            legacy_plate_holder_color(
+                item.plate_holder_color.as_deref(),
+                item.arm_color.as_deref(),
+            )?,
             product
                 .data
                 .plate_holder_colors

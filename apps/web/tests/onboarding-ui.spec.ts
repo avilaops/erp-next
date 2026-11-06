@@ -417,6 +417,14 @@ test("OIDC callback rejects a preselected suspended company", async ({ page }) =
   await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "denied")
 })
 
+test("OIDC callback opens an active preselected company directly", async ({ page, context }) => {
+  companyCount = 1; redirectAuthorization = true
+  await page.goto("/api/auth/login?" + new URLSearchParams({ returnTo: "/preferencias/empresa/dados", tenant }))
+  await expect(page).toHaveURL(origin + "/preferencias/empresa/dados")
+  const stored = (await context.cookies()).find(item => item.name === "erp_session")!
+  expect(session(stored.value).tenantId).toBe(tenant)
+})
+
 test("company selection rejects non-JSON and malformed bodies before forwarding tenant input", async ({ context }) => {
   await context.addCookies([cookie(null)])
   const nonJson = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "text/plain" }, data: JSON.stringify({ tenantId: tenant }) })

@@ -66,7 +66,12 @@ async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool)
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&body)
+    );
     let payload: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(payload["total"], 1);
     assert_eq!(payload["data"][0]["origin"], "system");

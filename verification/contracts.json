@@ -1415,6 +1415,41 @@
             "externalSystems": []
           }
         ]
+      },
+      {
+        "id": "commercial-negotiation",
+        "title": "Negociação comercial antes do pedido",
+        "goal": "Consultar a tabela publicada, simular no servidor e preservar condições e aprovação no pedido.",
+        "kind": "product",
+        "actionGroups": [
+          "commercial-negotiation"
+        ],
+        "dependencies": [
+          "price-tables",
+          "orders"
+        ],
+        "nextStep": "Validar CI, migração e comportamento autenticado; catálogo não comprova implantação.",
+        "additionalSources": [
+          "docs/AVL-432-IMPLEMENTACAO.md"
+        ]
+      },
+      {
+        "id": "sales-opportunities",
+        "title": "Funil comercial e oportunidades",
+        "goal": "Registrar oportunidade antes do cliente definitivo e vinculá-la uma única vez ao pedido comercial calculado.",
+        "kind": "product",
+        "actionGroups": [
+          "sales-opportunities"
+        ],
+        "dependencies": [
+          "orders",
+          "commercial-negotiation",
+          "registry-lookups"
+        ],
+        "nextStep": "Validar migração, CI e jornada autenticada; o catálogo não comprova implantação.",
+        "additionalSources": [
+          "docs/AVL-432-IMPLEMENTACAO.md"
+        ]
       }
     ]
   },

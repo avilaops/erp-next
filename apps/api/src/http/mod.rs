@@ -25,6 +25,8 @@ mod custom_reports_tests;
 #[cfg(test)]
 mod danfe_tests;
 #[cfg(test)]
+mod dashboard_tests;
+#[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
 mod emission_tests;
@@ -32,6 +34,8 @@ mod emission_tests;
 mod files_tests;
 #[cfg(test)]
 mod financial_settings_tests;
+#[cfg(test)]
+mod fiscal_preferences_tests;
 #[cfg(test)]
 mod fiscal_tests;
 mod health;
@@ -78,6 +82,8 @@ mod registry_tests;
 mod returns_tests;
 #[cfg(test)]
 mod sales_settings_tests;
+#[cfg(test)]
+mod simulator_tests;
 #[cfg(test)]
 mod staff_tests;
 #[cfg(test)]
@@ -158,6 +164,26 @@ pub fn router(state: AppState) -> Router {
             get(crate::platform::product_costs::get).put(crate::platform::product_costs::put),
         )
         .route(
+            "/api/v1/sales-simulator/{line}",
+            get(crate::domains::sales::pricing::options),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/quote",
+            post(crate::domains::sales::pricing::quote),
+        )
+        .route(
+            "/api/v1/sales-simulator/{line}/orders",
+            post(crate::domains::sales::pricing_orders::create),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing",
+            get(crate::domains::sales::pricing_orders::get),
+        )
+        .route(
+            "/api/v1/orders/{id}/pricing/approve",
+            post(crate::domains::sales::pricing_orders::approve),
+        )
+        .route(
             "/api/v1/price-tables/{line}",
             get(crate::platform::price_tables::current),
         )
@@ -177,6 +203,7 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::finance::settings::get).put(crate::domains::finance::settings::put),
         )
         .route("/api/v1/audit", get(crate::platform::audit::list))
+        .route("/api/v1/dashboard", get(crate::domains::dashboard::get))
         .route(
             "/api/v1/system/custom-fields",
             get(crate::platform::custom_fields::list).post(crate::platform::custom_fields::create),
@@ -282,6 +309,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(payables::reverse),
         )
         .route(
+            "/api/v1/company-registration/lookup",
+            post(crate::domains::registry_lookup::lookup_registration),
+        )
+        .route(
             "/api/v1/companies",
             get(onboarding::list).post(onboarding::create),
         )
@@ -372,6 +403,21 @@ pub fn router(state: AppState) -> Router {
             get(parties::get).put(parties::update),
         )
         .route("/api/v1/products", get(catalog::list).post(catalog::create))
+        .route(
+            "/api/v1/products/{id}/catalog",
+            get(crate::domains::catalog_publication::get)
+                .put(crate::domains::catalog_publication::put)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
+        )
+        .route(
+            "/api/v1/products/{id}/media/{media_id}",
+            get(crate::domains::catalog_publication::media),
+        )
+        .route(
+            "/api/v1/catalog-publication",
+            get(crate::domains::catalog_publication::preview)
+                .post(crate::domains::catalog_publication::publish),
+        )
         .route(
             "/api/v1/products/{id}",
             get(catalog::get).put(catalog::update),

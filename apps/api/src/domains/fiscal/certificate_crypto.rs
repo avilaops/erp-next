@@ -151,6 +151,57 @@ pub struct SealedCertificate {
 }
 
 impl CertificateVault {
+    /// Independent associated data prevents exchanging a CSC between companies,
+    /// environments or configuration revisions, or treating it as an A1 archive.
+    pub fn seal_settings_secret(
+        &self,
+        context: &str,
+        plaintext: &[u8],
+    ) -> anyhow::Result<SealedCertificate> {
+        let cipher = Aes256Gcm::new_from_slice(&self.keys[&self.active])
+            .map_err(|_| anyhow::anyhow!("Encryption unavailable"))?;
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let ciphertext = cipher
+            .encrypt(
+                &nonce,
+                Payload {
+                    msg: plaintext,
+                    aad: context.as_bytes(),
+                },
+            )
+            .map_err(|_| anyhow::anyhow!("Fiscal secret encryption failed"))?;
+        Ok(SealedCertificate {
+            key_id: self.active.clone(),
+            nonce: nonce.to_vec(),
+            ciphertext,
+        })
+    }
+
+    pub fn open_settings_secret(
+        &self,
+        context: &str,
+        sealed: &SealedCertificate,
+    ) -> anyhow::Result<Zeroizing<Vec<u8>>> {
+        anyhow::ensure!(sealed.nonce.len() == 12, "Invalid fiscal secret");
+        let key = self
+            .keys
+            .get(&sealed.key_id)
+            .ok_or_else(|| anyhow::anyhow!("Fiscal encryption key unavailable"))?;
+        let cipher = Aes256Gcm::new_from_slice(key)
+            .map_err(|_| anyhow::anyhow!("Decryption unavailable"))?;
+        Ok(Zeroizing::new(
+            cipher
+                .decrypt(
+                    Nonce::from_slice(&sealed.nonce),
+                    Payload {
+                        msg: &sealed.ciphertext,
+                        aad: context.as_bytes(),
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("Fiscal secret authentication failed"))?,
+        ))
+    }
+
     pub fn from_env() -> anyhow::Result<Option<Arc<Self>>> {
         let keyring = std::env::var("FISCAL_A1_KEYRING")
             .ok()

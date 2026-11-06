@@ -92,7 +92,7 @@ function ibptSubmission(selection: IbptDraftSelection, count: number): Schema<"I
 
 export const blockerLabels: Record<string, string> = {
   fiscal_engine_not_configured: "O motor fiscal ainda não foi configurado",
-  homologation_emission_requires_sp: "Emissão em homologação disponível para emitente de São Paulo",
+  homologation_emission_requires_sp: "Emissão disponível para emitente de São Paulo",
   homologation_emission_requires_supported_tax_rule_scope: "O regime fiscal da empresa exige regras além do recorte disponível",
   tax_rule_scope: "A classificação exige regras fiscais além do recorte disponível",
   payments_required: "Informe as formas de pagamento declaradas na NF-e",

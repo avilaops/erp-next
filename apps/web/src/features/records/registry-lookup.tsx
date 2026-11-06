@@ -4,33 +4,46 @@ import { useEffect, useRef, useState } from "react"
 import type { Schema } from "@/lib/api/types"
 import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
+import { validCnpj } from "./automatic-cnpj"
 
 type Reply = Schema<"LookupReply">
 type Kind = Schema<"LookupKind">
 type Context = Schema<"LookupContext">
-const labels: Record<string, string> = { postalCode: "CEP", state: "UF", city: "Cidade", street: "Rua", district: "Bairro", legalName: "Razão social", tradeName: "Nome fantasia", number: "Número", complement: "Complemento", cnae: "CNAE", activityDescription: "Atividade", stateRegistration: "Inscrição estadual" }
+const labels: Record<string, string> = { postalCode: "CEP", state: "UF", city: "Cidade", street: "Rua", district: "Bairro", legalName: "Razão social", tradeName: "Nome fantasia", number: "Número", complement: "Complemento", cnae: "CNAE", activityDescription: "Atividade", stateRegistration: "Inscrição estadual", companySize: "Porte", taxRegime: "Regime informado pela fonte", email: "E-mail", phone: "Telefone" }
 const normalized = (value: string) => value.trim().replace(/[.\s/-]/g, "").toUpperCase()
 const date = (value: string) => Number.isNaN(Date.parse(value)) ? "Data não informada" : new Date(value).toLocaleString("pt-BR")
 
-export function RegistryLookup({ kind, context, tenantId, readValue, readState, onApply, disabled = false }: {
+export function RegistryLookup({ kind, context, tenantId, readValue, readState, onApply, disabled = false, automaticValue }: {
   kind: Kind; context: Context; tenantId: string; readValue: () => string; readState?: () => string;
-  onApply: (fields: Record<string, string>) => number; disabled?: boolean;
+  onApply: (fields: Record<string, string>) => number; disabled?: boolean; automaticValue?: string;
 }) {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<{ reply: Reply; key: string } | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const active = useRef<AbortController | null>(null)
+  const lookupAction = useRef<(automatic: boolean) => Promise<void>>(async () => {})
   const current = useRef({ readValue, readState, onApply, disabled, tenantId })
   useEffect(() => { current.current = { readValue, readState, onApply, disabled, tenantId } })
   useEffect(() => () => active.current?.abort(), [])
   const label = kind === "cep" ? "CEP" : kind === "ie" ? "IE" : "CNPJ"
+  const automaticDocument = automaticValue === undefined ? null : normalized(automaticValue)
+  useEffect(() => { lookupAction.current = lookup })
+  useEffect(() => {
+    if (automaticDocument === null || disabled || kind !== "cnpj") return
+    const valid = validCnpj(automaticDocument)
+    const timer = setTimeout(() => {
+      setResult(null); setMessage(""); setError("")
+      if (valid) void lookupAction.current(true)
+    }, valid ? 600 : 0)
+    return () => { clearTimeout(timer); active.current?.abort() }
+  }, [automaticDocument, disabled, kind, context, tenantId])
 
   function key() {
     return JSON.stringify([kind, context, current.current.tenantId, normalized(current.current.readValue()), kind === "ie" ? current.current.readState?.().toUpperCase() : null])
   }
 
-  async function lookup() {
+  async function lookup(automatic = false) {
     if (current.current.disabled || active.current) return
     const value = current.current.readValue()
     if (!value.trim()) { setError(`Informe ${label === "IE" ? "o CNPJ e a UF" : `o ${label}`} antes de consultar`); return }
@@ -53,7 +66,9 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
         setMessage(reply.warnings?.join(" ") || "Sem resultado disponível. Continue manualmente"); return
       }
       if (!reply.source || !reply.expiresAt || !Number.isFinite(Date.parse(reply.expiresAt))) throw new Error("Prévia sem origem ou validade. Continue manualmente")
-      setResult({ reply, key: captured })
+      const preview = { reply, key: captured }
+      if (automatic) await applyPreview(reply.data.fields, preview, controller)
+      else setResult(preview)
     } catch (reason) {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Consulta indisponível. Continue manualmente")
     } finally { if (active.current === controller) { active.current = null; setPending(false) } }
@@ -61,8 +76,17 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
 
   async function apply(fields: Record<string, string>) {
     if (!result || current.current.disabled || active.current) return
-    const preview = result
+    const controller = new AbortController()
+    active.current = controller
+    setPending(true); setError("")
+    try { await applyPreview(fields, result, controller) }
+    catch { if (!controller.signal.aborted) setError("Não foi possível conferir a empresa da sessão. Recarregue antes de preencher; seus campos foram preservados") }
+    finally { if (active.current === controller) { active.current = null; setPending(false) } }
+  }
+
+  async function applyPreview(fields: Record<string, string>, preview: { reply: Reply; key: string }, controller: AbortController) {
     function validPreview() {
+      if (controller.signal.aborted || current.current.disabled) return false
       if (key() !== preview.key || preview.reply.tenantId !== current.current.tenantId) {
         setResult(null); setMessage("O documento, CEP ou empresa mudou. Consulte novamente; os campos foram preservados"); return false
       }
@@ -72,30 +96,22 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
       return true
     }
     if (!validPreview()) return
-    const controller = new AbortController()
-    active.current = controller
-    setPending(true); setError("")
-    try {
-      // Another tab can replace the shared session cookie without changing this form's props.
-      const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
-      const session: Schema<"CurrentAccessResponse"> = await response.json()
-      if (!response.ok || session?.tenant?.id !== preview.reply.tenantId) {
-        setResult(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
-      }
-      if (current.current.disabled || !validPreview()) return
-      const count = current.current.onApply(Object.fromEntries(Object.entries(fields).filter(([field, value]) => labels[field] && typeof value === "string" && value.trim())))
-      setResult(null); setMessage(count ? "Campos vazios preenchidos. Dados já informados foram preservados; revise antes de salvar" : "Nenhum campo vazio para preencher. Seus dados foram preservados")
-    } catch {
-      if (!controller.signal.aborted) setError("Não foi possível conferir a empresa da sessão. Recarregue antes de preencher; seus campos foram preservados")
-    } finally {
-      if (active.current === controller) { active.current = null; setPending(false) }
+    // Another tab can replace the shared session cookie without changing this form's props.
+    const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
+    const session: Schema<"CurrentAccessResponse"> = await response.json()
+    if (!response.ok || session?.tenant?.id !== preview.reply.tenantId) {
+      setResult(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
     }
+    if (current.current.disabled || !validPreview()) return
+    const count = current.current.onApply(Object.fromEntries(Object.entries(fields).filter(([field, value]) => labels[field] && typeof value === "string" && value.trim())))
+    const origin = automaticDocument === null ? "" : ` Fonte: ${preview.reply.source}. Atualização: ${preview.reply.sourceUpdatedAt ? date(preview.reply.sourceUpdatedAt) : "não informada"}. ${preview.reply.warnings.join(" ")}`
+    setResult(null); setMessage((count ? "Campos vazios preenchidos. Dados já informados foram preservados; revise antes de salvar" : "Nenhum campo vazio para preencher. Seus dados foram preservados") + origin)
   }
 
   return <div className="col-span-full min-w-0 space-y-3 rounded-lg border border-border p-3">
     <div className="flex flex-wrap items-center gap-3">
-      <Button type="button" variant="outline" disabled={disabled || pending} onClick={lookup}>{pending ? `Consultando ${label}…` : `Consultar ${label}`}</Button>
-      <p className="min-w-0 text-sm text-muted-foreground">{kind === "ie" ? "Consulta cadastral não determina a condição de contribuinte." : "Confira a prévia para preencher somente campos vazios."} Você pode preencher manualmente.</p>
+      <Button type="button" variant="outline" disabled={disabled || pending} onClick={() => lookup(automaticDocument !== null)}>{pending ? `Consultando ${label}…` : `Consultar ${label}`}</Button>
+      <p className="min-w-0 text-sm text-muted-foreground">{automaticDocument !== null ? "O CNPJ válido preenche automaticamente dados disponíveis em campos vazios." : kind === "ie" ? "Consulta cadastral não determina a condição de contribuinte." : "Confira a prévia para preencher somente campos vazios."} Você pode preencher manualmente.</p>
     </div>
     {pending && <p role="status">Conferindo os dados da consulta de {label}…</p>}
     {error && <p role="alert" className="break-words text-sm text-destructive">{error}</p>}

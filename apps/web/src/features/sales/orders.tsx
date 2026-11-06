@@ -12,7 +12,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
@@ -21,15 +21,16 @@ import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
 import { commercialMoney, commercialQuantity, orderNumber } from "./order-presentation"
+import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 
-type Detail = Schema<"OrderSnapshot">
+type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean }
 type Listing = Schema<"OrderList">
-export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; hasPhoto?: boolean }
-type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string }
+export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[]; hasPhoto?: boolean }
+type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 
-export function ColorChoice({ label, options = [], value, onChange, catalog }: { label: string; options?: string[]; value: string; onChange: (value: string) => void; catalog?: { productId: string; tenantId: string; field: "structureColors" | "upholsteryColors" } }) {
+export function ColorChoice({ label, options = [], value, onChange, catalog }: { label: string; options?: string[]; value: string; onChange: (value: string) => void; catalog?: { productId: string; tenantId: string; field: "structureColors" | "upholsteryColors" | "plateHolderColors" | "plateHolderTypes" } }) {
   const id = useId()
   const [refreshed, setRefreshed] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -149,6 +150,7 @@ function OrderEditor({ id }: { id?: string }) {
   if (access.loading) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><p role="status">Carregando rascunho e permissões…</p></>
   if (access.error || !access.value) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><Link className={linkClass} href="/vendas/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section></>
   const initial = "items" in access.value ? access.value : undefined
+  if (initial?.pricingOrigin) return <><PageHeader eyebrow="Vendas" title="Condições preservadas" description="Este pedido mantém os itens e preços da simulação publicada." /><Link className={linkClass} href={`/vendas/pedidos/${initial.data.id}`}>Consultar pedido e condições</Link></>
   if (!access.value.canEdit || (initial && initial.data.status !== "draft")) {
     return <><PageHeader eyebrow="Vendas" title="Edição do pedido" description="Alterações são permitidas somente em rascunhos com autorização de gestão." /><section className="form-section space-y-3"><p role="status">{!access.value.canEdit ? "Somente consulta. Solicite permissão para alterar pedidos." : "Este pedido não está em rascunho e não pode ser editado."}</p><Link className={linkClass} href={id ? `/vendas/pedidos/${id}` : "/vendas/pedidos"}>Voltar aos pedidos</Link></section></>
   }
@@ -160,7 +162,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
   const command = useCommand()
   const originalCustomer: Choice | null = initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null
   const [customer, setCustomer] = useState<Choice | null>(originalCustomer)
-  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "" })) || [])
+  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "", plateHolderColor: item.plateHolderColor || "", plateHolderType: item.plateHolderType || "" })) || [])
   const [dueDate, setDueDate] = useState(initial?.data.dueDate || "")
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
@@ -172,7 +174,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
       const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const value = await response.json()
       if (!response.ok || value.tenantId !== tenantId) throw new Error("Não foi possível consultar as opções de cores. As escolhas registradas foram mantidas; recarregue para alterar o acabamento.")
-      return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], hasPhoto: value.data.hasPhoto }
+      return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryConfigurable: value.data.upholsteryConfigurable, upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], hasPhoto: value.data.hasPhoto }
     })).then(products => {
       if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) })))
     }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar cores") })
@@ -189,20 +191,20 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade no item existente."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
-          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "" }]); setDirty(true); setError("")
+          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
         }} /></div>
         <OrderSalesRules tenantId={tenantId} />
         <p className="break-words">Cliente selecionado: {customer?.legalName || "Nenhum"}</p>
         <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
-          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, upholsteryColor: item.upholsteryColor })) }, initial ? etag : "", initial ? "PUT" : "POST")
+          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, upholsteryColor: item.upholsteryColor, plateHolderColor: item.plateHolderColor, plateHolderType: item.plateHolderType })) }, initial ? etag : "", initial ? "PUT" : "POST")
           if (value) { setDirty(false); router.replace(`/vendas/pedidos/${value.data.id}`) }
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
             {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "—"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
-              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor do estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} /></div>
+              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />{item.upholsteryConfigurable !== false && <ColorChoice label={`Cor do estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}</div>
               <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
@@ -234,11 +236,13 @@ function OrderDetail({ id }: { id: string }) {
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
         {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
+        {value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} />}
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
+        {value.canEdit && value.data.status !== "cancelled" && <div className="space-y-2 rounded-xl border border-primary/30 p-4"><Link className={buttonVariants()} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link><p className="text-sm text-muted-foreground">Confira o documento e os destinatários. O resumo do pedido e o link de assinatura seguem no mesmo e-mail.</p></div>}
         {access.value?.permissions.includes("finance.commissions.read") && <OrderCommissionTerms orderId={id} onSaved={result.reload} />}
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
-        {value.data.status === "draft" && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
-        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {commercialQuantity(item.quantity)} {item.unit}</p><p className="break-words text-sm">Unitário: {commercialMoney(item.unitPrice)}</p><p className="break-words text-sm">Total do item: {commercialMoney(item.amount)}</p></li>)}</ul>
+        {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
+        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.plateHolderColor && <p className="break-words text-sm">Anilheiros: {item.plateHolderColor}</p>}{item.plateHolderType && <p className="break-words text-sm">Tipo de anilheiro: {item.plateHolderType}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {commercialQuantity(item.quantity)} {item.unit}</p><p className="break-words text-sm">Unitário: {commercialMoney(item.unitPrice)}</p><p className="break-words text-sm">Total do item: {commercialMoney(item.amount)}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}

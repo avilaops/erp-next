@@ -40,11 +40,20 @@ pub struct ContractDetail {
     pub email_ready: bool,
     pub data: Contract,
     pub files: Vec<ContractFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<ContractEmail>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+pub struct ContractEmail {
+    pub subject: String,
+    pub text: String,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractOrderContext {
     pub id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
     pub revision: i64,
     pub status: String,
     pub due_date: String,
@@ -75,6 +84,8 @@ pub struct ContractContextItem {
     pub amount: String,
     pub structure_color: Option<String>,
     pub upholstery_color: Option<String>,
+    pub plate_holder_color: Option<String>,
+    pub plate_holder_type: Option<String>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +94,18 @@ pub struct ContractContext {
     pub company: ContractCompanyContext,
     pub customer: ContractCustomerContext,
     pub items: Vec<ContractContextItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<ContractProposalContext>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractProposalContext {
+    pub id: Uuid,
+    pub number: String,
+    pub version: i32,
+    pub payment_terms: String,
+    pub delivery_terms: String,
+    pub notes: String,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

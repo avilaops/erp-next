@@ -91,12 +91,15 @@ pub async fn snapshot(
 ) -> Result<Value, DomainError> {
     sqlx::query_scalar(r#"
         SELECT jsonb_build_object(
-            'order',jsonb_build_object('id',o.id,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
+            'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
             'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
+            'proposal',(SELECT jsonb_build_object('id',sp.id,'number',sp.number::text,'version',v.version,'paymentTerms',v.payment_terms,'deliveryTerms',v.delivery_terms,'notes',v.notes)
+                FROM sales_proposals sp JOIN sales_proposal_versions v ON v.tenant_id=sp.tenant_id AND v.proposal_id=sp.id AND v.version=sp.current_version
+                WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
-                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color))
+                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color,'plateHolderColor',l.plate_holder_color,'plateHolderType',l.plate_holder_type))
                 ORDER BY l.line_number)
                 FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb))
         FROM sales_orders o
@@ -125,6 +128,20 @@ fn address(value: &Value) -> String {
     .join(", ")
 }
 
+pub fn order_number(snapshot: &Value) -> String {
+    match snapshot["order"]["number"].as_str() {
+        Some(number)
+            if !number.is_empty() && number.bytes().all(|value| value.is_ascii_digit()) =>
+        {
+            format!("PV-{number:0>6}")
+        }
+        _ => snapshot["order"]["id"]
+            .as_str()
+            .unwrap_or("Pedido")
+            .to_owned(),
+    }
+}
+
 pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
     let addresses = snapshot["customer"]["addresses"].as_array();
     let customer_address = addresses.and_then(|a| {
@@ -141,6 +158,8 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
                     let mut description = item["name"].as_str().unwrap_or("").to_owned();
                     for (key, label) in [
                         ("structureColor", "Estrutura"),
+                        ("plateHolderColor", "Anilheiros"),
+                        ("plateHolderType", "Tipo de anilheiro"),
                         ("upholsteryColor", "Estofado"),
                     ] {
                         if let Some(color) = item[key].as_str() {
@@ -167,9 +186,11 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         ("cliente_nome", &snapshot["customer"]["name"]),
         ("cliente_documento", &snapshot["customer"]["taxId"]),
         ("cliente_email", &snapshot["customer"]["email"]),
-        ("pedido_numero", &snapshot["order"]["id"]),
         ("pedido_total", &snapshot["order"]["amount"]),
         ("vencimento", &snapshot["order"]["dueDate"]),
+        ("condicoes", &snapshot["proposal"]["paymentTerms"]),
+        ("entrega", &snapshot["proposal"]["deliveryTerms"]),
+        ("observacoes", &snapshot["proposal"]["notes"]),
     ] {
         result.insert(key.into(), value.as_str().unwrap_or("").into());
     }
@@ -179,6 +200,7 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
         customer_address.map(address).unwrap_or_default(),
     );
     result.insert("itens".into(), items);
+    result.insert("pedido_numero".into(), order_number(snapshot));
     result
 }
 
@@ -318,10 +340,10 @@ mod tests {
 
     #[test]
     fn contract_items_include_the_finish_recorded_in_the_order() {
-        let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","upholsteryColor":"Vermelho"}]});
+        let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","plateHolderColor":"Azul","plateHolderType":"Olímpico","upholsteryColor":"Vermelho"}]});
         assert_eq!(
             defaults(&snapshot)["itens"],
-            "Equipamento · Estrutura: Branco · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
+            "Equipamento · Estrutura: Branco · Anilheiros: Azul · Tipo de anilheiro: Olímpico · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
         );
         let historical = json!({"items":[{"name":"Equipamento","quantity":"1.000000","unit":"UN","unitPrice":"1200.00","amount":"1200.00"}]});
         assert_eq!(

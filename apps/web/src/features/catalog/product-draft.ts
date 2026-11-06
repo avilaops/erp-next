@@ -11,8 +11,9 @@ function isProductInput(value: unknown): value is ProductInput {
     && (input.ncm === null || (typeof input.ncm === "string" && input.ncm.length <= 8))
     && (input.cest === null || (typeof input.cest === "string" && input.cest.length <= 7))
     && (input.status === "active" || input.status === "archived")
+    && (input.plateHolderType === undefined || input.plateHolderType === "" || input.plateHolderType === "standard" || input.plateHolderType === "olympic")
     && (input.categoryId === undefined || (typeof input.categoryId === "string" && (input.categoryId === "" || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.categoryId))))
-    && [input.structureColors, input.upholsteryColors].every(colors => colors === undefined || (Array.isArray(colors) && colors.every(color => typeof color === "string") && colors.join("\n").length <= 1951))
+    && [input.structureColors, input.upholsteryColors, input.plateHolderColors, input.plateHolderTypes].every(colors => colors === undefined || (Array.isArray(colors) && colors.every(color => typeof color === "string") && colors.join("\n").length <= 1951))
     && (input.photoDataUrl === undefined || (typeof input.photoDataUrl === "string" && input.photoDataUrl.length <= 349000))
 }
 

@@ -31,6 +31,10 @@ struct Order {
 
 #[derive(FromRow)]
 struct Line {
+    structure_color: Option<String>,
+    plate_holder_color: Option<String>,
+    plate_holder_type: Option<String>,
+    upholstery_color: Option<String>,
     product_id: Uuid,
     sku: String,
     name: String,
@@ -40,17 +44,44 @@ struct Line {
     amount_cents: i64,
 }
 
+impl Line {
+    fn finish_information(&self) -> Option<String> {
+        let values = [
+            ("Estrutura", &self.structure_color),
+            ("Anilheiros", &self.plate_holder_color),
+            ("Tipo de anilheiro", &self.plate_holder_type),
+            ("Estofado", &self.upholstery_color),
+        ]
+        .into_iter()
+        .filter_map(|(label, value)| {
+            value
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .map(|s| format!("{label}: {s}"))
+        })
+        .collect::<Vec<_>>();
+        (!values.is_empty()).then(|| values.join("; "))
+    }
+}
+
 async fn order(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Order, DomainError> {
-    let order = sqlx::query_as::<_, Order>("SELECT id,revision,customer_id,customer_name,customer_tax_id,status,amount_cents FROM sales_orders WHERE tenant_id=$1 AND id=$2")
+    let mut order = sqlx::query_as::<_, Order>("SELECT id,revision,customer_id,customer_name,customer_tax_id,status,amount_cents FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     if !["confirmed", "completed"].contains(&order.status.as_str()) {
         return Err(DomainError::Conflict(
             "A preparação fiscal exige um pedido confirmado ou concluído desta empresa",
         ));
+    }
+    // A simulated commercial total already includes IPI. Fiscal preparation
+    // starts from the preserved net sale and still requires explicit tax declarations.
+    let net: Option<i64> = sqlx::query_scalar("SELECT (snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
+    if let Some(net) = net {
+        order.amount_cents = net;
     }
     Ok(order)
 }
@@ -60,12 +91,23 @@ async fn lines(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Vec<Line>, DomainError> {
-    let lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let mut lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     if lines.is_empty() || lines.len() > 990 {
         return Err(DomainError::Conflict(
             "O pedido deve conter de 1 a 990 itens para a preparação fiscal",
         ));
+    }
+    let simulated: Option<(i64,i64)> = sqlx::query_as("SELECT (snapshot#>>'{sale,unitWithoutIpiCents}')::bigint,(snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
+    if let Some((unit, net)) = simulated {
+        if lines.len() != 1 {
+            return Err(DomainError::Conflict(
+                "A composição do pedido diverge da simulação preservada",
+            ));
+        }
+        lines[0].price_cents = unit;
+        lines[0].amount_cents = net;
     }
     for line in &lines {
         if line.quantity_micros % 100 != 0 {
@@ -85,6 +127,7 @@ async fn lines(
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparationLine {
+    additional_info: Option<String>,
     product_id: Uuid,
     code: String,
     description: String,
@@ -177,6 +220,7 @@ pub async fn get(
                 .await
                 .map_err(db)?;
         items.push(PreparationLine {
+            additional_info: line.finish_information(),
             product_id: line.product_id,
             code: line.sku,
             description: line.name,
@@ -232,12 +276,14 @@ pub(super) async fn validate(
         .await?
         .into_iter()
         .map(|line| {
+            let additional_info = line.finish_information();
             (
                 line.sku,
                 line.unit,
                 i128::from(line.quantity_micros),
                 i128::from(line.price_cents) * 100_000_000,
                 i128::from(line.amount_cents),
+                additional_info,
             )
         })
         .collect::<Vec<_>>();
@@ -251,6 +297,7 @@ pub(super) async fn validate(
                 exact_decimal(&item.quantity, 11, 4)? * 100,
                 exact_decimal(&item.unit_price, 11, 10)?,
                 exact_decimal(&item.gross_total, 13, 2)?,
+                item.additional_info.clone(),
             ))
         })
         .collect::<Result<Vec<_>, DomainError>>()?;

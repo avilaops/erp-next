@@ -169,7 +169,7 @@ async fn document_event(
             .into());
         }
         let event_id = Uuid::now_v7();
-        let provider_request = json!({"accessKey":document.access_key,"kind":kind,"sequence":sequence,"text":text,"protocol":document.protocol,"issuedAt":now(),"issuerTaxId":issuer["taxId"],"state":"SP","sourceCancellationId":source});
+        let provider_request = json!({"environment":document.environment,"accessKey":document.access_key,"kind":kind,"sequence":sequence,"text":text,"protocol":document.protocol,"issuedAt":now(),"issuerTaxId":issuer["taxId"],"state":"SP","sourceCancellationId":source});
         sqlx::query("INSERT INTO fiscal_nfe_events(tenant_id,id,document_id,kind,sequence,request) VALUES($1,$2,$3,$4,$5,$6)").bind(tenant).bind(event_id).bind(id).bind(kind).bind(sequence).bind(provider_request).execute(&mut *tx).await.map_err(db)?;
         let event = load_event(&mut tx, tenant, event_id).await?;
         remember(
@@ -187,6 +187,7 @@ async fn document_event(
     };
     engine(state)?;
     let mut body = payload(state, &mut tx, tenant).await?;
+    body["environment"] = json!(document.environment);
     body.as_object_mut()
         .expect("object")
         .extend(event.request.as_object().expect("object").clone());
@@ -302,7 +303,14 @@ fn valid_event_result(event: &Event, result: &Value) -> bool {
             .descendants()
             .any(|n| n.has_tag_name((namespace, name)) && n.text() == Some(value))
     };
-    if !matches("nProt", protocol) || !matches("tpAmb", "2") {
+    let Some(environment) = super::super::model::Environment::parse(
+        event.request["environment"]
+            .as_str()
+            .unwrap_or("homologation"),
+    ) else {
+        return false;
+    };
+    if !matches("nProt", protocol) || !matches("tpAmb", environment.code()) {
         return false;
     }
     if event.kind == "inutilizacao" {
@@ -398,10 +406,10 @@ pub async fn void_numbers(
             )
             .into());
         }
-        if sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND series=$2 AND number BETWEEN $3 AND $4)").bind(tenant).bind(value.series).bind(value.first).bind(value.last).fetch_one(&mut *tx).await.map_err(db)?{return Err(DomainError::Conflict("Faixa contém número já atribuído a documento fiscal").into());}
-        if sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_events WHERE tenant_id=$1 AND kind='inutilizacao' AND status<>'rejected' AND (request->>'series')::int=$2 AND (request->>'first')::bigint<=$4 AND (request->>'last')::bigint>=$3)").bind(tenant).bind(value.series).bind(value.first).bind(value.last).fetch_one(&mut *tx).await.map_err(db)?{return Err(DomainError::Conflict("Faixa já solicitada; repita a chave original").into());}
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,'homologation',$2,1) ON CONFLICT DO NOTHING").bind(tenant).bind(value.series).execute(&mut *tx).await.map_err(db)?;
-        let next:i64=sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment='homologation' AND series=$2").bind(tenant).bind(value.series).fetch_one(&mut *tx).await.map_err(db)?;
+        if sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_documents WHERE tenant_id=$1 AND series=$2 AND number BETWEEN $3 AND $4 AND environment=$5)").bind(tenant).bind(value.series).bind(value.first).bind(value.last).bind(profile.environment.as_str()).fetch_one(&mut *tx).await.map_err(db)?{return Err(DomainError::Conflict("Faixa contém número já atribuído a documento fiscal").into());}
+        if sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM fiscal_nfe_events WHERE tenant_id=$1 AND kind='inutilizacao' AND status<>'rejected' AND (request->>'series')::int=$2 AND (request->>'first')::bigint<=$4 AND (request->>'last')::bigint>=$3 AND coalesce(request->>'environment','homologation')=$5)").bind(tenant).bind(value.series).bind(value.first).bind(value.last).bind(profile.environment.as_str()).fetch_one(&mut *tx).await.map_err(db)?{return Err(DomainError::Conflict("Faixa já solicitada; repita a chave original").into());}
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,$3,$2,$4) ON CONFLICT DO NOTHING").bind(tenant).bind(value.series).bind(profile.environment.as_str()).bind(i64::from(profile.next_number.unwrap_or(1))).execute(&mut *tx).await.map_err(db)?;
+        let next:i64=sqlx::query_scalar("SELECT next_number FROM fiscal_number_sequences WHERE tenant_id=$1 AND environment=$3 AND series=$2").bind(tenant).bind(value.series).bind(profile.environment.as_str()).fetch_one(&mut *tx).await.map_err(db)?;
         if value.first > next {
             return Err(DomainError::Conflict(
                 "A faixa deve começar na próxima numeração ou cobrir uma lacuna anterior",
@@ -409,9 +417,10 @@ pub async fn void_numbers(
             .into());
         }
         // Reserve the range even while SEFAZ is uncertain. A timeout cannot free these numbers.
-        sqlx::query("UPDATE fiscal_number_sequences SET next_number=greatest(next_number,$3+1) WHERE tenant_id=$1 AND environment='homologation' AND series=$2").bind(tenant).bind(value.series).bind(value.last).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("UPDATE fiscal_number_sequences SET next_number=greatest(next_number,$3+1) WHERE tenant_id=$1 AND environment=$4 AND series=$2").bind(tenant).bind(value.series).bind(value.last).bind(profile.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
         let event_id = Uuid::now_v7();
         let mut provider = request.clone();
+        provider["environment"] = json!(profile.environment);
         provider["state"] = json!("SP");
         provider["issuerTaxId"] = json!(company.tax_id);
         provider["issuedAt"] = json!(now());

@@ -1,4 +1,5 @@
 pub mod api;
+mod email;
 mod model;
 pub mod provider;
 mod sync;
@@ -480,6 +481,19 @@ pub async fn send(
         ));
     }
     sync::verify_preview(&mut tx, &contract, provider).await?;
+    let current = model::snapshot(&mut tx, tenant, contract.order_id).await?;
+    if current["customer"]["id"] != contract.snapshot["customer"]["id"]
+        || current["order"]["amount"] != contract.snapshot["order"]["amount"]
+        || current["order"]["dueDate"] != contract.snapshot["order"]["dueDate"]
+        || current["items"] != contract.snapshot["items"]
+        || (contract.snapshot.get("proposal").is_some()
+            && current["proposal"] != contract.snapshot["proposal"])
+    {
+        return Err(DomainError::Conflict(
+            "O pedido mudou após a geração do contrato. Gere e revise uma nova prévia antes de enviar",
+        ));
+    }
+    let invitation = email::invitation(&contract.snapshot, &contract.fields);
     sqlx::query("UPDATE commercial_contracts SET status='send_requested',send_requested_at=now(),revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).execute(&mut *tx).await.map_err(db)?;
     remember(
@@ -501,7 +515,7 @@ pub async fn send(
             kind: "commercial_contract",
             id,
             event: "contract.send_requested",
-            details: json!({"externalId":contract.external_id}),
+            details: json!({"externalId":contract.external_id,"delivery":"order_and_contract","messageSha256":model::digest(invitation.to_string().as_bytes())}),
         },
     )
     .await?;
@@ -514,7 +528,7 @@ pub async fn send(
             .request(
                 Method::PUT,
                 &format!("submitters/{recipient_id}"),
-                Some(&json!({"send_email":true})),
+                Some(&invitation),
             )
             .await;
     }

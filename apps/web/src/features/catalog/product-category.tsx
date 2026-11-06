@@ -34,7 +34,7 @@ export function ProductCategory({ value, onChange, disabled = false, all = false
     return () => controller.abort()
   }, [])
   return <label className="space-y-2">Categoria
-    <select name="category_id" className="block h-8 max-w-full rounded-lg border bg-background px-3" value={value} disabled={disabled || loading || !!error} onChange={event => onChange(event.target.value)}>
+    <select name="category_id" className="block h-10 w-full max-w-full rounded-lg border bg-background px-3" value={value} disabled={disabled || loading || !!error} onChange={event => onChange(event.target.value)}>
       <option value="">{all ? "Todas as categorias" : "Sem categoria"}</option>
       {value && !categories.some(category => category.id === value) && <option value={value}>Categoria atual ({value})</option>}
       {categories.filter(category => all || category.status === "active" || category.id === value).map(category => <option key={category.id} value={category.id}>{category.name}{category.status === "archived" ? " (arquivada)" : ""}</option>)}

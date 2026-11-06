@@ -150,6 +150,8 @@ export type NfeTransport = {
 
 export type NfeInput = {
   environment: "homologacao" | "producao";
+  /** 55 = NF-e; 65 = NFC-e. Existing callers default to NF-e. */
+  model?: 55 | 65;
   transport: NfeTransport;
   /** `modFrete`: who hires the freight. */
   freightMode: FreightMode;
@@ -172,6 +174,10 @@ export type NfeInput = {
   /** The destination's internal rate and poverty fund, for the DIFAL of a sale to a non taxpayer of another state. */
   destination: { internalIcms: number; fcp: number };
   payments: NfePayment[];
+  /** Troco declared by NFC-e. It is not emitted for model 55. */
+  changeAmount?: number;
+  /** 1 normal; 3/4/9 are the NFC-e contingency modes. */
+  emissionType?: "1" | "3" | "4" | "9";
   /** Name and version of this system, as `verProc`. */
   software: string;
 };
@@ -254,18 +260,20 @@ export function isAcceptableRandomCode(code: string, number: number): boolean {
 }
 
 /** The 44 digits that identify the invoice: state, year and month, CNPJ, model, series, number, way of issuing, random code and check digit. */
-export function accessKey(input: Pick<NfeInput, "issuer" | "issuedAt" | "series" | "number" | "randomCode">): string {
+export function accessKey(input: Pick<NfeInput, "issuer" | "issuedAt" | "series" | "number" | "randomCode"> & Partial<Pick<NfeInput, "model" | "emissionType">>): string {
   const uf = UF_CODES[input.issuer.uf];
   if (!uf) throw new NfeError(`Estado do emitente inválido: ${input.issuer.uf}.`);
   if (!isAcceptableRandomCode(input.randomCode, input.number)) throw new Error("O código aleatório da nota tem oito dígitos, diferentes do número da nota e sem sequência óbvia.");
+  const model = input.model ?? 55;
+  const emissionType = input.emissionType ?? "1";
   const body = [
     uf,
     input.issuedAt.slice(2, 4) + input.issuedAt.slice(5, 7),
     input.issuer.cnpj,
-    "55",
+    String(model),
     String(input.series).padStart(3, "0"),
     String(input.number).padStart(9, "0"),
-    "1",
+    emissionType,
     input.randomCode,
   ].join("");
   return body + accessKeyDigit(body);
@@ -320,9 +328,18 @@ export function interstateRate(origin: number, fromUf: string, toUf: string): nu
 export function nfeProblems(input: NfeInput): string[] {
   const problems: string[] = approximateTaxProblems(input);
   const { issuer, recipient, rules } = input;
+  const model = input.model ?? 55;
+  const emissionType = input.emissionType ?? "1";
   const need = (ok: boolean, message: string) => {
     if (!ok) problems.push(message);
   };
+  need(model === 55 || model === 65, "Documento: modelo deve ser 55 (NF-e) ou 65 (NFC-e).");
+  need(model === 65 || emissionType === "1", "NF-e modelo 55 não aceita modalidade de contingência NFC-e.");
+  need(model === 65 ? ["1", "3", "4", "9"].includes(emissionType) : emissionType === "1", "Documento: modalidade de emissão inválida para o modelo.");
+  const change = input.changeAmount ?? 0;
+  need(Number.isFinite(change) && change >= 0, "Pagamento: troco não pode ser negativo.");
+  need(model === 65 || change === 0, "Pagamento: troco somente pode ser declarado na NFC-e modelo 65.");
+  need(emissionType === "9" ? model === 65 : true, "Contingência offline somente está disponível para NFC-e modelo 65.");
   // The CNPJ may have letters since July 2026 (NT 2026.004); the register already checked its digits.
   need(CNPJ_PATTERN.test(issuer.cnpj), "Empresa: CNPJ com 14 posições (Parâmetros → Fiscal).");
   need(/^\d{2,14}$/.test(issuer.stateRegistration), "Empresa: inscrição estadual (Parâmetros → Fiscal).");
@@ -397,7 +414,9 @@ export function nfeProblems(input: NfeInput): string[] {
   const total = nfeTotals(input).invoice;
   const paid = roundCents(input.payments.reduce((sum, payment) => sum + payment.amount, 0));
   const withoutPayment = input.payments.length === 1 && input.payments[0].code === "90";
-  need(input.payments.length > 0 && (withoutPayment ? paid === 0 : paid === total), `Pagamento: as formas somam ${money(paid)} e a nota ${money(total)}.`);
+  const expectedPaid = roundCents(total + change);
+  need(input.payments.length > 0 && (withoutPayment ? paid === 0 && change === 0 : paid === expectedPaid), `Pagamento: as formas somam ${money(paid)} e a nota mais o troco ${money(expectedPaid)}.`);
+  need(model !== 65 || change === 0 || paid - total === change, "Pagamento: troco deve ser a diferença exata entre pagamentos e total da NFC-e.");
   need(!input.payments.some((payment) => payment.code === "90") || withoutPayment, "Sem pagamento não pode ser combinado com outras formas.");
   need(input.payments.every((payment) => /^\d{2}$/.test(payment.code)), "Pagamento: há forma de pagamento sem o código da nota (Parâmetros → Fiscal → Forma de pagamento na nota).");
   need(input.payments.every((payment) => payment.code !== "99" || Boolean(payment.description?.trim())), 'Pagamento: forma "outros" precisa de descrição.');
@@ -611,6 +630,8 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
   if (problems.length > 0) throw new NfeError(problems.join("\n"));
 
   const { issuer, recipient, rules } = input;
+  const model = input.model ?? 55;
+  const emissionType = input.emissionType ?? "1";
   const key = accessKey(input);
   const totals = nfeTotals(input);
   const interstate = issuer.uf !== destinationUf(input);
@@ -621,15 +642,15 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
     tag("cUF", UF_CODES[issuer.uf]) +
       tag("cNF", input.randomCode) +
       tag("natOp", clean(rules.operationNature, 60)) +
-      tag("mod", "55") +
+      tag("mod", model) +
       tag("serie", input.series) +
       tag("nNF", input.number) +
       tag("dhEmi", input.issuedAt) +
       tag("tpNF", "1") +
       tag("idDest", interstate ? "2" : "1") +
       tag("cMunFG", issuer.cityCode) +
-      tag("tpImp", "1") +
-      tag("tpEmis", "1") +
+      tag("tpImp", model === 65 ? "4" : "1") +
+      tag("tpEmis", emissionType) +
       tag("cDV", key[43]) +
       tag("tpAmb", homologation ? "2" : "1") +
       tag("finNFe", "1") +
@@ -637,7 +658,8 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
       tag("indPres", "9") +
       tag("indIntermed", "0") +
       tag("procEmi", "0") +
-      tag("verProc", clean(input.software, 20)),
+      tag("verProc", clean(input.software, 20)) +
+      (emissionType === "9" ? tag("dhCont", input.issuedAt) + tag("xJust", "Contingência offline autorizada para a NFC-e; transmitir posteriormente.") : ""),
   );
 
   const emit = group(
@@ -730,7 +752,7 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
           tag("vPag", money(item.amount)) +
           (NON_INTEGRATED_ELECTRONIC_PAYMENTS.has(item.code) ? group("card", tag("tpIntegra", "2")) : ""),
       ))
-      .join(""),
+      .join("") + (model === 65 && (input.changeAmount ?? 0) > 0 ? tag("vTroco", money(input.changeAmount ?? 0)) : ""),
   );
 
   const body =
@@ -742,7 +764,10 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
     total +
     transportXml(input) +
     payment +
-    group("infAdic", tag("infCpl", additionalInfo(input) ? clean(additionalInfo(input), 5000) : null));
+    group("infAdic", tag("infCpl", [
+      additionalInfo(input),
+      emissionType === "9" ? "Contingência offline NFC-e: transmissão posterior obrigatória." : "",
+    ].filter(Boolean).map((value) => clean(value, 5000)).join("; ") || null));
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="${NAMESPACE}"><infNFe versao="4.00" Id="NFe${key}">${body}</infNFe></NFe>`;
   return { key, xml, totals };

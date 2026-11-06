@@ -48,6 +48,7 @@ pub fn routes() -> Router<AppState> {
 pub(super) struct Document {
     pub id: Uuid,
     pub environment: String,
+    pub model: i16,
     pub revision: i64,
     pub status: String,
     pub series: i32,
@@ -70,6 +71,7 @@ pub struct EmissionSnapshot {
     pub revision: i64,
     pub status: String,
     pub environment: super::model::Environment,
+    pub model: i16,
     pub series: i32,
     pub number: i64,
     pub access_key: Option<String>,
@@ -89,6 +91,7 @@ impl Document {
             revision: self.revision,
             status: self.status.clone(),
             environment: self.fiscal_environment(),
+            model: self.model,
             series: self.series,
             number: self.number,
             access_key: self.access_key.clone(),
@@ -104,7 +107,7 @@ pub(super) async fn load(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Document, DomainError> {
-    sqlx::query_as("SELECT id,environment,revision,status,series,number,source_order_id,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
+    sqlx::query_as("SELECT id,environment,model,revision,status,series,number,source_order_id,issued_at,random_code,access_key,signed_xml,authorized_xml,protocol,result,coalesce(lease_until>clock_timestamp(),false) AS busy FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
 }
 pub(super) fn engine(state: &AppState) -> Result<&FiscalEngine, DomainError> {
@@ -300,10 +303,10 @@ pub async fn issue(
             .into());
         }
         let series = i32::from(draft.issuer.profile.series);
-        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,series,next_number) VALUES($1,$3,$2,$4) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i64::from(draft.issuer.profile.next_number.unwrap_or(1))).execute(&mut *tx).await.map_err(db)?;
-        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
+        sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$3,$4,$2,$5) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(i64::from(draft.issuer.profile.next_number.unwrap_or(1))).execute(&mut *tx).await.map_err(db)?;
+        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND model=$4 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
-        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,environment,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,$8,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).bind(draft.input.environment.as_str()).execute(&mut *tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,status,series,number,issued_at,random_code,environment,model,lease_until) VALUES($1,$2,$3,'preparing',$4,$5,$6,$7,$8,$9,clock_timestamp()+interval '120 seconds')").bind(tenant).bind(id).bind(draft.input.source_order_id).bind(series).bind(number).bind(&issue_time).bind(random_code).bind(draft.input.environment.as_str()).bind(i16::from(draft.input.model)).execute(&mut *tx).await.map_err(db)?;
         record(
             &mut tx,
             tenant,
@@ -359,6 +362,7 @@ pub async fn issue(
                 document.number,
                 &document.random_code,
                 document.fiscal_environment(),
+                draft.input.model,
             )
             .ok()
         });
@@ -434,6 +438,7 @@ fn validate_prepared(
     number: i64,
     random_code: &str,
     environment: super::model::Environment,
+    model: u8,
 ) -> Result<(String, String), DomainError> {
     let invalid = || DomainError::Conflict("Motor retornou XML ou chave incompatível");
     let key = value["accessKey"]
@@ -442,7 +447,7 @@ fn validate_prepared(
         .ok_or_else(invalid)?;
     if !key.starts_with("35")
         || &key[6..20] != tax_id
-        || &key[20..22] != "55"
+        || &key[20..22] != format!("{model:02}").as_str()
         || key[22..25] != format!("{series:03}")
         || key[25..34] != format!("{number:09}")
         || &key[35..43] != random_code
@@ -474,7 +479,7 @@ fn validate_prepared(
             .and_then(|n| n.text())
     };
     if child("tpAmb") != Some(environment.code())
-        || child("mod") != Some("55")
+        || child("mod") != Some(format!("{model}").as_str())
         || child("serie") != Some(series.to_string().as_str())
         || child("nNF") != Some(number.to_string().as_str())
         || child("cNF") != Some(random_code)
@@ -909,7 +914,8 @@ mod tests {
                 1,
                 1,
                 "12345678",
-                super::super::model::Environment::Homologation
+                super::super::model::Environment::Homologation,
+                55
             )
             .is_ok()
         );
@@ -920,7 +926,8 @@ mod tests {
                 1,
                 1,
                 "12345678",
-                super::super::model::Environment::Homologation
+                super::super::model::Environment::Homologation,
+                55
             )
             .is_err()
         );
@@ -931,7 +938,8 @@ mod tests {
                 1,
                 1,
                 "12345678",
-                super::super::model::Environment::Homologation
+                super::super::model::Environment::Homologation,
+                55
             )
             .is_err()
         );

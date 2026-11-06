@@ -69,7 +69,7 @@ export const recipientEventUrl = (environment: "homologacao" | "producao") => en
   : "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx";
 function validKey(value: unknown): string {
   const key = text(value, "Chave de acesso", 44);
-  if (!/^\d{44}$/.test(key) || key[43] !== accessKeyDigit(key.slice(0, 43)) || key.slice(20, 22) !== "55") return refuse("Chave NF-e inválida");
+  if (!/^\d{44}$/.test(key) || key[43] !== accessKeyDigit(key.slice(0, 43)) || !["55", "65"].includes(key.slice(20, 22))) return refuse("Chave NF-e/NFC-e inválida");
   return key;
 }
 
@@ -223,7 +223,8 @@ export function mapDraft(value: unknown): NfeInput {
   const input = object(value), environment = fiscalEnvironment(input);
   const issuer = object(input.issuer), company = object(issuer.company), profile = object(issuer.profile), draft = object(input.draft);
   if (draft.environment !== input.environment || (profile.environment ?? "homologation") !== input.environment) refuse("Ambiente deve corresponder ao perfil e ao rascunho de homologação ou produção");
-  if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP" || draft.model !== 55) refuse("Emissão fora do recorte: NF-e 55, SP, CRT 1 ou 3", "tax_rule_scope");
+  const model = draft.model === 65 ? 65 : draft.model === 55 ? 55 : refuse("Modelo fiscal deve ser 55 ou 65", "tax_rule_scope");
+  if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP") refuse("Emissão fora do recorte: NF-e/NFC-e de SP, CRT 1 ou 3", "tax_rule_scope");
   const recipient = object(draft.recipient), state = text(recipient.state, "UF", 2);
   const rawItems = draft.items;
   if (!Array.isArray(rawItems) || !rawItems.length || rawItems.length > 990) refuse("Itens fiscais inválidos");
@@ -237,6 +238,7 @@ export function mapDraft(value: unknown): NfeInput {
   const declaration = normal ? declaredObject(draft.taxDeclaration, ["destinationIcmsRate", "destinationFcpRate", "recipientTaxpayer", "recipientStateRegistration", "finalConsumer", "icmsRate", "pisRate", "cofinsRate", "ipiCst", "ipiFrameCode", "ipiRate", "ipiInIcmsBase", "icmsOutOfContributions", "ibsCbs"]) : null;
   const taxpayer = declaration ? declaredBoolean(declaration, "recipientTaxpayer") : false;
   const finalConsumer = declaration ? declaredBoolean(declaration, "finalConsumer") : true;
+  if (model === 65 && !finalConsumer) refuse("NFC-e modelo 65 exige operação com consumidor final", "tax_rule_scope");
   const stateRegistration = declaration?.recipientStateRegistration == null ? null : text(declaration.recipientStateRegistration, "IE do destinatário", 14);
   if (taxpayer ? !stateRegistration || !/^\d{2,14}$/.test(stateRegistration) : stateRegistration !== null || !finalConsumer || first.icmsCst === "50") refuse("Declaração de contribuinte, inscrição estadual ou consumidor final incompatível");
   const icmsRate = declaration ? rate(declaration.icmsRate, first.icmsCst === "00") : 0;
@@ -290,9 +292,13 @@ export function mapDraft(value: unknown): NfeInput {
     const amount = decimal(payment.amount, 2);
     return { code, description: payment.description == null ? null : text(payment.description, "Descrição do pagamento", 60), amount };
   });
+  const changeAmount = draft.changeAmount == null ? 0 : optionalMoney(draft.changeAmount);
+  const emissionType = draft.emissionType == null ? "1" : text(draft.emissionType, "Modalidade de emissão", 1);
+  if (!(model === 65 ? ["1", "3", "4", "9"] : ["1"]).includes(emissionType)) refuse("Modalidade de emissão incompatível com o modelo fiscal", "tax_rule_scope");
+  if (model !== 65 && changeAmount !== 0) refuse("Troco somente pode ser declarado na NFC-e modelo 65", "tax_rule_scope");
   const noPayment = payments.some((payment) => payment.code === "90");
   const mapped: NfeInput = {
-    environment, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
+    environment, model, emissionType: emissionType as NfeInput["emissionType"], changeAmount, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
     series: whole(profile.series, 999), number: whole(input.number, 999_999_999), randomCode: text(input.randomCode, "Código aleatório", 8), issuedAt: date(input.issuedAt),
     issuer: { cnpj: taxId, legalName: text(company.legalName, "Razão social", 60), stateRegistration: text(profile.stateRegistration, "IE", 14), taxRegime: normal ? 3 : 1, street: text(company.street), number: text(company.number), district: text(company.district), cityCode: text(profile.municipalityCode), city: city("SP", profile.municipalityCode), uf: "SP", cep: text(company.postalCode, "CEP", 8) },
     recipient: { kind: recipientTaxId.length === 11 ? "PF" : "PJ", document: recipientTaxId, name: text(recipient.legalName, "Destinatário", 60), stateRegistration, taxpayer, street: text(recipient.street), number: text(recipient.number), district: text(recipient.district), cityCode: text(recipient.municipalityCode), city: city(state, recipient.municipalityCode), uf: state, cep: text(recipient.postalCode, "CEP", 8) },
@@ -305,7 +311,8 @@ export function mapDraft(value: unknown): NfeInput {
   if (approximateTaxes) mapped.approximateTaxes = approximateTaxes;
   const invoice = nfeTotals(mapped).invoice.toFixed(2);
   const paymentCents = payments.reduce((sum, payment) => sum + centsOf(payment.amount), 0n);
-  if (noPayment ? payments.length !== 1 || payments[0].amount !== 0 : formatCents(paymentCents) !== invoice || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0)).toFixed(2) !== invoice) refuse("Valores das formas de pagamento divergem do total da nota, incluindo IPI");
+  const expectedPayment = nfeTotals(mapped).invoice + changeAmount;
+  if (noPayment ? payments.length !== 1 || payments[0].amount !== 0 || changeAmount !== 0 : formatCents(paymentCents) !== expectedPayment.toFixed(2) || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0)).toFixed(2) !== expectedPayment.toFixed(2) || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0) - invoice).toFixed(2) !== changeAmount.toFixed(2)) refuse("Valores das formas de pagamento ou troco divergem do total da NFC-e");
   return mapped;
 }
 

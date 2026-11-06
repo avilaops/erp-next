@@ -89,7 +89,11 @@ pub(super) async fn validate_fiscal_return_source(
     let permission = match kind {
         "sale_cancellation" => "sales.orders.read",
         "purchase_reversal" => "purchasing.orders.read",
-        _ => return Err(DomainError::Invalid("Origem comercial de devolução inválida")),
+        _ => {
+            return Err(DomainError::Invalid(
+                "Origem comercial de devolução inválida",
+            ));
+        }
     };
     let rights = access::load_access(tx, tenant, &identity.subject).await?;
     access::require_permission(&rights, permission)?;

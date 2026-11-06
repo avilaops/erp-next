@@ -597,7 +597,10 @@ impl DraftInput {
         }
         if self.purpose == 4 {
             if self.model != 55
-                || !matches!(self.return_direction.as_deref(), Some("incoming" | "outgoing"))
+                || !matches!(
+                    self.return_direction.as_deref(),
+                    Some("incoming" | "outgoing")
+                )
                 || self.referenced_access_keys.is_empty()
                 || self.referenced_access_keys.len() > 99
                 || self.source_order_id.is_some()
@@ -614,8 +617,7 @@ impl DraftInput {
             let source_kind = self.source_return_kind.as_deref().unwrap_or_default();
             let direction_matches = matches!(
                 (source_kind, self.return_direction.as_deref()),
-                ("sale_cancellation", Some("incoming"))
-                    | ("purchase_reversal", Some("outgoing"))
+                ("sale_cancellation", Some("incoming")) | ("purchase_reversal", Some("outgoing"))
             );
             if !direction_matches {
                 return Err(DomainError::Invalid(
@@ -938,9 +940,7 @@ mod tests {
         value.return_direction = Some("incoming".into());
         value.source_return_id = Some(uuid::Uuid::nil());
         value.source_return_kind = Some("sale_cancellation".into());
-        value.referenced_access_keys = vec![
-            "35261104252011000110550010000000011000000001".into(),
-        ];
+        value.referenced_access_keys = vec!["35261104252011000110550010000000011000000001".into()];
         value.items[0].cfop = "1102".into();
         assert_eq!(value.validate(&profile()).unwrap(), 100);
 

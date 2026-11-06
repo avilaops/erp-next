@@ -357,10 +357,10 @@ fn select_color(
         ))
 }
 
-fn legacy_plate_holder_color(
-    plate_holder_color: Option<&str>,
-    arm_color: Option<&str>,
-) -> Result<Option<&str>, DomainError> {
+fn legacy_plate_holder_color<'a>(
+    plate_holder_color: Option<&'a str>,
+    arm_color: Option<&'a str>,
+) -> Result<Option<&'a str>, DomainError> {
     if let (Some(current), Some(legacy)) = (plate_holder_color, arm_color) {
         if !current.trim().eq_ignore_ascii_case(legacy.trim()) {
             return Err(DomainError::Invalid(

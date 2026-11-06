@@ -10,9 +10,11 @@ import sys
 SCHEMA = "avila-mlops-ci-attestation/1"
 SHA = re.compile(r"^[a-f0-9]{40}$")
 
-def attest(jobs, source_sha, repository, run_id, attempt, workflow, event):
+def attest(jobs, source_sha, repository, run_id, attempt, workflow, event, tested_sha=None):
     if not SHA.fullmatch(source_sha):
         raise ValueError("source_sha must be a full commit SHA")
+    if tested_sha is not None and not SHA.fullmatch(tested_sha):
+        raise ValueError("tested_sha must be a full commit SHA")
     if not repository.startswith("avilaops/") or "/" not in repository:
         raise ValueError("repository must be in avilaops")
     if not isinstance(jobs, dict) or not jobs:
@@ -28,6 +30,8 @@ def attest(jobs, source_sha, repository, run_id, attempt, workflow, event):
         "schema": SCHEMA,
         "repository": repository,
         "sourceSha": source_sha,
+        "testedSha": tested_sha or source_sha,
+        "testTarget": "github-pr-merge-ref" if event == "pull_request" else "source-commit",
         "workflow": workflow,
         "event": event,
         "runId": int(run_id),
@@ -49,12 +53,13 @@ def attest(jobs, source_sha, repository, run_id, attempt, workflow, event):
 def main():
     data = attest(
         json.loads(os.environ["VALIDATION_JOBS"]),
-        os.environ["GITHUB_SHA"],
+        os.environ["SOURCE_HEAD_SHA"],
         os.environ["GITHUB_REPOSITORY"],
         os.environ["GITHUB_RUN_ID"],
         os.environ["GITHUB_RUN_ATTEMPT"],
         os.environ.get("GITHUB_WORKFLOW", "CI"),
         os.environ["GITHUB_EVENT_NAME"],
+        os.environ["GITHUB_SHA"],
     )
     target = Path(sys.argv[1])
     target.parent.mkdir(parents=True, exist_ok=True)

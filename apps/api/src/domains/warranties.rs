@@ -427,8 +427,8 @@ pub async fn assign_case(
         .transpose()?;
     let key = command_key(&headers)?;
     let expected = revision(&headers)?;
-    let request = serde_json::to_value(&input)
-        .map_err(|_| DomainError::Invalid("Atribuição inválida"))?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Atribuição inválida"))?;
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
     if let Some(result) = replay(
         &mut tx,

@@ -108,7 +108,7 @@ use crate::platform::{
         crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
         crate::platform::product_costs::get, crate::platform::product_costs::put,
         crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),
-    components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
+    components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration, fiscal::tax_profiles::TaxProfileDefaults)),
     modifiers(&Security),
     tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]

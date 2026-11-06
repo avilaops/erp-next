@@ -1,4 +1,5 @@
 import { normalizeDecimal } from "@/lib/decimal-input"
+export type TaxProfileDefaults = { icmsCst?: string; pisCst?: string; cofinsCst?: string; ipiCst?: string; ipiFrameCode?: string; ibsStateRate?: string; ibsCityRate?: string; cbsRate?: string; finalConsumer?: boolean; ipiInIcmsBase?: boolean; icmsOutOfContributions?: boolean }
 
 export type TaxProfile = {
   name: string
@@ -10,6 +11,7 @@ export type TaxProfile = {
   active: boolean
   productLine?: "imported" | "national"
   lineRules?: LineTaxRules
+  defaults?: TaxProfileDefaults | null
 }
 export type LineTaxRules = {
   cfopSameState: string; cfopInterstateTaxpayer: string; cfopInterstateNonTaxpayer: string

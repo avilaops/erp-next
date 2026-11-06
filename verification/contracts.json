@@ -28784,7 +28784,7 @@
       "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."},
       "response": {"successStatuses": [200], "errorStatuses": [401, 403, 500], "action": "get-api-v1-warranty-policies"},
       "recovery": "Repetir a consulta após renovar a sessão.", "ui": {"pages": [], "bff": null, "gap": "backend_only"},
-      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "post-api-v1-warranty-policies",
@@ -28794,10 +28794,10 @@
       "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "PolicyInput"}, "query": null},
       "preconditions": ["Chave UUID e política válida."], "transition": {"from": "Ausente", "to": "Política ativa"},
       "effects": {"writes": ["warranty_policies", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não altera casos existentes automaticamente."]},
-      "concurrency": {"revision": true, "idempotency": true, "rule": "Repetição devolve o mesmo resultado."},
+      "concurrency": {"revision": false, "idempotency": true, "rule": "Repetição devolve o mesmo resultado."},
       "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 409, 422, 428, 500], "action": "post-api-v1-warranty-policies"},
       "recovery": "Repetir a mesma chave após resposta incerta.", "ui": {"pages": [], "bff": null, "gap": "backend_only"},
-      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
+      "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "get-api-v1-warranty-cases",
@@ -28808,7 +28808,7 @@
       "preconditions": ["Empresa ativa e vínculo autorizado."], "transition": {"from": "Atual", "to": "Sem alteração"},
       "effects": {"writes": [], "external": [], "excludes": ["Não cria protocolo."]}, "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."},
       "response": {"successStatuses": [200], "errorStatuses": [401, 403, 500], "action": "get-api-v1-warranty-cases"}, "recovery": "Repetir após renovar a sessão.",
-      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "post-api-v1-warranty-cases",
@@ -28818,17 +28818,17 @@
       "input": {"headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": [], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "CaseInput"}, "query": null},
       "preconditions": ["Descrição, criticidade, vínculos e chave válidos."], "transition": {"from": "Ausente", "to": "Protocolo aberto"},
       "effects": {"writes": ["warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta estoque nem gera cobrança automaticamente."]},
-      "concurrency": {"revision": true, "idempotency": true, "rule": "Protocolo e timeline são gravados juntos."},
+      "concurrency": {"revision": false, "idempotency": true, "rule": "Protocolo e timeline são gravados juntos."},
       "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 409, 422, 428, 500], "action": "post-api-v1-warranty-cases"}, "recovery": "Repetir a mesma chave após resposta incerta.",
-      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "get-api-v1-warranty-cases-id",
       "flow": "warranties", "status": "implemented", "operation": {"method": "GET", "path": "/api/v1/warranty-cases/{id}"},
       "actor": "company_member", "permissions": ["service.warranties.read"], "input": {"headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null},
       "preconditions": ["Protocolo pertence à empresa."], "transition": {"from": "Atual", "to": "Sem alteração"}, "effects": {"writes": [], "external": [], "excludes": ["Não altera timeline."]},
-      "concurrency": {"revision": true, "idempotency": false, "rule": "Retorna ETag da revisão."}, "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 500], "action": "get-api-v1-warranty-cases-id"}, "recovery": "Consultar o protocolo correto.",
-      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "tenant", "response"]}
+      "concurrency": {"revision": false, "idempotency": false, "rule": "Consulta isolada por empresa."}, "response": {"successStatuses": [200], "errorStatuses": [401, 403, 404, 500], "action": "get-api-v1-warranty-cases-id"}, "recovery": "Consultar o protocolo correto.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "post-api-v1-warranty-cases-id-transition",
@@ -28836,7 +28836,7 @@
       "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "TransitionInput"}, "query": null},
       "preconditions": ["Revisão, chave e estado válidos."], "transition": {"from": "Protocolo atual", "to": "Novo estado com evento append-only"}, "effects": {"writes": ["warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não autoriza troca, crédito ou reembolso sem aprovação própria."]},
       "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-transition"}, "recovery": "Consultar e reconciliar a revisão antes de reenviar.",
-      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "concurrency", "timeline", "response"]}
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     },
     {
       "id": "post-api-v1-warranty-cases-id-service-order",
@@ -28844,7 +28844,7 @@
       "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "ServiceOrderInput"}, "query": null},
       "preconditions": ["Protocolo versionado e mão de obra não negativa."], "transition": {"from": "Diagnóstico ou tratativa", "to": "Ordem de serviço aberta"}, "effects": {"writes": ["warranty_service_orders", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não movimenta peças ou estoque até contrato específico."]},
       "concurrency": {"revision": true, "idempotency": true, "rule": "Uma ordem de serviço por protocolo."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-service-order"}, "recovery": "Consultar o protocolo e repetir a mesma chave.",
-      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["authorization", "persistence", "idempotency", "response"]}
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

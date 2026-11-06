@@ -18,7 +18,7 @@ Este documento separa implementação, teste, CI, integração, publicação e f
 
 ## Limites de validação
 
-- Captura de contexto não equivale a publicação do portal de contratos. A captura estática mais recente foi gerada no commit `0a7a996cbc2a0f448bd63c23350ba5b029ef73d7`, com SHA de conteúdo `efd8975783919d202429a1af52b631159d3101d581d7a4dba8cf8df936d32822`, 51 fluxos, 249 ações e 34 grupos pendentes; publicação e execução permanecem não observadas.
+- Captura de contexto não equivale a publicação do portal de contratos. A captura estática mais recente foi gerada no commit `ad0e137c3d8613b2cca47e9aacd396a68206716f`, com SHA de conteúdo `ec2ffd2f7834efc251855941d9cf9e474f63d68b8ce8492bb1497a0f97ea2d9c`, 51 fluxos, 249 ações e 34 grupos pendentes; publicação e execução permanecem não observadas.
 - Verificação pública pontual em 06/11/2026: `https://erp.avilaops.com/health/ready` redireciona `307` para autenticação; `https://contrato.avilaops.com/integracoes/mcp` responde `200`; `https://contrato.avilaops.com/mcp` responde `401` sem Bearer. Esses sinais comprovam apenas a presença do gateway público e sua proteção, não saúde autenticada, snapshot publicado ou execução de fluxo.
 - Contrato estático não equivale a execução autenticada.
 - Teste sintético não equivale a vínculo real no PostgreSQL.

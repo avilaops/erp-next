@@ -1,14 +1,6 @@
+"use client"
 import Link from "next/link"
-import { PageHeader } from "@/components/page-header"
-
-export function DataExport() {
-  return <div className="mx-auto max-w-4xl px-4 py-8">
-    <PageHeader eyebrow="Preferências / Dados" title="Exportação de dados" description="A exportação por arquivo ainda não está disponível nesta tela." />
-    <section className="form-section space-y-4">
-      <h2 className="text-xl font-semibold">Exportação indisponível</h2>
-      <p id="export-download-help">A geração de arquivos ainda não está integrada. Nenhum arquivo foi gerado.</p>
-      <p>Nenhuma solicitação é enviada e não há histórico de exportações executadas.</p>
-      <Link className="ml-4 inline-flex min-h-11 items-center text-primary underline" href="/preferencias?categoria=exportacao">Voltar às preferências</Link>
-    </section>
-  </div>
-}
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { erpFetch } from "@/lib/api/client"
+export function DataExport() { const [q, setQ] = useState(""); const [status, setStatus] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); async function download() { setBusy(true); setError(""); try { const params = new URLSearchParams(); if (q.trim()) params.set("q", q.trim()); if (status) params.set("status", status); const response = await erpFetch(`/api/erp/products/export?${params}`); if (!response.ok) { const data = await response.json().catch(() => null); throw new Error(data?.title || "Não foi possível gerar o CSV") } const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "produtos.csv"; anchor.click(); URL.revokeObjectURL(url) } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha na exportação") } finally { setBusy(false) } } return <div className="mx-auto max-w-4xl px-4 py-8"><div className="mb-6"><p className="text-sm font-medium text-primary">Preferências / Dados</p><h1 className="text-3xl font-semibold">Exportação de produtos</h1><p className="mt-2 text-sm text-muted-foreground">Gera um CSV com os produtos autorizados da empresa ativa. Não é backup nem exportação contábil.</p></div><section className="form-section space-y-4"><div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">Buscar por SKU ou nome<input className="h-10 rounded-lg border border-input bg-background px-3" value={q} onChange={(event) => setQ(event.target.value)} /></label><label className="grid gap-2 text-sm font-medium">Situação<select className="h-10 rounded-lg border border-input bg-background px-3" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label></div>{error && <p role="alert" className="text-destructive">{error}</p>}<Button disabled={busy} onClick={() => void download()}>{busy ? "Gerando…" : "Baixar produtos.csv"}</Button><p className="text-xs text-muted-foreground">O arquivo usa CSV UTF-8, filtros reais e proteção contra fórmulas de planilha.</p><Link className="inline-flex min-h-11 items-center text-primary underline" href="/preferencias?categoria=exportacao">Voltar às preferências</Link></section></div> }

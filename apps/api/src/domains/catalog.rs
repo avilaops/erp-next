@@ -49,7 +49,7 @@ pub struct ProductInput {
     pub plate_holder_type: Option<String>,
 }
 impl ProductInput {
-    fn validate(&mut self) -> Result<i64, DomainError> {
+    pub(crate) fn validate(&mut self) -> Result<i64, DomainError> {
         if let Some(legacy) = self.arm_colors.take() {
             if self.plate_holder_colors.as_ref().is_some_and(|current| {
                 current.len() != legacy.len()

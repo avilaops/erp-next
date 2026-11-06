@@ -18,11 +18,12 @@ export function assessContracts(catalogue, inventory) {
     fail('invalid_contract_catalogue', 'contracts', 'Formato de catálogo incompatível ou coleções ausentes.');
     return { status: 'invalid', findings, runtimeVerdict: 'not_verified_by_catalog' };
   }
+  const actions = [...catalogue.actions, ...(catalogue.actionsAppendix ?? [])];
   const api = new Set(inventory.api.flatMap(route => route.methods.map(method => key({ method, path: route.path }))));
   const bff = new Set(inventory.bff.flatMap(route => route.methods.map(method => key({ method, path: route.path }))));
   const pages = new Set(inventory.pages.map(page => normalizedRoute(page.path)));
   const covered = new Set(), coveredBff = new Set(), ids = new Set();
-  for (const action of catalogue.actions) {
+  for (const action of actions) {
     const operation = action?.operation;
     if (!text(action?.id) || ids.has(action.id)) fail('duplicate_or_missing_action_id', action?.id, 'Cada ação precisa de identidade única.');
     ids.add(action?.id);
@@ -97,7 +98,7 @@ export function assessContracts(catalogue, inventory) {
     dispatchKeys.add(target);
     for (const value of values) {
       const property = catchAll ? 'resource' : 'action';
-      if (!catalogue.actions.some(action => action.ui?.bff?.path === dispatch.path
+        if (!actions.some(action => action.ui?.bff?.path === dispatch.path
           && action.ui.bff.method === dispatch.method && action.ui.bff[property] === value)) {
         fail('dispatch_without_action_contract', target, `Destino dinâmico sem ficha canônica: ${value}`);
       }
@@ -141,7 +142,7 @@ export function assessContracts(catalogue, inventory) {
   for (const finding of validateProductFlows(catalogue)) fail(finding.code, finding.path, finding.detail);
   return {
     status: findings.length ? 'invalid' : 'catalogued', runtimeVerdict: 'not_verified_by_catalog',
-    apiOperations: api.size, cataloguedOperations: catalogue.actions.length, bffOperations: bff.size,
+    apiOperations: api.size, cataloguedOperations: actions.length, bffOperations: bff.size,
     pendingFlows: catalogue.pendingFlows.length, p0Ready: !findings.length && !catalogue.pendingFlows.length,
     findings, catalogue,
   };

@@ -20,6 +20,7 @@ let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
 let redirectAuthorization = false
 let malformedDirectory = false
+let duplicateDirectory = false
 let malformedAuthMetadata = false
 const upstream = createServer(async (request, response) => {
   upstreamCalls++
@@ -35,6 +36,8 @@ const upstream = createServer(async (request, response) => {
     }
     response.end(JSON.stringify(malformedDirectory
       ? { platformAdministrator: false, data: [{ id: "not-a-uuid", legalName: "Empresa inválida", status: "active" }] }
+      : duplicateDirectory
+        ? { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }, { id: tenant, legalName: "Empresa duplicada", status: "active" }] }
       : { platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: index === 0 ? firstCompanyStatus : suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
   }
   if (request.url === "/api/v1/company-selection") {
@@ -83,7 +86,7 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false; malformedAuthMetadata = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false; duplicateDirectory = false; malformedAuthMetadata = false })
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true
@@ -412,6 +415,14 @@ test("OIDC callback rejects a malformed company directory before creating a sess
   await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
 })
 
+test("OIDC callback rejects duplicate company identifiers before creating a session", async ({ page }) => {
+  duplicateDirectory = true
+  redirectAuthorization = true
+  await page.goto("/entrar")
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
+})
+
 test("OIDC login rejects metadata endpoints containing userinfo", async ({ context }) => {
   malformedAuthMetadata = true
   const response = await context.request.get("/api/auth/login", { maxRedirects: 0 })
@@ -556,6 +567,15 @@ test("company picker rejects a malformed company directory response", async ({ p
   await page.goto("/empresas")
   await expect(page.getByRole("alert")).toHaveText("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
   await expect(page.getByRole("button", { name: "Empresa inválida", exact: true })).toHaveCount(0)
+  await page.unroute("**/api/erp/companies")
+})
+
+test("company picker rejects duplicate company identifiers", async ({ page, context }) => {
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }, { id: tenant, legalName: "Empresa duplicada", status: "active" }] } }))
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: /Empresa/ })).toHaveCount(0)
   await page.unroute("**/api/erp/companies")
 })
 

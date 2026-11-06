@@ -21,9 +21,8 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 function isCompanyDirectory(value: unknown): value is { data: (Schema<"CompanySummary"> & { status?: string })[]; platformAdministrator: boolean } {
   if (!value || typeof value !== "object") return false
   const body = value as { data?: unknown; platformAdministrator?: unknown }
-  return typeof body.platformAdministrator === "boolean"
-    && Array.isArray(body.data)
-    && body.data.every(item => {
+  if (typeof body.platformAdministrator !== "boolean" || !Array.isArray(body.data)) return false
+  const valid = body.data.every(item => {
       if (!item || typeof item !== "object") return false
       const company = item as Partial<Schema<"CompanySummary">> & { status?: unknown }
       return typeof company.id === "string"
@@ -32,6 +31,7 @@ function isCompanyDirectory(value: unknown): value is { data: (Schema<"CompanySu
         && (company.tradeName === undefined || company.tradeName === null || typeof company.tradeName === "string")
         && typeof company.status === "string"
     })
+  return valid && new Set(body.data.map(item => (item as { id: string }).id)).size === body.data.length
 }
 
 export function CompanyPicker() {

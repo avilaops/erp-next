@@ -9,9 +9,8 @@ type CompanyDirectory = { data: { id: string; legalName: string; tradeName?: str
 function isCompanyDirectory(value: unknown): value is CompanyDirectory {
   if (!value || typeof value !== "object") return false
   const body = value as { data?: unknown; platformAdministrator?: unknown }
-  return typeof body.platformAdministrator === "boolean"
-    && Array.isArray(body.data)
-    && body.data.every(item => {
+  if (typeof body.platformAdministrator !== "boolean" || !Array.isArray(body.data)) return false
+  const valid = body.data.every(item => {
       if (!item || typeof item !== "object") return false
       const company = item as Record<string, unknown>
       return typeof company.id === "string"
@@ -20,6 +19,7 @@ function isCompanyDirectory(value: unknown): value is CompanyDirectory {
         && (company.tradeName === undefined || company.tradeName === null || typeof company.tradeName === "string")
         && typeof company.status === "string"
     })
+  return valid && new Set(body.data.map(item => (item as { id: string }).id)).size === body.data.length
 }
 
 function callbackFailure(request: Request, origin: string | undefined, reason: "restart" | "denied" | "unavailable", status: number, destination: string) {

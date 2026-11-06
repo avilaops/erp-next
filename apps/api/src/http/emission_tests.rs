@@ -732,7 +732,14 @@ async fn production_numbers_and_events_follow_the_document_after_the_profile_swi
     // São Paulo no longer accepts inutilização de NF-e/NFC-e from 01/11/2026.
     let voided = call(&router,"POST","/api/v1/fiscal/number-voids","editor",Some("\"0\""),Some(Uuid::now_v7()),json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":1,"text":"Lacuna declarada no ambiente de produção"})).await;
     assert_eq!(voided.0, StatusCode::CONFLICT, "{}", voided.2);
-    assert!(voided.2["title"].as_str().unwrap_or_default().contains("não se aplica"), "{}", voided.2);
+    assert!(
+        voided.2["title"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("não se aplica"),
+        "{}",
+        voided.2
+    );
     profile["environment"] = json!("homologation");
     profile["nextNumber"] = json!(2);
     assert_eq!(
@@ -1012,7 +1019,14 @@ async fn emission_voids_are_rejected_without_reservation_and_preserve_tenant_rls
     )
     .await;
     assert_eq!(first.0, StatusCode::CONFLICT, "{}", first.2);
-    assert!(first.2["title"].as_str().unwrap_or_default().contains("não se aplica"), "{}", first.2);
+    assert!(
+        first.2["title"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("não se aplica"),
+        "{}",
+        first.2
+    );
     assert_eq!(
         call(
             &router,

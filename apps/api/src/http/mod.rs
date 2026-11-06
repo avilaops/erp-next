@@ -50,10 +50,12 @@ mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
+mod mcp_tests;
+#[cfg(test)]
 mod monitor_tests;
 #[cfg(test)]
 mod onboarding_tests;
-mod openapi;
+pub(crate) mod openapi;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
@@ -118,7 +120,7 @@ use crate::platform::{
 pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
-    let protected = Router::new()
+    let business = Router::new()
         .route(
             "/api/v1/registry-lookups",
             axum::routing::post(crate::domains::registry_lookup::lookup),
@@ -459,11 +461,11 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/users/{id}",
             get(access_management::get_member).put(access_management::update_member),
-        )
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth::require_auth,
-        ));
+        );
+    let protected = business.clone().route_layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth::require_auth,
+    ));
 
     let service = fiscal::service_routes().layer(middleware::from_fn_with_state(
         state.clone(),
@@ -481,7 +483,11 @@ pub fn router(state: AppState) -> Router {
         .merge(service)
         .route("/api/health", get(health::api_health))
         .merge(protected)
-        .with_state(state)
+        .with_state(state.clone())
+        .merge(crate::mcp::router(
+            state.clone(),
+            business.with_state(state),
+        ))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))

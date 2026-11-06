@@ -164,6 +164,10 @@ pub async fn document() -> Json<utoipa::openapi::OpenApi> {
     Json(ApiDoc::openapi())
 }
 
+pub(crate) fn value() -> serde_json::Value {
+    serde_json::to_value(ApiDoc::openapi()).expect("OpenAPI serializes")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

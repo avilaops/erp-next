@@ -4,6 +4,7 @@ import { accessHref, recoveryDestination } from "@/lib/return-to"
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  if (pathname === "/mcp" || pathname.startsWith("/mcp/") || ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server"].includes(pathname)) return NextResponse.next()
   if (pathname === "/_next/image") {
     const source = request.nextUrl.searchParams.get("url") || ""
     if (!/^\/(?!\/)[^#'"\\\u0000-\u001f]*$/.test(source)) {

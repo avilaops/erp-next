@@ -7,6 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+tower = { version = "0.5", features = ["util"] }
 base64 = "=0.22.1"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 flate2 = "1"

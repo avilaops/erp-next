@@ -1,5 +1,6 @@
 import { normalizedRoute } from './discovery.mjs';
 import { validateProductFlows } from './product-context.mjs';
+import mcpProtocolActions from './mcp/protocol-actions.json' with { type: 'json' };
 
 const dimensions = ['interface', 'request', 'authorization', 'domain', 'persistence', 'effects', 'failure', 'response'];
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
@@ -106,6 +107,19 @@ export function assessContracts(catalogue, inventory) {
     if (!methods.has(auth?.method) || !text(auth?.path) || !auth.path.startsWith('/api/auth/') || !bff.has(key(auth))
         || !text(auth.action) || !text(auth.recovery)) fail('invalid_auth_contract', auth?.path, 'Contrato de autenticação incompleto ou handler ausente.');
     else coveredBff.add(key(auth));
+  }
+  // Protocol endpoints have no commercial transition. They still require an
+  // explicit per-method inventory and authentication/recovery contract.
+  for (const protocol of catalogue.protocolActions ?? (api.has('POST /mcp') ? mcpProtocolActions : [])) {
+    const target = text(protocol?.path) && methods.has(protocol?.method) ? key(protocol) : '';
+    const inventorySet = protocol?.layer === 'api' ? api : protocol?.layer === 'bff' ? bff : null;
+    const coverage = protocol?.layer === 'api' ? covered : coveredBff;
+    if (!inventorySet || !methods.has(protocol?.method) || !text(protocol?.path)
+        || !(/^\/mcp(?:\/|$)/.test(protocol.path) || protocol.path.startsWith('/.well-known/'))
+        || !inventorySet.has(target) || coverage.has(target) || !text(protocol.action)
+        || !text(protocol.authorization) || !text(protocol.recovery) || !texts(protocol.sources) || !protocol.sources.length) {
+      fail('invalid_protocol_contract', protocol?.path, 'Protocolo exige operação existente, camada, autorização, recuperação e fontes explícitas.');
+    } else coverage.add(target);
   }
   for (const target of api) if (!covered.has(target)) fail('api_without_action_contract', target, 'Operação descoberta sem ficha de ação.');
   for (const asset of catalogue.assetActions || []) {

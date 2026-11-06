@@ -1,5 +1,9 @@
 name: Production data migration
 on:
+  workflow_run:
+    workflows: [Production release]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       source_ref:
@@ -21,7 +25,35 @@ concurrency:
   group: erp-production-migration
   cancel-in-progress: false
 jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          RELEASE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RELEASE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          elif [ "$RELEASE_CONCLUSION" = success ] && [ "$RELEASE_REPOSITORY" = "$GITHUB_REPOSITORY" ] &&
+            ! git diff --quiet HEAD^ HEAD -- migrations/202611060001_mcp_oauth.sql; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          fi
   migrate:
+    needs: select
+    if: needs.select.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -31,10 +63,12 @@ jobs:
       ERP_BOOTSTRAP_SUB: ${{ secrets.ERP_BOOTSTRAP_SUB }}
       ERP_BOOTSTRAP_TENANT: ${{ secrets.ERP_BOOTSTRAP_TENANT }}
       ERP_BOOTSTRAP_EMAIL: nicolas@avilaops.com
-      SOURCE_REF: ${{ inputs.source_ref }}
-      RELEASE_RUN: ${{ inputs.release_run }}
+      SOURCE_REF: ${{ inputs.source_ref || github.event.workflow_run.head_sha }}
+      RELEASE_RUN: ${{ inputs.release_run || github.event.workflow_run.id }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.event.workflow_run.head_sha }}
       - name: Require approved images
         run: |
           [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
@@ -83,10 +117,13 @@ jobs:
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-legacy-evolution.sql
       - name: Provision initial membership
-        if: ${{ !inputs.schema_only }}
+        if: ${{ github.event_name != 'workflow_run' && !inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
       - name: Grant system configuration storage to the runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-system-configuration.sql
+      - name: Grant OAuth issuer storage to the runtime role
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-mcp-oauth.sql
       - name: Grant invitation storage to the existing runtime role
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_invitations TO erp_next_app'
@@ -94,20 +131,28 @@ jobs:
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON commercial_contracts TO erp_next_app; GRANT SELECT, INSERT ON commercial_contract_files, commercial_contract_webhooks TO erp_next_app'
       - name: Grant versioned proposal storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-proposals.sql
       - name: Grant commercial settings storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-commercial-settings.sql
       - name: Grant recurring expense storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fixed-expenses.sql
       - name: Grant private product costs to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-costs.sql
       - name: Grant fiscal preference storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-preferences.sql
       - name: Grant immutable sales simulation storage
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-simulator.sql
       - name: Grant published price storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-price-tables.sql
       - name: Grant commercial order numbering to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-order-numbers.sql
       - name: Grant private template storage to the existing runtime role
         if: ${{ inputs.schema_only }}
@@ -119,12 +164,16 @@ jobs:
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-monitor.sql
       - name: Grant isolated CT-e capture storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-distribution.sql
       - name: Grant append-only received NFS-e storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-received-nfse.sql
       - name: Grant append-only CT-e inspection storage to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-inspections.sql
       - name: Grant append-only CT-e commercial associations to the existing runtime role
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-links.sql
       - name: Grant personal preferences to the existing runtime role
         if: ${{ inputs.schema_only }}
@@ -136,12 +185,15 @@ jobs:
         if: ${{ inputs.schema_only }}
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-retornos-fiscal.sql
       - name: Grant employee payroll storage and recurrence discovery
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-staff-payroll.sql
       - name: Import and reconcile the complete legacy database
-        if: ${{ !inputs.schema_only }}
+        if: ${{ github.event_name != 'workflow_run' && !inputs.schema_only }}
         run: python3 scripts/import-legacy.py
       - name: Grant product media registry access
+        if: github.event_name != 'workflow_run'
         # Product media is immutable and tenant isolated; no delete/update grant.
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-media.sql
       - name: Grant explicit catalog publication access
+        if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-catalog-publication.sql

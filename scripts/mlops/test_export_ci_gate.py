@@ -1,5 +1,11 @@
 import unittest
-from export_ci_gate import attest
+from importlib.util import spec_from_file_location, module_from_spec
+from pathlib import Path
+spec = spec_from_file_location("ci_attest", Path(__file__).with_name("export-ci-gate.py"))
+assert spec is not None and spec.loader is not None
+module = module_from_spec(spec)
+spec.loader.exec_module(module)
+attest = module.attest
 
 class AttestationTests(unittest.TestCase):
     def setUp(self):

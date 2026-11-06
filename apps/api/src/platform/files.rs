@@ -94,19 +94,41 @@ pub async fn list(
     )
     .await?;
     let data: Vec<ManagedFile> = sqlx::query_as(
-        "WITH catalog AS (\
-         SELECT f.id,'system'::text origin,f.original_name filename,f.media_type,f.byte_size,f.sha256,f.status,f.revision,\
-           (SELECT count(*) FROM system_config.file_versions v WHERE v.tenant_id=f.tenant_id AND v.file_id=f.id) version_count,f.created_at\
-         FROM system_config.files f WHERE f.tenant_id=$1\
-         UNION ALL SELECT f.id,'legacy',f.filename,f.media_type,octet_length(f.content)::bigint,f.sha256,'available',1,1,h.imported_at\
-         FROM legacy_files f JOIN legacy_history h ON h.tenant_id=f.tenant_id AND h.id=f.history_id WHERE f.tenant_id=$1)\
-         SELECT id,origin,filename,media_type,byte_size,sha256,status,revision,version_count,\
-           to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') created_at\
-         FROM catalog WHERE ($2::text IS NULL OR filename ILIKE '%' || $2 || '%' OR media_type ILIKE '%' || $2 || '%' OR sha256 ILIKE $2 || '%')\
-           AND ($3::text IS NULL OR origin=$3) AND ($4::text IS NULL OR status=$4)\
-         ORDER BY created_at DESC,id DESC LIMIT $5 OFFSET $6"
-    ).bind(tenant).bind(&query.q).bind(&query.origin).bind(&query.status).bind(query.limit).bind(query.offset)
-      .fetch_all(&mut *tx).await.map_err(db)?;
+        r#"WITH catalog AS (
+            SELECT f.id, 'system'::text origin, f.original_name filename, f.media_type,
+                f.byte_size, f.sha256, f.status, f.revision,
+                (SELECT count(*) FROM system_config.file_versions v
+                    WHERE v.tenant_id=f.tenant_id AND v.file_id=f.id) version_count,
+                f.created_at
+            FROM system_config.files f
+            WHERE f.tenant_id=$1
+            UNION ALL
+            SELECT f.id, 'legacy', f.filename, f.media_type,
+                octet_length(f.content)::bigint, f.sha256, 'available', 1, 1, h.imported_at
+            FROM legacy_files f
+            JOIN legacy_history h ON h.tenant_id=f.tenant_id AND h.id=f.history_id
+            WHERE f.tenant_id=$1
+        )
+        SELECT id, origin, filename, media_type, byte_size, sha256, status, revision,
+            version_count,
+            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') created_at
+        FROM catalog
+        WHERE ($2::text IS NULL OR filename ILIKE '%' || $2 || '%'
+            OR media_type ILIKE '%' || $2 || '%' OR sha256 ILIKE $2 || '%')
+            AND ($3::text IS NULL OR origin=$3)
+            AND ($4::text IS NULL OR status=$4)
+        ORDER BY created_at DESC, id DESC
+        LIMIT $5 OFFSET $6"#,
+    )
+    .bind(tenant)
+    .bind(&query.q)
+    .bind(&query.origin)
+    .bind(&query.status)
+    .bind(query.limit)
+    .bind(query.offset)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(db)?;
     let total: i64 = sqlx::query_scalar(
         "WITH catalog AS (SELECT id,'system'::text origin,original_name filename,media_type,sha256,status FROM system_config.files WHERE tenant_id=$1 UNION ALL SELECT id,'legacy',filename,media_type,sha256,'available' FROM legacy_files WHERE tenant_id=$1) SELECT count(*) FROM catalog WHERE ($2::text IS NULL OR filename ILIKE '%' || $2 || '%' OR media_type ILIKE '%' || $2 || '%' OR sha256 ILIKE $2 || '%') AND ($3::text IS NULL OR origin=$3) AND ($4::text IS NULL OR status=$4)"
     ).bind(tenant).bind(&query.q).bind(&query.origin).bind(&query.status).fetch_one(&mut *tx).await.map_err(db)?;
@@ -118,7 +140,7 @@ pub async fn list(
     ))
 }
 
-#[utoipa::path(post,path="/api/v1/system/files/{id}/archive",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=i64,Header),("id"=Uuid,Path)),responses((status=200,body=ManagedFile),(status=404,description="Arquivo não encontrado"),(status=412,description="Revisão desatualizada"),(status=428,description="If-Match obrigatório")))]
+#[utoipa::path(post,path="/api/v1/system/files/{id}/archive",operation_id="archive_system_file",tag="Platform",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header),("If-Match"=i64,Header),("id"=Uuid,Path)),responses((status=200,body=ManagedFile),(status=404,description="Arquivo não encontrado"),(status=412,description="Revisão desatualizada"),(status=428,description="If-Match obrigatório")))]
 pub async fn archive(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

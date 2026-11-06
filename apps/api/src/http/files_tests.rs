@@ -152,7 +152,7 @@ async fn files_are_filtered_tenant_scoped_downloaded_and_archived(admin: PgPool)
         StatusCode::CONFLICT
     );
     let audit: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM audit_log WHERE tenant_id=$1 AND event_type='system.file.archived'",
+        "SELECT count(*) FROM audit_log WHERE tenant_id=$1 AND action='system.file.archived'",
     )
     .bind(TENANT.parse::<uuid::Uuid>().unwrap())
     .fetch_one(&admin)

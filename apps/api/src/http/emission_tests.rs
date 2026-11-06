@@ -102,12 +102,10 @@ async fn provider(
         );
         let mut result = json!({"accessKey":key,"signedXml":xml});
         if model == 65 {
-            result["qrCode"] = json!("https://homologacao.nfce.fazenda.sp.gov.br/qrcode?p=synthetic");
+            result["qrCode"] =
+                json!("https://homologacao.nfce.fazenda.sp.gov.br/qrcode?p=synthetic");
         }
-        return (
-            StatusCode::OK,
-            Json(result),
-        );
+        return (StatusCode::OK, Json(result));
     }
     if operation == "void" {
         let durable: i64 = sqlx::query_scalar(

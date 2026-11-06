@@ -24,3 +24,8 @@ categoria, efeitos transacionais de reparo/troca/devolução/crédito/reembolso,
 logística reversa física, assinaturas/termos, eventos específicos para n8n e
 indicadores conciliados com fontes de origem. Sem esses contratos, a aplicação
 deve expor estado ausente ou indisponível, nunca um indicador fictício.
+
+A migration `202611060007_warranty_triage_assignment.sql` é aditiva e não altera
+registros existentes: fila recebe `general`, responsável e SLA permanecem nulos.
+O rollback operacional é feito por nova migration revisada, nunca por edição do
+histórico aplicado.

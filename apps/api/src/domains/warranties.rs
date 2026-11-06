@@ -202,10 +202,8 @@ pub async fn create_case(
     let title = text(&input.title, 3, 160)?;
     let description = text(&input.description, 15, 10000)?;
     let criticality = choice(&input.criticality, &["low", "normal", "high", "critical"])?;
-    for value in [&input.serial_number, &input.lot] {
-        if let Some(value) = value {
-            text(value, 1, 120)?;
-        }
+    for value in [&input.serial_number, &input.lot].into_iter().flatten() {
+        text(value, 1, 120)?;
     }
     let key = command_key(&headers)?;
     let request =

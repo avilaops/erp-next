@@ -53,6 +53,8 @@ mod monitor_tests;
 mod onboarding_tests;
 mod openapi;
 #[cfg(test)]
+mod mcp_tests;
+#[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
 mod parties_tests;

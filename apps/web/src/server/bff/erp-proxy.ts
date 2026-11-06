@@ -23,8 +23,6 @@ export async function forwardErp(request: Request, resource: string) {
   const systemResource = /^\/system\/(?:custom-fields|custom-reports|label-templates|workflows)(?:\/[a-f0-9-]{36}(?:\/(?:publish|archive))?)?$|^\/system\/files(?:\/[a-f0-9-]{36}\/archive)?$/i.test(resource)
   if (systemResource && !(resource === "/system/files" ? request.method === "GET" : resource.endsWith("/archive") || resource.endsWith("/publish") ? request.method === "POST" : ["GET", "POST", "PUT"].includes(request.method))) return Response.json({ title: "Método inválido" }, { status: 405 })
   const dashboardResource = resource === "/dashboard" && request.method === "GET"
-  const systemResource = /^\/system\/(?:custom-fields|custom-reports|label-templates|workflows)(?:\/[a-f0-9-]{36}(?:\/(?:publish|archive))?)?$|^\/system\/files(?:\/[a-f0-9-]{36}\/archive)?$/i.test(resource)
-  if (systemResource && !(resource === "/system/files" ? request.method === "GET" : resource.endsWith("/archive") || resource.endsWith("/publish") ? request.method === "POST" : ["GET", "POST", "PUT"].includes(request.method))) return Response.json({ title: "Método inválido" }, { status: 405 })
   const productCostResource = /^\/product-costs\/[a-f0-9-]{36}$/.test(resource) && ["GET", "PUT"].includes(request.method)
   const priceTableResource = /^\/price-tables\/(?:imported|national)(?:\/(?:preview|publish))?$/.test(resource)
     && (resource.endsWith("/publish") ? request.method === "POST" : request.method === "GET")

@@ -22,7 +22,7 @@ test('every canonical action has one product owner and declared journeys are exp
   const context = buildProductContext(catalogue, await inventoryPromise, source);
   assert.equal(context.flows.length, 58);
   assert.equal(context.actions.length, 278);
-  assert.equal(context.flows.length, 59);
+  assert.equal(context.flows.length, 60);
   assert.equal(context.actions.length, 288);
   assert.equal(context.pendingFlows.length, 34);
   assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'custom-fields', 'custom-reports', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'fiscal-preferences', 'fixed-expenses', 'label-templates', 'personal-preferences', 'price-tables', 'product-costs', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'sales-simulator', 'system-files', 'users', 'workflows']);

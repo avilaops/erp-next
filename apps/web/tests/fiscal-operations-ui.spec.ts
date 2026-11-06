@@ -8,6 +8,16 @@ const draft = { environment: "homologation", model: 55, operationNature: "Venda"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("NFC-e usa o fluxo fiscal persistente de modelo 65", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
+  await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: false, productionEnabled: false, blockers: [] } }))
+  await page.goto("/fiscal/nfce")
+  await expect(page.getByRole("heading", { name: "Rascunhos de NFC-e", exact: true })).toBeVisible()
+  await expect(page.getByText("Nenhum rascunho cadastrado nesta empresa.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Preparar NFC-e", exact: true })).toHaveAttribute("href", "/fiscal/notas-saida/nova?modelo=65")
+})
+
 test("lista de NF-e distingue emissão em homologação da produção indisponível", async ({ page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
   await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))

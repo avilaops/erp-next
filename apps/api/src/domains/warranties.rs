@@ -343,7 +343,7 @@ pub async fn get_case(
     Path(id): Path<Uuid>,
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let case = sqlx::query("SELECT id,protocol,title,description,criticality,coverage_status,status,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 AND id=$2")
+    let case = sqlx::query("SELECT id,protocol,title,description,criticality,coverage_status,status,product_id,serial_number,lot,revision,created_at,updated_at FROM warranty_cases WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let events = sqlx::query("SELECT id,event_type,status,details,created_at FROM warranty_case_events WHERE tenant_id=$1 AND case_id=$2 ORDER BY created_at,id")
         .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
@@ -393,7 +393,7 @@ pub async fn get_case(
     Ok(response(
         StatusCode::OK,
         Some(case.get::<i64, _>("revision")),
-        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline, "serviceOrders": service_orders, "parts": parts, "approvals": approvals, "rmas": rmas, "quarantines": quarantines}}),
+        json!({"tenantId": tenant, "data": {"id": case.get::<Uuid,_>("id"), "protocol": case.get::<String,_>("protocol"), "title": case.get::<String,_>("title"), "description": case.get::<String,_>("description"), "criticality": case.get::<String,_>("criticality"), "coverageStatus": case.get::<String,_>("coverage_status"), "status": case.get::<String,_>("status"), "productId": case.get::<Option<Uuid>,_>("product_id"), "serialNumber": case.get::<Option<String>,_>("serial_number"), "lot": case.get::<Option<String>,_>("lot"), "timeline": timeline, "serviceOrders": service_orders, "parts": parts, "approvals": approvals, "rmas": rmas, "quarantines": quarantines}}),
     ))
 }
 

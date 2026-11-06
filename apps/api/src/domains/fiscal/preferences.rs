@@ -2,7 +2,7 @@
 use super::certificate_crypto::SealedCertificate;
 use crate::{
     domains::{DomainChange, DomainError, authorized, db, record, response, revision},
-    platform::{access, auth::AuthenticatedIdentity, state::AppState},
+    platform::{access, auth::AuthenticatedIdentity, state::AppState, valid_document},
 };
 use axum::{
     Extension, Json,
@@ -47,11 +47,28 @@ pub struct OperationNature {
 pub struct OperationNatures {
     items: Vec<OperationNature>,
 }
+#[derive(Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct AuthorizedXmlPerson {
+    id: Uuid,
+    name: String,
+    email: String,
+    tax_id: String,
+    role: String,
+    active: bool,
+}
+#[derive(Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct FiscalDeliverySettings {
+    notification_email: Option<String>,
+    authorized_people: Vec<AuthorizedXmlPerson>,
+}
 #[derive(Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum FiscalPreferencesInput {
     Nfce(NfceSettings),
     Natures(OperationNatures),
+    Delivery(FiscalDeliverySettings),
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -75,6 +92,7 @@ fn default_data(section: &str) -> Result<Value, DomainError> {
     match section {
         "nfce" => Ok(Value::Null),
         "operation-natures" => Ok(json!({"items":[]})),
+        "delivery" => Ok(json!({"notificationEmail":null,"authorizedPeople":[]})),
         _ => Err(DomainError::NotFound),
     }
 }
@@ -128,6 +146,77 @@ impl OperationNatures {
                         "CFOP incompatível com entrada/saída ou destino",
                     ));
                 }
+            }
+        }
+        Ok(())
+    }
+}
+fn email(value: &mut String) -> Result<(), DomainError> {
+    clean(value, 254)?;
+    let mut parts = value.split('@');
+    let local = parts.next().unwrap_or("");
+    let domain = parts.next().unwrap_or("");
+    if local.is_empty()
+        || domain.is_empty()
+        || parts.next().is_some()
+        || !value.is_ascii()
+        || value.chars().any(char::is_whitespace)
+        || !domain.contains('.')
+    {
+        return Err(DomainError::Invalid("Informe um e-mail fiscal válido"));
+    }
+    Ok(())
+}
+impl FiscalDeliverySettings {
+    fn validate(&mut self) -> Result<(), DomainError> {
+        if let Some(value) = &mut self.notification_email {
+            email(value)?;
+        }
+        if self.authorized_people.len() > 50 {
+            return Err(DomainError::Invalid(
+                "Limite de 50 pessoas autorizadas ao XML",
+            ));
+        }
+        let mut ids = std::collections::HashSet::new();
+        let mut emails = std::collections::HashSet::new();
+        let mut tax_ids = std::collections::HashSet::new();
+        for person in &mut self.authorized_people {
+            if person.id.is_nil() || !ids.insert(person.id) {
+                return Err(DomainError::Invalid(
+                    "Pessoa autorizada duplicada ou sem identificador",
+                ));
+            }
+            clean(&mut person.name, 120)?;
+            clean(&mut person.role, 60)?;
+            email(&mut person.email)?;
+            if !emails.insert(person.email.to_ascii_lowercase()) {
+                return Err(DomainError::Invalid(
+                    "E-mail repetido na lista de pessoas autorizadas",
+                ));
+            }
+            if !person
+                .tax_id
+                .chars()
+                .all(|value| value.is_ascii_digit() || "./- ".contains(value))
+            {
+                return Err(DomainError::Invalid("CPF ou CNPJ do autorizado inválido"));
+            }
+            person.tax_id = person
+                .tax_id
+                .chars()
+                .filter(char::is_ascii_digit)
+                .collect();
+            let person_type = match person.tax_id.len() {
+                11 => "fisica",
+                14 => "juridica",
+                _ => "",
+            };
+            if !valid_document(&person.tax_id, person_type)
+                || !tax_ids.insert(person.tax_id.clone())
+            {
+                return Err(DomainError::Invalid(
+                    "Informe CPF ou CNPJ válido e não repetido para cada autorizado",
+                ));
             }
         }
         Ok(())
@@ -289,6 +378,10 @@ pub async fn put(
             data
         }
         ("operation-natures", FiscalPreferencesInput::Natures(mut value)) => {
+            value.validate()?;
+            serde_json::to_value(value).map_err(|_| access::AccessError::Internal)?
+        }
+        ("delivery", FiscalPreferencesInput::Delivery(mut value)) => {
             value.validate()?;
             serde_json::to_value(value).map_err(|_| access::AccessError::Internal)?
         }

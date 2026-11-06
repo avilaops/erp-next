@@ -184,7 +184,7 @@ pub async fn issue(
         matches!(
             v["status"].as_str(),
             Some("authorized" | "rejected" | "cancelled")
-        )
+        ) || v["result"]["code"] == "offline_contingency_ready"
     }) {
         let result = previous.clone();
         let rev = result["revision"].as_i64();
@@ -428,6 +428,21 @@ pub async fn issue(
                 key,
                 "preparing",
                 result,
+            )
+            .await;
+        }
+        if draft.input.emission_type.as_deref() == Some("9") {
+            return finish(
+                &state,
+                tenant,
+                id,
+                (&identity, &headers),
+                key,
+                "prepared",
+                json!({
+                    "code": "offline_contingency_ready",
+                    "reason": "NFC-e offline preparada; transmita posteriormente com uma nova chave de idempotência"
+                }),
             )
             .await;
         }

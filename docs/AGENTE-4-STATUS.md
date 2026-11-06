@@ -35,3 +35,44 @@ Os estados abaixo são os estados atuais do Linear consultados em 2026-11-06. El
 | Agente 2 — Comercial e Operação | AVL-432 `In Progress`; AVL-370 `In Review`; AVL-319 `Backlog`; AVL-17 `In Progress`; AVL-369 `In Review` | `codex/agente-2-comercial-operacao` / `erp-next-agent2` | Estado administrativo consultado; não auditado tecnicamente |
 | Agente 3 — Preferências e Integrações | AVL-372 `In Progress`; AVL-378 `Todo`; AVL-379 `Backlog`; AVL-380 `Backlog`; AVL-381 `Backlog` | `codex/agente-3-preferencias-integracoes` / `erp-next-agent3-preferencias` | Estado administrativo consultado; não auditado tecnicamente |
 | Agente 4 — Contratos, Auth e Coordenação | AVL-359 `In Progress`; AVL-387 `Todo`; AVL-399 `Todo`; AVL-407 `Backlog`; AVL-413 `Backlog` | `codex/agente-4-contratos-auth-coordenacao` / `erp-next-agent4` | Parcialmente consolidado acima |
+
+## Pendências contratuais atuais da AVL-359
+
+A lista abaixo é derivada diretamente de `verification/contracts.json`. A presença de uma linha não significa implementação, execução ou aceite.
+
+| ID | Intenção pendente |
+| --- | --- |
+| `preferences-system` | Exclusões, arquivos, relatórios, etiquetas, transições e campos customizados observados nas capturas do usuário. |
+| `preferences-records` | Configurações de clientes, fornecedores, produtos e tipos de contatos. |
+| `preferences-supplies` | Configurações de estoque/compras, grupos de tags, tags, grupos de produtos e depósitos operacionais. |
+| `preferences-sales-next` | Concluir propostas e PDV após a etapa inicial dos parâmetros de pedidos. |
+| `preferences-fiscal-next` | Configurações de NFC-e, inutilizações/correções consolidadas e naturezas de operação. |
+| `preferences-finance-next` | Conta digital, Pix, taxas/prazos, importação financeira, caixa e integrações de pagamento. |
+| `preferences-services` | NFS-e, ordens de serviço, cobranças e CT-e; preservar os modelos de contrato existentes. |
+| `preferences-logistics` | Configuração logística e integrações de transporte. |
+| `preferences-accounting` | Substituir a prévia por acesso e exportações contábeis autorizados. |
+| `preferences-data` | Produtos, multilojas, composições, campos, balança, preços, contatos, compras, movimentos, fornecedores, vendas e backup. |
+| `pending-2` | Categorias de produto, variantes, imagens, tabela/lista de preços, vigência e preço por canal/cliente. |
+| `pending-3` | Endereços e contatos no cadastro implementados neste módulo; condições comerciais e seleção de endereço de cobrança/entrega por documento ainda pendentes. |
+| `pending-4` | Cadastros de depósitos implementados; transferências e saldos por depósito permanecem pendentes. |
+| `pending-5` | Abrir sessão, contar/recontar, apurar diferença, aprovar/fechar. |
+| `pending-6` | Ordens por venda, etapas, consumos explícitos e compensações implementados; ficha técnica, reservas industriais e estoque acabado fora do fluxo. |
+| `pending-8` | Importação canônica, deduplicação, vínculo e custos por item para rascunho de compra implementados; divergências parciais e aceite real ainda pendentes. |
+| `pending-9` | Consultar demanda/recomendação e converter seleção em pedido. |
+| `pending-11` | Abrir caixa/sessão, registrar venda, confirmar meios, cancelar/estornar e fechar. |
+| `pending-12` | Cancelamento integral e solicitações fiscal/contratual implementados; descontos, frete, devoluções parciais e expedição ainda pendentes. |
+| `pending-13` | Conectar catálogo, publicar/atualizar anúncio, importar pedido e sincronizar eventos. |
+| `pending-14` | Abrir protocolo, verificar elegibilidade, triar, aprovar, encaminhar OS, reparar/trocar/devolver/encerrar. |
+| `pending-16` | Consultar livro/saldo, importar extrato, sugerir/confirmar/desfazer conciliação e transferir. |
+| `pending-17` | Selecionar títulos, gerar lote, importar retorno, conciliar e desagrupar conforme regras. |
+| `pending-18` | Base por recebimento sem IPI, snapshots, estornos, ajustes e pagamentos declarados implementados; extensões e aceite operacional não comprovados. |
+| `pending-19` | Emissão, consulta e eventos SP/homologação implementados com A1, numeração e resultados duráveis; emissão em produção permanece bloqueada. |
+| `pending-20` | Habilitar e verificar a distribuição e manifestação implementadas com certificado e CNPJ autorizados. |
+| `pending-21` | NFC-e, CT-e, NFS-e, guias e rotinas contábeis. |
+| `pending-22` | Selecionar pedido, separar/conferir, cotar, contratar, gerar/baixar etiqueta, postar, rastrear e tratar reversa. |
+| `pending-23` | Criar/versionar contrato, abrir/atribuir/executar/encerrar OS, faturar e cobrar. |
+| `pending-24` | Criar envelope, enviar, acompanhar, cancelar e arquivar documento assinado. |
+| `pending-25` | Consultar indicadores, detalhe, filtros e exportação. |
+| `pending-26` | Consultar eventos, marcar leitura e executar somente ações autorizadas explicitamente. |
+| `pending-27` | Consultar/alterar configuração por empresa; conectar/revogar, testar conexão e sincronizar. |
+| `pending-28` | Pré-validar arquivo, revisar lote, aplicar, consultar resultado e exportar autorizado. |

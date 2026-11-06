@@ -1384,7 +1384,11 @@
         "headers": ["Origin", "Content-Type: application/json"],
         "body": { "tenantId": "UUID da empresa autorizada" }
       },
-      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; rejeitar corpo não JSON ou malformado sem encaminhar ao serviço; preservar sessão anterior"
+      "response": {
+        "success": "tenantId igual ao UUID solicitado, sem prolongar expiresAt",
+        "errors": ["400 para JSON malformado ou UUID inválido", "401 para sessão ausente/expirada", "403 para origem ou vínculo não autorizado", "415 para Content-Type diferente de application/json", "503 para indisponibilidade do serviço"]
+      },
+      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; rejeitar corpo não JSON ou malformado sem encaminhar ao serviço; rejeitar confirmação com tenant divergente; preservar sessão anterior e returnTo interno"
     }
   ],
   "assetActions": [

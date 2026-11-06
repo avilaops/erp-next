@@ -199,3 +199,6 @@ jobs:
       - name: Grant explicit catalog publication access
         if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-catalog-publication.sql
+      - name: Grant warranty and assistance storage access
+        if: github.event_name != 'workflow_run'
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-warranty.sql

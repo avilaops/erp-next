@@ -313,7 +313,7 @@
       {
         "id": "fiscal-emission",
         "title": "Emissão e eventos NF-e por ambiente",
-        "goal": "Preparar e emitir NF-e SP no ambiente escolhido pelo usuário, com numeração e eventos isolados por ambiente.",
+        "goal": "Preparar e emitir NF-e de emitente SP no ambiente escolhido, com frete/desconto por item e tributação interestadual explicitamente declarada, preservando numeração e eventos isolados por ambiente.",
         "kind": "product",
         "actionGroups": [
           "fiscal-emission"
@@ -325,7 +325,8 @@
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
           "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/COMISSOES-PRODUCAO-E-FISCAL.md",
+          "docs/FISCAL-VALORES-COMERCIAIS.md"
         ],
         "journey": [
           {
@@ -955,7 +956,7 @@
           "products",
           "parties"
         ],
-        "nextStep": "Conferir snapshots, declaração tributária e vínculo comercial antes de emitir separadamente em homologação."
+        "nextStep": "Conferir snapshots, frete/desconto por item, alíquotas explícitas do destino e vínculo comercial antes do comando separado de emissão. Aceite SEFAZ continua não observado."
       },
       {
         "id": "me",

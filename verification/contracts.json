@@ -1375,7 +1375,7 @@
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
           {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id"], "authRefs": [], "externalSystems": []},
-          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts", "post-api-v1-warranty-cases-id-approval"], "authRefs": [], "externalSystems": []}
+          {"id": "treatment", "title": "Avançar a tratativa e registrar ordem de serviço.", "actionIds": ["post-api-v1-warranty-cases-id-transition", "post-api-v1-warranty-cases-id-service-order", "post-api-v1-warranty-service-orders-id-parts", "post-api-v1-warranty-cases-id-approval", "post-api-v1-warranty-cases-id-rma", "post-api-v1-warranty-rmas-id-transition"], "authRefs": [], "externalSystems": []}
         ]
       },
       {
@@ -28861,6 +28861,22 @@
       "preconditions": ["Protocolo versionado, ação de troca, crédito ou reembolso e decisão válida."], "transition": {"from": "Tratativa atual", "to": "Decisão de alçada registrada na timeline"}, "effects": {"writes": ["warranty_approvals", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não cria crédito, reembolso, remessa fiscal ou movimentação física automaticamente."]},
       "concurrency": {"revision": true, "idempotency": true, "rule": "Uma decisão por ação e protocolo; 412 em revisão divergente."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-approval"}, "recovery": "Consultar o protocolo e reenviar com nova revisão ou repetir a mesma chave em resposta incerta.",
       "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060004_warranty_approvals.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-cases-id-rma",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-cases/{id}/rma"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "RmaInput"}, "query": null},
+      "preconditions": ["Protocolo versionado e fornecedor, transportadora e rastreio válidos quando informados."], "transition": {"from": "Tratativa atual", "to": "RMA solicitado"}, "effects": {"writes": ["warranty_rmas", "warranty_cases", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não emite documento fiscal, não agenda coleta e não movimenta estoque."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente."}, "response": {"successStatuses": [200, 201], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-cases-id-rma"}, "recovery": "Consultar o protocolo e repetir a mesma chave em resposta incerta.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060005_warranty_rma.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "post-api-v1-warranty-rmas-id-transition",
+      "flow": "warranties", "status": "implemented", "operation": {"method": "POST", "path": "/api/v1/warranty-rmas/{id}/transition"},
+      "actor": "service_manager", "permissions": ["service.warranties.manage"], "input": {"headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"], "pathParameters": ["id"], "body": {"source": "apps/api/src/domains/warranties.rs", "type": "RmaTransitionInput"}, "query": null},
+      "preconditions": ["RMA versionado e estado operacional permitido."], "transition": {"from": "Estado atual do RMA", "to": "Novo estado com evento na timeline"}, "effects": {"writes": ["warranty_rmas", "warranty_case_events", "audit_log", "outbox_events", "domain_commands"], "external": [], "excludes": ["Não executa coleta, recebimento físico ou operação fiscal automaticamente."]},
+      "concurrency": {"revision": true, "idempotency": true, "rule": "412 em revisão divergente."}, "response": {"successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 412, 422, 428, 500], "action": "post-api-v1-warranty-rmas-id-transition"}, "recovery": "Consultar o RMA e reconciliar a revisão antes de reenviar.",
+      "ui": {"pages": [], "bff": null, "gap": "backend_only"}, "sources": ["apps/api/src/domains/warranties.rs", "migrations/202611060005_warranty_rma.sql"], "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
     }
   ],
   "pendingFlows": [

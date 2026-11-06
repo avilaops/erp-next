@@ -77,6 +77,24 @@ pub struct ApprovalInput {
     pub notes: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RmaInput {
+    pub supplier_id: Option<Uuid>,
+    pub carrier: Option<String>,
+    pub tracking_code: Option<String>,
+    #[serde(default)]
+    pub notes: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RmaTransitionInput {
+    pub status: String,
+    #[serde(default)]
+    pub details: Value,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -92,6 +110,11 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/api/v1/warranty-service-orders/{id}/parts", post(add_part))
         .route("/api/v1/warranty-cases/{id}/approval", post(approve_case))
+        .route("/api/v1/warranty-cases/{id}/rma", post(create_rma))
+        .route(
+            "/api/v1/warranty-rmas/{id}/transition",
+            post(transition_rma),
+        )
 }
 
 fn text(value: &str, min: usize, max: usize) -> Result<String, DomainError> {
@@ -648,4 +671,215 @@ pub async fn approve_case(
     .await?;
     tx.commit().await.map_err(db)?;
     Ok(response(StatusCode::CREATED, Some(next), result))
+}
+
+pub async fn create_rma(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(case_id): Path<Uuid>,
+    Json(input): Json<RmaInput>,
+) -> Result<Response, DomainError> {
+    let carrier = input
+        .carrier
+        .as_deref()
+        .map(|value| text(value, 2, 160))
+        .transpose()?;
+    let tracking_code = input
+        .tracking_code
+        .as_deref()
+        .map(|value| text(value, 2, 160))
+        .transpose()?;
+    let notes = text(&input.notes, 0, 4000)?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.rma.create",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    sqlx::query(
+        "SELECT id FROM warranty_cases WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(case_id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    if let Some(supplier_id) = input.supplier_id {
+        let supplier_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM parties WHERE tenant_id=$1 AND id=$2 AND status='active' AND is_supplier)",
+        )
+        .bind(tenant)
+        .bind(supplier_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+        if !supplier_exists {
+            return Err(DomainError::Conflict("Fornecedor ativo não encontrado"));
+        }
+    }
+    let id = Uuid::now_v7();
+    let reference = format!("RMA-{}", id.simple());
+    sqlx::query("INSERT INTO warranty_rmas(id,tenant_id,case_id,supplier_id,reference,carrier,tracking_code,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+        .bind(id)
+        .bind(tenant)
+        .bind(case_id)
+        .bind(input.supplier_id)
+        .bind(&reference)
+        .bind(carrier.as_deref())
+        .bind(tracking_code.as_deref())
+        .bind(&notes)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let next = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_cases SET revision=revision+1, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$3 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(case_id)
+    .bind(expected)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let result = json!({"tenantId": tenant, "data": {"id": id, "caseId": case_id, "reference": reference, "status": "requested", "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'note','requested',$4)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(case_id)
+        .bind(&result)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_rma",
+            id,
+            event: "warranty.rma.created",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.rma.create",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::CREATED, Some(next), result))
+}
+
+pub async fn transition_rma(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(input): Json<RmaTransitionInput>,
+) -> Result<Response, DomainError> {
+    let status = choice(
+        &input.status,
+        &[
+            "authorized",
+            "in_transit",
+            "received",
+            "closed",
+            "cancelled",
+        ],
+    )?;
+    let key = command_key(&headers)?;
+    let expected = revision(&headers)?;
+    let request =
+        serde_json::to_value(&input).map_err(|_| DomainError::Invalid("Entrada inválida"))?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    if let Some(result) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.rma.transition",
+        &request,
+    )
+    .await?
+    {
+        tx.commit().await.map_err(db)?;
+        return Ok(response(StatusCode::OK, None, result));
+    }
+    let current = sqlx::query(
+        "SELECT case_id FROM warranty_rmas WHERE tenant_id=$1 AND id=$2 AND revision=$3 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(expected)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::StaleRevision)?;
+    let case_id = current.get::<Uuid, _>("case_id");
+    let next = sqlx::query_scalar::<_, i64>(
+        "UPDATE warranty_rmas SET status=$3, revision=revision+1, updated_at=now() WHERE tenant_id=$1 AND id=$2 AND revision=$4 RETURNING revision",
+    )
+    .bind(tenant)
+    .bind(id)
+    .bind(status)
+    .bind(expected)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    let result = json!({"tenantId": tenant, "data": {"id": id, "caseId": case_id, "status": status, "revision": next}});
+    sqlx::query("INSERT INTO warranty_case_events(id,tenant_id,case_id,event_type,status,details) VALUES($1,$2,$3,'note',$4,$5)")
+        .bind(Uuid::now_v7())
+        .bind(tenant)
+        .bind(case_id)
+        .bind(status)
+        .bind(&input.details)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    record(
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        DomainChange {
+            kind: "warranty_rma",
+            id,
+            event: "warranty.rma.transitioned",
+            details: result.clone(),
+        },
+    )
+    .await?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "warranty.rma.transition",
+        &request,
+        &result,
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(StatusCode::OK, Some(next), result))
 }

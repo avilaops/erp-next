@@ -6,11 +6,14 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, commissions, contracts, dashboard, finance, fiscal, inventory, legacy,
-    parties, payables, production, purchasing, reference_data, returns, sales, staff,
+    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance, fiscal,
+    inventory, legacy, parties, payables, production, purchasing, reference_data, registry_lookup,
+    returns, sales, staff,
     staff_payroll,
 };
-use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
+use crate::platform::{
+    access, access_management, company, invitations, onboarding, service_auth, workflows,
+};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -23,6 +26,9 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         crate::platform::custom_reports::list, crate::platform::custom_reports::create, crate::platform::custom_reports::update,
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
         crate::domains::registry_lookup::lookup,
+        registry_lookup::registration::lookup_registration,
+        catalog_publication::get, catalog_publication::put, catalog_publication::media,
+        catalog_publication::preview, catalog_publication::publish,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
@@ -31,6 +37,9 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         sales::metrics::orders, sales::metrics::commissions,
         sales::opportunities::list, sales::opportunities::get, sales::opportunities::create, sales::opportunities::update,
         sales::negotiation::get_rules, sales::negotiation::put_rules,
+        sales::pricing::options, sales::pricing::quote,
+        sales::pricing_orders::create, sales::pricing_orders::get,
+        sales::pricing_orders::approve,
         crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
         crate::domains::supply_settings::purchase::get_purchase, crate::domains::supply_settings::purchase::put_purchase,
         reference_data::list_warehouses, reference_data::get_warehouse, reference_data::create_warehouse, reference_data::update_warehouse,
@@ -73,6 +82,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         returns::cancel_completed, returns::reverse_receipt, returns::sale_history, returns::purchase_history,
         inventory::balances, inventory::history, inventory::post_movement,
         fiscal::get_profile, fiscal::put_profile, fiscal::readiness, fiscal::danfe::generate,
+        fiscal::preferences::get, fiscal::preferences::put, fiscal::preferences::events,
         fiscal::certificates::get, fiscal::certificates::put, fiscal::certificates::remove,
         fiscal::list, fiscal::get_draft, fiscal::create, fiscal::update, fiscal::emission::issue, fiscal::order_source::get,
         fiscal::received::import, fiscal::received::list, fiscal::received::get_document, fiscal::received::download_xml,
@@ -95,6 +105,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke,
         dashboard::get,
+        workflows::list, workflows::create, workflows::update, workflows::publish, workflows::archive,
         crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
         crate::platform::product_costs::get, crate::platform::product_costs::put,
         crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),
@@ -381,7 +392,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 205);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 224);
         assert!(
             doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
         );

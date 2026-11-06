@@ -11,8 +11,9 @@ export async function forwardErp(request: Request, resource: string) {
   if (resource.startsWith("/commercial/") && (!negotiationResource || !metricResource && new URL(request.url).search)) return Response.json({ title: "Recurso comercial inválido" }, { status: 400 })
   const payrollResource = request.method === "GET" && /^\/staff-payroll$|^\/staff\/[a-f0-9-]{36}\/payroll$/i.test(resource)
     || request.method === "POST" && /^\/staff-payroll\/(?:generate|salaries)$|^\/staff-payroll\/requests\/[a-f0-9-]{36}\/review$|^\/staff\/[a-f0-9-]{36}\/payroll\/requests$/i.test(resource)
-  const registryResource = resource === "/registry-lookups" && request.method === "POST"
-  if (resource === "/registry-lookups" && (!registryResource || new URL(request.url).search)) return Response.json({ title: "Consulta inválida" }, { status: 400 })
+  const registryResource = (resource === "/registry-lookups" || resource === "/company-registration/lookup") && request.method === "POST"
+  if ((resource === "/registry-lookups" || resource === "/company-registration/lookup")
+    && (!registryResource || new URL(request.url).search)) return Response.json({ title: "Consulta inválida" }, { status: 400 })
   const accountResource = request.method === "GET" && ["/company-account", "/company-account/invoices"].includes(resource)
     || request.method === "POST" && ["/company-account/checkout", "/company-account/refresh", "/company-account/change-plan", "/company-account/cancel"].includes(resource)
   const commissionRead = /^\/commissions(?:\/[a-f0-9-]{36})?$|^\/orders\/[a-f0-9-]{36}\/commission$/i.test(resource)

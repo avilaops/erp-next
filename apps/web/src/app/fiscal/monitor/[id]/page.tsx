@@ -1,13 +1,9 @@
 import { Suspense } from "react"
-import { FiscalDocumentDetail } from "@/features/fiscal/fiscal-details"
-
-export function generateStaticParams() {
-  return [{ id: "1" }]
-}
+import { ReceivedDocumentDetail } from "@/features/fiscal/received-document-detail"
 
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <FiscalDocumentDetail id={id} kind="received" />
+  return <ReceivedDocumentDetail id={id} />
 }
 
 export const metadata = { title: "Documento fiscal recebido" }

@@ -12,12 +12,16 @@ const tenant = "11111111-1111-4111-8111-111111111111"
 let companyCount = 0
 let platformAdministrator = false
 let suspendedCompany = false
+let firstCompanyStatus = "active"
 let denied = false
 let selectionDelayMs = 0
 let selectionStatus = 204
 let commands: { key: string | undefined; body: string }[] = []
 let upstreamCalls = 0
 let redirectAuthorization = false
+let malformedDirectory = false
+let duplicateDirectory = false
+let malformedAuthMetadata = false
 const upstream = createServer(async (request, response) => {
   upstreamCalls++
   expect(request.headers.authorization).toBe("Bearer onboarding-fixture-token")
@@ -30,7 +34,11 @@ const upstream = createServer(async (request, response) => {
       if (commands.length === 1) { response.writeHead(503); response.end(JSON.stringify({ title: "Falha temporária" })); return }
       response.writeHead(201); response.end(JSON.stringify({ tenantId: tenant, revision: 1 })); return
     }
-    response.end(JSON.stringify({ platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
+    response.end(JSON.stringify(malformedDirectory
+      ? { platformAdministrator: false, data: [{ id: "not-a-uuid", legalName: "Empresa inválida", status: "active" }] }
+      : duplicateDirectory
+        ? { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }, { id: tenant, legalName: "Empresa duplicada", status: "active" }] }
+      : { platformAdministrator, data: Array.from({ length: companyCount }, (_, index) => ({ id: index ? "22222222-2222-4222-8222-222222222222" : tenant, legalName: `Empresa ${index + 1}`, status: index === 0 ? firstCompanyStatus : suspendedCompany && index === 1 ? "suspended" : "active" })) })); return
   }
   if (request.url === "/api/v1/company-selection") {
     expect(request.method).toBe("POST")
@@ -47,7 +55,7 @@ const issuer = "http://127.0.0.1:33120"
 const auth = createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json")
   if (request.url === "/.well-known/openid-configuration") {
-    response.end(JSON.stringify({ issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, code_challenge_methods_supported: ["S256"] })); return
+    response.end(JSON.stringify({ issuer, authorization_endpoint: malformedAuthMetadata ? "http://user:password@127.0.0.1:33120/authorize" : `${issuer}/authorize`, token_endpoint: `${issuer}/token`, code_challenge_methods_supported: ["S256"] })); return
   }
   if (request.url === "/token") {
     response.end(JSON.stringify({ access_token: "onboarding-fixture-token", token_type: "Bearer", expires_in: 3600 })); return
@@ -78,7 +86,7 @@ test.beforeAll(async () => {
   await Promise.all([new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)), new Promise<void>(resolve => auth.listen(33120, "127.0.0.1", resolve))])
 })
 test.afterAll(async () => { await Promise.all([new Promise<void>(resolve => upstream.close(() => resolve())), new Promise<void>(resolve => auth.close(() => resolve()))]) })
-test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false })
+test.beforeEach(() => { companyCount = 0; platformAdministrator = false; suspendedCompany = false; firstCompanyStatus = "active"; denied = false; selectionDelayMs = 0; selectionStatus = 204; commands = []; upstreamCalls = 0; redirectAuthorization = false; malformedDirectory = false; duplicateDirectory = false; malformedAuthMetadata = false })
 
 for (const requestedTenant of ["", tenant]) test(`platform administrator must choose even a single company after login with tenant ${requestedTenant || "omitted"}`, async ({ page, context }) => {
   companyCount = 1; platformAdministrator = true; redirectAuthorization = true
@@ -254,6 +262,63 @@ test("identity-only sessions cannot access existing tenant data and company sele
   expect(selected.expiresAt).toBe(expiresAt)
 })
 
+test("OIDC callback rejects a malformed company directory before creating a session", async ({ page }) => {
+  malformedDirectory = true
+  redirectAuthorization = true
+  await page.goto("/entrar?" + new URLSearchParams({ returnTo: "/preferencias/empresa/dados" }))
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
+})
+
+test("OIDC callback rejects duplicate company identifiers before creating a session", async ({ page }) => {
+  duplicateDirectory = true
+  redirectAuthorization = true
+  await page.goto("/entrar")
+  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "unavailable")
+})
+
+test("OIDC login rejects metadata endpoints containing userinfo", async ({ context }) => {
+  malformedAuthMetadata = true
+  const response = await context.request.get("/api/auth/login", { maxRedirects: 0 })
+  expect(response.status()).toBe(503)
+  expect(await response.json()).toEqual({ title: "Não foi possível iniciar a autenticação" })
+})
+
+test("OIDC callback rejects a preselected suspended company", async ({ page }) => {
+  companyCount = 1; firstCompanyStatus = "suspended"; redirectAuthorization = true
+  await page.goto("/api/auth/login?" + new URLSearchParams({ returnTo: "/", tenant }))
+  await expect(page).toHaveURL(url => url.pathname === "/entrar" && url.searchParams.get("erro") === "denied")
+})
+
+test("OIDC callback opens an active preselected company directly", async ({ page, context }) => {
+  companyCount = 1; redirectAuthorization = true
+  await page.goto("/api/auth/login?" + new URLSearchParams({ returnTo: "/preferencias/empresa/dados", tenant }))
+  await expect(page).toHaveURL(origin + "/preferencias/empresa/dados")
+  const stored = (await context.cookies()).find(item => item.name === "erp_session")!
+  expect(session(stored.value).tenantId).toBe(tenant)
+})
+
+test("company selection rejects non-JSON and malformed bodies before forwarding tenant input", async ({ context }) => {
+  await context.addCookies([cookie(null)])
+  const nonJson = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "text/plain" }, data: JSON.stringify({ tenantId: tenant }) })
+  expect(nonJson.status()).toBe(415)
+  expect(await nonJson.json()).toEqual({ title: "O pedido precisa ser JSON" })
+
+  const malformed = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "application/json" }, data: "{" })
+  expect(malformed.status()).toBe(400)
+  expect(await malformed.json()).toEqual({ title: "Pedido inválido" })
+  expect(upstreamCalls).toBe(0)
+})
+
+test("company selection rejects oversized bodies while streaming before forwarding tenant input", async ({ context }) => {
+  await context.addCookies([cookie(null)])
+  const oversized = await context.request.post("/api/auth/company", { headers: { Origin: origin, "Content-Type": "application/json" }, data: JSON.stringify({ tenantId: tenant, padding: "x".repeat(1100) }) })
+  expect(oversized.status()).toBe(413)
+  expect(await oversized.json()).toEqual({ title: "Pedido muito grande" })
+  expect(upstreamCalls).toBe(0)
+})
+
 test("cadastros distinguish a signed-out user from an authenticated user without a selected company", async ({ page, context }) => {
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
@@ -289,6 +354,20 @@ test("company signup keeps input and command key after an ambiguous failure, the
   expect(await page.content()).not.toContain("onboarding-fixture-token")
 })
 
+test("company signup exposes selection expiration after creation and keeps the created company recoverable", async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.goto("/cadastro/empresa")
+  for (const [label, value] of [["Nome empresarial", "Empresa de seleção"], ["CPF ou CNPJ", "12ABC34501DE35"], ["CEP", "01001000"], ["Cidade", "São Paulo"], ["Rua", "Praça"], ["Número", "1"], ["Bairro", "Centro"]]) await page.getByLabel(label, { exact: true }).fill(value)
+  await page.getByLabel("Regime tributário").selectOption("simples")
+  await page.getByLabel("UF", { exact: true }).selectOption("SP")
+  await page.getByLabel("Segmento", { exact: true }).selectOption("Serviços")
+  await page.route("**/api/auth/company", async route => route.fulfill({ status: 401, json: { title: "Entre novamente" } }))
+  await page.getByRole("button", { name: "Cadastrar empresa", exact: true }).click()
+  await expect(page.getByRole("status")).toContainText("Sua sessão expirou. Entre novamente para continuar.")
+  await expect(page.getByRole("button", { name: "Acessar empresa cadastrada", exact: true })).toBeVisible()
+  await page.unroute("**/api/auth/company")
+})
+
 test("signup requires a session and picker exposes only the companies returned by the verified API", async ({ page, context }) => {
   await page.goto("/cadastro/empresa")
   await page.waitForURL("**/entrar?*")
@@ -300,6 +379,71 @@ test("signup requires a session and picker exposes only the companies returned b
   await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
   await page.waitForURL("**/preferencias/empresa/dados")
   expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe(tenant)
+})
+
+test("company picker distinguishes an unavailable company service from an expired session", async ({ page, context }) => {
+  companyCount = 1
+  let attempts = 0
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => {
+    attempts += 1
+    return route.fulfill(attempts === 1 ? { status: 503, json: { title: "Consulta indisponível" } } : { status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }] } })
+  })
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeVisible()
+  expect(attempts).toBe(2)
+  await page.unroute("**/api/erp/companies")
+})
+
+test("company picker removes stale companies when a refresh fails", async ({ page, context }) => {
+  companyCount = 1
+  let attempts = 0
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => {
+    attempts += 1
+    return route.fulfill(attempts === 1
+      ? { status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }] } }
+      : { status: 503, json: { title: "Consulta indisponível" } })
+  })
+  await page.goto("/empresas")
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas está temporariamente indisponível. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toHaveCount(0)
+  expect(attempts).toBe(2)
+  await page.unroute("**/api/erp/companies")
+})
+
+test("company picker rejects a malformed company directory response", async ({ page, context }) => {
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 200, json: { platformAdministrator: false, data: [{ id: "not-a-uuid", legalName: "Empresa inválida", status: "active" }] } }))
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Empresa inválida", exact: true })).toHaveCount(0)
+  await page.unroute("**/api/erp/companies")
+})
+
+test("company picker rejects duplicate company identifiers", async ({ page, context }) => {
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status: 200, json: { platformAdministrator: false, data: [{ id: tenant, legalName: "Empresa 1", status: "active" }, { id: tenant, legalName: "Empresa duplicada", status: "active" }] } }))
+  await page.goto("/empresas")
+  await expect(page.getByRole("alert")).toHaveText("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: /Empresa/ })).toHaveCount(0)
+  await page.unroute("**/api/erp/companies")
+})
+
+test("company picker does not open a page when the selected tenant is not confirmed", async ({ page, context }) => {
+  companyCount = 1
+  const destination = "/cadastros/produtos?status=archived"
+  await context.addCookies([cookie(null)])
+  await page.route("**/api/auth/company", route => route.fulfill({ status: 200, json: { tenantId: "22222222-2222-4222-8222-222222222222" } }))
+  await page.goto("/empresas?" + new URLSearchParams({ returnTo: destination }))
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await expect(page.getByRole("alert")).toHaveText("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
+  await page.unroute("**/api/auth/company")
 })
 
 test("expired access preserves the internal path and filters through the login form", async ({ page, context }) => {

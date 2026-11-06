@@ -1678,7 +1678,7 @@
       "path": "/api/auth/callback",
       "method": "GET",
       "action": "Trocar código e verificar Auth na API; descobrir empresas ou validar seleção explícita; criar sessão cifrada",
-      "recovery": "Recusar state/código inválido; zero empresas permite apenas onboarding e não concede acesso a empresa existente"
+      "recovery": "Recusar state/código inválido ou diretório de empresas malformado; zero empresas permite apenas onboarding e não concede acesso a empresa existente; auto-seleção exige exatamente uma empresa ativa"
     },
     {
       "path": "/api/auth/logout",
@@ -1702,7 +1702,15 @@
       "path": "/api/auth/company",
       "method": "POST",
       "action": "Validar vínculo na API e selecionar empresa na sessão cifrada sem prolongar expiração",
-      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; preservar sessão anterior"
+      "input": {
+        "headers": ["Origin", "Content-Type: application/json"],
+        "body": { "tenantId": "UUID da empresa autorizada" }
+      },
+      "response": {
+        "success": "tenantId igual ao UUID solicitado, sem prolongar expiresAt",
+        "errors": ["400 para JSON malformado ou UUID inválido", "401 para sessão ausente/expirada", "403 para origem ou vínculo não autorizado", "415 para Content-Type diferente de application/json", "503 para indisponibilidade do serviço"]
+      },
+      "recovery": "Recusar origem estrangeira, sessão expirada e empresa sem vínculo; rejeitar corpo não JSON ou malformado sem encaminhar ao serviço; rejeitar confirmação com tenant divergente; preservar sessão anterior e returnTo interno"
     }
   ],
   "assetActions": [

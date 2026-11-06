@@ -254,7 +254,7 @@ export function NfeDraftEditor({ id, sourceOrderId, initialModel = 55 }: { id?: 
       </form>
       {snapshot?.data.ibptSnapshot && <IbptSavedSnapshot snapshot={snapshot.data.ibptSnapshot} revision={snapshot.data.revision} dirty={dirty} />}
       {readiness && !readiness.canTransmit && <section className="form-section space-y-2"><h2 className="font-semibold">Pendências para emitir</h2>{readiness.blockers.map(blocker => <p key={blocker} className="text-sm">{blockerLabels[blocker] || "Confira a configuração fiscal para esta operação"}</p>)}</section>}
-      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} environment={snapshot.data.input.environment} model={snapshot.data.input.model} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
+      {id && snapshot && <EmissionActions key={`${id}:${snapshot.data.revision}`} id={id} tenantId={tenant} draftRevision={snapshot.data.revision} environment={snapshot.data.input.environment} model={snapshot.data.input.model === 65 ? 65 : 55} canIssue={canIssue && Boolean(readiness?.canTransmit)} canCancel={canCancel} canCorrect={canCorrect} dirty={loading || dirty || saving || uncertain} onLocked={setFiscalLocked} />}
     </>}
   </main>
 }

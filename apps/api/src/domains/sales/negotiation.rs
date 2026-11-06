@@ -93,7 +93,7 @@ pub(super) async fn require_unquoted(
     order: Uuid,
 ) -> Result<(), DomainError> {
     let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2)",
+        "SELECT EXISTS(SELECT 1 FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2) OR EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
     )
     .bind(tenant)
     .bind(order)
@@ -102,7 +102,7 @@ pub(super) async fn require_unquoted(
     .map_err(db)?;
     if exists {
         return Err(DomainError::Conflict(
-            "Pedido preserva uma negociação calculada. Cancele o rascunho e refaça a simulação para negociar outras condições",
+            "Pedido preserva uma negociação ou simulação calculada. Cancele o rascunho e refaça a simulação para negociar outras condições",
         ));
     }
     Ok(())

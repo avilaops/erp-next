@@ -973,7 +973,8 @@
           "products",
           "parties"
         ],
-        "nextStep": "Conferir snapshots, frete/desconto por item, alíquotas explícitas do destino e vínculo comercial antes do comando separado de emissão. Aceite SEFAZ continua não observado."
+        "nextStep": "Conferir perfis tributários e seus padrões opcionais, snapshots, valores por item, alíquotas do destino e vínculo comercial antes do comando separado de emissão. Aceite SEFAZ continua não observado.",
+        "additionalSources": ["docs/FISCAL-PERFIS-TRIBUTARIOS.md"]
       },
       {
         "id": "me",

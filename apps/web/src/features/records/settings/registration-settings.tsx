@@ -5,6 +5,7 @@ import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ludusProfiles, type TaxProfile } from "@/features/fiscal/settings/tax-profile-model"
+import { TaxProfileDefaultFields } from "@/features/fiscal/settings/tax-profile-default-fields"
 export type Section = "products" | "parties" | "contact-types" | "tax-profiles"
 type Data = {
   requireNcm?: boolean
@@ -195,8 +196,8 @@ export function RegistrationSettings({ section }: { section: Section }) {
               <>
                 <p className="text-sm text-muted-foreground">
                   Perfis preenchem a natureza da operação, PIS, COFINS, CST IBS/CBS e cClassTrib no rascunho
-                  da NF-e. CFOP, origem, CST dos demais tributos e alíquotas restantes devem ser revisados em
-                  cada operação.
+                  da NF-e. Os padrões adicionais completam os campos vazios de CST, IPI, IBS/CBS e composição
+                  das bases. Confira os dados de cada operação antes de emitir.
                 </p>
                 {!data.profiles?.length && (
                   <Button
@@ -248,6 +249,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                         />
                       </label>
                     ))}
+                    <TaxProfileDefaultFields index={index} value={value.defaults ?? {}} onChange={defaults => profile(index, { defaults })} />
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"

@@ -126,6 +126,35 @@ export const blockerLabels: Record<string, string> = {
 
 /** Copies only accountant-declared defaults; all other fiscal decisions stay unchanged. */
 export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision: number): DraftInput {
- const taxes = draft.taxDeclaration || blankTaxDeclaration()
- return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate, ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode } } }
+  const taxes = draft.taxDeclaration || blankTaxDeclaration()
+  const defaults = profile.defaults ?? {}
+  return {
+    ...draft,
+    operationNature: profile.operationNature,
+    taxRuleReference: `${profile.name} · revisão ${revision}`,
+    items: draft.items.map(item => ({
+      ...item,
+      ...(!item.icmsCst && !item.csosn && defaults.icmsCst ? { icmsCst: defaults.icmsCst } : {}),
+      ...(!item.pisCst && defaults.pisCst ? { pisCst: defaults.pisCst } : {}),
+      ...(!item.cofinsCst && defaults.cofinsCst ? { cofinsCst: defaults.cofinsCst } : {})
+    })),
+    taxDeclaration: {
+      ...taxes,
+      pisRate: profile.pisRate,
+      cofinsRate: profile.cofinsRate,
+      ipiCst: taxes.ipiCst || defaults.ipiCst || null,
+      ipiFrameCode: taxes.ipiFrameCode || defaults.ipiFrameCode || null,
+      finalConsumer: taxes.finalConsumer ?? defaults.finalConsumer ?? null,
+      ipiInIcmsBase: taxes.ipiInIcmsBase ?? defaults.ipiInIcmsBase ?? null,
+      icmsOutOfContributions: taxes.icmsOutOfContributions ?? defaults.icmsOutOfContributions ?? null,
+      ibsCbs: {
+        ...taxes.ibsCbs,
+        cst: profile.ibsCbsCst,
+        classCode: profile.classCode,
+        ibsStateRate: taxes.ibsCbs.ibsStateRate || defaults.ibsStateRate || "",
+        ibsCityRate: taxes.ibsCbs.ibsCityRate || defaults.ibsCityRate || "",
+        cbsRate: taxes.ibsCbs.cbsRate || defaults.cbsRate || ""
+      }
+    }
+  }
 }

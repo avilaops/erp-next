@@ -109,10 +109,23 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
   await expect(page.getByLabel("Perfil 2: COFINS (%)", { exact: true })).toHaveValue("7.6000")
   await expect(page.getByLabel("Perfil 1: CST IBS/CBS", { exact: true })).toHaveValue("000")
   await expect(page.getByLabel("Perfil 2: cClassTrib", { exact: true })).toHaveValue("000001")
+  await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
+  await expect(page.getByRole("combobox", { name: "Perfil 1: CST do IPI", exact: true })).toHaveValue("50")
+  await expect(page.getByRole("combobox", { name: "Perfil 2: CST do IPI", exact: true })).toHaveValue("53")
+  await expect(page.getByLabel("Perfil 1: Enquadramento do IPI", { exact: true })).toHaveValue("999")
+  await expect(page.getByLabel("Perfil 2: IBS municipal (%)", { exact: true })).toHaveValue("0.0000")
+  await page.getByRole("combobox", { name: "Perfil 2: Consumidor final", exact: true }).selectOption("false")
   await page.getByRole("button", { name: "Salvar configurações", exact: true }).click()
   await expect(page.getByRole("status")).toHaveText("Configurações salvas para esta empresa.")
   await page.reload()
   await expect(page.getByLabel("Perfil 1: PIS (%)", { exact: true })).toHaveValue("1.6500")
+  await expect(page.getByRole("combobox", { name: "Perfil 2: Consumidor final", exact: true })).toHaveValue("false")
+  await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
+  await expect(page.getByLabel("Perfil 2: IBS municipal (%)", { exact: true })).toHaveValue("0.0000")
+  expect(saved).toMatchObject({ profiles: [
+    { defaults: { icmsCst: "00", ipiCst: "50", ibsCityRate: "0.0000", finalConsumer: true } },
+    { defaults: { icmsCst: "00", ipiCst: "53", ibsCityRate: "0.0000", finalConsumer: false } }
+  ] })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 test("conflito preserva as exigências e impede nova gravação", async ({ page }) => {

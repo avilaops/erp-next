@@ -134,3 +134,9 @@
 @media (prefers-reduced-motion: reduce) {
   .erp-entry * { scroll-behavior: auto; }
 }
+
+@media (max-width: 389px) and (orientation: portrait) {
+  .erp-entry-title { font-size: 2rem; }
+  .erp-entry-description { margin-top: .75rem; line-height: 1.5rem; }
+  .erp-entry-access { margin-top: 1rem; padding: .75rem; }
+}

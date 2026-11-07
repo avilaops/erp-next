@@ -15,7 +15,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
   const [state, setState] = useState<"loading" | "ready" | "error">("loading")
   const suffix = attempt ? `?retry=${attempt}` : ""
 
-  return <span className={expanded ? "erp-preview-frame relative block" : "erp-preview-frame relative block max-h-80 overflow-hidden sm:max-h-none"}>
+  return <span className={expanded ? "erp-preview-frame relative block" : "erp-preview-frame relative block max-h-[380px] overflow-hidden sm:max-h-none"}>
     <picture className={state === "error" ? "hidden" : "block"}>
       <source media={landscapePreviewMedia} srcSet={"/erp-preview-landscape.png" + suffix} width={638} height={208} />
       <source media={mobilePreviewMedia} srcSet={"/erp-preview-mobile.png" + suffix} width={390} height={760} />
@@ -84,10 +84,10 @@ export function ErpEntryPreview() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         aria-label="Ver tela completa do ERP"
-        className="group mt-5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-white/20 bg-white text-left text-stone-900 shadow-xl shadow-black/15 focus-visible:ring-white focus-visible:ring-offset-[#134e4a]"
+        className="group mt-5 block w-full cursor-zoom-in overflow-hidden rounded-xl border border-border bg-white text-left text-stone-900 shadow-xl shadow-black/10 focus-visible:ring-primary"
       >
         <PreviewCapture key={captureKey} attempt={attempt} />
-        <span className="flex min-h-12 items-center justify-between gap-3 border-t border-stone-200 px-4 text-xs font-medium transition-colors group-hover:bg-teal-50">
+        <span className="flex min-h-12 items-center justify-between gap-3 border-t border-stone-200 px-4 text-sm font-medium transition-colors group-hover:bg-teal-50">
           Ver tela completa<Expand aria-hidden="true" className="size-4 shrink-0 text-teal-700" />
         </span>
       </DialogTrigger>

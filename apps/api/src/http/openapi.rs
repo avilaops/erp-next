@@ -6,9 +6,9 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance, fiscal,
-    inventory, legacy, parties, payables, production, purchasing, reference_data, registry_lookup,
-    returns, sales, staff, staff_payroll,
+    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance,
+    financial_account_ledger, fiscal, inventory, legacy, parties, payables, production, purchasing,
+    reference_data, registry_lookup, returns, sales, staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, company, invitations, onboarding, service_auth, workflows,
@@ -73,6 +73,8 @@ use crate::platform::{
         sales::proposals::revise, sales::proposals::convert,
         sales::proposals::update,
         finance::list, finance::get, finance::pay, finance::reverse,
+        financial_account_ledger::list, financial_account_ledger::create,
+        financial_account_ledger::transfer,
         commissions::get_order, commissions::configure_order, commissions::list,
         commissions::get_seller, commissions::adjust, commissions::pay,
         production::list_orders, production::get_order, production::create_orders,

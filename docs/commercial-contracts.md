@@ -20,6 +20,25 @@ O resumo contém número comercial, empresa, cliente, itens, quantidades,
 valores, acabamentos, total, vencimento e condições preenchidas no contrato.
 O contrato é acessado pelo link; este incremento não anexa PDFs ao e-mail.
 
+### Pacote documental por SMTP
+
+O botão **Enviar pacote de documentos** usa o SMTP server-side do ERP e não o
+servidor de e-mail do DocuSeal. O envio só é aceito quando há contrato
+preservado, destinatário válido e uma NF-e autorizada vinculada ao pedido.
+Anexa o PDF do contrato (assinado quando disponível, senão a prévia), o pedido
+em formato compatível com Word e o XML autorizado da NF-e. Quando o recebível
+do pedido está com estado `paid`, inclui também o comprovante de recebimento.
+Recebível aberto, boleto criado ou pagamento apenas declarado não gera
+comprovante.
+
+Cada contrato possui no máximo um pacote enviado por SMTP. O ERP persiste a
+lista e o SHA-256 dos anexos, destinatários, tentativas e estado `sent` ou
+`failed`; o corpo e as credenciais SMTP não são armazenados. Falha de SMTP não
+é tratada como entrega confirmada.
+
+O serviço exige `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` e
+`SMTP_FROM`. A configuração é exclusiva da API e nunca é exposta ao navegador.
+
 O Rust monta a mensagem a partir do snapshot imutável, sem receber corpo,
 destinatários ou totais do comando de envio. A prévia expõe o mesmo conteúdo
 comercial antes da revisão. Dados de cadastro são escapados para não se tornarem
@@ -103,6 +122,11 @@ DOCUSEAL_API_TOKEN=<chave da nossa instalação>
 DOCUSEAL_WEBHOOK_SECRET=<segredo aleatório com pelo menos 32 caracteres>
 DOCUSEAL_TENANT_TEMPLATES={"<uuid-da-empresa>":[<id-do-modelo>]}
 DOCUSEAL_EMAIL_READY=false
+SMTP_HOST=<relay-smtp>
+SMTP_PORT=587
+SMTP_USERNAME=<usuario-do-relay>
+SMTP_PASSWORD=<segredo-do-relay>
+SMTP_FROM=<remetente-validado>
 ```
 
 Não configurar essas variáveis no web, não usar prefixo `NEXT_PUBLIC_`, não

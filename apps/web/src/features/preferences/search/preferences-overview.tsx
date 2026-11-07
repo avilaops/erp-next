@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { useState, useSyncExternalStore } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -43,7 +44,7 @@ export function PreferencesOverview() {
         <ChevronRight className="size-4" aria-hidden="true" />
         <span aria-current="page">Preferências</span>
       </nav>
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Preferências</h1>
+      <PageTitle className="text-3xl font-semibold tracking-tight sm:text-4xl">Preferências</PageTitle>
       <div className="my-6 flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <h2 className="text-lg font-semibold">Escolha uma das opções abaixo</h2>
         <div className="flex min-w-0 items-center gap-2 sm:w-96">
@@ -58,7 +59,7 @@ export function PreferencesOverview() {
       {selected ? <>
         <p className="mb-4 text-sm text-muted-foreground">Preferências / {selected.label}</p>
         <div className="grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
-          <nav className="self-start overflow-hidden rounded-xl border border-border" aria-label="Categorias de preferências">
+          <nav className="preferences-categories self-start overflow-hidden rounded-xl border border-border" aria-label="Categorias de preferências">
             {visibleCategories.map(category => {
               const active = category.id === selected.id
               const Icon = icons[category.id as keyof typeof icons] || Settings2

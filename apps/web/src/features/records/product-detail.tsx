@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageTitle } from "@/components/workspace/page-title"
 import { ArrowLeft, Barcode, Boxes, Pencil, ReceiptText } from "lucide-react";
 
 const products: Record<
@@ -49,9 +50,9 @@ export function ProductDetail({ productId }: { productId: string }) {
           <p className="text-sm font-medium text-primary">
             Cadastros / Produtos / {product.sku}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <PageTitle className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
             {product.name}
-          </h1>
+          </PageTitle>
           <p className="mt-3 text-muted-foreground">
             Detalhes demonstrativos do produto na empresa Ludus Equipamentos.
           </p>

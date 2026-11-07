@@ -97,6 +97,34 @@ test("platform directory shows but disables suspended companies", async ({ page,
   await page.goto("/empresas")
   await expect(page.getByRole("button", { name: /Empresa 2/ })).toBeDisabled()
   await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeEnabled()
+  await expect(page.locator("main").getByRole("link", { name: /Entrar/ })).toHaveCount(0)
+})
+
+for (const status of [401, 403, 503]) test(`company directory offers login recovery only for 401, received ${status}`, async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status, json: { title: "Falha de acesso" } }))
+  await page.goto("/empresas?returnTo=%2Fpreferencias")
+  await expect(page.locator("main").getByRole("alert")).toBeVisible()
+  const login = page.locator("main").getByRole("link", { name: "Entrar novamente", exact: true })
+  if (status === 401) {
+    await expect(login).toHaveAttribute("href", "/entrar?returnTo=%2Fpreferencias")
+    await page.unroute("**/api/erp/companies")
+    await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+    await expect(page.getByText("Você ainda não possui empresas cadastradas", { exact: true })).toBeVisible()
+  }
+  await expect(login).toHaveCount(0)
+})
+
+for (const status of [401, 403, 503]) test(`company selection offers login recovery only for 401, received ${status}`, async ({ page, context }) => {
+  companyCount = 1
+  await context.addCookies([cookie()])
+  await page.route("**/api/auth/company", route => route.fulfill({ status, json: { title: "Falha de acesso" } }))
+  await page.goto("/empresas?returnTo=%2Fpreferencias")
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await expect(page.locator("main").getByRole("alert")).toBeVisible()
+  const login = page.locator("main").getByRole("link", { name: "Entrar novamente", exact: true })
+  if (status === 401) await expect(login).toHaveAttribute("href", "/entrar?returnTo=%2Fpreferencias")
+  else await expect(login).toHaveCount(0)
 })
 
 for (const error of ["", "restart"]) test(`entry login reaches Auth from ${error || "normal access"} under the same-origin form policy and preserves its return path`, async ({ page, context }) => {
@@ -472,6 +500,35 @@ test("multiple companies keep the requested destination until verified selection
   await page.getByRole("button", { name: "Empresa 2", exact: true }).click()
   await expect(page).toHaveURL(origin + destination)
   expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe("22222222-2222-4222-8222-222222222222")
+})
+
+test("posting form explains an invalid service response without exposing parser errors", async ({ page, context }) => {
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/logistics/postings?*", route => route.fulfill({ status: 503, body: "" }))
+  await page.goto("/logistica/postagens/novo")
+  await expect(page.locator("main").getByRole("alert")).toHaveText("O ERP retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Criar postagem", exact: true })).toBeDisabled()
+})
+
+for (const [path, endpoint] of [
+  ["/cadastros/clientes-fornecedores", "parties?*"],
+  ["/cadastros/funcionarios", "staff?*"],
+  ["/cadastros/produtos", "products?*"],
+  ["/cadastros/produtos/novo", "products?*"],
+  ["/preferencias/sistema/arquivos", "system/files?*"],
+  ["/historico", "legacy-history?*"],
+]) test(`resource failure does not request login unless unauthorized: ${path}`, async ({ page, context }) => {
+  test.setTimeout(60000)
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/preferences", route => route.fulfill({ json: { data: { productPageSize: 25 } } }))
+  let status = 503
+  await page.route(`**/api/erp/${endpoint}`, route => route.fulfill({ status, json: { title: "Falha da consulta" } }))
+  for (const code of [503, 401, 503]) {
+    status = code
+    await page.goto(path)
+    await expect(page.getByText("Falha da consulta", { exact: true }).first()).toBeVisible()
+    await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveCount(code === 401 ? 1 : 0)
+  }
 })
 
 test("401 offers contextual login while 503 remains retryable and company switch opens picker", async ({ page, context }) => {

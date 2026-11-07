@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useDashboardPreferences } from "./use-dashboard-preferences"
@@ -62,7 +63,7 @@ export function ErpDashboard() {
   return (
     <div className="erp-overview mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 lg:px-6">
       <header className="erp-overview-heading flex flex-col gap-5 rounded-2xl bg-primary px-5 py-6 text-primary-foreground sm:px-7 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0"><p className="text-xs font-medium uppercase tracking-[0.18em] opacity-80">SEU ESPAÇO DE TRABALHO</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Visão geral</h1><p className="mt-3 max-w-2xl text-primary-foreground/85">Acesse os módulos e organize seus atalhos de trabalho.</p></div>
+        <div className="min-w-0"><p className="text-xs font-medium uppercase tracking-[0.18em] opacity-80">SEU ESPAÇO DE TRABALHO</p><PageTitle className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Visão geral</PageTitle><p className="mt-3 max-w-2xl text-primary-foreground/85">Acesse os módulos e organize seus atalhos de trabalho.</p></div>
         <Link href="/cadastros/produtos" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-background px-5 py-3 text-sm font-semibold text-primary hover:bg-accent"><Plus aria-hidden="true" className="size-4" />Cadastrar produto</Link>
       </header>
 

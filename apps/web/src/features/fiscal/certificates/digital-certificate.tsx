@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
 
@@ -101,7 +102,7 @@ export function DigitalCertificate() {
   }
 
   return <main className="mx-auto max-w-4xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><h1 className="mt-2 text-3xl font-semibold">Certificado digital A1</h1><p className="mt-2 text-muted-foreground">Conecte o certificado da empresa para preparar suas operações fiscais.</p></div><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link></header>
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><PageTitle className="mt-2 text-3xl font-semibold">Certificado digital A1</PageTitle><p className="mt-2 text-muted-foreground">Conecte o certificado da empresa para preparar suas operações fiscais.</p></div><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link></header>
     {loading && <p role="status">Consultando certificado da empresa…</p>}
     {certificate && <>
       <section className="form-section space-y-4" aria-labelledby="certificate-state-title">

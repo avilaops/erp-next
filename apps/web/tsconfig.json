@@ -42,7 +42,9 @@
     ".next-order-drafts/types/**/*.ts",
     ".next-order-drafts/dev/types/**/*.ts",
     ".next-reference-data/types/**/*.ts",
-    ".next-reference-data/dev/types/**/*.ts"
+    ".next-reference-data/dev/types/**/*.ts",
+    ".next-auth-picker-check/types/**/*.ts",
+    ".next-auth-picker-check/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

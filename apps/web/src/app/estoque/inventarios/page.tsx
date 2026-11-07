@@ -1,4 +1,4 @@
-import { InventoryScreen } from "@/features/inventory/inventory-screen"
-export default function Page(){return <InventoryScreen kind="inventories"/>}
+import { InventoryCounts } from "@/features/inventory/inventory-counts"
+export default function Page(){return <InventoryCounts />}
 
 export const metadata = { title: "Inventários" }

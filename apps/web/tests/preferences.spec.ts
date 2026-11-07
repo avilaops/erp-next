@@ -217,18 +217,17 @@ test("vendas navega para seus fluxos detalhados", async ({ page }) => {
   }
 })
 
-test("fiscal navega para documentos, monitor e guias detalhados", async ({ page }) => {
+test("fiscal distingue capacidades operacionais de guias ainda indisponíveis", async ({ page }) => {
   const flows = [
     ["/fiscal/nfce", "/fiscal/nfce/NFCE-00428"],
     ["/fiscal/monitor", "/fiscal/monitor/NSU-009812"],
-    ["/fiscal/guias", "/fiscal/guias/GUIA-091"],
   ] as const
   for (const [route, detail] of flows) {
     await page.goto(route)
     await expect(page.locator(`a[href="${detail}"]`)).toBeVisible()
   }
   await page.goto("/fiscal/guias")
-  await expect(page.locator('a[href="/fiscal/guias/nova"]')).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Integração fiscal pendente" })).toBeVisible()
 })
 
 test("logística navega para criação, conferência e acompanhamento", async ({ page }) => {

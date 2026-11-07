@@ -121,6 +121,7 @@ export const blockerLabels: Record<string, string> = {
   a1_certificate_missing_expired_or_unavailable: "Conecte um certificado A1 válido para a empresa",
   company_and_fiscal_profile_inconsistent: "Confira os dados da empresa e a configuração fiscal",
   fiscal_profile_missing: "Preencha a configuração fiscal do emitente",
+  production_emission_disabled: "A emissão em produção permanece bloqueada até homologação externa e liberação operacional",
 }
 
 

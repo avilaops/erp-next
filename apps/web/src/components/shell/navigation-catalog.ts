@@ -2,21 +2,21 @@ export const desktopMenus = [
   {
     label: "Meu Negócio",
     columns: [
-      { title: "Dashboards", items: [{ label: "Dashboard geral", href: "/dashboards" }, { label: "Dashboard de vendas", href: "/dashboards/vendas" }, { label: "Margem por pedido", href: "/dashboards/margem-pedidos" }, { label: "Dashboard de produtos", href: "/dashboards/produtos" }, { label: "Dashboard de clientes", href: "/dashboards/clientes" }, { label: "Curva ABC", href: "/dashboards/curva-abc" }, { label: "Metas", href: "/dashboards/metas" }] },
+      { title: "", items: [{ label: "Dashboard geral", href: "/dashboards" }, { label: "Dashboard de vendas", href: "/dashboards/vendas" }, { label: "Margem por pedido", href: "/dashboards/margem-pedidos" }, { label: "Dashboard de produtos", href: "/dashboards/produtos" }, { label: "Dashboard de clientes", href: "/dashboards/clientes" }, { label: "Curva ABC", href: "/dashboards/curva-abc" }, { label: "Metas", href: "/dashboards/metas" }] },
       { title: "Central de trabalho", items: [{ label: "Eventos", href: "/eventos" }, { label: "Notificações", href: "/notificacoes" }, { label: "Aplicativos", href: "/aplicativos" }, { label: "Assistente", href: "/assistente" }, { label: "Novidades", href: "/novidades" }, { label: "Plano e limites", href: "/preferencias/plano" }] },
     ],
   },
   {
     label: "Cadastros",
     columns: [
-      { title: "Operação", items: [{ label: "Produtos", href: "/cadastros/produtos" }, { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Vendedores", href: "/cadastros/vendedores" }, { label: "Funcionários", href: "/cadastros/funcionarios" }] },
+      { title: "", items: [{ label: "Visão geral", href: "/cadastros" }, { label: "Produtos", href: "/cadastros/produtos" }, { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Vendedores", href: "/cadastros/vendedores" }, { label: "Funcionários", href: "/cadastros/funcionarios" }] },
       { title: "Ferramentas", items: [{ label: "Contas financeiras", href: "/cadastros/contas-financeiras" }, { label: "Categorias financeiras", href: "/cadastros/categorias-financeiras" }, { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Listas de preços", href: "/cadastros/listas-precos" }, { label: "Formas de pagamento", href: "/cadastros/formas-pagamento" }] },
     ],
   },
   {
     label: "Vendas",
     columns: [
-      { title: "Operação", items: [{ label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
+      { title: "Operação", items: [{ label: "Visão geral", href: "/vendas" }, { label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
       { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/relatorios/vendas" }] },
       { title: "Documentos fiscais", items: [{ label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }] },
     ],
@@ -25,13 +25,13 @@ export const desktopMenus = [
     label: "Estoque",
     columns: [
       { title: "Compras", items: [{ label: "Pedidos de compra", href: "/compras/pedidos" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }, { label: "Fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Sugestões de compra", href: "/compras/sugestoes" }, { label: "Check-in de recebimentos", href: "/compras/recebimentos" }] },
-      { title: "Estoque", items: [{ label: "Saldos", href: "/estoque/saldos" }, { label: "Lançamentos de estoque", href: "/estoque/lancamentos" }, { label: "Conferência de estoque", href: "/estoque/inventarios" }, { label: "Ordens de produção", href: "/estoque/ordens-producao" }, { label: "Depósitos", href: "/estoque/depositos" }, { label: "Relatórios de estoque", href: "/relatorios/estoque" }] },
+      { title: "Estoque", items: [{ label: "Visão geral", href: "/estoque" }, { label: "Saldos", href: "/estoque/saldos" }, { label: "Lançamentos de estoque", href: "/estoque/lancamentos" }, { label: "Conferência de estoque", href: "/estoque/inventarios" }, { label: "Ordens de produção", href: "/estoque/ordens-producao" }, { label: "Depósitos", href: "/estoque/depositos" }, { label: "Relatórios de estoque", href: "/relatorios/estoque" }] },
     ],
   },
   {
     label: "Financeiro",
     columns: [
-      { title: "Operação", items: [{ label: "Contas a receber", href: "/financeiro/contas-receber" }, { label: "Contas a pagar", href: "/financeiro/contas-pagar" }, { label: "Caixa", href: "/financeiro/controle-caixa" }, { label: "Caixas e bancos", href: "/financeiro/caixas-bancos" }] },
+      { title: "Operação", items: [{ label: "Visão geral", href: "/financeiro" }, { label: "Contas a receber", href: "/financeiro/contas-receber" }, { label: "Contas a pagar", href: "/financeiro/contas-pagar" }, { label: "Caixa", href: "/financeiro/controle-caixa" }, { label: "Caixas e bancos", href: "/financeiro/caixas-bancos" }] },
       { title: "Gestão", items: [{ label: "Ficha financeira", href: "/financeiro/ficha-financeira" }, { label: "Remessas e retornos", href: "/financeiro/remessas-retornos" }, { label: "Comissões", href: "/financeiro/comissoes" }, { label: "Faturamento agrupado", href: "/financeiro/faturamento-agrupado" }] },
       { title: "Contabilidade e soluções", items: [{ label: "Tributos e guias", href: "/financeiro/tributos" }, { label: "Espaço do contador", href: "/financeiro/contador" }, { label: "Conta Digital", href: "/financeiro/conta-digital" }, { label: "Relatórios financeiros", href: "/relatorios/financeiro" }] },
     ],
@@ -39,15 +39,15 @@ export const desktopMenus = [
   {
     label: "Operações",
     columns: [
-      { title: "Logística", items: [{ label: "Objetos de postagem", href: "/logistica/postagens" }, { label: "Logística reversa", href: "/logistica/reversa" }, { label: "Checkout de pedidos", href: "/logistica/checkout" }, { label: "Etiquetas", href: "/logistica/etiquetas" }, { label: "Ávila Envios", href: "/logistica/envios" }] },
-      { title: "Serviços", items: [{ label: "Contratos", href: "/servicos/contratos" }, { label: "Ordens de serviço", href: "/servicos/ordens" }, { label: "CT-e", href: "/servicos/cte" }, { label: "Notas de serviço", href: "/servicos/notas" }, { label: "Cobranças", href: "/servicos/cobrancas" }] },
+      { title: "Logística", items: [{ label: "Visão geral", href: "/logistica" }, { label: "Objetos de postagem", href: "/logistica/postagens" }, { label: "Logística reversa", href: "/logistica/reversa" }, { label: "Checkout de pedidos", href: "/logistica/checkout" }, { label: "Etiquetas", href: "/logistica/etiquetas" }, { label: "Ávila Envios", href: "/logistica/envios" }] },
+      { title: "Serviços", items: [{ label: "Visão geral", href: "/servicos" }, { label: "Contratos", href: "/servicos/contratos" }, { label: "Ordens de serviço", href: "/servicos/ordens" }, { label: "CT-e", href: "/servicos/cte" }, { label: "Notas de serviço", href: "/servicos/notas" }, { label: "Cobranças", href: "/servicos/cobrancas" }] },
     ],
   },
   {
     label: "Relatórios",
     columns: [
-      { title: "", items: [{ label: "Todos os relatórios", href: "/relatorios" }, { label: "Vendas", href: "/relatorios/vendas" }, { label: "Estoque", href: "/relatorios/estoque" }, { label: "Financeiro", href: "/relatorios/financeiro" }] },
-      { title: "Operação", items: [{ label: "Serviços", href: "/relatorios/servicos" }, { label: "Auditoria", href: "/relatorios/auditoria" }, { label: "Relatórios de vendas", href: "/relatorios/vendas" }, { label: "Relatórios financeiros", href: "/relatorios/financeiro" }, { label: "Relatórios de serviços", href: "/relatorios/servicos" }] },
+      { title: "", items: [{ label: "Visão executiva", href: "/relatorios/executivo" }, { label: "Todos os relatórios", href: "/relatorios" }, { label: "Vendas", href: "/relatorios/vendas" }, { label: "Estoque", href: "/relatorios/estoque" }, { label: "Financeiro", href: "/relatorios/financeiro" }] },
+      { title: "Operação", items: [{ label: "Serviços", href: "/relatorios/servicos" }, { label: "Auditoria", href: "/relatorios/auditoria" }] },
     ],
   },
 ]

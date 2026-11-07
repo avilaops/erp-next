@@ -1,4 +1,5 @@
 "use client";
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -192,9 +193,9 @@ export function PeopleRecord({
             <p className="text-sm font-medium text-primary">
               Cadastros / {config.title}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            <PageTitle className="mt-2 text-3xl font-semibold tracking-tight">
               {value.name}
-            </h1>
+            </PageTitle>
             <p className="mt-2 text-sm text-muted-foreground">
               Registro {recordId ?? "novo"} · dados demonstrativos da Ludus
               Equipamentos.
@@ -250,11 +251,11 @@ export function PeopleRecord({
         <p className="text-sm font-medium text-primary">
           Cadastros / {config.title}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <PageTitle className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
           {mode === "new"
             ? `Novo ${config.singular}`
             : `Editar ${config.singular}`}
-        </h1>
+        </PageTitle>
         <p className="mt-3 max-w-2xl text-muted-foreground">
           Preencha os dados operacionais. Esta etapa permanece local até a
           integração com o backend.

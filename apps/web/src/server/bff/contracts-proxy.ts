@@ -2,7 +2,7 @@ import "server-only"
 
 import { currentSession, erpConfiguration, uuidPattern } from "@/server/auth/erp-session"
 
-const contractPath = /^(?:|\/options\/[a-f0-9-]{36}|\/[a-f0-9-]{36}(?:\/(?:review|send|sync)|\/files\/[a-f0-9-]{36})?)$/i
+const contractPath = /^(?:|\/options\/[a-f0-9-]{36}|\/[a-f0-9-]{36}(?:\/(?:review|send|send-package|sync)|\/files\/[a-f0-9-]{36})?)$/i
 
 export async function contractsProxy(request: Request, path = "") {
   return forwardContracts(request, path, false)

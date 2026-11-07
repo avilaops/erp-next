@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { useState } from "react"
 import { BookOpen, Search } from "lucide-react"
@@ -12,7 +13,7 @@ export function HelpCenter() {
   return <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 lg:px-6">
     <header className="mb-7 border-b pb-7">
       <p className="text-sm font-medium text-primary">Suporte</p>
-      <h1 className="mt-2 text-3xl font-semibold">Central de ajuda</h1>
+      <PageTitle className="mt-2 text-3xl font-semibold">Central de ajuda</PageTitle>
       <p className="mt-3 text-muted-foreground">Orientações sobre os fluxos disponíveis e os limites atuais de cada área.</p>
     </header>
     <label className="relative block max-w-2xl">

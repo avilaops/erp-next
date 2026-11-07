@@ -380,13 +380,19 @@ pub async fn readiness(
         blockers.push("a1_certificate_missing_expired_or_unavailable".into());
     }
     if let Some(row) = row.as_ref() {
-        if profile_data(row)?.state != "SP" {
+        let profile = profile_data(row)?;
+        if profile.state != "SP" {
             blockers.push("homologation_emission_requires_sp".into());
         }
-        if ![1, 3].contains(&profile_data(row)?.crt) {
+        if profile.environment == model::Environment::Production
+            && !state.nfe_production_enabled_for(tenant)
+        {
+            blockers.push("production_emission_disabled".into());
+        }
+        if ![1, 3].contains(&profile.crt) {
             blockers.push("homologation_emission_requires_supported_tax_rule_scope".into());
         }
-        match issuer(&mut tx, tenant, &profile_data(row)?).await {
+        match issuer(&mut tx, tenant, &profile).await {
             Ok(_) => {}
             Err(DomainError::Conflict(_)) => {
                 blockers.push("company_and_fiscal_profile_inconsistent".into())
@@ -411,7 +417,7 @@ pub async fn readiness(
                 .unwrap_or(model::Environment::Homologation),
             model: 55,
             can_transmit,
-            production_enabled: true,
+            production_enabled: state.nfe_production_enabled_for(tenant),
             profile_configured: row.is_some(),
             certificate_verified,
             blockers,

@@ -1,4 +1,4 @@
-import { ServicesList } from "@/features/services/services-pages"
-export default function Page() { return <ServicesList kind="charges" /> }
+import { ReceivablesAccess } from "@/features/finance/receivables-access"
+export default function Page() { return <ReceivablesAccess /> }
 
 export const metadata = { title: "Cobranças" }

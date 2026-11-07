@@ -36,18 +36,21 @@ export function PartyList() {
   const [query, setQuery] = useState({ q: "", role: "", status: "", offset: 0 })
   const [result, setResult] = useState<Page | null>(null)
   const [error, setError] = useState("")
+  const [responseStatus, setResponseStatus] = useState(0)
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
+    let requestStatus = 0
     const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
     erpFetch(`/api/erp/parties?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+      requestStatus = response.status
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
       if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
+    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [query, retry])
@@ -65,7 +68,7 @@ export function PartyList() {
         <label className="min-w-0 space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(party => <li key={party.id} className="min-w-0 rounded-xl border p-4">
           <Link className={`${linkClass} break-words`} href={`/cadastros/clientes-fornecedores/${party.id}`}>Consultar {party.legalName}</Link>

@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
 
@@ -96,7 +97,7 @@ export function FiscalSettings() {
   }
 
   return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><h1 className="mt-2 text-3xl font-semibold">Configurações fiscais</h1><p className="mt-2 text-muted-foreground">{company ? `${company.legalName} · ${company.taxId}` : "Preparação fiscal da empresa ativa"}</p></div><Link className={buttonVariants({ variant: "outline" })} href="/fiscal/monitor">Notas recebidas</Link></header>
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><PageTitle className="mt-2 text-3xl font-semibold">Configurações fiscais</PageTitle><p className="mt-2 text-muted-foreground">{company ? `${company.legalName} · ${company.taxId}` : "Preparação fiscal da empresa ativa"}</p></div><Link className={buttonVariants({ variant: "outline" })} href="/fiscal/monitor">Notas recebidas</Link></header>
     <nav aria-label="Etapas da configuração fiscal" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {fiscalStages.map(stage => <a key={stage.id} href={`#${stage.id}`} className="rounded-xl border p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="text-xs font-semibold text-primary">Etapa {stage.number}</span><span className="mt-1 block text-sm font-medium">{stage.title}</span><span className="mt-1 block text-xs text-muted-foreground">{stage.summary}</span></a>)}
     </nav>

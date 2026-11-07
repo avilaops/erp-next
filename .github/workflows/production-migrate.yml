@@ -1,204 +1,98 @@
-name: Production data migration
+name: Production migrate
+
 on:
-  workflow_run:
-    workflows: [Production release]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
-      source_ref:
-        description: Validated source commit
+      release_run:
+        description: "Approved production-release workflow run ID"
         required: true
         type: string
-      release_run:
-        description: Successful Production release run
+      source_sha:
+        description: "Full commit SHA validated by the approved release"
         required: true
         type: string
       schema_only:
-        description: Apply schema without bootstrap or legacy reimport
+        description: "Apply schema and runtime grants without bootstrap/import"
+        required: true
+        default: true
         type: boolean
-        default: false
+
 permissions:
   contents: read
   actions: read
-concurrency:
-  group: erp-production-migration
-  cancel-in-progress: false
+
 jobs:
-  select:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      run: ${{ steps.select.outputs.run }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 2
-          persist-credentials: false
-      - id: select
-        env:
-          EVENT: ${{ github.event_name }}
-          RELEASE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          RELEASE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" = workflow_dispatch ]; then
-            echo 'run=true' >> "$GITHUB_OUTPUT"
-          elif [ "$RELEASE_CONCLUSION" = success ] && [ "$RELEASE_REPOSITORY" = "$GITHUB_REPOSITORY" ] &&
-            ! git diff --quiet HEAD^ HEAD -- migrations/202611060001_mcp_oauth.sql; then
-            echo 'run=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'run=false' >> "$GITHUB_OUTPUT"
-          fi
   migrate:
-    needs: select
-    if: needs.select.outputs.run == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      GH_TOKEN: ${{ github.token }}
-      DATABASE_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
-      ERP_LEGACY_DATABASE_URL: ${{ secrets.ERP_LEGACY_DATABASE_URL }}
-      ERP_BOOTSTRAP_SUB: ${{ secrets.ERP_BOOTSTRAP_SUB }}
-      ERP_BOOTSTRAP_TENANT: ${{ secrets.ERP_BOOTSTRAP_TENANT }}
-      ERP_BOOTSTRAP_EMAIL: nicolas@avilaops.com
-      SOURCE_REF: ${{ inputs.source_ref || github.event.workflow_run.head_sha }}
-      RELEASE_RUN: ${{ inputs.release_run || github.event.workflow_run.id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout approved source
+        uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref || github.event.workflow_run.head_sha }}
-      - name: Require approved images
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 1
+
+      - name: Verify approved release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
-          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
-          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" --jq .conclusion)" = success
-          git fetch --depth=1 origin "$SOURCE_REF"
-          git diff --exit-code FETCH_HEAD HEAD -- apps/api Cargo.toml Cargo.lock migrations
-          gh run download "$RELEASE_RUN" --repo "$GITHUB_REPOSITORY" --name "erp-api-$SOURCE_REF"
-          docker load --input api-image.tar.gz
+          set -Eeuo pipefail
+          run_json="$(gh run view "$RELEASE_RUN" --json status,conclusion,headSha,event)"
+          test "$(jq -r .status <<<"$run_json")" = completed
+          test "$(jq -r .conclusion <<<"$run_json")" = success
+          test "$(jq -r .headSha <<<"$run_json")" = "$SOURCE_SHA"
+          test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
+
+      - name: Install PostgreSQL client and sqlx CLI
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client openssh-client
+          cargo install sqlx-cli --version 0.8.6 --no-default-features --features rustls,postgres
+
       - name: Open restricted database tunnel
         env:
-          SSH_KEY: ${{ secrets.ERP_DB_TUNNEL_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.ERP_DB_KNOWN_HOSTS }}
-          SSH_HOST: ${{ secrets.ERP_DB_SSH_HOST }}
+          DB_TUNNEL_KEY: ${{ secrets.ERP_DB_TUNNEL_KEY }}
+          DB_KNOWN_HOSTS: ${{ secrets.ERP_DB_KNOWN_HOSTS }}
+          DB_SSH_HOST: ${{ secrets.ERP_DB_SSH_HOST }}
         run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/erp-db
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
-          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
-      - name: Route database connections through the restricted tunnel
-        run: |
-          python3 - <<'PY'
-          import os
-          from urllib.parse import urlsplit, urlunsplit
+          set -Eeuo pipefail
+          install -d -m 700 "$RUNNER_TEMP/erp-db"
+          install -m 600 /dev/stdin "$RUNNER_TEMP/erp-db/id_ed25519" <<<"$DB_TUNNEL_KEY"
+          install -m 600 /dev/stdin "$RUNNER_TEMP/erp-db/known_hosts" <<<"$DB_KNOWN_HOSTS"
+          ssh -fNT \
+            -i "$RUNNER_TEMP/erp-db/id_ed25519" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o ExitOnForwardFailure=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/erp-db/known_hosts" \
+            -L 127.0.0.1:15432:172.17.0.1:5432 \
+            "$DB_SSH_HOST"
 
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
-              for name in ("DATABASE_URL", "ERP_LEGACY_DATABASE_URL"):
-                  value = os.environ[name]
-                  if any(character in value for character in ("\n", "\r")):
-                      raise ValueError(f"Invalid database URL in {name}")
-                  parsed = urlsplit(value)
-                  if parsed.scheme not in ("postgres", "postgresql") or not parsed.username:
-                      raise ValueError(f"Invalid database URL in {name}")
-                  credentials = parsed.netloc.rsplit("@", 1)[0]
-                  tunneled = urlunsplit(parsed._replace(netloc=credentials + "@127.0.0.1:15435"))
-                  print("::add-mask::" + tunneled)
-                  output.write(name + "=" + tunneled + "\n")
-          PY
-      - name: Apply destination migrations
-        run: docker run --rm --network host --env DATABASE_URL "erp-next-api:sha-$SOURCE_REF" migrate
-      - name: Reconcile preserved legacy records without business effects
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
-      - name: Grant read-only access to evolved structures
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-legacy-evolution.sql
-      - name: Provision initial membership
-        if: ${{ github.event_name != 'workflow_run' && !inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/bootstrap.sql
-      - name: Grant system configuration storage to the runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-system-configuration.sql
-      - name: Grant OAuth issuer storage to the runtime role
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-mcp-oauth.sql
-      - name: Grant invitation storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_invitations TO erp_next_app'
-      - name: Grant commercial contract storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON commercial_contracts TO erp_next_app; GRANT SELECT, INSERT ON commercial_contract_files, commercial_contract_webhooks TO erp_next_app'
-      - name: Grant versioned proposal storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-proposals.sql
-      - name: Grant commercial settings storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-commercial-settings.sql
-      - name: Grant recurring expense storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fixed-expenses.sql
-      - name: Grant private product costs to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-costs.sql
-      - name: Grant fiscal preference storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-preferences.sql
-      - name: Grant immutable sales simulation storage
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-simulator.sql
-      - name: Grant published price storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-price-tables.sql
-      - name: Grant commercial negotiation storage to the existing runtime role
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-commercial-negotiation.sql
-      - name: Grant commercial order numbering to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-sales-order-numbers.sql
-      - name: Grant private template storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON commercial_template_drafts, commercial_template_versions TO erp_next_app'
-      - name: Grant encrypted fiscal certificate storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON fiscal_a1_certificates TO erp_next_app'
-      - name: Grant fiscal monitor storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-monitor.sql
-      - name: Grant isolated CT-e capture storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-distribution.sql
-      - name: Grant append-only received NFS-e storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-received-nfse.sql
-      - name: Grant append-only CT-e inspection storage to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-inspections.sql
-      - name: Grant append-only CT-e commercial associations to the existing runtime role
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-cte-links.sql
-      - name: Grant personal preferences to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON personal_preferences, financial_settings, sales_settings, registration_settings, inventory_settings, purchase_settings, warehouses, product_groups, tag_groups, tags TO erp_next_app'
-      - name: Grant company subscription storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'GRANT SELECT, INSERT, UPDATE ON company_subscriptions TO erp_next_app'
-      - name: Grant return and fiscal operation storage to the existing runtime role
-        if: ${{ inputs.schema_only }}
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-retornos-fiscal.sql
-      - name: Grant employee payroll storage and recurrence discovery
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-staff-payroll.sql
-      - name: Import and reconcile the complete legacy database
-        if: ${{ github.event_name != 'workflow_run' && !inputs.schema_only }}
-        run: python3 scripts/import-legacy.py
-      - name: Grant product media registry access
-        if: github.event_name != 'workflow_run'
-        # Product media is immutable and tenant isolated; no delete/update grant.
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-product-media.sql
-      - name: Grant explicit catalog publication access
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-catalog-publication.sql
-      - name: Grant warranty and assistance storage access
-        if: github.event_name != 'workflow_run'
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-warranty.sql
+      - name: Apply migrations
+        if: ${{ inputs.schema_only == true }}
+        env:
+          DATABASE_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DATABASE_URL"
+          sqlx migrate run --source migrations --database-url "$DATABASE_URL"
+
+      - name: Apply restricted runtime grants
+        if: ${{ inputs.schema_only == true }}
+        env:
+          DATABASE_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
+        run: |
+          set -Eeuo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/grant-cte-distribution.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/grant-fiscal-monitor.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/grant-commercial-contracts.sql
+
+      - name: Refuse unimplemented bootstrap mode
+        if: ${{ inputs.schema_only == false }}
+        run: |
+          echo "bootstrap/import requires the separately reviewed migration procedure" >&2
+          exit 1

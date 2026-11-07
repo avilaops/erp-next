@@ -36,6 +36,34 @@ test.beforeEach(async ({ context }) => {
   })
 })
 
+test("menus omitem os subtítulos redundantes e preservam os destinos", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/preferencias/empresa/dados")
+  const navigation = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
+  await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
+  await expect(navigation.getByRole("heading", { name: "Operação", exact: true })).toHaveCount(0)
+  await expect(navigation.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
+  await navigation.getByRole("button", { name: "Meu Negócio", exact: true }).click()
+  await expect(navigation.getByRole("heading", { name: "Dashboards", exact: true })).toHaveCount(0)
+  await expect(navigation.getByRole("link", { name: "Dashboard geral", exact: true })).toHaveAttribute("href", "/dashboards")
+})
+
+test("relatórios em MDX preservam ações e cabem no celular", async ({ page }) => {
+  await page.route("**/api/erp/receivables?**", route => route.fulfill({ json: { data: [] } }))
+  await page.route("**/api/erp/financial-payables?**", route => route.fulfill({ json: { data: [] } }))
+  await page.route("**/api/erp/stock?**", route => route.fulfill({ json: { data: [], total: 0, offset: 0, limit: 100 } }))
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const [route, title] of [["financeiro", "Relatório financeiro"], ["estoque", "Relatório de estoque"]]) {
+      await page.goto("/relatorios/" + route)
+      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible()
+      await expect(page.getByRole("button", { name: "Exportar CSV", exact: true })).toBeDisabled()
+      await expect(page.locator(".erp-page-back")).toHaveAttribute("href", "/relatorios")
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    }
+  }
+})
+
 test("menu lateral mostra somente a seção selecionada e acompanha o histórico", async ({ page }) => {
   await page.goto("/preferencias/empresa/dados")
   await expect(page.getByRole("heading", { name: "Alterar dados da empresa", exact: true })).toBeVisible()

@@ -77,9 +77,13 @@ por empresa. Veja [Certificado A1](CERTIFICADO-DIGITAL-A1.md). O alias legado é
 opcional e não define `certificateVerified`; o estado usa a credencial validada.
 A assinatura do XML ainda não está integrada.
 
-`NFE_PRODUCTION_ENABLED=false` é a única configuração aceita na inicialização.
-Qualquer outro valor impede a inicialização da API. Os tipos HTTP e restrições
-do banco também recusam produção. Alterar uma variável não libera transmissão.
+`NFE_PRODUCTION_ENABLED` é um gate explícito de deploy e assume `false` quando
+ausente. Se for `true`, `NFE_PRODUCTION_TENANT_ID` precisa conter o UUID da
+única empresa autorizada; a ausência desse vínculo faz a API recusar a
+configuração. O gate não seleciona o ambiente do tenant, não provisiona o A1 e
+não comprova homologação, credenciamento ou autorização fiscal. A liberação
+continua dependente de todos os bloqueios de `readiness` e do checklist
+operacional por capacidade.
 
 ## Validações do rascunho e limites
 

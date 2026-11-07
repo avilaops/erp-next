@@ -1,7 +1,5 @@
-import { NewInventory } from "@/features/inventory/details-operations-inventory";
+import { InventoryCounts } from "@/features/inventory/inventory-counts"
 
-export default function NewInventoryPage() {
-  return <NewInventory />;
-}
+export default function NewInventoryPage() { return <InventoryCounts /> }
 
 export const metadata = { title: "Novo inventário" }

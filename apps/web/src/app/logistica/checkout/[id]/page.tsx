@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { CheckoutDetail } from "@/features/logistics/logistics-details";
 
 export function generateStaticParams() {
-  return [{ id: "PV-1048" }];
+  return [];
 }
 
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {

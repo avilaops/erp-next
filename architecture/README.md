@@ -23,6 +23,7 @@ erp-next/
 │   │       ├── components/      elementos visuais reutilizáveis
 │   │       │   ├── ui/          botões, campos, diálogos e outros elementos básicos
 │   │       │   ├── shell/       estrutura do aplicativo, navegação e tema
+│   │       │   ├── workspace/   títulos, tabelas, paginação e estados de recursos
 │   │       │   └── feedback/    avisos, recuperação de acesso e prévias
 │   │       ├── hooks/           comportamento React compartilhado
 │   │       ├── lib/             utilitários e cliente HTTP sem segredos
@@ -30,7 +31,7 @@ erp-next/
 │   │       ├── server/          código exclusivo do servidor Next.js
 │   │       │   ├── auth/        sessão, cookies e configuração privada
 │   │       │   └── bff/         encaminhamento autenticado para serviços
-│   │       └── content/         textos MDX da ajuda
+│   │       └── content/         conteúdo e composição MDX: entrada, ajuda, empresa e relatórios
 │   ├── api/                     aplicação Rust e autoridade do ERP
 │   │   └── src/
 │   │       ├── http/            rotas, contrato OpenAPI e testes HTTP

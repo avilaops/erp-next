@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { erpFetch } from "@/lib/api/client"
@@ -124,7 +125,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
         <Link href="/preferencias?categoria=cadastros" className="text-sm text-primary underline">
           Preferências / Cadastros
         </Link>
-        <h1 className="mt-3 text-3xl font-semibold">{titles[section]}</h1>
+        <PageTitle className="mt-3 text-3xl font-semibold">{titles[section]}</PageTitle>
       </header>
       {error && (
         <p role="alert" className="text-destructive">

@@ -69,6 +69,14 @@ impl Kind {
             (Self::Payable | Self::UnifiedPayable, false, false) => "payable.payment_recorded",
         }
     }
+    fn account_direction(self, reversing: bool) -> &'static str {
+        match (self, reversing) {
+            (Self::Receivable, false) => "credit",
+            (Self::Receivable, true) => "debit",
+            (Self::Payable | Self::UnifiedPayable, false) => "debit",
+            (Self::Payable | Self::UnifiedPayable, true) => "credit",
+        }
+    }
     async fn load(
         self,
         tx: &mut Transaction<'_, Postgres>,
@@ -131,6 +139,22 @@ pub(super) async fn pay(
             "Meio de pagamento ou recebimento inválido",
         ));
     }
+    if let Some(account_id) = input.financial_account_id {
+        let active: Option<String> = sqlx::query_scalar(
+            "SELECT status FROM financial_accounts WHERE tenant_id=$1 AND id=$2",
+        )
+        .bind(tenant)
+        .bind(account_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(db)?;
+        if active.is_none() {
+            return Err(DomainError::NotFound);
+        }
+        if active.as_deref() != Some("active") {
+            return Err(DomainError::Conflict("A conta financeira está arquivada"));
+        }
+    }
     let request = json!({"id":id,"revision":expected,"input":input});
     let scope = kind.scope(false);
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
@@ -156,8 +180,12 @@ pub(super) async fn pay(
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let (accounts, entries, foreign, positive) = kind.names();
-    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on) VALUES($1,$2,$3,$4,$5,$6,$7,$8)"))
-        .bind(payment).bind(tenant).bind(id).bind(positive).bind(amount).bind(&input.method).bind(&input.reference).bind(occurred).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,financial_account_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)"))
+        .bind(payment).bind(tenant).bind(id).bind(positive).bind(amount).bind(&input.method).bind(&input.reference).bind(occurred).bind(input.financial_account_id).execute(&mut *tx).await.map_err(db)?;
+    if let Some(account_id) = input.financial_account_id {
+        sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+            .bind(Uuid::now_v7()).bind(tenant).bind(account_id).bind(kind.account_direction(false)).bind(amount).bind(occurred).bind(if matches!(kind, Kind::Receivable) { "Recebimento declarado" } else { "Pagamento declarado" }).bind(&input.reference).execute(&mut *tx).await.map_err(db)?;
+    }
     if matches!(kind, Kind::Receivable) {
         super::commissions::on_receipt(&mut tx, tenant, payment, &identity, &headers).await?;
     }
@@ -250,8 +278,12 @@ pub(super) async fn reverse(
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let (accounts, entries, foreign, _) = kind.names();
-    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8)"))
-        .bind(payment).bind(tenant).bind(id).bind(amount).bind(&original.method).bind(&input.reason).bind(occurred).bind(input.payment_id).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id,financial_account_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8,$9)"))
+        .bind(payment).bind(tenant).bind(id).bind(amount).bind(&original.method).bind(&input.reason).bind(occurred).bind(input.payment_id).bind(original.financial_account_id).execute(&mut *tx).await.map_err(db)?;
+    if let Some(account_id) = original.financial_account_id {
+        sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+            .bind(Uuid::now_v7()).bind(tenant).bind(account_id).bind(kind.account_direction(true)).bind(amount).bind(occurred).bind("Estorno de lançamento financeiro").bind(&input.reason).execute(&mut *tx).await.map_err(db)?;
+    }
     if matches!(kind, Kind::Receivable) {
         super::commissions::on_reversal(
             &mut tx,

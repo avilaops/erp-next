@@ -237,11 +237,13 @@ pub async fn detail(
     };
     let files: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'kind',kind,'position',position,'sha256',sha256) FROM commercial_contract_files WHERE tenant_id=$1 AND contract_id=$2 ORDER BY kind,position")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+    let package: Option<(String, String)> = sqlx::query_as("SELECT status,updated_at::text FROM commercial_contract_deliveries WHERE tenant_id=$1 AND contract_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
     Ok(super::super::response(
         StatusCode::OK,
         Some(contract.revision),
         super::api::checked::<super::api::ContractDetail>(
-            json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"data":contract,"files":files,"email":email}),
+            json!({"tenantId":tenant,"canEdit":can_edit,"canSend":can_send,"emailReady":email_ready,"packageStatus":package.as_ref().map(|value| &value.0),"packageUpdatedAt":package.as_ref().map(|value| &value.1),"data":contract,"files":files,"email":email}),
         )?,
     ))
 }

@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
 
@@ -133,7 +134,7 @@ export function ReceivedMonitor() {
 
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6">
-      <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><h1 className="mt-2 text-3xl font-semibold">Monitor de notas fiscais</h1><p className="mt-2 text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
+      <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><PageTitle className="mt-2 text-3xl font-semibold">Monitor de notas fiscais</PageTitle><p className="mt-2 text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link>
     </header>
     <div className="space-y-3">

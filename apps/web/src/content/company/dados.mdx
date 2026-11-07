@@ -1,0 +1,9 @@
+import { Suspense } from "react"
+import { CompanyWorkspace } from "@/features/company/company-workspace"
+import { AccountShell } from "@/features/company/account/account-shell"
+
+<AccountShell>
+  <Suspense fallback={<p role="status">Carregando empresa…</p>}>
+    <CompanyWorkspace />
+  </Suspense>
+</AccountShell>

@@ -6,27 +6,39 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, commissions, contracts, finance, fiscal, inventory, legacy, parties,
-    payables, production, purchasing, reference_data, returns, sales, staff, staff_payroll,
+    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance, fiscal,
+    inventory, legacy, parties, payables, production, purchasing, reference_data, registry_lookup,
+    returns, sales, staff, staff_payroll,
 };
-use crate::platform::{access, access_management, company, invitations, onboarding, service_auth};
+use crate::platform::{
+    access, access_management, company, invitations, onboarding, service_auth, workflows,
+};
 
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(crate::domains::sales::pricing::options,crate::domains::sales::pricing::quote,crate::domains::sales::pricing_orders::create,crate::domains::sales::pricing_orders::get,crate::domains::sales::pricing_orders::approve,crate::domains::dashboard::get,crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+    paths(crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         onboarding::select_company,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
         crate::platform::files::list, crate::platform::files::archive, crate::platform::files::content,
         crate::platform::custom_reports::list, crate::platform::custom_reports::create, crate::platform::custom_reports::update,
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
-        crate::platform::workflows::list, crate::platform::workflows::create, crate::platform::workflows::update, crate::platform::workflows::publish, crate::platform::workflows::archive,
         crate::domains::registry_lookup::lookup,
-        crate::domains::registry_lookup::registration::lookup_registration,
+        registry_lookup::registration::lookup_registration,
+        catalog_publication::get, catalog_publication::put, catalog_publication::media,
+        catalog_publication::preview, catalog_publication::publish,
         fiscal::ibpt::quote,
         crate::domains::finance::settings::get, crate::domains::finance::settings::put,
         sales::settings::get, sales::settings::put,
+        sales::negotiation::table, sales::negotiation::simulate, sales::negotiation::convert,
+        sales::negotiation::quote, sales::negotiation::decision,
+        sales::metrics::orders, sales::metrics::commissions,
+        sales::opportunities::list, sales::opportunities::get, sales::opportunities::create, sales::opportunities::update,
+        sales::negotiation::get_rules, sales::negotiation::put_rules,
+        sales::pricing::options, sales::pricing::quote,
+        sales::pricing_orders::create, sales::pricing_orders::get,
+        sales::pricing_orders::approve,
         crate::domains::supply_settings::inventory::get_inventory, crate::domains::supply_settings::inventory::put_inventory,
         crate::domains::supply_settings::purchase::get_purchase, crate::domains::supply_settings::purchase::put_purchase,
         reference_data::list_warehouses, reference_data::get_warehouse, reference_data::create_warehouse, reference_data::update_warehouse,
@@ -46,9 +58,6 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         access_management::get_role, access_management::create_role, access_management::update_role,
         access_management::delete_role, access_management::get_member, access_management::update_member,
         catalog::list, catalog::get, catalog::create, catalog::update,
-        crate::domains::catalog_publication::get, crate::domains::catalog_publication::put,
-        crate::domains::catalog_publication::media, crate::domains::catalog_publication::preview,
-        crate::domains::catalog_publication::publish,
         parties::list, parties::get, parties::create, parties::update,
         reference_data::list_product_categories, reference_data::get_product_category,
         reference_data::create_product_category, reference_data::update_product_category,
@@ -94,6 +103,8 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         fiscal::manifestation::manifest,
         fiscal::lojas::download_danfe, service_auth::create, service_auth::list,
         service_auth::revoke,
+        dashboard::get,
+        workflows::list, workflows::create, workflows::update, workflows::publish, workflows::archive,
         crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
         crate::platform::product_costs::get, crate::platform::product_costs::put,
         crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),
@@ -380,7 +391,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 210);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 220);
         assert!(
             doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
         );
@@ -407,14 +418,6 @@ mod tests {
         assert!(doc["paths"]["/api/v1/system/label-templates"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates/{id}"]["put"].is_object());
-        assert!(doc["paths"]["/api/v1/system/workflows"]["get"].is_object());
-        assert!(doc["paths"]["/api/v1/system/workflows"]["post"].is_object());
-        assert!(doc["paths"]["/api/v1/system/workflows/{id}"]["put"].is_object());
-        assert!(doc["paths"]["/api/v1/system/workflows/{id}/publish"]["post"].is_object());
-        assert!(doc["paths"]["/api/v1/system/workflows/{id}/archive"]["post"].is_object());
-        assert!(doc["paths"]["/api/v1/system/files"]["get"].is_object());
-        assert!(doc["paths"]["/api/v1/system/files/{id}/content"]["get"].is_object());
-        assert!(doc["paths"]["/api/v1/system/files/{id}/archive"]["post"].is_object());
         let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
         for status in ["204", "400", "401", "403", "500", "503"] {
             assert!(selection["responses"].get(status).is_some());

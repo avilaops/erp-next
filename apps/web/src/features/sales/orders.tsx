@@ -20,6 +20,8 @@ import { quantity, useCommand, useResource } from "../../hooks/use-operation"
 import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
+import { OrderNegotiation } from "./order-negotiation"
+import { CommercialMetrics } from "./commercial-metrics"
 import { commercialMoney, commercialQuantity, orderNumber } from "./order-presentation"
 import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 
@@ -110,6 +112,8 @@ function OrderList() {
   if (query.q) params.set("q", query.q)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
   return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
+    <CommercialMetrics kind="orders" />
+    <nav className="my-4 flex flex-wrap gap-4"><Link className={linkClass} href="/vendas/funil">Funil comercial</Link><Link className={linkClass} href="/vendas/tabela-precos">Tabela de preços</Link><Link className={linkClass} href="/vendas/simulador">Simular negociação</Link></nav>
     <section className="form-section min-w-0 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
@@ -235,6 +239,7 @@ function OrderDetail({ id }: { id: string }) {
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
         <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
+        <OrderNegotiation id={id} onDecision={result.reload} />
         {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
         {value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} />}
         <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>

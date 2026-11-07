@@ -535,6 +535,8 @@ pub struct DraftInput {
     pub operation_nature: String,
     /// Reference to the accountant-approved instruction, not an approval assertion by this API.
     pub tax_rule_reference: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub additional_information: Option<String>,
     pub recipient: Recipient,
     pub items: Vec<DraftItem>,
     pub products_total: String,
@@ -555,6 +557,16 @@ impl DraftInput {
         if self.environment != profile.environment {
             return Err(DomainError::Conflict(
                 "O ambiente do rascunho deve corresponder à configuração fiscal",
+            ));
+        }
+        if self.additional_information.as_ref().is_some_and(|text| {
+            text.chars().count() > 5000
+                || text
+                    .chars()
+                    .any(|character| character.is_control() && character != '\n')
+        }) {
+            return Err(DomainError::Invalid(
+                "Informações complementares exigem até 5000 caracteres, sem controles",
             ));
         }
         if self.model != 55

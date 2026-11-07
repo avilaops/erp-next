@@ -184,6 +184,52 @@ async fn candidate(
     })
 }
 
+/// Worst product at the full free discount, rounded up to a 5-point policy step.
+/// This only suggests a value; the manager must explicitly apply and save it.
+pub(crate) async fn suggested_down_payment(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    line: &str,
+    p: &CommercialParameters,
+) -> Result<Option<Value>, DomainError> {
+    let calculation = p.simulate()?;
+    let sources: Vec<CostRow> = sqlx::query_as("SELECT p.id AS product_id,p.sku,p.name,p.unit,p.revision AS product_revision,c.revision AS cost_revision,c.purchase_cost_cents,c.tax_credit_bps,c.packaging_cents FROM product_costs c JOIN products p ON p.tenant_id=c.tenant_id AND p.id=c.product_id WHERE c.tenant_id=$1 AND c.product_line=$2 AND p.status='active' ORDER BY p.id LIMIT 5001")
+        .bind(tenant).bind(line).fetch_all(&mut **tx).await.map_err(db)?;
+    if sources.len() > 5000 {
+        return Err(DomainError::Invalid(
+            "Sugestão limitada a 5000 produtos por linha",
+        ));
+    }
+    let mut worst: Option<(i128, i128, String)> = None;
+    for source in sources {
+        let (price, _) = calculate(p, calculation.variable_costs_bps, &source)?;
+        let net = (i128::from(price) * i128::from(10_000 - p.free_discount_bps) + 5000) / 10_000;
+        let total = (net * i128::from(10_000 + p.ipi_bps) + 5000) / 10_000;
+        if total == 0 {
+            continue;
+        }
+        // Keep the supplier and target fractions unrounded until the final ratio.
+        let required_numerator = (i128::from(source.purchase_cost_cents)
+            * i128::from(10_000 + p.cost_safety_bps)
+            + net * i128::from(p.net_margin_bps))
+            * i128::from(10_000 + p.ipi_bps);
+        let required_denominator =
+            10_000 * i128::from(10_000 + p.ipi_bps - p.commission_bps) * total;
+        if required_denominator <= 0 {
+            return Err(DomainError::Invalid(
+                "Comissão inviabiliza a entrada sugerida",
+            ));
+        }
+        if worst
+            .as_ref()
+            .is_none_or(|(n, d, _)| required_numerator * d > n * required_denominator)
+        {
+            worst = Some((required_numerator, required_denominator, source.sku));
+        }
+    }
+    Ok(worst.map(|(n,d,sku)|json!({"recommendedBps":((n*20+d-1)/d)*500,"exactBps":(n*10_000+d-1)/d,"worstSku":sku,"canApply":n<=d})))
+}
+
 #[utoipa::path(get,path="/api/v1/price-tables/{line}/preview",operation_id="preview_price_table",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=409,description="Parâmetros ou custos ausentes")))]
 pub async fn preview(
     State(state): State<AppState>,

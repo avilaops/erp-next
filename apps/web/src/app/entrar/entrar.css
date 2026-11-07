@@ -98,3 +98,24 @@
   .entry-closing .entry-actions { flex-direction: column; }
   .entry-footer { flex-wrap: wrap; }
 }
+
+@media (max-width: 389px) {
+  .entry-header { padding-block: 12px; }
+  .entry-header nav { gap: 12px; }
+  .entry-hero { padding-block: 24px; }
+  .entry-hero h1 { font-size: 36px; }
+  .entry-lead { margin-block: 16px; line-height: 1.55; }
+  .entry-access { padding: 12px; }
+}
+
+@media (orientation: landscape) and (max-height: 420px) and (max-width: 900px) {
+  .entry-header { padding-block: 8px; }
+  .entry-hero { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; padding-block: 10px; }
+  .entry-hero h1 { font-size: clamp(28px, 5vw, 42px); }
+  .entry-eyebrow { margin-bottom: 8px; }
+  .entry-lead { margin-block: 8px; font-size: 14px; line-height: 1.4; }
+  .entry-access { padding: 10px; }
+  .entry-access-label { margin-bottom: 6px; }
+  .entry-button { padding: 6px; }
+  .entry-access-note { margin-top: 6px; }
+}

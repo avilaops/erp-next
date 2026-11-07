@@ -223,7 +223,15 @@ pub async fn download_danfe(
             serde_json::json!({}),
         );
     };
-    let pdf = match client.render(&document.xml, &document.access_key).await {
+    let model = document
+        .access_key
+        .get(20..22)
+        .and_then(|value| value.parse::<u8>().ok())
+        .unwrap_or(0);
+    let pdf = match client
+        .render(&document.xml, &document.access_key, model)
+        .await
+    {
         Ok(value) => value,
         Err(super::danfe_client::RenderError::Invalid) => {
             return problem(

@@ -1,4 +1,14 @@
 import { expect, test } from "@playwright/test"
+import { listNavigationHref } from "../src/lib/list-navigation"
+
+test("retorno compartilhado mantém filtros e recusa outro destino", () => {
+  const listing = "/cadastros/clientes-fornecedores"
+  const href = listNavigationHref(listing + "/novo", listing, "q=Maria&status=active&offset=25")
+  const query = new URL(href, "https://erp.local").searchParams.toString()
+  expect(listNavigationHref(listing, listing + "/novo", query)).toBe(listing + "?q=Maria&status=active&offset=25")
+  expect(listNavigationHref(listing, listing + "/novo", "returnTo=https%3A%2F%2Fexterno.example")).toBe(listing)
+  expect(listNavigationHref("/preferencias", listing, "q=Maria")).toBe("/preferencias")
+})
 import { createCipheriv, createHash, randomBytes } from "node:crypto"
 import { origin, secret } from "../playwright.danfe.config"
 import { preferenceCategories } from "../src/features/preferences/search/preferences-catalog"
@@ -40,7 +50,7 @@ test("navegação responsiva preserva espaço, rota ativa e foco em pedidos", as
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     if (width >= 900) {
       const sidebar = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
-      await expect(sidebar).toHaveCSS("width", width >= 1200 ? "232px" : "216px")
+      await expect(sidebar).toHaveCSS("width", width >= 1200 ? "256px" : "248px")
       await page.screenshot({ animations: "disabled", path: info.outputPath(`orders-${width}.png`) })
       const sales = sidebar.getByRole("button", { name: "Vendas", exact: true })
       await expect(sales).toHaveAttribute("data-active", "true")
@@ -50,7 +60,7 @@ test("navegação responsiva preserva espaço, rota ativa e foco em pedidos", as
       await page.keyboard.press("Tab")
       await page.keyboard.press("Shift+Tab")
       await expect(sales.locator(".erp-module-copy")).toBeVisible()
-      await page.keyboard.press("Enter")
+      if (await sales.getAttribute("aria-expanded") !== "true") await page.keyboard.press("Enter")
       const panel = page.locator("#erp-module-panel")
       await expect(panel.getByRole("link", { name: "Pedidos de venda", exact: true })).toHaveAttribute("aria-current", "page")
       await expect(page.locator('[data-slot="tooltip-content"]')).toHaveCount(0)
@@ -243,7 +253,7 @@ test("índice de preferências cabe no celular e no desktop em ambos os temas", 
   }
 })
 
-test("menu desktop é exclusivo, fecha fora e com Escape e mantém os painéis na janela", async ({ page }) => {
+test("menu desktop mantém o módulo ativo aberto, fecha com Escape e cabe na janela", async ({ page }) => {
   await page.setViewportSize({ width: 1749, height: 950 })
   await page.goto("/")
   const navigation = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
@@ -260,11 +270,10 @@ test("menu desktop é exclusivo, fecha fora e com Escape e mantém os painéis n
   await expect(navigation.getByRole("button", { name: "Relatórios", exact: true })).toBeFocused()
   await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
   await page.locator("main").click({ position: { x: 1100, y: 10 } })
-  await expect(navigation.locator("#erp-module-panel")).toHaveCount(0)
-  await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
+  await expect(navigation.locator("#erp-module-panel")).toHaveCount(1)
   await navigation.getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
-  await expect(navigation.locator("#erp-module-panel")).toHaveCount(0)
+  await expect(navigation.locator("#erp-module-panel")).toHaveCount(1)
   await expect(navigation.getByRole("button", { name: "Cadastros", exact: true })).toHaveAttribute("data-active", "true")
   await page.reload()
   await expect(navigation.getByRole("button", { name: "Cadastros", exact: true })).toHaveAttribute("data-active", "true")
@@ -285,11 +294,12 @@ test("cabeçalho cabe na janela e navegação compacta oferece os módulos em te
   await page.getByRole("button", { name: "Recolher navegação", exact: true }).click()
   await expect(page.locator(".erp-sidebar")).toHaveCSS("width", "72px")
   await page.getByRole("button", { name: "Expandir navegação", exact: true }).click()
-  await expect(page.locator(".erp-sidebar")).toHaveCSS("width", "232px")
+  await expect(page.locator(".erp-sidebar")).toHaveCSS("width", "256px")
   await page.getByRole("button", { name: "Cadastros", exact: true }).click()
   const modules = page.locator("#erp-module-panel")
   await expect(modules.getByRole("link", { name: "Produtos", exact: true })).toBeVisible()
   await modules.getByRole("link", { name: "Produtos", exact: true }).click()
   await expect(page).toHaveURL(/\/cadastros\/produtos$/)
-  await expect(modules).toBeHidden()
+  await expect(modules).toBeVisible()
+  await expect(modules.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("aria-current", "page")
 })

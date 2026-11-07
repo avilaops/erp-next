@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,10 +20,10 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
-  assert.equal(context.flows.length, 58);
-  assert.equal(context.actions.length, 278);
+  assert.equal(context.flows.length, 61);
+  assert.equal(context.actions.length, 305);
   assert.equal(context.pendingFlows.length, 34);
-  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'custom-fields', 'custom-reports', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'fiscal-preferences', 'fixed-expenses', 'label-templates', 'personal-preferences', 'price-tables', 'product-costs', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'sales-simulator', 'system-files', 'users', 'workflows']);
+  assert.deepEqual(context.flows.filter(flow => flow.definitionState === 'journey_defined').map(flow => flow.definition.id).sort(), ['audit', 'commercial-returns', 'commercial-settings', 'commissions', 'custom-fields', 'custom-reports', 'financial-settings', 'fiscal-emission', 'fiscal-incoming', 'fiscal-preferences', 'fixed-expenses', 'label-templates', 'personal-preferences', 'price-tables', 'product-costs', 'production', 'products', 'purchase_payment_chain', 'registration-settings', 'sales-settings', 'sales-simulator', 'system-files', 'users', 'warranties', 'workflows']);
   assert.equal(context.actions.find(action => action.operation.path.endsWith('/issue')).status, 'implemented');
   assert.ok(context.flows.every(flow => flow.assessment.execution === 'not_observed' && flow.assessment.publication === 'not_observed'));
   const cte = context.flows.find(flow => flow.definition.id === 'fiscal-cte');
@@ -64,6 +64,16 @@ test('a task includes its transitive dependencies and real Auth handler sources 
   assert.ok(paths.includes('migrations/202610280007_user_invitations.sql'));
   assert.match(contextMarkdown(context), /Usuários e convites/);
   assert.match(contextMarkdown(context), /platform\.users\.manage/);
+});
+
+test('the complete context includes the Ruby contracts portal source declared by the catalogue', async () => {
+  const inventory = await inventoryPromise;
+  const definitions = selectProductFlows(catalogue);
+  const paths = contextSourcePaths(catalogue, inventory, definitions);
+  const rubyPath = 'deploy/contracts-portal/overlay/app/controllers/api/avila_templates_controller.rb';
+
+  assert.ok(paths.includes(rubyPath));
+  assert.match((await readContextFile(root, rubyPath)).toString('utf8'), /class AvilaTemplatesController/);
 });
 
 test('unknown references, duplicate ownership, and invented runtime state are rejected', () => {
@@ -121,6 +131,23 @@ test('context file reads reject traversal and private environment files', async 
   for (const invalid of ['../outside.json', '/outside.json', 'src/../../outside.json', '.env', 'src/.env.json', 'src/.env.rb', 'src/../../outside.rb', 'src\\module.ts']) {
     await assert.rejects(() => readContextFile(directory, invalid), /arquivo de fonte relativo/);
   }
+});
+
+test('context file reads reject symlinked source files', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'erp-context-symlink-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(path.join(directory, 'src'));
+  await writeFile(path.join(directory, 'outside.rb'), 'class Outside; end');
+  try {
+    await symlink(path.join(directory, 'outside.rb'), path.join(directory, 'src', 'controller.rb'));
+  } catch (error) {
+    if (['EACCES', 'EPERM'].includes(error.code)) {
+      t.skip('O ambiente não permite criar symlink para o teste');
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(() => readContextFile(directory, 'src/controller.rb'), /Referência indireta ou inválida/);
 });
 
 test('artifact retries preserve identical bytes and refuse to overwrite a different existing file', async t => {

@@ -326,19 +326,21 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         StatusCode::PRECONDITION_FAILED
     );
     let edit = json!({"customerId":CUSTOMER,"dueDate":"2027-01-01","items":[{"productId":PRODUCT,"quantity":"2","structureColor":"Preto","upholsteryColor":null}]});
+    let edit_after_approval = call(
+        &router,
+        "PUT",
+        &order_uri,
+        ("reader", TENANT),
+        Some("\"2\""),
+        Some(Uuid::now_v7()),
+        edit,
+    )
+    .await;
     assert_eq!(
-        call(
-            &router,
-            "PUT",
-            &order_uri,
-            ("reader", TENANT),
-            Some("\"2\""),
-            Some(Uuid::now_v7()),
-            edit
-        )
-        .await
-        .0,
-        StatusCode::CONFLICT
+        edit_after_approval.0,
+        StatusCode::CONFLICT,
+        "{}",
+        edit_after_approval.1
     );
     // Changed live policy and catalog prices must never change the stored agreement.
     sqlx::raw_sql("UPDATE commercial_settings SET parameters=jsonb_set(parameters,'{ipiBps}','0'); UPDATE products SET price_cents=1;").execute(&admin).await.unwrap();

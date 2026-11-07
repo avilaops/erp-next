@@ -1,12 +1,56 @@
 import { expect, test } from "@playwright/test"
+import { createHash } from "node:crypto"
 import { createServer } from "node:http"
 import { once } from "node:events"
 import { installFrontendFixture, tenant, record } from "./helpers/frontend-fixture"
 import { origin } from "../playwright.danfe.config"
 
 const draft = { environment: "homologation", model: 55, operationNature: "Venda", taxRuleReference: "Instrução de teste", recipient: { taxId: "11222333000181", legalName: "Cliente de teste", state: "SP", municipalityCode: "3549805", postalCode: "15035000", street: "Rua Teste", number: "1", district: "Centro" }, items: [{ code: "P1", description: "Produto", unit: "UN", ncm: "95069100", cfop: "5102", quantity: "1.0000", unitPrice: "100.0000000000", grossTotal: "100.00", origin: 0, csosn: "102", icmsCst: null, pisCst: "07", cofinsCst: "07" }], productsTotal: "100.00", payments: [{ code: "17", amount: "100.00", description: null }] }
+const nfceKey = `${"35261012345678000195550010000001231482917364".slice(0, 20)}65${"35261012345678000195550010000001231482917364".slice(22)}`
+const nfceXml = "<nfeProc xmlns=\"http://www.portalfiscal.inf.br/nfe\"><NFe><infNFe><ide><mod>65</mod></ide></infNFe></NFe></nfeProc>"
+const nfcePdf = Buffer.from("%PDF-1.7 NFC-e synthetic")
+const digest = (value: string | Buffer) => createHash("sha256").update(value).digest("hex")
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
+
+test("NFC-e usa o fluxo fiscal persistente de modelo 65", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
+  await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: false, productionEnabled: false, blockers: [] } }))
+  await page.goto("/fiscal/nfce")
+  await expect(page.getByRole("heading", { name: "Rascunhos de NFC-e", exact: true })).toBeVisible()
+  await expect(page.getByText("Nenhum rascunho cadastrado nesta empresa.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Preparar NFC-e", exact: true })).toHaveAttribute("href", "/fiscal/notas-saida/nova?modelo=65")
+})
+
+test("NFC-e autorizada gera DANFE e valida XML e PDF pelo BFF", async ({ page }) => {
+  const danfeRequests: string[] = []
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.issue"] } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, certificateVerified: true, canTransmit: true, productionEnabled: false, blockers: [] } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"3"' }, json: { tenantId: tenant, canEdit: false, data: { id: record, revision: 3, status: "draft", input: { ...draft, model: 65 }, issuer: { legalName: "Empresa teste" } } } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => route.fulfill({ headers: { ETag: '"4"' }, json: { tenantId: tenant, id: record, status: "authorized", environment: "homologation", model: 65, revision: 4, number: 1, series: 1, accessKey: nfceKey, protocol: "135260000000001", result: {} } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/xml`, route => route.fulfill({ headers: { "Content-Type": "application/xml; charset=utf-8" }, body: nfceXml }))
+  await page.route("**/api/erp/fiscal/danfe", async route => {
+    const body = route.request().postDataJSON() as { xml: string }
+    danfeRequests.push(body.xml)
+    return route.fulfill({
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="DANFE-${nfceKey}.pdf"`,
+        "X-XML-SHA256": digest(nfceXml),
+        "X-PDF-SHA256": digest(nfcePdf),
+      },
+      body: nfcePdf,
+    })
+  })
+  await page.goto(`/fiscal/nfce/${record}`)
+  await expect(page.getByText("Situação fiscal: Autorizada em homologação", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Gerar DANFE NFC-e", exact: true }).click()
+  await expect(page.getByTitle("Visualização do NFC-e", { exact: true })).toHaveAttribute("src", /^blob:/)
+  await expect(page.getByText(digest(nfceXml), { exact: true })).toBeVisible()
+  await expect(page.getByText(digest(nfcePdf), { exact: true })).toBeVisible()
+  expect(danfeRequests).toEqual([nfceXml])
+})
 
 test("lista de NF-e distingue emissão em homologação da produção indisponível", async ({ page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))

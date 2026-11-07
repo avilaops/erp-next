@@ -1,0 +1,50 @@
+name: AVL-360 merged branch cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-merged-feature-branch:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.number == 13 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'codex/avl-360-fiscal-vertical-design-20261028'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Delete only the unchanged merged PR branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const branch = 'codex/avl-360-fiscal-vertical-design-20261028';
+            if (!pr?.merged || pr.number !== 13 ||
+                pr.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo ||
+                pr.base.ref !== 'main' || pr.head.ref !== branch) {
+              throw new Error('Unexpected cleanup target');
+            }
+            let ref;
+            try {
+              ({ data: ref } = await github.rest.git.getRef({
+                ...context.repo, ref: 'heads/' + branch
+              }));
+            } catch (error) {
+              if (error.status === 404) {
+                core.info('Merged branch is already absent');
+                return;
+              }
+              throw error;
+            }
+            if (ref.object.sha !== pr.head.sha) {
+              throw new Error('Branch advanced after merge; preserving new commits');
+            }
+            await github.rest.git.deleteRef({
+              ...context.repo, ref: 'heads/' + branch
+            });
+            core.info('Deleted the merged AVL-360 feature branch');

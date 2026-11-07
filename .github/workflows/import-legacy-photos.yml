@@ -1,0 +1,81 @@
+name: Import preserved product photos
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Import into products that still have no photo (otherwise preview only)
+        type: boolean
+        default: false
+      tenant_id:
+        description: Exact destination tenant
+        type: string
+        required: true
+        default: 9bcd03ef-0fee-471c-8f30-12a6271a09cc
+permissions:
+  contents: read
+concurrency:
+  group: erp-production-migration
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: photo_import_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated_test_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated image conversion dependency
+        run: python -m pip install Pillow==12.3.0
+      - name: Verify conversion, tenant isolation, idempotence and conflict rollback
+        run: python -m unittest discover -s scripts -p test_import_legacy_photos.py -v
+        env:
+          PHOTO_IMPORT_TEST_DATABASE_URL: postgres://postgres:isolated_test_only@127.0.0.1:5432/photo_import_test
+      - name: Open restricted database tunnel
+        env:
+          SSH_KEY: ${{ secrets.ERP_DB_TUNNEL_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ERP_DB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.ERP_DB_SSH_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/erp-db
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/erp-db ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=yes -i ~/.ssh/erp-db -N -f -L 127.0.0.1:15435:172.17.0.1:5432 root@"$SSH_HOST"
+      - name: Route the private destination through the tunnel
+        env:
+          DATABASE_URL: ${{ secrets.ERP_MIGRATION_DATABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlsplit, urlunsplit
+          value = os.environ['DATABASE_URL']
+          parsed = urlsplit(value)
+          if any(c in value for c in '\r\n') or parsed.scheme not in ('postgres', 'postgresql') or not parsed.username:
+              raise ValueError('Invalid database URL')
+          credentials = parsed.netloc.rsplit('@', 1)[0]
+          tunneled = urlunsplit(parsed._replace(netloc=credentials + '@127.0.0.1:15435'))
+          print('::add-mask::' + tunneled)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('DATABASE_URL=' + tunneled + '\n')
+          PY
+      - name: Preview the exact association and validate all eligible images
+        env:
+          ERP_BOOTSTRAP_TENANT: ${{ inputs.tenant_id }}
+        run: python scripts/import-legacy-photos.py
+      - name: Import missing photos and reconcile the remaining records
+        if: ${{ inputs.apply }}
+        env:
+          ERP_BOOTSTRAP_TENANT: ${{ inputs.tenant_id }}
+        run: python scripts/import-legacy-photos.py --apply

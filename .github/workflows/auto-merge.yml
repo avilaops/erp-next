@@ -1,0 +1,48 @@
+name: Auto merge validated PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require branch protection with the complete CI gate
+        id: protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! protected=$(gh api "repos/$GH_REPO/branches/main" --jq '.protected' 2>/dev/null); then
+            echo '::notice::Automatic merge disabled: workflow token cannot inspect main branch protection. Review and merge only after CI succeeds.'
+            exit 0
+          fi
+          if [ "$protected" != 'true' ]; then
+            echo '::notice::Automatic merge disabled: main has no branch protection. Review and merge only after CI succeeds.'
+            exit 0
+          fi
+          # Missing access or an unrecognized ruleset disables auto-merge without failing CI.
+          if ! gh api "repos/$GH_REPO/branches/main/protection" > protection.json 2>/dev/null; then
+            echo '::notice::Automatic merge disabled: workflow token cannot inspect required checks. Review and merge only after CI succeeds.'
+            exit 0
+          fi
+          if ! jq -e '.required_status_checks as $checks | (($checks.contexts // []) + [($checks.checks // [])[] | .context]) | index("gate") != null' protection.json; then
+            echo '::notice::Automatic merge disabled: the complete CI gate is not required by branch protection.'
+            exit 0
+          fi
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+      - name: Enable auto-merge only behind the required CI gate
+        if: steps.protection.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge "$PR_URL" --auto --merge --match-head-commit "$EXPECTED_HEAD" --delete-branch

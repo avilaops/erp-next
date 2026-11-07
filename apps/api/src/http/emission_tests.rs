@@ -84,7 +84,8 @@ async fn provider(
         }
         let number = body["number"].as_i64().unwrap();
         let random = body["randomCode"].as_str().unwrap();
-        let prefix = format!("3526100425201100011055001{number:09}1{random}");
+        let model = body["draft"]["model"].as_i64().unwrap_or(55);
+        let prefix = format!("35261004252011000110{model:02}001{number:09}1{random}");
         let sum: u32 = prefix
             .bytes()
             .rev()
@@ -97,12 +98,14 @@ async fn provider(
         let issued_at = body["issuedAt"].as_str().unwrap();
         let total = body["draft"]["productsTotal"].as_str().unwrap();
         let xml = format!(
-            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>55</mod><tpAmb>{ambient}</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
+            "<NFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infNFe versao=\"4.00\" Id=\"NFe{key}\"><ide><mod>{model}</mod><tpAmb>{ambient}</tpAmb><serie>1</serie><nNF>{number}</nNF><cNF>{random}</cNF><dhEmi>{issued_at}</dhEmi></ide><emit><CNPJ>04252011000110</CNPJ><xNome>Empresa A</xNome></emit><dest><CPF>52998224725</CPF></dest><det nItem=\"1\"/><total><ICMSTot><vNF>{total}</vNF></ICMSTot></total></infNFe><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"#NFe{key}\"><DigestValue>AAAAAAAAAAAAAAAAAAAAAAAAAAA=</DigestValue></Reference></SignedInfo></Signature></NFe>"
         );
-        return (
-            StatusCode::OK,
-            Json(json!({"accessKey":key,"signedXml":xml})),
-        );
+        let mut result = json!({"accessKey":key,"signedXml":xml});
+        if model == 65 {
+            result["qrCode"] =
+                json!("https://homologacao.nfce.fazenda.sp.gov.br/qrcode?p=synthetic");
+        }
+        return (StatusCode::OK, Json(result));
     }
     if operation == "void" {
         let durable: i64 = sqlx::query_scalar(
@@ -623,6 +626,91 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn nfce_offline_preparation_is_idempotent_before_later_transmission(admin: PgPool) {
+    let (_, application, auth, role) = setup(&admin).await;
+    let (router, tasks, calls) = services(&admin, application.clone(), "authorized").await;
+    let configured = call(
+        &router,
+        "PUT",
+        "/api/v1/fiscal/settings/nfce",
+        "editor",
+        Some("\"1\""),
+        Some(Uuid::now_v7()),
+        json!({
+            "environment": "homologation",
+            "state": "SP",
+            "series": 1,
+            "nextNumber": 1,
+            "cscId": "000001",
+            "csc": "synthetic-csc-secret-1234"
+        }),
+    )
+    .await;
+    assert_eq!(configured.0, StatusCode::OK, "{}", configured.2);
+    let mut body = draft();
+    body["model"] = json!(65);
+    body["emissionType"] = json!("9");
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        body,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let created_etag = created.1["etag"].to_str().unwrap().to_owned();
+    let uri = format!("/api/v1/fiscal/nfe/{id}/issue");
+    let key = Uuid::now_v7();
+    let prepared = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some(&created_etag),
+        Some(key),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(prepared.0, StatusCode::ACCEPTED, "{}", prepared.2);
+    assert_eq!(prepared.2["status"], "prepared");
+    assert_eq!(prepared.2["result"]["code"], "offline_contingency_ready");
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    let replayed = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some(&created_etag),
+        Some(key),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(replayed.2, prepared.2);
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    let transmitted = call(
+        &router,
+        "POST",
+        &uri,
+        "editor",
+        Some(prepared.1["etag"].to_str().unwrap()),
+        Some(Uuid::now_v7()),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(transmitted.0, StatusCode::OK, "{}", transmitted.2);
+    assert_eq!(transmitted.2["status"], "authorized");
+    assert_eq!(calls.lock().unwrap().len(), 2);
+    for task in tasks {
+        task.abort();
+    }
+    cleanup(&admin, application, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn production_numbers_and_events_follow_the_document_after_the_profile_switches(
     admin: PgPool,
 ) {
@@ -729,9 +817,17 @@ async fn production_numbers_and_events_follow_the_document_after_the_profile_swi
     )
     .await;
     assert_eq!(current.2["data"]["nextNumber"], 42);
-    // Homologation number 1 cannot prohibit voiding a gap in production.
+    // São Paulo no longer accepts inutilização de NF-e/NFC-e from 01/11/2026.
     let voided = call(&router,"POST","/api/v1/fiscal/number-voids","editor",Some("\"0\""),Some(Uuid::now_v7()),json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":1,"text":"Lacuna declarada no ambiente de produção"})).await;
-    assert_eq!(voided.2["status"], "registered", "{}", voided.2);
+    assert_eq!(voided.0, StatusCode::CONFLICT, "{}", voided.2);
+    assert!(
+        voided.2["title"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("não se aplica"),
+        "{}",
+        voided.2
+    );
     profile["environment"] = json!("homologation");
     profile["nextNumber"] = json!(2);
     assert_eq!(
@@ -774,11 +870,7 @@ async fn production_numbers_and_events_follow_the_document_after_the_profile_swi
     .await;
     assert_eq!(corrected.2["status"], "registered", "{}", corrected.2);
     let recorded = calls.lock().unwrap().clone();
-    assert!(
-        recorded
-            .iter()
-            .any(|(operation, body)| operation == "void" && body["environment"] == "production")
-    );
+    assert!(!recorded.iter().any(|(operation, _)| operation == "void"));
     assert!(
         recorded
             .iter()
@@ -999,7 +1091,7 @@ async fn emission_preparation_blockers_allow_fixing_draft_without_renumbering(ad
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(admin: PgPool) {
+async fn emission_voids_are_rejected_without_reservation_and_preserve_tenant_rls(admin: PgPool) {
     let (_, application, auth, role) = setup(&admin).await;
     let (router, tasks, calls) = services(&admin, application.clone(), "authorized").await;
     let body = json!({"year":time::OffsetDateTime::now_utc().year(),"series":1,"first":1,"last":3,"text":"Inutilização sintética de faixa não utilizada"});
@@ -1014,8 +1106,15 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         body.clone(),
     )
     .await;
-    assert_eq!(first.0, StatusCode::OK, "{}", first.2);
-    assert_eq!(first.2["status"], "registered");
+    assert_eq!(first.0, StatusCode::CONFLICT, "{}", first.2);
+    assert!(
+        first.2["title"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("não se aplica"),
+        "{}",
+        first.2
+    );
     assert_eq!(
         call(
             &router,
@@ -1030,7 +1129,7 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         .2,
         first.2
     );
-    assert_eq!(calls.lock().unwrap().len(), 1);
+    assert_eq!(calls.lock().unwrap().len(), 0);
     let created = call(
         &router,
         "POST",
@@ -1052,7 +1151,7 @@ async fn emission_voids_reserve_numbers_durably_replay_and_preserve_tenant_rls(a
         Value::Null,
     )
     .await;
-    assert_eq!(issued.2["number"], 4, "{}", issued.2);
+    assert_eq!(issued.2["number"], 1, "{}", issued.2);
     let mut tx = application.begin().await.unwrap();
     sqlx::query("SELECT set_config('app.tenant_id','22222222-2222-4222-8222-222222222222',true)")
         .execute(&mut *tx)
@@ -1216,6 +1315,61 @@ async fn emission_order_cancellation_records_commercial_request_before_fiscal_co
     )
     .await;
     assert_eq!(fiscal_after.2["status"], "cancelled");
+
+    let mut return_body = draft();
+    return_body["purpose"] = json!(4);
+    return_body["returnDirection"] = json!("incoming");
+    return_body["referencedAccessKeys"] = json!([issued.2["accessKey"]]);
+    return_body["sourceReturnId"] = json!(cancellation_id);
+    return_body["sourceReturnKind"] = json!("sale_cancellation");
+    return_body["operationNature"] = json!("Devolução sintética de venda");
+    return_body["items"][0]["cfop"] = json!("1102");
+    let return_created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        return_body,
+    )
+    .await;
+    assert_eq!(
+        return_created.0,
+        StatusCode::CREATED,
+        "{}",
+        return_created.2
+    );
+    let return_id = return_created.2["data"]["id"].as_str().unwrap();
+    let return_issued = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{return_id}/issue"),
+        "editor",
+        Some(return_created.1["etag"].to_str().unwrap()),
+        Some(Uuid::now_v7()),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(
+        return_issued.2["status"], "authorized",
+        "{}",
+        return_issued.2
+    );
+    let prepare = calls
+        .lock()
+        .unwrap()
+        .iter()
+        .rev()
+        .find(|(operation, _)| operation == "prepare")
+        .map(|(_, body)| body.clone())
+        .unwrap();
+    assert_eq!(prepare["draft"]["purpose"], 4);
+    assert_eq!(prepare["draft"]["returnDirection"], "incoming");
+    assert_eq!(
+        prepare["draft"]["referencedAccessKeys"][0],
+        issued.2["accessKey"]
+    );
     for task in tasks {
         task.abort();
     }

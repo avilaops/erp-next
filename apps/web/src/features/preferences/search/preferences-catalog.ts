@@ -44,11 +44,11 @@ export const preferenceCategories: PreferenceCategory[] = [
     ] },
   ] },
   { id: "vendas", label: "Vendas", sections: [
-    { title: "Configurações de vendas", items: [unavailable("Frente de caixa"), unavailable("Propostas comerciais"), { label: "Vendas", href: "/preferencias/vendas" }] },
+    { title: "Configurações de vendas", items: [unavailable("Frente de caixa"), unavailable("Propostas comerciais"), { label: "Vendas", href: "/preferencias/vendas" }, { label: "Tabela de preços", href: "/preferencias/tabela-precos", description: "Preparar, conferir e publicar as tabelas comerciais." }] },
   ] },
   { id: "notas-fiscais", label: "Notas Fiscais", sections: [
     { title: "Configurações de notas fiscais", items: [
-      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
+      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "E-mail e acesso ao XML", href: "/preferencias/fiscal/delivery" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
     ] },
     { title: "Tabelas e configurações adicionais", items: [
       { label: "Consulta de inutilizações de NF-es", href: "/preferencias/fiscal/inutilizacoes" }, { label: "Consulta de correções de NF-es", href: "/preferencias/fiscal/correcoes" }, { label: "Naturezas de operação", href: "/preferencias/fiscal/naturezas" },

@@ -1,6 +1,8 @@
 "use client"
 
 import NextLink from "next/link"
+import { usePathname, useSearchParams } from "next/navigation"
+import { listNavigationHref } from "@/lib/list-navigation"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react"
 
 type Guard = () => string | null
@@ -49,7 +51,10 @@ export function useAllowNextUnload() {
 
 export function GuardedLink({ onNavigate, ...props }: ComponentProps<typeof NextLink>) {
   const confirmNavigation = useConfirmNavigation()
-  return <NextLink {...props} onNavigate={event => {
+  const pathname = usePathname()
+  const search = useSearchParams()
+  const href = typeof props.href === "string" ? listNavigationHref(props.href, pathname, search.toString()) : props.href
+  return <NextLink {...props} href={href} onNavigate={event => {
     if (!confirmNavigation()) { event.preventDefault(); return }
     onNavigate?.(event)
   }} />

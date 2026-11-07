@@ -43,8 +43,8 @@ function Options({ index, pathname, onNavigate }: { index: number; pathname: str
   const active = menus[index].columns.flatMap(group => group.items).filter(item => matches(pathname, item.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
   return <div className="erp-module-groups">
-    {menus[index].columns.map(group => <section key={group.title}>
-      <h3>{group.title}</h3>
+    {menus[index].columns.map(group => <section key={group.title || group.items[0]?.href}>
+      {group.title && <h3>{group.title}</h3>}
       <ul>{group.items.map(item => <li key={item.href}>
         <Link href={item.href} onNavigate={onNavigate} className="erp-option" aria-current={item.href === active ? "page" : undefined}>{item.label}</Link>
       </li>)}</ul>
@@ -55,7 +55,7 @@ function Options({ index, pathname, onNavigate }: { index: number; pathname: str
 export function MenuNavigation({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const [selected, setSelected] = useState<number | null>(null)
+  const [selected, setSelected] = useState<number | null>(() => currentArea(pathname) ?? null)
   const [open, setOpen] = useState(false)
   const [screen, setScreen] = useState<number | null>(null)
   const [previousPath, setPreviousPath] = useState(pathname)
@@ -71,7 +71,7 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
 
   if (previousPath !== pathname) {
     setPreviousPath(pathname)
-    setSelected(null)
+    setSelected(currentArea(pathname) ?? null)
     setOpen(false)
     setScreen(null)
   }
@@ -83,9 +83,9 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (selected === null) return
-    panel.current?.focus()
+    if (collapsed) panel.current?.focus()
     const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !navigation.current?.contains(event.target)) closePanel(true)
+      if (collapsed && event.target instanceof Node && !navigation.current?.contains(event.target)) closePanel(true)
     }
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); closePanel(true) }
@@ -93,14 +93,14 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
     document.addEventListener("pointerdown", outside)
     document.addEventListener("keydown", escape)
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape) }
-  }, [selected])
+  }, [selected, collapsed])
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 900px)")
-    const change = () => { setSelected(null); setOpen(false); setScreen(null) }
+    const change = () => { setSelected(currentArea(pathname) ?? null); setOpen(false); setScreen(null) }
     desktop.addEventListener("change", change)
     return () => desktop.removeEventListener("change", change)
-  }, [])
+  }, [pathname])
 
   useEffect(() => {
     if (!open) { previousScreen.current = null; return }
@@ -131,12 +131,12 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
             <p className="erp-nav-caption">Módulos</p>
             <ul className="erp-module-list">{desktopMenus.map((menu, index) => {
               const Icon = icons[index]
-              return <li key={menu.label}><Tooltip><TooltipTrigger render={<button type="button" className="erp-module-button" data-active={active === index} aria-label={menu.label} aria-expanded={selected === index} aria-controls={selected === index ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === index ? null : index) }} />}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></TooltipTrigger>{collapsed && <TooltipContent side="right">{menu.label}{active === index && activePage?.index === index ? ` · ${activePage.label}` : ""}</TooltipContent>}</Tooltip></li>
+              return <li key={menu.label}><Tooltip><TooltipTrigger render={<button type="button" className="erp-module-button" data-active={active === index} aria-label={menu.label} aria-expanded={selected === index} aria-controls={selected === index ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === index ? null : index) }} />}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></TooltipTrigger>{collapsed && <TooltipContent side="right">{menu.label}{active === index && activePage?.index === index ? ` · ${activePage.label}` : ""}</TooltipContent>}</Tooltip>{!collapsed && selected === index && <div id="erp-module-panel" className="erp-inline-options"><Options index={index} pathname={pathname} onNavigate={() => {}} /></div>}</li>
             })}</ul>
-            <div className="erp-index-entry"><button type="button" className="erp-module-button" data-active={active === menus.length - 1} aria-label="Índice completo" aria-expanded={selected === menus.length - 1} aria-controls={selected === menus.length - 1 ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === menus.length - 1 ? null : menus.length - 1) }}><LayoutGrid aria-hidden="true" /><span>Índice completo</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></button></div>
+            <div className="erp-index-entry"><button type="button" className="erp-module-button" data-active={active === menus.length - 1} aria-label="Índice completo" aria-expanded={selected === menus.length - 1} aria-controls={selected === menus.length - 1 ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === menus.length - 1 ? null : menus.length - 1) }}><LayoutGrid aria-hidden="true" /><span>Índice completo</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></button>{!collapsed && selected === menus.length - 1 && <div id="erp-module-panel" className="erp-inline-options"><Options index={selected} pathname={pathname} onNavigate={() => {}} /></div>}</div>
           </div>
           <div className="erp-sidebar-footer"><button type="button" className="erp-module-button" aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"} aria-expanded={!collapsed} title={collapsed ? "Expandir navegação" : "Recolher navegação"} onClick={() => { closePanel(); setCollapsed(!collapsed) }}>{collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}<span>Recolher menu</span></button></div>
-          {selected !== null && <section ref={panel} tabIndex={-1} id="erp-module-panel" className="erp-module-panel" aria-labelledby="erp-module-title">
+          {collapsed && selected !== null && <section ref={panel} tabIndex={-1} id="erp-module-panel" className="erp-module-panel" aria-labelledby="erp-module-title">
             <div className="erp-panel-heading"><h2 id="erp-module-title">{menus[selected].label}</h2><button type="button" className="erp-menu-icon" aria-label="Fechar opções do módulo" onClick={() => closePanel(true)}><X aria-hidden="true" /></button></div>
             <Options index={selected} pathname={pathname} onNavigate={() => closePanel()} />
           </section>}

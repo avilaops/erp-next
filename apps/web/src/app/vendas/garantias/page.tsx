@@ -1,4 +1,4 @@
-import { SalesList } from "@/features/sales/sales-pages"
-export default function Page() { return <SalesList kind="garantias" /> }
+import { WarrantyList } from "@/features/sales/warranty-workspace"
+export default function Page() { return <WarrantyList /> }
 
 export const metadata = { title: "Garantias" }

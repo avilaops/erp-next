@@ -54,6 +54,7 @@ fn snapshot(
     revision: i64,
     data: Option<Value>,
     monthly_expenses_cents: i64,
+    suggestion: Option<Value>,
 ) -> Result<Response, DomainError> {
     let calculation = data
         .as_ref()
@@ -69,7 +70,7 @@ fn snapshot(
         json!({
             "tenantId": tenant, "line": line, "revision": revision, "data": data,
             "calculation": calculation, "status": "draft", "canEdit": true,
-            "monthlyExpensesCents": monthly_expenses_cents
+            "monthlyExpensesCents": monthly_expenses_cents, "suggestedDownPayment": suggestion
         }),
     ))
 }
@@ -88,8 +89,23 @@ pub async fn get(
     if let Some(value) = data.as_mut() {
         value["monthlyExpensesCents"] = json!(monthly_expenses_cents);
     }
+    let suggestion = match &data {
+        Some(value) => {
+            let p: CommercialParameters =
+                serde_json::from_value(value.clone()).map_err(|_| access::AccessError::Internal)?;
+            super::price_tables::suggested_down_payment(&mut tx, tenant, &line, &p).await?
+        }
+        None => None,
+    };
     tx.commit().await.map_err(db)?;
-    snapshot(tenant, &line, revision, data, monthly_expenses_cents)
+    snapshot(
+        tenant,
+        &line,
+        revision,
+        data,
+        monthly_expenses_cents,
+        suggestion,
+    )
 }
 
 #[utoipa::path(put,path="/api/v1/commercial-settings/{line}",operation_id="put_commercial_settings",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header)),request_body=CommercialParameters,responses((status=200,body=Value),(status=403,description="Exige gestão"),(status=412,description="Revisão alterada"),(status=422,description="Parâmetros inválidos")))]
@@ -115,6 +131,8 @@ pub async fn put(
         .checked_add(1)
         .ok_or(access::AccessError::Internal)?;
     let monthly_expenses_cents = parameters.monthly_expenses_cents as i64;
+    let suggestion =
+        super::price_tables::suggested_down_payment(&mut tx, tenant, &line, &parameters).await?;
     let data = serde_json::to_value(parameters).map_err(|_| access::AccessError::Internal)?;
     sqlx::query("INSERT INTO commercial_settings(tenant_id,product_line,parameters,revision) VALUES($1,$2,$3,$4) ON CONFLICT(tenant_id,product_line) DO UPDATE SET parameters=$3,revision=$4,updated_at=now()")
         .bind(tenant).bind(&line).bind(&data).bind(next).execute(&mut *tx).await.map_err(db)?;
@@ -123,7 +141,14 @@ pub async fn put(
         .bind(tenant).bind(&identity.subject).bind(json!({"line":line,"previousRevision":current,"revision":next}))
         .execute(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
-    snapshot(tenant, &line, next, Some(data), monthly_expenses_cents)
+    snapshot(
+        tenant,
+        &line,
+        next,
+        Some(data),
+        monthly_expenses_cents,
+        suggestion,
+    )
 }
 
 #[utoipa::path(post,path="/api/v1/commercial-settings/{line}/preview",operation_id="preview_commercial_settings",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),request_body=CommercialParameters,responses((status=200,body=Value),(status=403,description="Exige gestão"),(status=422,description="Parâmetros inviáveis")))]
@@ -140,10 +165,12 @@ pub async fn preview(
     parameters.monthly_expenses_cents =
         crate::domains::fixed_expenses::monthly_total(&mut tx, tenant).await? as u64;
     let calculation = parameters.simulate()?;
+    let suggestion =
+        super::price_tables::suggested_down_payment(&mut tx, tenant, &line, &parameters).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"tenantId":tenant,"line":line,"calculation":calculation}),
+        json!({"tenantId":tenant,"line":line,"calculation":calculation,"suggestedDownPayment":suggestion}),
     ))
 }

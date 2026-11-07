@@ -140,5 +140,3 @@ PY
 
 trap - EXIT
 printf 'ERP deploy completed: %s\n' "$source_sha"
-
-

@@ -1,3 +1,6 @@
+ALTER TABLE logistics_checkout_packages
+    ADD CONSTRAINT logistics_checkout_packages_tenant_id_id_key UNIQUE (tenant_id, id);
+
 CREATE TABLE logistics_label_jobs (
     id uuid PRIMARY KEY,
     tenant_id uuid NOT NULL,

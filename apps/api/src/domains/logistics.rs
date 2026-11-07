@@ -167,7 +167,7 @@ pub async fn create(
         return Ok(response(StatusCode::OK, None, result));
     }
     let id = Uuid::now_v7();
-    let code = format!("OBJ-{}", &id.simple().to_string()[..8].to_uppercase());
+    let code = format!("OBJ-{}", id.simple().to_string()[..8].to_uppercase());
     sqlx::query("INSERT INTO logistics_postings(id,tenant_id,code,order_id,recipient_name,carrier,service,tracking_code,destination_city,destination_state,package_count,weight_grams,declared_value_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)").bind(id).bind(tenant).bind(&code).bind(input.order_id).bind(&recipient).bind(&input.carrier).bind(&service).bind(&input.tracking_code).bind(&city).bind(&state_code).bind(input.package_count).bind(input.weight_grams).bind(input.declared_value_cents).execute(&mut *tx).await.map_err(db)?;
     let result = json!({"tenantId": tenant, "data": {"id": id, "code": code, "recipientName": recipient, "service": service, "destinationCity": city, "destinationState": state_code, "packageCount": input.package_count, "weightGrams": input.weight_grams, "declaredValueCents": input.declared_value_cents, "status": "prepared", "revision": 1}});
     record(

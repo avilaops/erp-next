@@ -108,8 +108,8 @@ mod tests {
     use super::parse_legacy_fiscal_flag;
     #[test]
     fn legacy_flag_accepts_booleans_without_selecting_a_company_environment() {
-        assert_eq!(parse_legacy_fiscal_flag("false").unwrap(), false);
-        assert_eq!(parse_legacy_fiscal_flag("true").unwrap(), true);
+        assert!(!parse_legacy_fiscal_flag("false").unwrap());
+        assert!(parse_legacy_fiscal_flag("true").unwrap());
         for value in ["1", "", "False", "production"] {
             assert!(parse_legacy_fiscal_flag(value).is_err());
         }

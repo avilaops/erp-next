@@ -215,7 +215,7 @@ pub async fn build(
     }
     let payment_line = payment.and_then(
         |(status, payment_id, amount, method, reference, occurred_on)| {
-            (status == "paid").then(|| (payment_id, amount, method, reference, occurred_on))
+            (status == "paid").then_some((payment_id, amount, method, reference, occurred_on))
         },
     );
     if let Some((payment_id, amount, method, reference, occurred_on)) = payment_line {

@@ -1,10 +1,6 @@
 import { Suspense } from "react"
 import { CheckoutDetail } from "@/features/logistics/logistics-details";
 
-export function generateStaticParams() {
-  return [];
-}
-
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return <CheckoutDetail id={id} />;

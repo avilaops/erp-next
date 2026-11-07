@@ -16,7 +16,7 @@ async function LoginForm({ searchParams }: LoginProps) {
   const params = await searchParams
   const returnTo = safeReturnTo(params.returnTo)
   const errors: Record<string, string> = {
-    restart: "Sua tentativa de acesso expirou. Entre novamente para continuar.",
+    restart: "Não foi possível validar esta tentativa de acesso. Ela pode ter expirado ou sido aberta em outro navegador. Entre novamente para continuar.",
     denied: "Não foi possível verificar seu acesso. Confira sua conta e tente novamente.",
     unavailable: "Não foi possível concluir o acesso. O serviço está temporariamente indisponível. Tente novamente.",
   }

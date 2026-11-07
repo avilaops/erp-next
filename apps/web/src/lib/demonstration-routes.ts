@@ -47,7 +47,6 @@ export const demonstrationRoutes = [
   "/logistica/reversa/[id]",
   "/notificacoes",
   "/novidades",
-  "/preferencias/integracoes",
   "/relatorios",
   "/relatorios/auditoria",
   "/relatorios/estoque",

@@ -24,13 +24,14 @@ pub const MAX_XML_BYTES: usize = 900 * 1024;
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DanfeInput {
-    /// XML nfeProc completo, modelo 55, com assinatura e protocolo de uso.
+    /// XML nfeProc completo, modelo 55 ou 65, com assinatura e protocolo de uso.
     pub xml: String,
 }
 
 #[derive(Debug)]
 pub struct AuthorizedXml {
     pub key: String,
+    pub model: u8,
     pub issuer: String,
     pub issuer_name: String,
     pub recipient: Option<String>,
@@ -123,8 +124,13 @@ pub fn inspect(xml: &str) -> Result<AuthorizedXml, &'static str> {
         return Err("Dígito verificador da chave inválido");
     }
     let ide = child(info, NFE, "ide")?;
-    if value(ide, NFE, "mod")? != "55" || &key[20..22] != "55" {
-        return Err("DANFE disponível somente para NF-e modelo 55");
+    let model = value(ide, NFE, "mod")?
+        .parse::<u8>()
+        .ok()
+        .filter(|model| [55, 65].contains(model))
+        .ok_or("Modelo fiscal incompatível com DANFE")?;
+    if key[20..22] != format!("{model:02}") {
+        return Err("Modelo fiscal incompatível com a chave de acesso");
     }
     let environment = value(ide, NFE, "tpAmb")?;
     if !["1", "2"].contains(&environment) {
@@ -233,6 +239,7 @@ pub fn inspect(xml: &str) -> Result<AuthorizedXml, &'static str> {
     }
     Ok(AuthorizedXml {
         key: key.to_owned(),
+        model,
         issuer: issuer.to_owned(),
         issuer_name: issuer_name.to_owned(),
         recipient: recipient.map(str::to_owned),
@@ -300,7 +307,7 @@ pub async fn generate(
             serde_json::json!({}),
         ));
     };
-    let pdf = match client.render(&payload.xml, &note.key).await {
+    let pdf = match client.render(&payload.xml, &note.key, note.model).await {
         Ok(value) => value,
         Err(super::danfe_client::RenderError::Invalid) => {
             return Ok(problem(

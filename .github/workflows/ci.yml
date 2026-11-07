@@ -32,6 +32,8 @@ jobs:
           version: 11.11.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:architecture
+      - name: Validate MLOps release evidence gate (deterministic fixtures)
+        run: node --test scripts/mlops/release-gate.test.mjs
       - name: Enforce documented architecture
         run: |
           mkdir -p artifacts

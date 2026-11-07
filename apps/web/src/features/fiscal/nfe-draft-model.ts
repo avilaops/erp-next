@@ -11,7 +11,7 @@ type TaxBooleanField = "recipientTaxpayer" | "finalConsumer" | "ipiInIcmsBase" |
 export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & Record<TaxBooleanField, boolean | null>
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
-export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
+export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, purpose: 1, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
 export const blankTaxDeclaration = (): TaxDeclaration => ({ recipientTaxpayer: null, recipientStateRegistration: null, finalConsumer: null, icmsRate: null, pisRate: null, cofinsRate: null, ipiCst: null, ipiFrameCode: null, ipiRate: null, ipiInIcmsBase: null, icmsOutOfContributions: null, ibsCbs: { cst: "", classCode: "", ibsStateRate: "", ibsCityRate: "", cbsRate: "" } })
 export const blankIbptItem = (): IbptDraftItem => ({ ex: "", origin: "", version: null })
 
@@ -87,7 +87,7 @@ export function submission(draft: DraftInput): Schema<"DraftInput"> {
     if (scaled(freightAmount) > BigInt(0) && (draft.freightMode ?? "9") === "9") throw new Error("Frete cobrado exige modalidade de transporte diferente de 9")
     return { ...item, ...(item.freightAmount === undefined ? {} : { freightAmount }), ...(item.discountAmount === undefined ? {} : { discountAmount: fixed(item.discountAmount || "0", 2, 13) }), quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
-  return { ...input, items, productsTotal: productsTotal(items), ...(ibpt === undefined ? {} : { ibpt: ibpt === null ? null : ibptSubmission(ibpt, items.length) }), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
+  return { ...input, items, productsTotal: productsTotal(items), ...(draft.changeAmount === undefined ? {} : { changeAmount: fixed(draft.changeAmount || "0", 2, 13) }), ...(ibpt === undefined ? {} : { ibpt: ibpt === null ? null : ibptSubmission(ibpt, items.length) }), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }
 
 function ibptSubmission(selection: IbptDraftSelection, count: number): Schema<"IbptSelection"> {
@@ -128,10 +128,11 @@ export const blockerLabels: Record<string, string> = {
 export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision: number, scenario?: FiscalScenario): DraftInput {
  const taxes = draft.taxDeclaration || blankTaxDeclaration()
  const rules = profile.lineRules
+ const defaults = profile.defaults ?? {}
  const cfop = rules && scenario ? scenario === "sameState" ? rules.cfopSameState : scenario === "interstateTaxpayer" ? rules.cfopInterstateTaxpayer : rules.cfopInterstateNonTaxpayer : null
  return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, ...(rules ? { additionalInformation: rules.additionalInformation } : {}),
-   items: draft.items.map(item => ({ ...item, ...(rules ? { icmsCst: rules.icmsCst, csosn: null, pisCst: rules.pisCst, cofinsCst: rules.cofinsCst } : {}), ...(cfop ? { cfop } : {}) })),
+   items: draft.items.map(item => ({ ...item, ...(rules ? { icmsCst: rules.icmsCst, csosn: null, pisCst: rules.pisCst, cofinsCst: rules.cofinsCst } : { ...(!item.icmsCst && !item.csosn && defaults.icmsCst ? { icmsCst: defaults.icmsCst } : {}), ...(!item.pisCst && defaults.pisCst ? { pisCst: defaults.pisCst } : {}), ...(!item.cofinsCst && defaults.cofinsCst ? { cofinsCst: defaults.cofinsCst } : {}) }), ...(cfop ? { cfop } : {}) })),
    taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate,
-     ...(rules ? { icmsRate: rules.icmsRate, ipiRate: rules.ipiRate, ipiCst: rules.ipiCst, ipiFrameCode: rules.ipiFrameCode, finalConsumer: rules.finalConsumer, ipiInIcmsBase: rules.ipiInIcmsBase, icmsOutOfContributions: rules.icmsOutOfContributions, ...(scenario && scenario !== "sameState" ? { recipientTaxpayer: scenario === "interstateTaxpayer", ...(scenario === "interstateNonTaxpayer" ? { recipientStateRegistration: null } : {}) } : {}) } : {}),
-     ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode, ...(rules ? { ibsStateRate: rules.ibsStateRate, ibsCityRate: rules.ibsCityRate, cbsRate: rules.cbsRate } : {}) } } }
+     ...(rules ? { icmsRate: rules.icmsRate, ipiRate: rules.ipiRate, ipiCst: rules.ipiCst, ipiFrameCode: rules.ipiFrameCode, finalConsumer: rules.finalConsumer, ipiInIcmsBase: rules.ipiInIcmsBase, icmsOutOfContributions: rules.icmsOutOfContributions, ...(scenario && scenario !== "sameState" ? { recipientTaxpayer: scenario === "interstateTaxpayer", ...(scenario === "interstateNonTaxpayer" ? { recipientStateRegistration: null } : {}) } : {}) } : { ipiCst: taxes.ipiCst || defaults.ipiCst || null, ipiFrameCode: taxes.ipiFrameCode || defaults.ipiFrameCode || null, finalConsumer: taxes.finalConsumer ?? defaults.finalConsumer ?? null, ipiInIcmsBase: taxes.ipiInIcmsBase ?? defaults.ipiInIcmsBase ?? null, icmsOutOfContributions: taxes.icmsOutOfContributions ?? defaults.icmsOutOfContributions ?? null }),
+     ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode, ...(rules ? { ibsStateRate: rules.ibsStateRate, ibsCityRate: rules.ibsCityRate, cbsRate: rules.cbsRate } : { ibsStateRate: taxes.ibsCbs.ibsStateRate || defaults.ibsStateRate || "", ibsCityRate: taxes.ibsCbs.ibsCityRate || defaults.ibsCityRate || "", cbsRate: taxes.ibsCbs.cbsRate || defaults.cbsRate || "" }) } } }
 }

@@ -15,6 +15,35 @@ pub struct TaxProfile {
     pub product_line: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_rules: Option<LineTaxRules>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defaults: Option<TaxProfileDefaults>,
+}
+
+#[derive(Clone, Default, Deserialize, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TaxProfileDefaults {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icms_cst: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pis_cst: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cofins_cst: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ipi_cst: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ipi_frame_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ibs_state_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ibs_city_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cbs_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_consumer: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ipi_in_icms_base: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icms_out_of_contributions: Option<bool>,
 }
 
 #[derive(Clone, Deserialize, Serialize, utoipa::ToSchema)]
@@ -109,6 +138,31 @@ impl TaxProfile {
         }
         if let Some(rules) = self.line_rules.as_mut() {
             rules.validate()?;
+        }
+        if let Some(defaults) = &mut self.defaults {
+            for rate in [
+                &mut defaults.ibs_state_rate,
+                &mut defaults.ibs_city_rate,
+                &mut defaults.cbs_rate,
+            ]
+            .into_iter()
+            .flatten()
+            {
+                let value = crate::domains::fixed(rate, 4)?;
+                if value >= 1_000_000 {
+                    return Err(DomainError::Invalid("Alíquota deve ser menor que 100"));
+                }
+                *rate = crate::domains::decimal(value, 4);
+            }
+            if defaults
+                .ipi_frame_code
+                .as_deref()
+                .is_some_and(|v| v.len() != 3 || !v.bytes().all(|c| c.is_ascii_digit()))
+            {
+                return Err(DomainError::Invalid(
+                    "Enquadramento do IPI exige três dígitos",
+                ));
+            }
         }
         self.name = self.name.trim().to_string();
         self.operation_nature = self.operation_nature.trim().to_string();

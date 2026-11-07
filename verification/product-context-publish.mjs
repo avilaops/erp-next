@@ -7,7 +7,7 @@ import { sha256, stableJson, validateProductContext } from './product-context.mj
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const defaultEndpoint = 'https://ml.avilaops.com/api/v1/product-contexts/erp';
-const maximumBytes = 1024 * 1024;
+const maximumBytes = 2 * 1024 * 1024;
 
 export class ContextSyncError extends Error {
   constructor(code) { super(`Sincronização de contexto não confirmada (${code})`); this.code = code; }

@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button"
 async function digest(bytes: ArrayBuffer) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
-const subscribeHydration = () => () => {}
+const subscribeHydration = (notify: () => void) => {
+  queueMicrotask(notify)
+  return () => {}
+}
 export function DanfeDownload({ tenantId }: { tenantId: string }) {
   const ready = useSyncExternalStore(subscribeHydration, () => true, () => false)
   const [file, setFile] = useState<File | null>(null)

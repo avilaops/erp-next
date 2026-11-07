@@ -108,7 +108,7 @@ use crate::platform::{
         crate::domains::fixed_expenses::list, crate::domains::fixed_expenses::create, crate::domains::fixed_expenses::update,
         crate::platform::product_costs::get, crate::platform::product_costs::put,
         crate::platform::price_tables::current, crate::platform::price_tables::preview, crate::platform::price_tables::publish),
-    components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration)),
+    components(schemas(assistant::AssistantEvent, fiscal::model::TaxDeclaration, fiscal::model::IbsCbsDeclaration, fiscal::tax_profiles::TaxProfileDefaults)),
     modifiers(&Security),
     tags((name = "Assistant"), (name = "Health"), (name = "Platform"), (name = "Catalog"), (name = "Inventory"), (name = "Fiscal"), (name = "Sales"), (name = "Finance"))
 )]
@@ -418,6 +418,14 @@ mod tests {
         assert!(doc["paths"]["/api/v1/system/label-templates"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates/{id}"]["put"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}"]["put"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}/publish"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}/archive"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files/{id}/content"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files/{id}/archive"]["post"].is_object());
         let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
         for status in ["204", "400", "401", "403", "500", "503"] {
             assert!(selection["responses"].get(status).is_some());

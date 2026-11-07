@@ -6,16 +6,16 @@ const themes = [
   { value: "light", label: "Claro" },
   { value: "dark", label: "Escuro" },
   { value: "system", label: "Sistema" },
-  { value: "avila", label: "Avila" },
 ] as const
 
 export function EntryThemeSelector() {
   const [theme, setTheme] = useTheme()
 
-  return <label>
-    <span className="sr-only">Tema</span>
+  return <label className="block">
+    <span className="sr-only">Tema da interface</span>
     <select
-      className="min-h-11 w-28 rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground"
+      aria-label="Tema da interface"
+      className="min-h-8 w-auto rounded-md border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none outline-none transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
       value={theme}
       onChange={event => {
         const selected = themes.find(option => option.value === event.target.value)

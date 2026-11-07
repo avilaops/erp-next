@@ -75,6 +75,53 @@ impl Kind {
     }
 }
 
+/// A fiscal return is allowed only when its commercial reversal already exists
+/// in this tenant. Tax treatment and referenced documents remain explicit in
+/// the fiscal draft; this function only authenticates the durable business
+/// source and its permission boundary.
+pub(super) async fn validate_fiscal_return_source(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    identity: &AuthenticatedIdentity,
+    kind: &str,
+    id: Uuid,
+) -> Result<(), DomainError> {
+    let permission = match kind {
+        "sale_cancellation" => "sales.orders.read",
+        "purchase_reversal" => "purchasing.orders.read",
+        _ => {
+            return Err(DomainError::Invalid(
+                "Origem comercial de devolução inválida",
+            ));
+        }
+    };
+    let rights = access::load_access(tx, tenant, &identity.subject).await?;
+    access::require_permission(&rights, permission)?;
+    let exists = match kind {
+        "sale_cancellation" => sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM sales_order_cancellations WHERE tenant_id=$1 AND id=$2)",
+        )
+        .bind(tenant)
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?,
+        "purchase_reversal" => sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM purchase_receipt_reversals WHERE tenant_id=$1 AND id=$2)",
+        )
+        .bind(tenant)
+        .bind(id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?,
+        _ => false,
+    };
+    if !exists {
+        return Err(DomainError::NotFound);
+    }
+    Ok(())
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(

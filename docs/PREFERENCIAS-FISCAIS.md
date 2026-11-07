@@ -19,8 +19,12 @@ O formato do CSC segue o validador de QR Code já existente no motor (16 a 36
 caracteres; identificador com até seis dígitos), compatível com o
 [manual publicado pela SEFAZ-SP](https://portal.fazenda.sp.gov.br/servicos/nfce/Downloads/Manual%20de%20Especificacoes%20Tecnicas%20do%20DANFE%20NFC-e%20QR%20Code%20%20-%20Versao%204.1.pdf).
 
-Essa entrega configura o modelo 65. A emissão NFC-e tem integração própria e
-não se torna operacional apenas por existir uma configuração persistida.
+Essa entrega configura o modelo 65 e integra a preparação persistente ao motor
+fiscal: XML assinado, QR Code, pagamentos, troco, contingência offline e
+numeração separada por ambiente/modelo. Uma configuração persistida não prova
+credenciamento, autorização externa ou homologação; a transmissão só pode ser
+habilitada após o ambiente autorizado, certificado e regras fiscais estarem
+prontos.
 
 ## Naturezas de operação
 
@@ -35,6 +39,19 @@ compatíveis com o fluxo existente. Aplicar copia descrição e referência da
 revisão; o usuário confere os CFOPs dos itens conforme o destino. Outras
 finalidades podem ser cadastradas, mas não são convertidas em emissão normal.
 
+## E-mail e acesso ao XML
+
+`/preferencias/fiscal/delivery` mantém, por empresa, o e-mail fiscal para avisos
+e a lista de pessoas autorizadas a acessar XML. Cada pessoa exige nome, e-mail,
+CPF/CNPJ, relação com a empresa e situação ativa. O backend normaliza CPF/CNPJ,
+valida os documentos, impede duplicidades, limita a lista a 50 pessoas e aplica
+as permissões fiscais e a revisão `If-Match` existentes.
+
+O contrato é `GET/PUT /api/v1/fiscal/settings/delivery`, exposto pelo BFF em
+`/api/erp/fiscal/settings/delivery`. A configuração não envia e-mail, não cria
+outbox e não libera XML por si só; entrega automática e autorização efetiva de
+download continuam dependendo dos fluxos fiscais correspondentes.
+
 ## Consultas
 
 `/preferencias/fiscal/inutilizacoes` e `/preferencias/fiscal/correcoes` consultam
@@ -45,7 +62,8 @@ de consulta remove os registros anteriores e mostra erro, sem simular vazio.
 
 ## Contratos e validação
 
-- `GET/PUT /api/v1/fiscal/settings/{section}`: `nfce` ou `operation-natures`.
+- `GET/PUT /api/v1/fiscal/settings/{section}`: `nfce`, `operation-natures` ou
+  `delivery`.
 - `GET /api/v1/fiscal/nfe-events?kind=correcao|inutilizacao&limit=25&cursor=...`.
 - BFF correspondente em `/api/erp/fiscal/`, sem cache e com origem/empresa
   verificadas na escrita.
@@ -58,6 +76,6 @@ de consulta remove os registros anteriores e mostra erro, sem simular vazio.
 - Testes verificam segredo, contexto criptográfico, revisão, permissões,
   isolamento, CFOP, duplicações, paginação, persistência e celular.
 
-Os ambientes NF-e 55/SP são descritos em `FISCAL-AMBIENTES.md`; a emissão NFC-e
-permanece integração própria, distinta desta configuração. Não executar emissão,
-inutilização ou correção real para validar formulários.
+Os ambientes NF-e 55/SP e NFC-e 65/SP são descritos em
+`FISCAL-AMBIENTES.md`; a autorização externa continua uma evidência separada.
+Não executar emissão, inutilização ou correção real para validar formulários.

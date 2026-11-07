@@ -1,4 +1,4 @@
-import { SalesReportOperations } from "@/features/sales/sales-details";
-export default function Page() { return <SalesReportOperations />; }
+import { ReportDetail } from "@/features/reports/reports-pages"
+export default function Page() { return <ReportDetail kind="vendas" /> }
 
 export const metadata = { title: "Relatórios de vendas" }

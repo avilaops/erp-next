@@ -51,13 +51,14 @@ export function SystemPreferences() {
   }
 
   return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Preferências do sistema" description="Aparência deste navegador e opções pessoais da sua conta na empresa ativa." />
+    <PageHeader breadcrumbs={[{ label: "Preferências", href: "/preferencias" }, { label: "Sistema" }]} title="Preferências do sistema" description="Aparência deste navegador e opções pessoais da sua conta na empresa ativa." />
     <section className="form-section space-y-4" aria-labelledby="theme-title">
       <h2 id="theme-title" className="text-lg font-semibold">Aparência</h2>
       <p className="text-sm text-muted-foreground">O tema é aplicado imediatamente e salvo somente neste navegador.</p>
       <fieldset><legend className="sr-only">Tema</legend><div className="grid gap-3 sm:grid-cols-4">
-        {(["light", "dark", "system", "avila"] as const).map(value => <label className="flex min-h-11 items-center gap-3 rounded-xl border p-4 has-[:checked]:border-primary" key={value}>
-          <input type="radio" name="theme" checked={theme === value} onChange={() => setTheme(value)} />{value === "light" ? "Claro" : value === "dark" ? "Escuro" : value === "system" ? "Sistema" : "Avila"}
+        {(["light", "dark", "system", "avila"] as const).map(value => <label className={`theme-option theme-option-${value} flex min-h-11 items-center gap-3 rounded-xl border p-4 has-[:checked]:border-primary`} key={value}>
+          <input type="radio" name="theme" checked={theme === value} onChange={() => setTheme(value)} />
+          <span className="flex items-center gap-2">{value === "light" ? "Claro" : value === "dark" ? "Escuro" : value === "system" ? "Sistema" : "Avila"}{value === "avila" && <span className="theme-brand-swatches" aria-hidden="true"><i /><i /><i /></span>}</span>
         </label>)}
       </div></fieldset>
     </section>

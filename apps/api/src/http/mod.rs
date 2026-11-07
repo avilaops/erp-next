@@ -111,10 +111,8 @@ use tower_http::{
 };
 
 use crate::domains::{
-    catalog, finance, fiscal, inventory, parties, payables, purchasing, reference_data, sales,
-    staff, staff_payroll, warranties,
     catalog, data_transfer, finance, fiscal, inventory, parties, payables, purchasing,
-    reference_data, sales, staff, staff_payroll,
+    reference_data, sales, staff, staff_payroll, warranties,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,

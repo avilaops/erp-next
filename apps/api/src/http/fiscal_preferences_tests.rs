@@ -174,6 +174,129 @@ async fn nfce_settings_encrypt_csc_and_preserve_tenant_revision_and_environment(
     super::company_tests::cleanup(&admin, application, server, &role).await;
 }
 #[sqlx::test(migrations = "../../migrations")]
+async fn delivery_settings_validate_people_and_isolate_revision_by_tenant(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    seed(&admin).await;
+    let path = "/api/v1/fiscal/settings/delivery";
+    let person = json!({
+        "id":"77777777-3333-4333-8333-333333333333",
+        "name":"Transportadora Teste",
+        "email":"xml@example.test",
+        "taxId":"04.252.011/0001-10",
+        "role":"transportadora",
+        "active":true
+    });
+    let value = json!({
+        "notificationEmail":"fiscal@example.test",
+        "authorizedPeople":[person.clone()]
+    });
+    assert_eq!(
+        call(&router, "GET", path, "editor", TENANT, None, Value::Null)
+            .await
+            .1["data"],
+        json!({"notificationEmail":null,"authorizedPeople":[]})
+    );
+    assert_eq!(
+        call(&router, "PUT", path, "editor", TENANT, None, value.clone())
+            .await
+            .0,
+        StatusCode::PRECONDITION_REQUIRED
+    );
+    let (status, saved) = call(
+        &router,
+        "PUT",
+        path,
+        "editor",
+        TENANT,
+        Some("\"1\""),
+        value.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["data"]["notificationEmail"], "fiscal@example.test");
+    assert_eq!(
+        saved["data"]["authorizedPeople"][0]["taxId"],
+        "04252011000110"
+    );
+    assert_eq!(
+        call(&router, "GET", path, "reader", TENANT, None, Value::Null)
+            .await
+            .1["data"],
+        json!({
+            "notificationEmail":"fiscal@example.test",
+            "authorizedPeople":[{
+                "id":"77777777-3333-4333-8333-333333333333",
+                "name":"Transportadora Teste",
+                "email":"xml@example.test",
+                "taxId":"04252011000110",
+                "role":"transportadora",
+                "active":true
+            }]
+        })
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            path,
+            "editor",
+            "22222222-2222-4222-8222-222222222222",
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            path,
+            "reader",
+            TENANT,
+            Some("\"2\""),
+            value.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            path,
+            "editor",
+            TENANT,
+            Some("\"1\""),
+            value.clone()
+        )
+        .await
+        .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    let invalid = json!({
+        "notificationEmail":"fiscal@example.test",
+        "authorizedPeople":[person.clone(), person]
+    });
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            path,
+            "editor",
+            TENANT,
+            Some("\"2\""),
+            invalid
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
+#[sqlx::test(migrations = "../../migrations")]
 async fn operation_natures_validate_cfop_duplicates_and_isolate_real_event_pages(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
     seed(&admin).await;

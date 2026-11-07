@@ -216,7 +216,12 @@ async fn download(
                 serde_json::json!({}),
             ));
         };
-        match client.render(&document.1, &document.0).await {
+        let model = document
+            .0
+            .get(20..22)
+            .and_then(|value| value.parse::<u8>().ok())
+            .unwrap_or(0);
+        match client.render(&document.1, &document.0, model).await {
             Ok(value) => value,
             Err(super::danfe_client::RenderError::Invalid) => {
                 return Ok(problem(

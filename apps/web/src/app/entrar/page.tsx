@@ -34,9 +34,9 @@ async function LoginForm({ searchParams }: LoginProps) {
   const ready = isErpLoginConfigured()
 
   return (
-    <div className="erp-entry min-h-dvh bg-primary/[0.035] text-foreground dark:bg-background lg:flex lg:flex-col lg:justify-center">
+    <div className="erp-entry min-h-dvh bg-background text-foreground lg:flex lg:flex-col lg:justify-center">
       <a href="#acesso" className="skip-link">Pular para o acesso</a>
-      <div className="mx-auto w-full max-w-7xl px-5 sm:px-10 lg:px-12">
+      <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-10 lg:px-14">
         <header className="erp-entry-header flex items-center justify-between gap-4 border-b border-primary/10 py-5 sm:py-6">
           <Link href="https://avilaops.com/erp" className="flex min-h-11 items-center gap-3 rounded-lg">
             <img src="/brand/avila-erp-symbol.svg" alt="" width="40" height="40" className="size-10" />
@@ -51,7 +51,7 @@ async function LoginForm({ searchParams }: LoginProps) {
         </header>
 
         <main>
-          <div className="erp-entry-hero grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:py-8">
+          <div className="erp-entry-hero grid items-center gap-8 pb-8 pt-7 sm:gap-10 sm:py-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16 lg:py-14">
             <section aria-labelledby="welcome-title" className={"erp-entry-welcome min-w-0" + (errorMessage ? " erp-entry-recovery" : "")}>
               {errorMessage ? <>
                 <h1 id="welcome-title" className="erp-entry-title text-[1.75rem] font-semibold leading-tight tracking-tight">Retome o acesso</h1>
@@ -61,15 +61,15 @@ async function LoginForm({ searchParams }: LoginProps) {
                   <span aria-hidden="true" className="h-px w-6 bg-primary" />GESTÃO QUE ACOMPANHA VOCÊ
                 </p>
                 <h1 id="welcome-title" className="erp-entry-title mt-4 max-w-lg text-[clamp(2.25rem,11vw,2.75rem)] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl lg:text-[clamp(3rem,4.6vw,4rem)]">
-                  Sua operação,<br /><span className="text-primary">sob controle.</span>
+                  Sua empresa inteira.<br /><span className="text-primary">Uma única operação.</span>
                 </h1>
                 <p className="erp-entry-description mt-5 max-w-sm text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                  Do primeiro cadastro ao próximo pedido.<br />Sua equipe trabalhando com a mesma informação.
+                  Produtos, vendas, compras, financeiro e equipes conectados em um só lugar. Menos retrabalho, mais clareza para decidir.
                 </p>
               </>}
 
               <section id="acesso" aria-labelledby="access-title" className={"erp-entry-access scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary " + (errorMessage ? "mt-5" : "mt-7 sm:mt-9")} tabIndex={-1}>
-                <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Avila Ops</h2>
+                <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
                     <a href={"/api/auth/login?" + new URLSearchParams({ returnTo })} aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
@@ -84,13 +84,13 @@ async function LoginForm({ searchParams }: LoginProps) {
               </section>
             </section>
 
-            <figure className="erp-entry-showcase min-w-0 overflow-hidden rounded-[1.75rem] bg-[#134e4a] p-5 text-white sm:p-6 lg:rounded-[2rem]">
+            <figure className="erp-entry-showcase min-w-0 rounded-[1.75rem] p-4 text-foreground sm:p-6 lg:rounded-[2rem]">
               <figcaption>
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-teal-200">Por dentro do ERP</p>
-                <h2 className="mt-3 max-w-sm text-2xl font-medium leading-tight tracking-tight sm:text-[1.75rem]">Menos caminhos.<br />Mais clareza para operar.</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Por dentro do ERP</p>
+                <h2 className="mt-3 max-w-sm text-2xl font-medium leading-tight tracking-tight sm:text-[1.75rem]">O ERP de verdade.<br />Uma visão completa.</h2>
               </figcaption>
               <ErpEntryPreview />
-              <p className="mt-3 text-xs leading-5 text-teal-100">Interface real · Dados demonstrativos</p>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">Interface real · Dados demonstrativos</p>
             </figure>
           </div>
 
@@ -120,7 +120,7 @@ async function LoginForm({ searchParams }: LoginProps) {
 export async function generateMetadata() {
  return {
   metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"),
-  title: "Entrar",
+  title: "Entrar | Ávila ERP",
   description: "Acesse o Avila ERP: produtos, compras, vendas e financeiro em um só lugar.",
   openGraph: { title: "Avila ERP · Sua operação, sob controle", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Avila ERP: produtos, vendas e financeiro" }] },
 }

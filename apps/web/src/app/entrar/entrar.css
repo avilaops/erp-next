@@ -98,3 +98,39 @@
   .erp-entry-hero { padding-top: 1rem; }
   .erp-entry-access { padding: .75rem; }
 }
+
+/* Refined product showcase: the actual ERP screen is the hero, not a tiny image inside a saturated card. */
+.erp-entry {
+  background-image:
+    radial-gradient(ellipse at 80% 28%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 46%),
+    radial-gradient(ellipse at 0% 4%, color-mix(in srgb, var(--primary) 5%, transparent), transparent 42%);
+}
+.erp-entry-showcase,
+.avila-theme .erp-entry-showcase {
+  overflow: visible;
+  background: color-mix(in srgb, var(--card) 95%, var(--primary) 5%);
+  background-image: none;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 70px color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+.erp-entry-showcase figcaption h2 {
+  max-width: 36rem;
+  font-size: clamp(1.5rem, 2.4vw, 2.2rem);
+  line-height: 1.13;
+}
+.erp-entry-showcase .erp-preview-frame {
+  border-radius: .75rem .75rem 0 0;
+  overflow: hidden;
+}
+.erp-entry-showcase [data-slot="dialog-trigger"] {
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+.erp-entry-title { text-wrap: balance; }
+.erp-entry-description { text-wrap: pretty; }
+@media (max-width: 639px) {
+  .erp-entry-showcase { padding: 1rem; border-radius: 1.25rem; }
+  .erp-entry-hero { gap: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .erp-entry * { scroll-behavior: auto; }
+}

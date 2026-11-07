@@ -25,6 +25,7 @@ mod settlements;
 pub mod staff;
 pub mod staff_payroll;
 pub mod supply_settings;
+pub mod warranties;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};
 use axum::{

@@ -7,6 +7,48 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use tower::ServiceExt;
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn tax_profile_defaults_persist_with_exact_codes_zero_and_explicit_false(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    let input = json!({"profiles":[{"name":"Nacional","operationNature":"Venda","pisRate":"1.65","cofinsRate":"7.6","ibsCbsCst":"000","classCode":"000001","active":true,"defaults":{"icmsCst":"00","ipiCst":"53","ipiFrameCode":"999","ibsCityRate":"0","finalConsumer":false}}]});
+    for (method, revision, body) in [("PUT", Some("\"1\""), input), ("GET", None, Value::Null)] {
+        let mut request = Request::builder()
+            .method(method)
+            .uri("/api/v1/registration-settings/tax-profiles")
+            .header("x-tenant-id", TENANT)
+            .header("authorization", "Bearer editor")
+            .header("content-type", "application/json");
+        if let Some(revision) = revision {
+            request = request.header("if-match", revision);
+        }
+        let response = router
+            .clone()
+            .oneshot(request.body(Body::from(body.to_string())).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let result: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 100000).await.unwrap()).unwrap();
+        assert_eq!(result["revision"], 2);
+        let profile = &result["data"]["profiles"][0];
+        assert_eq!(profile["pisRate"], "1.6500");
+        assert_eq!(profile["defaults"]["icmsCst"], "00");
+        assert_eq!(profile["defaults"]["ipiCst"], "53");
+        assert_eq!(profile["defaults"]["ibsCityRate"], "0.0000");
+        assert_eq!(profile["defaults"]["finalConsumer"], false);
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM audit_log WHERE action='registration_settings.updated'"
+        )
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        1
+    );
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
 async fn call(
     router: &Router,
     method: &str,

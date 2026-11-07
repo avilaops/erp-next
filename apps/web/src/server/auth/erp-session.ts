@@ -75,10 +75,16 @@ export async function authEndpoints() {
   if (!response.ok) throw new Error("Auth indisponível")
   const metadata = await response.json()
   if (metadata.issuer !== config.issuer || !metadata.code_challenge_methods_supported?.includes("S256")) throw new Error("Contrato do Auth incompatível")
+  const endpoint = (value: unknown) => {
+    if (typeof value !== "string") throw new Error("Endpoint do Auth inválido")
+    const parsed = new URL(value)
+    if (parsed.origin !== config.issuer || parsed.username || parsed.password || parsed.hash) throw new Error("Endpoint do Auth inválido")
+    return value
+  }
   for (const field of ["authorization_endpoint", "token_endpoint"]) {
-    if (typeof metadata[field] !== "string" || new URL(metadata[field]).origin !== config.issuer) throw new Error("Endpoint do Auth inválido")
+    endpoint(metadata[field])
   }
   const logout = metadata.end_session_endpoint
-  if (logout !== undefined && (typeof logout !== "string" || new URL(logout).origin !== config.issuer)) throw new Error("Endpoint de saída do Auth inválido")
+  if (logout !== undefined) endpoint(logout)
   return { authorization: metadata.authorization_endpoint as string, token: metadata.token_endpoint as string, logout: logout as string | undefined }
 }

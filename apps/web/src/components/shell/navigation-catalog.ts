@@ -17,7 +17,7 @@ export const desktopMenus = [
     label: "Vendas",
     columns: [
       { title: "Operação", items: [{ label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
-      { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/vendas/relatorios" }] },
+      { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/relatorios/vendas" }] },
       { title: "Documentos fiscais", items: [{ label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }] },
     ],
   },
@@ -33,7 +33,7 @@ export const desktopMenus = [
     columns: [
       { title: "Operação", items: [{ label: "Contas a receber", href: "/financeiro/contas-receber" }, { label: "Contas a pagar", href: "/financeiro/contas-pagar" }, { label: "Caixa", href: "/financeiro/controle-caixa" }, { label: "Caixas e bancos", href: "/financeiro/caixas-bancos" }] },
       { title: "Gestão", items: [{ label: "Ficha financeira", href: "/financeiro/ficha-financeira" }, { label: "Remessas e retornos", href: "/financeiro/remessas-retornos" }, { label: "Comissões", href: "/financeiro/comissoes" }, { label: "Faturamento agrupado", href: "/financeiro/faturamento-agrupado" }] },
-      { title: "Contabilidade e soluções", items: [{ label: "Tributos e guias", href: "/financeiro/tributos" }, { label: "Espaço do contador", href: "/financeiro/contador" }, { label: "Conta Digital", href: "/financeiro/conta-digital" }, { label: "Relatórios financeiros", href: "/financeiro/relatorios" }] },
+      { title: "Contabilidade e soluções", items: [{ label: "Tributos e guias", href: "/financeiro/tributos" }, { label: "Espaço do contador", href: "/financeiro/contador" }, { label: "Conta Digital", href: "/financeiro/conta-digital" }, { label: "Relatórios financeiros", href: "/relatorios/financeiro" }] },
     ],
   },
   {
@@ -46,8 +46,8 @@ export const desktopMenus = [
   {
     label: "Relatórios",
     columns: [
-      { title: "Visão executiva", items: [{ label: "Todos os relatórios", href: "/relatorios" }, { label: "Vendas", href: "/relatorios/vendas" }, { label: "Estoque", href: "/relatorios/estoque" }, { label: "Financeiro", href: "/relatorios/financeiro" }] },
-      { title: "Operação", items: [{ label: "Serviços", href: "/relatorios/servicos" }, { label: "Auditoria", href: "/relatorios/auditoria" }, { label: "Relatórios de vendas", href: "/vendas/relatorios" }, { label: "Relatórios financeiros", href: "/financeiro/relatorios" }, { label: "Relatórios de serviços", href: "/servicos/relatorios" }] },
+      { title: "", items: [{ label: "Todos os relatórios", href: "/relatorios" }, { label: "Vendas", href: "/relatorios/vendas" }, { label: "Estoque", href: "/relatorios/estoque" }, { label: "Financeiro", href: "/relatorios/financeiro" }] },
+      { title: "Operação", items: [{ label: "Serviços", href: "/relatorios/servicos" }, { label: "Auditoria", href: "/relatorios/auditoria" }, { label: "Relatórios de vendas", href: "/relatorios/vendas" }, { label: "Relatórios financeiros", href: "/relatorios/financeiro" }, { label: "Relatórios de serviços", href: "/relatorios/servicos" }] },
     ],
   },
 ]

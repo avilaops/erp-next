@@ -67,17 +67,31 @@ body {
 html { scroll-padding-top: 76px; }
 .erp-workspace { --navigation-width: 0px; min-height: 100dvh; }
 .erp-workspace-body { min-width: 0; margin-left: var(--navigation-width); }
-.erp-content { min-width: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.erp-content { min-width: 0; max-width: 1600px; margin-inline: auto; padding: 24px 16px max(32px, env(safe-area-inset-bottom, 0px)); }
+.erp-content > :is(div, section, main)[class*="max-w-"][class*="px-4"] { padding-inline: 0; padding-top: 0; }
+.erp-page-header { padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.erp-page-header h1 { line-height: 1.2; text-wrap: balance; }
+.erp-page-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 16px; color: var(--muted-foreground); font-size: 14px; font-weight: 500; }
+.erp-page-back:hover { color: var(--primary); }
+.erp-sidebar-scroll, .erp-drawer-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scrollbar-gutter: stable; }
+.erp-inline-options { padding: 4px 0 12px 18px; }
+.erp-inline-options .erp-module-groups { padding: 8px 0 0 8px; gap: 14px; border-left: 1px solid var(--border); }
+.erp-inline-options .erp-module-groups h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-left: 10px; }
+.erp-inline-options .erp-option { min-height: 40px; font-size: 13px; padding: 8px 10px; }
+.erp-inline-options .erp-option[aria-current=page] { box-shadow: inset 3px 0 0 var(--primary); }
+.erp-module-button[aria-expanded=true] .erp-module-chevron { transform: rotate(90deg); }
+.erp-content .erp-editor { max-width: 1120px; margin-inline: auto; }
+@media (min-width: 900px) { .erp-content { padding: 32px; } }
 .erp-sidebar { display: none; }
 .erp-header { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 24px; position: sticky; top: 0; z-index: 30; background: var(--background); border-bottom: 1px solid var(--border); }
 .erp-header-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; }
-.erp-global-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.erp-global-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
 .erp-header .icon-action { width: 36px; height: 36px; border-radius: 6px; }
 .erp-header .icon-action svg, .erp-company-link svg { width: 18px; height: 18px; }
-.erp-company-link { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; max-width: 220px; padding: 0 10px; margin-left: 8px; border-left: 1px solid var(--border); font-size: 13px; }
+.erp-company-link { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; max-width: clamp(180px, 25vw, 360px); min-width: 0; padding: 0 12px; margin-left: 8px; border-left: 1px solid var(--border); font-size: 13px; }
 .erp-company-link span { min-width: 0; line-height: 1.15; }
 .erp-company-link small { display: block; font-size: 10px; font-weight: 500; color: var(--muted-foreground); }
-.erp-company-link strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+.erp-company-link strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .erp-company-link:hover { background: var(--muted); }
 .erp-search-trigger { display: flex; align-items: center; gap: 10px; width: min(320px, 100%); min-width: 120px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--sidebar); text-align: left; }
 .erp-search-trigger > span { flex: 1; font-size: 13px; color: var(--muted-foreground); }
@@ -122,7 +136,7 @@ html { scroll-padding-top: 76px; }
 .erp-drawer-scroll .erp-module-button, .erp-drawer-scroll .erp-option { min-height: 48px; font-size: 15px; }
 /* Keep module names visible at the reference width. Compact mode is opt-in. */
 @media (min-width: 900px) {
-  .erp-workspace { --navigation-width: 216px; }
+  .erp-workspace { --navigation-width: 248px; }
   .erp-sidebar { display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; width: var(--navigation-width); z-index: 40; background: var(--sidebar); border-right: 1px solid var(--border); }
   .erp-sidebar-scroll { flex: 1; overflow-y: auto; min-height: 0; padding: 20px 12px; }
   .erp-header-brand, .erp-menu-trigger { display: none; }
@@ -133,7 +147,7 @@ html { scroll-padding-top: 76px; }
   .erp-workspace[data-collapsed=true] .erp-sidebar .erp-module-button { justify-content: center; }
 }
 @media (min-width: 1200px) {
-  .erp-workspace:not([data-collapsed=true]) { --navigation-width: 232px; }
+  .erp-workspace:not([data-collapsed=true]) { --navigation-width: 256px; }
   .erp-module-panel { width: min(500px, calc(100vw - var(--navigation-width) - 16px)); }
   .erp-module-panel .erp-module-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -142,6 +156,8 @@ html { scroll-padding-top: 76px; }
   .erp-header { height: 60px; gap: 8px; padding: 0 12px; }
   .erp-header-brand, .erp-header .erp-secondary-action, .erp-company-link span, .erp-header-notifications { display: none; }
   .erp-company-link { padding: 0 8px; margin-left: 0; border: 0; }
+  .erp-company-link span { display: block; max-width: 96px; }
+  .erp-company-link strong { font-size: 11px; }
   .erp-search-trigger { width: 40px; min-width: 40px; height: 44px; padding: 0; justify-content: center; margin-left: auto; border: 0; background: transparent; }
   .erp-search-trigger > span { display: none; }
   .erp-global-actions { margin-left: 0; gap: 0; }
@@ -223,22 +239,117 @@ html { scroll-padding-top: 76px; }
 }
 
 :root.avila-theme {
+  color-scheme: light;
+  --background: #f7faff;
+  --foreground: #14213d;
+  --card: #ffffff;
+  --card-foreground: #14213d;
+  --popover: #ffffff;
+  --popover-foreground: #14213d;
   --primary: #0759f8;
   --primary-hover: #0648c9;
   --primary-foreground: #ffffff;
-  --accent: #edf3ff;
+  --secondary: #fff7d6;
+  --secondary-foreground: #624c00;
+  --muted: #eef4ff;
+  --muted-foreground: #52627d;
+  --accent: #e8f0ff;
   --accent-foreground: #0648c9;
+  --destructive: #c9232e;
+  --border: #d8e3f4;
+  --input: #9eb2d1;
   --ring: #0759f8;
   --chart-1: #0759f8;
   --chart-2: #ff282c;
   --chart-3: #d59e00;
   --chart-4: #0648c9;
   --chart-5: #b72028;
+  --sidebar: #fffdfa;
+  --sidebar-foreground: #14213d;
   --sidebar-primary: #0759f8;
   --sidebar-accent: #edf3ff;
   --sidebar-accent-foreground: #0648c9;
+  --sidebar-border: #e3e8f1;
   --sidebar-ring: #0759f8;
+  --avila-red: #ff282c;
+  --avila-yellow: #f0b90b;
 }
+
+:root.avila-theme .erp-header {
+  box-shadow: inset 0 3px 0 var(--primary);
+}
+
+:root.avila-theme .erp-brand {
+  position: relative;
+  border-bottom-color: var(--sidebar-border);
+}
+
+:root.avila-theme .erp-brand::after {
+  position: absolute;
+  right: 20px;
+  bottom: -1px;
+  left: 20px;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, var(--primary) 0 58%, var(--avila-red) 58% 79%, var(--avila-yellow) 79%);
+  border-radius: 999px 999px 0 0;
+}
+
+:root.avila-theme .erp-module-button[data-active=true],
+:root.avila-theme .erp-module-button[aria-current=page],
+:root.avila-theme .erp-option[aria-current=page] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+:root.avila-theme .form-section:first-of-type {
+  border-top: 3px solid var(--primary);
+}
+
+.theme-option {
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.theme-option:hover {
+  background: var(--muted);
+}
+
+.theme-option-avila {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-option-avila::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, #0759f8 0 58%, #ff282c 58% 79%, #f0b90b 79%);
+  transform: scaleX(.35);
+  transform-origin: left;
+  transition: transform .15s ease;
+}
+
+.theme-option-avila:has(:checked)::after {
+  transform: scaleX(1);
+}
+
+.theme-brand-swatches {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.theme-brand-swatches i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.theme-brand-swatches i:nth-child(1) { background: #0759f8; }
+.theme-brand-swatches i:nth-child(2) { background: #ff282c; }
+.theme-brand-swatches i:nth-child(3) { background: #f0b90b; }
 
 @layer base {
   * {

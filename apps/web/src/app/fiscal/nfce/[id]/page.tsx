@@ -1,13 +1,9 @@
 import { Suspense } from "react"
-import { FiscalDocumentDetail } from "@/features/fiscal/fiscal-details"
-
-export function generateStaticParams() {
-  return [{ id: "NFCE-00428" }]
-}
+import { NfeDraftEditor } from "@/features/fiscal/nfe-draft-editor"
 
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <FiscalDocumentDetail id={id} kind="nfce" />
+  return <NfeDraftEditor key={id} id={id} initialModel={65} />
 }
 
 export const metadata = { title: "Detalhes da NFC-e" }

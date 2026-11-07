@@ -530,8 +530,23 @@ pub struct DraftInput {
     /// Full domestic sales order copied into this draft; no billing effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_order_id: Option<uuid::Uuid>,
+    /// Durable commercial return/reversal that owns this fiscal document.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_return_id: Option<uuid::Uuid>,
+    /// `sale_cancellation` for an incoming sales return or `purchase_reversal` for an outgoing purchase return.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_return_kind: Option<String>,
     pub environment: Environment,
     pub model: u8,
+    /// 1 normal; 4 devolução de mercadoria com referência fiscal explícita.
+    #[serde(default = "default_fiscal_purpose")]
+    pub purpose: u8,
+    /// Direção declarada pelo operador da devolução. Não é inferida do pedido.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_direction: Option<String>,
+    /// Chaves das notas fiscais que originaram a devolução.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub referenced_access_keys: Vec<String>,
     pub operation_nature: String,
     /// Reference to the accountant-approved instruction, not an approval assertion by this API.
     pub tax_rule_reference: String,
@@ -543,12 +558,22 @@ pub struct DraftInput {
     /// Required by the emission adapter, optional for existing saved drafts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payments: Option<Vec<DraftPayment>>,
+    /// Troco explícito da NFC-e; nunca inferido a partir de recebimentos.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change_amount: Option<String>,
+    /// 1 normal; 3, 4 e 9 são contingências próprias da NFC-e.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emission_type: Option<String>,
     /// Optional for historical drafts. CRT 3 emission requires this declaration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tax_declaration: Option<TaxDeclaration>,
     /// Explicit request for server-calculated approximate taxes; not operation taxes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ibpt: Option<super::ibpt_document::IbptSelection>,
+}
+
+fn default_fiscal_purpose() -> u8 {
+    1
 }
 
 impl DraftInput {
@@ -569,12 +594,75 @@ impl DraftInput {
                 "Informações complementares exigem até 5000 caracteres, sem controles",
             ));
         }
-        if self.model != 55
+        if ![55, 65].contains(&self.model)
             || !text(&self.operation_nature, 60)
             || !text(&self.tax_rule_reference, 200)
         {
             return Err(DomainError::Invalid(
-                "Exige modelo 55, natureza da operação e referência à instrução fiscal",
+                "Exige modelo 55 ou 65, natureza da operação e referência à instrução fiscal",
+            ));
+        }
+        if ![1, 4].contains(&self.purpose) {
+            return Err(DomainError::Invalid(
+                "Finalidade fiscal deve ser 1 (normal) ou 4 (devolução)",
+            ));
+        }
+        if self.purpose == 4 {
+            if self.model != 55
+                || !matches!(
+                    self.return_direction.as_deref(),
+                    Some("incoming" | "outgoing")
+                )
+                || self.referenced_access_keys.is_empty()
+                || self.referenced_access_keys.len() > 99
+                || self.source_order_id.is_some()
+                || self.source_return_id.is_none()
+                || !matches!(
+                    self.source_return_kind.as_deref(),
+                    Some("sale_cancellation" | "purchase_reversal")
+                )
+            {
+                return Err(DomainError::Invalid(
+                    "Devolução exige NF-e modelo 55, origem comercial, direção explícita e de 1 a 99 chaves referenciadas",
+                ));
+            }
+            let source_kind = self.source_return_kind.as_deref().unwrap_or_default();
+            let direction_matches = matches!(
+                (source_kind, self.return_direction.as_deref()),
+                ("sale_cancellation", Some("incoming")) | ("purchase_reversal", Some("outgoing"))
+            );
+            if !direction_matches {
+                return Err(DomainError::Invalid(
+                    "Origem comercial e direção da devolução são incompatíveis",
+                ));
+            }
+            let mut keys = std::collections::HashSet::new();
+            if self
+                .referenced_access_keys
+                .iter()
+                .any(|key| !digits(key, 44) || !keys.insert(key))
+            {
+                return Err(DomainError::Invalid(
+                    "Chaves referenciadas devem ter 44 dígitos e não podem se repetir",
+                ));
+            }
+        } else if self.return_direction.is_some()
+            || !self.referenced_access_keys.is_empty()
+            || self.source_return_id.is_some()
+            || self.source_return_kind.is_some()
+        {
+            return Err(DomainError::Invalid(
+                "Direção e chaves referenciadas só podem ser informadas em devolução",
+            ));
+        }
+        let emission_type = self.emission_type.as_deref().unwrap_or("1");
+        if !(if self.model == 65 {
+            ["1", "3", "4", "9"].contains(&emission_type)
+        } else {
+            emission_type == "1"
+        }) {
+            return Err(DomainError::Invalid(
+                "Modalidade de emissão incompatível com o modelo fiscal",
             ));
         }
         self.recipient.validate()?;
@@ -588,10 +676,22 @@ impl DraftInput {
         if let Some(selection) = &self.ibpt {
             selection.validate(self.items.len())?;
         }
-        let expected_cfop = if profile.state == self.recipient.state {
-            b'5'
-        } else {
-            b'6'
+        let expected_cfop = match (self.purpose, self.return_direction.as_deref()) {
+            (4, Some("incoming")) => {
+                if profile.state == self.recipient.state {
+                    b'1'
+                } else {
+                    b'2'
+                }
+            }
+            (4, Some("outgoing")) | (1, None) => {
+                if profile.state == self.recipient.state {
+                    b'5'
+                } else {
+                    b'6'
+                }
+            }
+            _ => unreachable!("purpose and return direction were validated above"),
         };
         let mut total = 0_i64;
         let mut commercial_total = 0_i128;
@@ -672,6 +772,22 @@ impl DraftInput {
                 "Total da NF-e incluindo IPI excede o limite fiscal",
             ));
         }
+        let change = exact_decimal(self.change_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+        if self.model != 65 && change != 0 {
+            return Err(DomainError::Invalid(
+                "Troco somente pode ser declarado na NFC-e modelo 65",
+            ));
+        }
+        if self.model == 65
+            && self
+                .tax_declaration
+                .as_ref()
+                .is_some_and(|declaration| !declaration.final_consumer)
+        {
+            return Err(DomainError::Invalid(
+                "NFC-e modelo 65 exige operação com consumidor final",
+            ));
+        }
         if let Some(payments) = &self.payments {
             if payments.is_empty() || payments.len() > 100 {
                 return Err(DomainError::Invalid(
@@ -701,9 +817,9 @@ impl DraftInput {
                         "Sem pagamento deve ser a única forma e ter valor zero",
                     ));
                 }
-            } else if payment_total != invoice_total {
+            } else if payment_total != invoice_total + change {
                 return Err(DomainError::Invalid(
-                    "Pagamentos declarados devem somar o total da NF-e, incluindo IPI",
+                    "Pagamentos declarados devem somar o total da nota mais o troco, incluindo IPI",
                 ));
             }
         }
@@ -808,6 +924,49 @@ mod tests {
         value.payments.as_mut().unwrap()[0].description =
             Some("Pagamento declarado pelo operador".into());
         assert!(value.validate(&profile()).is_ok());
+    }
+
+    #[test]
+    fn nfce_model_accepts_explicit_change_and_keeps_nfe_without_change() {
+        let mut value = draft();
+        value.model = 65;
+        value.change_amount = Some("1.00".into());
+        value.payments = Some(vec![DraftPayment {
+            code: "01".into(),
+            description: None,
+            amount: "2.00".into(),
+        }]);
+        assert_eq!(value.validate(&profile()).unwrap(), 100);
+        value.change_amount = Some("0.99".into());
+        assert!(value.validate(&profile()).is_err());
+
+        let mut nfe = draft();
+        nfe.change_amount = Some("1.00".into());
+        assert!(nfe.validate(&profile()).is_err());
+    }
+
+    #[test]
+    fn return_purpose_requires_explicit_direction_reference_and_return_cfop() {
+        let mut value = draft();
+        value.purpose = 4;
+        value.return_direction = Some("incoming".into());
+        value.source_return_id = Some(uuid::Uuid::nil());
+        value.source_return_kind = Some("sale_cancellation".into());
+        value.referenced_access_keys = vec!["35261104252011000110550010000000011000000001".into()];
+        value.items[0].cfop = "1102".into();
+        assert_eq!(value.validate(&profile()).unwrap(), 100);
+
+        let mut invalid = value.clone();
+        invalid.items[0].cfop = "5102".into();
+        assert!(invalid.validate(&profile()).is_err());
+
+        let mut invalid = value.clone();
+        invalid.referenced_access_keys[0] = "1".into();
+        assert!(invalid.validate(&profile()).is_err());
+
+        let mut invalid = value;
+        invalid.return_direction = None;
+        assert!(invalid.validate(&profile()).is_err());
     }
 
     fn declared_normal_draft() -> (DraftInput, ProfileInput) {
@@ -959,9 +1118,6 @@ mod tests {
         assert!(value.validate(&profile()).is_err());
         let mut value = draft();
         value.recipient.tax_id = "00000000000".into();
-        assert!(value.validate(&profile()).is_err());
-        let mut value = draft();
-        value.model = 65;
         assert!(value.validate(&profile()).is_err());
     }
     #[test]

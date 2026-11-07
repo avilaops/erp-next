@@ -23,7 +23,6 @@ export function CommercialSettings() {
     {resource.loading ? <p role="status">Carregando parâmetros…</p> : resource.error ? <p role="alert"><RequestError message={resource.error} status={resource.status} /></p> : resource.value && <Editor key={`${resource.value.tenantId}:${line}:${resource.value.revision}`} snapshot={resource.value} etag={resource.etag} reload={resource.reload} />}
   </main>
 }
-
 function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; reload: () => void }) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(snapshot.data, snapshot.monthlyExpensesCents))
   const [dirty, setDirty] = useState(false)
@@ -80,4 +79,3 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
     </section>}
   </form>
 }
-

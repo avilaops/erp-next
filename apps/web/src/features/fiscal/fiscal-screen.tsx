@@ -15,6 +15,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NfeDrafts } from "./nfe-drafts";
 
 type Kind = "overview" | "nfce" | "monitor" | "guides";
 type State = "ready" | "loading" | "empty" | "error" | "forbidden";
@@ -33,7 +34,7 @@ const configs: Record<
   nfce: {
     title: "NFC-e",
     description:
-      "Cupons associados ao PDV em ambiente exclusivamente demonstrativo, sem autorização fiscal.",
+      "Rascunhos persistidos de NFC-e modelo 65 da empresa ativa.",
     action: "Abrir PDV",
     actionHref: "/vendas/pdv",
     rows: [
@@ -134,6 +135,7 @@ const shortcuts = [
 
 export function FiscalScreen({ kind }: { kind: Kind }) {
   if (kind === "overview") return <FiscalOverview />;
+  if (kind === "nfce") return <NfeDrafts model={65} />;
   return <FiscalList kind={kind} />;
 }
 
@@ -277,7 +279,7 @@ function FiscalOverview() {
       title="Fiscal"
       description="Configurações e documentos fiscais da empresa ativa."
     >
-      <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">Importe XMLs recebidos, consulte os documentos armazenados e prepare a configuração fiscal. A emissão de NF-e e a consulta automática à SEFAZ ainda estão indisponíveis.</p>
+      <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">Importe XMLs recebidos, consulte os documentos armazenados e prepare documentos fiscais. A transmissão depende da configuração fiscal, do ambiente autorizado e da prontidão do emitente.</p>
       <nav
         className="mt-7 grid gap-3 sm:grid-cols-2"
         aria-label="Áreas fiscais"
@@ -291,7 +293,7 @@ function FiscalOverview() {
             <Icon className="size-5 text-primary" />
             <strong className="mt-4 block">{label}</strong>
             <span className="mt-1 block text-sm text-muted-foreground">
-              {["/fiscal/monitor", "/preferencias/fiscal", "/fiscal/danfe", "/fiscal/notas-saida"].includes(href) ? "Abrir funcionalidade" : "Abrir prévia da interface — operação ainda indisponível"}
+              {["/fiscal/monitor", "/preferencias/fiscal", "/fiscal/danfe", "/fiscal/notas-saida", "/fiscal/nfce"].includes(href) ? "Abrir funcionalidade" : "Abrir prévia da interface — operação ainda indisponível"}
             </span>
           </Link>
         ))}

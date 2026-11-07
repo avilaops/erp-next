@@ -22,7 +22,6 @@ export const demonstrationRoutes = [
   "/financeiro/controle-caixa",
   "/financeiro/faturamento-agrupado",
   "/financeiro/ficha-financeira",
-  "/financeiro/relatorios",
   "/financeiro/remessas-retornos",
   "/financeiro/tributos",
   "/fiscal/guias",
@@ -47,18 +46,11 @@ export const demonstrationRoutes = [
   "/logistica/reversa/[id]",
   "/notificacoes",
   "/novidades",
-  "/relatorios",
-  "/relatorios/auditoria",
-  "/relatorios/estoque",
-  "/relatorios/financeiro",
-  "/relatorios/servicos",
-  "/relatorios/vendas",
   "/servicos",
   "/servicos/cobrancas",
   "/servicos/cte",
   "/servicos/notas",
   "/servicos/ordens",
-  "/servicos/relatorios",
   "/vendas/anuncios",
   "/vendas/anuncios/novo",
   "/vendas/anuncios/[id]",
@@ -67,7 +59,6 @@ export const demonstrationRoutes = [
   "/vendas/pdv",
   "/vendas/pdv/fechamento",
   "/vendas/pdv/historico",
-  "/vendas/relatorios"
 ] as const
 
 const operationalOverrides = ["/estoque/lancamentos/novo","/preferencias/integracoes/lojas"]

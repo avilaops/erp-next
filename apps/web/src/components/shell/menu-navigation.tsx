@@ -43,8 +43,8 @@ function Options({ index, pathname, onNavigate }: { index: number; pathname: str
   const active = menus[index].columns.flatMap(group => group.items).filter(item => matches(pathname, item.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href
   return <div className="erp-module-groups">
-    {menus[index].columns.map(group => <section key={group.title}>
-      <h3>{group.title}</h3>
+    {menus[index].columns.map(group => <section key={group.title || group.items[0]?.href}>
+      {group.title && <h3>{group.title}</h3>}
       <ul>{group.items.map(item => <li key={item.href}>
         <Link href={item.href} onNavigate={onNavigate} className="erp-option" aria-current={item.href === active ? "page" : undefined}>{item.label}</Link>
       </li>)}</ul>

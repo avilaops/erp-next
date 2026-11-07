@@ -239,22 +239,117 @@ html { scroll-padding-top: 76px; }
 }
 
 :root.avila-theme {
+  color-scheme: light;
+  --background: #f7faff;
+  --foreground: #14213d;
+  --card: #ffffff;
+  --card-foreground: #14213d;
+  --popover: #ffffff;
+  --popover-foreground: #14213d;
   --primary: #0759f8;
   --primary-hover: #0648c9;
   --primary-foreground: #ffffff;
-  --accent: #edf3ff;
+  --secondary: #fff7d6;
+  --secondary-foreground: #624c00;
+  --muted: #eef4ff;
+  --muted-foreground: #52627d;
+  --accent: #e8f0ff;
   --accent-foreground: #0648c9;
+  --destructive: #c9232e;
+  --border: #d8e3f4;
+  --input: #9eb2d1;
   --ring: #0759f8;
   --chart-1: #0759f8;
   --chart-2: #ff282c;
   --chart-3: #d59e00;
   --chart-4: #0648c9;
   --chart-5: #b72028;
+  --sidebar: #fffdfa;
+  --sidebar-foreground: #14213d;
   --sidebar-primary: #0759f8;
   --sidebar-accent: #edf3ff;
   --sidebar-accent-foreground: #0648c9;
+  --sidebar-border: #e3e8f1;
   --sidebar-ring: #0759f8;
+  --avila-red: #ff282c;
+  --avila-yellow: #f0b90b;
 }
+
+:root.avila-theme .erp-header {
+  box-shadow: inset 0 3px 0 var(--primary);
+}
+
+:root.avila-theme .erp-brand {
+  position: relative;
+  border-bottom-color: var(--sidebar-border);
+}
+
+:root.avila-theme .erp-brand::after {
+  position: absolute;
+  right: 20px;
+  bottom: -1px;
+  left: 20px;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, var(--primary) 0 58%, var(--avila-red) 58% 79%, var(--avila-yellow) 79%);
+  border-radius: 999px 999px 0 0;
+}
+
+:root.avila-theme .erp-module-button[data-active=true],
+:root.avila-theme .erp-module-button[aria-current=page],
+:root.avila-theme .erp-option[aria-current=page] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+:root.avila-theme .form-section:first-of-type {
+  border-top: 3px solid var(--primary);
+}
+
+.theme-option {
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.theme-option:hover {
+  background: var(--muted);
+}
+
+.theme-option-avila {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-option-avila::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+  background: linear-gradient(90deg, #0759f8 0 58%, #ff282c 58% 79%, #f0b90b 79%);
+  transform: scaleX(.35);
+  transform-origin: left;
+  transition: transform .15s ease;
+}
+
+.theme-option-avila:has(:checked)::after {
+  transform: scaleX(1);
+}
+
+.theme-brand-swatches {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.theme-brand-swatches i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.theme-brand-swatches i:nth-child(1) { background: #0759f8; }
+.theme-brand-swatches i:nth-child(2) { background: #ff282c; }
+.theme-brand-swatches i:nth-child(3) { background: #f0b90b; }
 
 @layer base {
   * {

@@ -139,4 +139,6 @@
   .erp-entry-title { font-size: 2rem; }
   .erp-entry-description { margin-top: .75rem; line-height: 1.5rem; }
   .erp-entry-access { margin-top: 1rem; padding: .75rem; }
+  .erp-entry-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: .5rem; }
+  .erp-entry-actions a { padding-inline: .375rem; font-size: .875rem; }
 }

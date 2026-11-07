@@ -136,7 +136,7 @@ for (const error of ["", "restart"]) test(`entry login completes the browser cal
 test("entry offers persistent light, dark and system themes with readable text", async ({ page }, info) => {
   test.setTimeout(60_000)
   await page.goto("/entrar")
-  const theme = page.getByRole("combobox", { name: "Tema", exact: true })
+  const theme = page.getByRole("combobox", { name: "Tema da interface", exact: true })
   await expect(theme).toBeVisible()
   for (const value of ["dark", "light"] as const) {
     await theme.selectOption(value)

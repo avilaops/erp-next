@@ -15,7 +15,7 @@ function PreviewCapture({ attempt, expanded = false, onRetry }: { attempt: numbe
   const [state, setState] = useState<"loading" | "ready" | "error">("loading")
   const suffix = attempt ? `?retry=${attempt}` : ""
 
-  return <span className={expanded ? "erp-preview-frame relative block" : "erp-preview-frame relative block max-h-[380px] overflow-hidden sm:max-h-none"}>
+  return <span className={expanded ? "erp-preview-frame relative block" : "erp-preview-frame relative block max-h-80 overflow-hidden sm:max-h-none"}>
     <picture className={state === "error" ? "hidden" : "block"}>
       <source media={landscapePreviewMedia} srcSet={"/erp-preview-landscape.png" + suffix} width={638} height={208} />
       <source media={mobilePreviewMedia} srcSet={"/erp-preview-mobile.png" + suffix} width={390} height={760} />

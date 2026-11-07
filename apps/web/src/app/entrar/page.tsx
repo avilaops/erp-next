@@ -71,7 +71,7 @@ async function LoginForm({ searchParams }: LoginProps) {
               <section id="acesso" aria-labelledby="access-title" className={"erp-entry-access scroll-mt-5 rounded-2xl focus-visible:outline-2 focus-visible:outline-primary " + (errorMessage ? "mt-5" : "mt-7 sm:mt-9")} tabIndex={-1}>
                 <h2 id="access-title" className="text-base font-semibold">Acesse com sua conta Ávila Ops</h2>
                 {ready ? <>
-                  <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
+                  <div className="erp-entry-actions mt-3 grid max-w-md gap-3 sm:grid-cols-2">
                     <a href={"/api/auth/login?" + new URLSearchParams({ returnTo })} aria-describedby={errorMessage ? "access-error" : undefined} className="group flex min-h-13 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover">
                       Entrar<ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" />
                     </a>

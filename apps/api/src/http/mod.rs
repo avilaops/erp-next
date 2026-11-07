@@ -54,6 +54,8 @@ mod mcp_tests;
 #[cfg(test)]
 mod monitor_tests;
 #[cfg(test)]
+mod negotiation_tests;
+#[cfg(test)]
 mod onboarding_tests;
 pub(crate) mod openapi;
 #[cfg(test)]
@@ -356,6 +358,46 @@ pub fn router(state: AppState) -> Router {
         .merge(service_auth::management_routes())
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
+        .route(
+            "/api/v1/opportunities",
+            get(sales::opportunities::list).post(sales::opportunities::create),
+        )
+        .route(
+            "/api/v1/opportunities/{id}",
+            get(sales::opportunities::get).put(sales::opportunities::update),
+        )
+        .route(
+            "/api/v1/commercial/metrics/orders",
+            get(sales::metrics::orders),
+        )
+        .route(
+            "/api/v1/commercial/metrics/commissions",
+            get(sales::metrics::commissions),
+        )
+        .route(
+            "/api/v1/commercial/tables/{line}",
+            get(sales::negotiation::table),
+        )
+        .route(
+            "/api/v1/commercial/simulate",
+            post(sales::negotiation::simulate),
+        )
+        .route(
+            "/api/v1/commercial/orders",
+            post(sales::negotiation::convert),
+        )
+        .route(
+            "/api/v1/commercial/orders/{id}",
+            get(sales::negotiation::quote),
+        )
+        .route(
+            "/api/v1/commercial/orders/{id}/decision",
+            post(sales::negotiation::decision),
+        )
+        .route(
+            "/api/v1/commercial/approval-settings",
+            get(sales::negotiation::get_rules).put(sales::negotiation::put_rules),
+        )
         .route(
             "/api/v1/proposals",
             get(sales::proposals::list).post(sales::proposals::create),

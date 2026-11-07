@@ -48,7 +48,8 @@ export type Calculation = {
   monthlyExpensesCents: number; breakEvenRevenue: number | null
   destinationLimits: { state: string; taxpayer: boolean; variableCostsBps: number; atTargetBps: number; noLossBps: number }[]
 }
-export type Snapshot = { tenantId: string; line: string; revision: number; canEdit: boolean; status: "draft"; data: Parameters | null; calculation: Calculation | null; monthlyExpensesCents: number }
+export type EntrySuggestion = { recommendedBps: number; exactBps: number; worstSku: string; canApply: boolean }
+export type Snapshot = { tenantId: string; line: string; revision: number; canEdit: boolean; status: "draft"; data: Parameters | null; calculation: Calculation | null; monthlyExpensesCents: number; suggestedDownPayment?: EntrySuggestion | null }
 
 export function toDraft(data: Parameters | null, monthlyExpensesCents = 0): Draft {
   const values = Object.fromEntries(fieldGroups.flatMap(group => group.fields.map(([key, , unit]) =>

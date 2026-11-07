@@ -20,6 +20,8 @@ const source = {
 test('every canonical action has one product owner and declared journeys are explicitly defined', async () => {
   assert.deepEqual(validateProductFlows(catalogue), []);
   const context = buildProductContext(catalogue, await inventoryPromise, source);
+  assert.equal(context.flows.length, 59);
+  assert.equal(context.actions.length, 288);
   assert.equal(context.flows.length, 58);
   assert.equal(context.actions.length, 278);
   assert.equal(context.pendingFlows.length, 34);

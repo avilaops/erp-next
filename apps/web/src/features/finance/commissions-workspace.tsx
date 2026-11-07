@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 import { useCommand, useResource } from "@/hooks/use-operation"
+import { CommercialMetrics } from "@/features/sales/commercial-metrics"
 
 type Balance = { sellerStaffId: string; sellerName: string; revision: number; openAmount: string; paidAmount: string }
 type Listing = { tenantId: string; canEdit: boolean; data: Balance[]; total: number; totals: { openAmount: string; paidAmount: string } }
@@ -33,6 +34,7 @@ export function CommissionsWorkspace() {
   const result = useResource<Listing>(`/api/erp/commissions?offset=${offset}&limit=25`)
   return <>
     <PageHeader eyebrow="Financeiro" title="Comissões" description="Comissões sobre recebimentos sem IPI. Os débitos são descontados quando sua competência está incluída no pagamento. Os pagamentos anteriores ficam preservados." />
+    <CommercialMetrics kind="commissions" />
     <section className="form-section min-w-0 space-y-5">
       {result.loading ? <p role="status">Carregando comissões…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Consultar comissões novamente</Button></div> : result.value && <>
         <div className="grid min-w-0 gap-3 sm:grid-cols-2"><div className="rounded-xl border p-4"><p>Saldo em aberto</p><p className="text-xl font-semibold">{money(result.value.totals.openAmount)}</p></div><div className="rounded-xl border p-4"><p>Pagamentos declarados</p><p className="text-xl font-semibold">{money(result.value.totals.paidAmount)}</p></div></div>

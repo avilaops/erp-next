@@ -12,6 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
+  assert.equal(assessment.apiOperations, 303);
+  assert.equal(assessment.bffOperations, 268);
   assert.equal(assessment.apiOperations, 297);
   assert.equal(assessment.bffOperations, 262);
   assert.equal(assessment.pendingFlows, 34);
@@ -54,16 +56,15 @@ test('new undocumented routes, stale contracts, missing preconditions and false 
   assert.ok(assessContracts(invalidAsset, added).findings.some(finding => finding.code === 'bff_without_action_contract'));
 });
 
-test('issuance preserves durable numbering and the user-selected fiscal environment', () => {
+test('homologation issuance is implemented with durable state while production remains excluded', () => {
   const issue = catalogue.actions.find(action => action.operation.path.endsWith('/issue'));
   assert.equal(issue.status, 'implemented');
   assert.deepEqual(issue.response.successStatuses, [200, 202]);
   assert.ok(issue.response.errorStatuses.includes(503));
   assert.ok(issue.preconditions.some(value => value.includes('SP') && value.includes('homologação')));
-  assert.ok(issue.preconditions.some(value => value.includes('produção')));
   assert.ok(issue.effects.writes.some(value => value.includes('numeração')));
   assert.ok(issue.effects.external.some(value => value.includes('homologação')));
-  assert.ok(issue.effects.excludes.some(value => value.includes('estoque')));
+  assert.ok(issue.effects.excludes.some(value => value.includes('produção')));
   assert.equal(issue.ui.bff.action, 'issue');
 });
 

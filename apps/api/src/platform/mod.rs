@@ -9,6 +9,7 @@ pub mod company;
 mod company_data;
 pub mod custom_fields;
 pub mod custom_reports;
+pub mod files;
 pub mod invitations;
 pub mod label_templates;
 pub mod onboarding;

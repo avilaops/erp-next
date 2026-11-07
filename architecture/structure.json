@@ -45,6 +45,8 @@
   "routeSurface": {
     "count": 430,
     "sha256": "07f781af3ff24e5c2520a93bf041b433978018a6395c6568942a3b5932eb2bbb"
+    "count": 423,
+    "sha256": "3e6d63bcbf8654066416cd2f3105534febcfec1ea2d95e13b2e9633ebb877755"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

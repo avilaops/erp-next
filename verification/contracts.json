@@ -789,6 +789,23 @@
         ]
       },
       {
+        "id": "system-files",
+        "title": "Gerenciador de arquivos",
+        "goal": "Consultar o catálogo de arquivos da empresa, baixar conteúdo legado preservado e arquivar metadados atuais sem duplicar binários no banco.",
+        "kind": "product",
+        "actionGroups": ["system-files"],
+        "dependencies": ["company_onboarding"],
+        "nextStep": "Conferir filtros, isolamento, download legado e arquivamento revisionado; upload atual depende de storage explicitamente configurado.",
+        "additionalSources": ["docs/MODULOS-CONFIGURAVEIS-ERP.md","docs/product-media.md","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql"],
+        "journey": [{
+          "id": "manage",
+          "title": "Consultar, baixar legado e arquivar metadados",
+          "actionIds": ["get-system-files","get-system-files-id-content","post-system-files-id-archive"],
+          "authRefs": [],
+          "externalSystems": []
+        }]
+      },
+      {
         "id": "audit",
         "title": "Segurança e auditoria",
         "goal": "Consultar eventos reais autorizados da empresa sem expor dados internos.",
@@ -13606,6 +13623,60 @@
           "response"
         ]
       }
+    },
+    {
+      "id": "get-system-files",
+      "flow": "system-files",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/system/files" },
+      "actor": "active_tenant_member",
+      "permissions": ["system.files.read"],
+      "input": { "headers": ["Authorization","X-Tenant-Id"], "pathParameters": [], "body": null, "query": { "source": "apps/api/src/platform/files.rs", "type": "FileQuery" } },
+      "preconditions": ["Empresa e vínculo ativos; permissão de leitura; filtros e paginação limitados; RLS na transação."],
+      "transition": { "from": "catálogos atual e legado", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não lê storage externo nem altera arquivos durante a consulta."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Consulta paginada e ordenada por criação e identificador." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,422,500,503], "action": "get-system-files" },
+      "recovery": "Corrigir filtros ou acesso e repetir a leitura.",
+      "ui": { "pages": ["/preferencias/sistema/arquivos"], "bff": { "method": "GET", "path": "/api/erp/system/files" }, "gap": null },
+      "sources": ["apps/api/src/platform/files.rs","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql","apps/web/src/features/preferences/system/file-manager.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "get-system-files-id-content",
+      "flow": "system-files",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/system/files/{id}/content" },
+      "actor": "active_tenant_member",
+      "permissions": ["system.files.read"],
+      "input": { "headers": ["Authorization","X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null },
+      "preconditions": ["Arquivo legado pertence à empresa; conteúdo atual continua no storage de origem e não é simulado pelo banco."],
+      "transition": { "from": "conteúdo legado imutável", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não expõe arquivos de outro tenant nem tenta resolver chaves de storage atual."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Leitura imutável protegida por RLS e cabeçalhos de download." },
+      "response": { "successStatuses": [200], "errorStatuses": [401,403,404,500,503], "action": "get-system-files-id-content" },
+      "recovery": "Recarregar o catálogo; ausência não autoriza buscar em outro tenant ou storage.",
+      "ui": { "pages": ["/preferencias/sistema/arquivos"], "bff": { "method": "GET", "path": "/api/erp/system/files/{id}/content" }, "gap": null },
+      "sources": ["apps/api/src/platform/files.rs","apps/web/src/server/bff/file-content-proxy.ts","apps/web/src/features/preferences/system/file-manager.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
+    },
+    {
+      "id": "post-system-files-id-archive",
+      "flow": "system-files",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/system/files/{id}/archive" },
+      "actor": "company_manager",
+      "permissions": ["system.files.read","system.files.manage"],
+      "input": { "headers": ["Authorization","X-Tenant-Id","If-Match"], "pathParameters": ["id"], "body": null, "query": null },
+      "preconditions": ["Registro atual pertence à empresa, não está arquivado e corresponde à revisão informada."],
+      "transition": { "from": "registro atual na revisão informada", "to": "metadado arquivado na próxima revisão" },
+      "effects": { "writes": ["system_config.files","audit_log","outbox_events"], "external": [], "excludes": ["Não apaga binário, versão, vínculo histórico ou arquivo legado."] },
+      "concurrency": { "revision": true, "idempotency": false, "rule": "If-Match exige a revisão persistida; repetição após sucesso retorna conflito." },
+      "response": { "successStatuses": [200], "errorStatuses": [400,401,403,404,409,412,428,500,503], "action": "post-system-files-id-archive" },
+      "recovery": "Recarregar o catálogo após conflito; arquivamento não é desfeito implicitamente.",
+      "ui": { "pages": ["/preferencias/sistema/arquivos"], "bff": { "method": "POST", "path": "/api/erp/system/files/{id}/archive" }, "gap": null },
+      "sources": ["apps/api/src/platform/files.rs","migrations/202611050004_file_revisions.sql","deploy/grant-system-configuration.sql","apps/web/src/features/preferences/system/file-manager.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface","request","authorization","domain","persistence","effects","failure","response"] }
     },
     {
       "id": "get-company-audit",
@@ -28685,6 +28756,85 @@
           "response"
         ]
       }
+    }
+  ],
+  "actionsAppendix": [
+    {
+      "id": "post-api-v1-products-import",
+      "flow": "products",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/products/import" },
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.import"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id"],
+        "pathParameters": [],
+        "body": { "source": "apps/api/src/domains/data_transfer.rs", "type": "ImportData" },
+        "query": null
+      },
+      "preconditions": ["CSV de até 2 MiB e 5.000 linhas; identidade, empresa e permissão de importação ativas."],
+      "transition": { "from": "arquivo não analisado", "to": "prévia persistida" },
+      "effects": { "writes": ["Persistir prévia e erros por linha."], "external": [], "excludes": ["Não altera estoque, preços, fornecedores, lojas ou documentos fiscais."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Hash SHA-256 do arquivo reutiliza a prévia persistida." },
+      "response": { "successStatuses": [200], "errorStatuses": [400, 401, 403, 413, 422, 500], "action": "Validar produtos e gerar prévia" },
+      "recovery": "Consultar o resultado persistido pelo identificador retornado.",
+      "ui": { "pages": ["/preferencias/dados/importacao"], "bff": { "method": "POST", "path": "/api/erp/products/import" }, "gap": null },
+      "sources": ["apps/api/src/domains/data_transfer.rs", "apps/api/src/http/mod.rs", "apps/web/src/app/api/erp/products/import/route.ts", "apps/web/src/features/data/import/data-import.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
+    },
+    {
+      "id": "get-api-v1-products-import-id",
+      "flow": "products",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/products/import/{id}" },
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.import"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": ["id"], "body": null, "query": null },
+      "preconditions": ["Identidade, empresa e permissão de importação ativas; job pertencente à empresa."],
+      "transition": { "from": "job persistido", "to": "sem alteração" },
+      "effects": { "writes": [], "external": [], "excludes": ["Consulta não importa dados."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Leitura do resultado persistido." },
+      "response": { "successStatuses": [200], "errorStatuses": [401, 403, 404, 500], "action": "Consultar resultado da importação" },
+      "recovery": "Repetir a consulta após verificar o identificador e a autorização.",
+      "ui": { "pages": ["/preferencias/dados/importacao"], "bff": { "method": "GET", "path": "/api/erp/products/import/[id]" }, "gap": null },
+      "sources": ["apps/api/src/domains/data_transfer.rs", "apps/api/src/http/mod.rs", "apps/web/src/app/api/erp/products/import/[id]/route.ts"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
+    },
+    {
+      "id": "post-api-v1-products-import-id-confirm",
+      "flow": "products",
+      "status": "implemented",
+      "operation": { "method": "POST", "path": "/api/v1/products/import/{id}/confirm" },
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.import"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id", "Idempotency-Key"], "pathParameters": ["id"], "body": null, "query": null },
+      "preconditions": ["Job em prévia; identidade, empresa e permissão de importação ativas; Idempotency-Key UUID obrigatório."],
+      "transition": { "from": "prévia persistida", "to": "produtos importados ou resultado de falha persistido" },
+      "effects": { "writes": ["Criar produtos válidos, atualizar o job, registrar auditoria e outbox na transação."], "external": [], "excludes": ["Não altera estoque, preços, fornecedores, lojas ou documentos fiscais."] },
+      "concurrency": { "revision": false, "idempotency": true, "rule": "Job bloqueado na transação; job importado retorna o resultado persistido." },
+      "response": { "successStatuses": [200], "errorStatuses": [400, 401, 403, 404, 409, 422, 428, 500], "action": "Confirmar importação de produtos" },
+      "recovery": "Repetir com a mesma chave e job; consultar o resultado persistido antes de nova intenção.",
+      "ui": { "pages": ["/preferencias/dados/importacao"], "bff": { "method": "POST", "path": "/api/erp/products/import/[id]/confirm" }, "gap": null },
+      "sources": ["apps/api/src/domains/data_transfer.rs", "apps/api/src/http/mod.rs", "apps/web/src/app/api/erp/products/import/[id]/confirm/route.ts"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
+    },
+    {
+      "id": "get-api-v1-products-export",
+      "flow": "products",
+      "status": "implemented",
+      "operation": { "method": "GET", "path": "/api/v1/products/export" },
+      "actor": "active_tenant_member",
+      "permissions": ["catalog.products.export"],
+      "input": { "headers": ["Authorization", "X-Tenant-Id"], "pathParameters": [], "body": null, "query": "q e status opcionais; filtros aplicados ao tenant ativo." },
+      "preconditions": ["Identidade, empresa e permissão de exportação ativas."],
+      "transition": { "from": "produtos autorizados", "to": "arquivo CSV gerado" },
+      "effects": { "writes": [], "external": [], "excludes": ["Não exporta backup, contabilidade ou outros módulos."] },
+      "concurrency": { "revision": false, "idempotency": false, "rule": "Leitura consistente sem comando persistido." },
+      "response": { "successStatuses": [200], "errorStatuses": [401, 403, 422, 500], "action": "Exportar produtos em CSV" },
+      "recovery": "Repetir a solicitação após verificar filtros e autorização.",
+      "ui": { "pages": ["/preferencias/dados/exportacao"], "bff": { "method": "GET", "path": "/api/erp/products/export" }, "gap": null },
+      "sources": ["apps/api/src/domains/data_transfer.rs", "apps/api/src/http/mod.rs", "apps/web/src/app/api/erp/products/export/route.ts", "apps/web/src/features/data/export/data-export.tsx"],
+      "verification": { "status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"] }
     }
   ],
   "pendingFlows": [

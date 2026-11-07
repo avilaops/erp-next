@@ -19,6 +19,7 @@ use crate::platform::{access, access_management, company, invitations, onboardin
         onboarding::select_company,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
+        crate::platform::files::list, crate::platform::files::archive, crate::platform::files::content,
         crate::platform::custom_reports::list, crate::platform::custom_reports::create, crate::platform::custom_reports::update,
         crate::platform::label_templates::list, crate::platform::label_templates::create, crate::platform::label_templates::update,
         crate::domains::registry_lookup::lookup,
@@ -381,6 +382,24 @@ mod tests {
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
         assert_eq!(doc["paths"].as_object().unwrap().len(), 201);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 210);
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderType"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProductInput"]["properties"]["plateHolderTypes"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["OrderItemInput"]["properties"]["armColor"].is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["ProposalItemInput"]["properties"]["armColor"].is_object()
+        );
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/custom-fields/{id}"]["put"].is_object());
@@ -390,6 +409,14 @@ mod tests {
         assert!(doc["paths"]["/api/v1/system/label-templates"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/system/label-templates/{id}"]["put"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}"]["put"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}/publish"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/workflows/{id}/archive"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files/{id}/content"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/system/files/{id}/archive"]["post"].is_object());
         let selection = &doc["paths"]["/api/v1/company-selection"]["post"];
         for status in ["204", "400", "401", "403", "500", "503"] {
             assert!(selection["responses"].get(status).is_some());

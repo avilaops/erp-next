@@ -105,7 +105,6 @@ async function LoginForm({ searchParams }: LoginProps) {
         </main>
 
         <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm text-muted-foreground">
-          <span>Avila Ops</span>
           <nav aria-label="Informações legais" className="flex flex-wrap gap-x-5">
             <Link href="https://avilaops.com/erp" className="inline-flex min-h-11 items-center rounded-md hover:text-primary sm:hidden">Conhecer o ERP</Link>
             <Link href="https://avilaops.com/politica-de-privacidade" className="inline-flex min-h-11 items-center rounded-md hover:text-primary">Privacidade</Link>

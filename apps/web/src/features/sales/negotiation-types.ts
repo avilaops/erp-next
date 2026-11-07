@@ -1,0 +1,17 @@
+export type PriceItem = { productId: string; sku: string; name: string; unit: string; priceWithoutIpiCents: number; priceWithIpiCents: number; ipiBps: number }
+export type PriceTable = { tenantId: string; line: string; canManage: boolean; data: { id: string; version: number; publishedAt: string; originState: string; freeDiscountBps: number; minimumDownPaymentBps: number; items: PriceItem[] } | null }
+export type SimulationInput = { line: string; versionId: string; destinationState: string; taxpayer: boolean; discount: { kind: "percent" | "amount" | "total"; value: number }; freightCents: number; downPaymentCents: number | null; items: { productId: string; quantity: number; structureColor: string | null; upholsteryColor: string | null; plateHolderColor: string | null; plateHolderType: string | null }[] }
+export type Sale = { calculatorVersion: string; items: { productId: string; name: string; sku: string; quantity: number; tableUnitCents: number; netCents: number; ipiCents: number; totalCents: number }[]; tableTotalCents: number; discountCents: number; discountBps: number; netSaleCents: number; ipiBps: number; ipiCents: number; totalCents: number; freeDiscountBps: number; minimumDownPaymentBps: number; minimumDownPaymentCents: number; downPaymentCents: number; freightCents: number; approvalReasons: string[] }
+export type Director = { band: string; targetBps: number; taxBps: number; taxesCents: number; difalBps: number; difalCents: number; equipmentCostCents: number; fixedFeeCents: number; profitBeforeIncomeTaxCents: number; incomeTaxCents: number; netProfitCents: number; netProfitBps: number; supplierPaymentCents: number; targetProfitCents: number; downPaymentCommissionCents: number; requiredDownPaymentCents: number; requiredDownPaymentBps: number; minimumAtTargetCents: number; maximumAtTargetDiscountBps: number; maximumNoLossDiscountBps: number }
+export type Simulation = { tenantId: string; version: number; digest: string; sale: Sale; director: Director | null }
+export const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+export const percent = (bps: number) => `${(bps / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`
+export const inputAmount = (cents: number) => (cents / 100).toFixed(2).replace(".", ",")
+export function parseAmount(raw: string): number | null {
+  const normalized = raw.trim().replace(",", ".")
+  if (!/^\d{1,12}(?:\.\d{0,2})?$/.test(normalized)) return null
+  const [whole, fraction = ""] = normalized.split(".")
+  const value = Number(BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0")))
+  return Number.isSafeInteger(value) ? value : null
+}
+export const approvalLabels: Record<string, string> = { "desconto-acima-do-livre": "Desconto acima do limite livre", "fora-da-meta": "Resultado fora da política de lucro", "frete-por-nossa-conta": "Frete pago pela empresa", "entrada-abaixo-da-politica": "Entrada abaixo da política comercial" }

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { reportContent } from "@/content/reports";
 
 type ReportState = "ready" | "loading" | "empty" | "error" | "forbidden";
 
@@ -158,6 +159,7 @@ export function ReportsHub() {
 
 export function ReportDetail({ kind }: { kind: string }) {
   const report = reports.find((item) => item.slug === kind) ?? reports[0];
+  const Content = reportContent[report.slug as keyof typeof reportContent];
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState("90");
   const [notice, setNotice] = useState("");
@@ -184,9 +186,12 @@ export function ReportDetail({ kind }: { kind: string }) {
       <div className="mt-5">
         <Header
           title={`Relatório de ${report.title.toLocaleLowerCase("pt-BR")}`}
-          description={`${report.description} Prévia local sem consulta ao backend.`}
+          description={report.description}
         />
       </div>
+      <section className="mt-5 rounded-2xl border border-border bg-card p-5 text-sm leading-6 text-muted-foreground sm:p-6">
+        <Content />
+      </section>
       <section className="mt-7 grid gap-3 sm:grid-cols-3">
         <Metric label="Indicador principal" value={report.value} icon={Icon} />
         <Metric
@@ -274,7 +279,7 @@ export function ReportDetail({ kind }: { kind: string }) {
           </div>
         ) : null}
       </section>
-      {selectedRow && <section className="mt-5 rounded-2xl border border-border bg-card p-5" aria-live="polite"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-medium text-primary">Detalhamento por {grouping.toLocaleLowerCase("pt-BR")}</p><h2 className="mt-1 text-xl font-semibold">{selectedRow[0]}</h2></div><Button variant="ghost" onClick={() => setSelectedRow(null)}>Fechar detalhe</Button></div><div className="mt-5 grid gap-3 sm:grid-cols-3">{selectedRow.slice(1).map((value, index) => <div className="rounded-xl bg-muted/40 p-3" key={value}><span className="text-xs text-muted-foreground">Indicador {index + 1}</span><strong className="mt-1 block text-sm">{value}</strong></div>)}</div><p className="mt-4 text-sm text-muted-foreground">Detalhamento demonstrativo do período selecionado, sem consulta ao backend.</p></section>}
+      {selectedRow && <section className="mt-5 rounded-2xl border border-border bg-card p-5" aria-live="polite"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-medium text-primary">Detalhamento por {grouping.toLocaleLowerCase("pt-BR")}</p><h2 className="mt-1 text-xl font-semibold">{selectedRow[0]}</h2></div><Button variant="ghost" onClick={() => setSelectedRow(null)}>Fechar detalhe</Button></div><div className="mt-5 grid gap-3 sm:grid-cols-3">{selectedRow.slice(1).map((value, index) => <div className="rounded-xl bg-muted/40 p-3" key={value}><span className="text-xs text-muted-foreground">Indicador {index + 1}</span><strong className="mt-1 block text-sm">{value}</strong></div>)}</div><p className="mt-4 text-sm text-muted-foreground">Detalhamento do período selecionado.</p></section>}
     </div>
   );
 }

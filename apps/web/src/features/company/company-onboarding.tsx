@@ -17,6 +17,24 @@ function companySelectionError(status: number, title?: string) {
   return title || "Não foi possível selecionar esta empresa. Tente novamente."
 }
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isCompanyDirectory(value: unknown): value is { data: (Schema<"CompanySummary"> & { status?: string })[]; platformAdministrator: boolean } {
+  if (!value || typeof value !== "object") return false
+  const body = value as { data?: unknown; platformAdministrator?: unknown }
+  if (typeof body.platformAdministrator !== "boolean" || !Array.isArray(body.data)) return false
+  const valid = body.data.every(item => {
+      if (!item || typeof item !== "object") return false
+      const company = item as Partial<Schema<"CompanySummary">> & { status?: unknown }
+      return typeof company.id === "string"
+        && uuidPattern.test(company.id)
+        && typeof company.legalName === "string"
+        && (company.tradeName === undefined || company.tradeName === null || typeof company.tradeName === "string")
+        && typeof company.status === "string"
+    })
+  return valid && new Set(body.data.map(item => (item as { id: string }).id)).size === body.data.length
+}
+
 export function CompanyPicker() {
   const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
@@ -24,23 +42,48 @@ export function CompanyPicker() {
   const [platformAdministrator, setPlatformAdministrator] = useState(false)
   const [feedback, setFeedback] = useState({ message: "Carregando suas empresas…", error: false })
   const [busyCompanyId, setBusyCompanyId] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
-      if (!response.ok) throw new Error(response.status === 401 ? "Entre novamente para continuar" : "Não foi possível consultar suas empresas")
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { title?: string }
+        const message = response.status === 401
+          ? "Sua sessão expirou. Entre novamente para continuar."
+          : response.status === 403
+            ? "Seu acesso às empresas não foi autorizado."
+            : response.status === 503
+              ? "O serviço de empresas está temporariamente indisponível. Tente novamente."
+              : result.title || "Não foi possível consultar suas empresas"
+        throw new Error(message)
+      }
       const body = await response.json()
+      if (!isCompanyDirectory(body)) throw new Error("O serviço de empresas retornou uma resposta inválida. Tente novamente.")
       if (active) { setCompanies(body.data); setPlatformAdministrator(body.platformAdministrator === true); setFeedback({ message: body.data.length ? "Selecione a empresa que deseja acessar" : body.platformAdministrator === true ? "Nenhuma empresa disponível" : "Você ainda não possui empresas cadastradas", error: false }) }
-    }).catch(error => { if (active) setFeedback({ message: error.message, error: true }) })
+    }).catch(error => {
+      if (active) {
+        setCompanies([])
+        setPlatformAdministrator(false)
+        setFeedback({ message: error.message, error: true })
+      }
+    })
     return () => { active = false }
-  }, [])
+  }, [reload])
+  function retryDirectory() {
+    setCompanies([])
+    setPlatformAdministrator(false)
+    setFeedback({ message: "Carregando suas empresas…", error: false })
+    setReload(value => value + 1)
+  }
   async function select(company: Schema<"CompanySummary"> & { status?: string }) {
     const name = company.tradeName || company.legalName
     setBusyCompanyId(company.id)
     setFeedback({ message: `Acessando ${name}…`, error: false })
     try {
       const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: company.id }), signal: AbortSignal.timeout(10000) })
-      const result = await response.json().catch(() => ({})) as { title?: string }
+      const result = await response.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
       if (!response.ok) throw new Error(companySelectionError(response.status, result.title))
+      if (result.tenantId !== company.id) throw new Error("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
       router.push(returnTo)
       router.refresh()
     } catch (error) {
@@ -53,6 +96,7 @@ export function CompanyPicker() {
   return <section className="form-section space-y-4" aria-busy={busy}>
     {platformAdministrator && <p className="font-medium">Administração da plataforma — todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
     <p id="company-picker-feedback" role={feedback.error ? "alert" : "status"} aria-live={feedback.error ? "assertive" : "polite"}>{feedback.message}</p>
+    {feedback.error && <button type="button" className="rounded-xl border px-4 py-2 text-sm" onClick={retryDirectory}>Tentar novamente</button>}
     {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
     <AccessLink className="ml-4 inline-block underline" />
@@ -88,7 +132,14 @@ export function CompanySignup() {
         setCreated(tenantId)
       }
       const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
-      if (!selected.ok) throw new Error("Empresa cadastrada. Acesse Suas empresas para selecioná-la")
+      const selectedResult = await selected.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
+      if (!selected.ok) {
+        const selectionFailure = [401, 403, 503].includes(selected.status)
+          ? companySelectionError(selected.status, selectedResult.title)
+          : selectedResult.title || "Empresa cadastrada. Acesse Suas empresas para selecioná-la"
+        throw new Error(selectionFailure)
+      }
+      if (selectedResult.tenantId !== tenantId) throw new Error("A empresa cadastrada não foi confirmada. Acesse Suas empresas para tentar novamente.")
       router.push(returnTo)
       router.refresh()
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }

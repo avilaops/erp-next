@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
+    "test:auth": "playwright test --config playwright.auth.config.ts",
     "test:danfe": "playwright test --config playwright.danfe.config.ts",
     "test:monitor": "playwright test --config playwright.monitor.config.ts",
     "media:erp": "node scripts/render-erp-media.mjs"

@@ -1,6 +1,14 @@
 export type CatalogQuery = { q: string; status: string; offset: number; categoryId?: string }
 export const catalogMaxOffset = 100_000
 
+export function catalogReturnHref(value: string | null) {
+  if (!value?.startsWith("/cadastros/produtos?")) return "/cadastros/produtos"
+  try {
+    const url = new URL(value, "https://erp.local")
+    return url.origin === "https://erp.local" && url.pathname === "/cadastros/produtos" ? url.pathname + url.search : "/cadastros/produtos"
+  } catch { return "/cadastros/produtos" }
+}
+
 export function parseCatalogQuery(params: Pick<URLSearchParams, "get">, pageSize = 25): CatalogQuery {
   const q = (params.get("q") || "").trim().slice(0, 160)
   const rawStatus = params.get("status")

@@ -4,7 +4,9 @@ Referência: [AVL-359](https://linear.app/avilaops/issue/AVL-359). A P0 vem ante
 
 ## Escopo e estado
 
-O catálogo versionado em `verification/contracts.json` descreve 90 operações Rust e cobre 61 operações BFF após a consolidação de 28/10/2026. As 25 famílias ainda propostas permanecem `needs_definition`; esta entrega não fecha a P0 inteira. A matriz abaixo conserva o núcleo da primeira entrega; o catálogo é a referência atual por ação.
+O catálogo versionado em `verification/contracts.json` descreve atualmente 249 operações Rust/API, 220 operações BFF e 51 fluxos de produto. Os 34 fluxos ainda pendentes permanecem explícitos; esta entrega não fecha a P0 inteira. A matriz abaixo conserva o núcleo documentado; o catálogo é a referência atual por ação.
+
+O catálogo atual mantém `p0Ready=false` e `runtimeVerdict=not_verified_by_catalog`. A verificação estática confirma apenas a consistência das fichas e das ligações declaradas; não comprova execução autenticada, publicação ou funcionamento em produção.
 
 A consolidação acrescenta o alias de saúde, a gestão de chaves de serviço, a importação de NF-e recebida e as leituras do consumidor Lojas. As fichas descrevem os handlers efetivos: o GET de DANFE ainda chama MCP, a coleção de recebidas ainda não limita quantidade/ambiente e a credencial não possui expiração nem vínculo ao CNPJ atual. Esses pontos do desenho fiscal continuam pendentes; a cobertura estática não os aprova.
 

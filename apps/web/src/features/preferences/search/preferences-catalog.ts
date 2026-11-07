@@ -48,7 +48,7 @@ export const preferenceCategories: PreferenceCategory[] = [
   ] },
   { id: "notas-fiscais", label: "Notas Fiscais", sections: [
     { title: "Configurações de notas fiscais", items: [
-      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
+      { label: "Configurações de NFC-e", href: "/preferencias/fiscal/nfce" }, { label: "E-mail e acesso ao XML", href: "/preferencias/fiscal/delivery" }, { label: "Configurações de NF-e", href: "/preferencias/fiscal" },
     ] },
     { title: "Tabelas e configurações adicionais", items: [
       { label: "Consulta de inutilizações de NF-es", href: "/preferencias/fiscal/inutilizacoes" }, { label: "Consulta de correções de NF-es", href: "/preferencias/fiscal/correcoes" }, { label: "Naturezas de operação", href: "/preferencias/fiscal/naturezas" },

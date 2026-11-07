@@ -6,7 +6,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { blockerLabels, type FiscalReadiness, type NfeDraft } from "./nfe-draft-model"
 
-export function NfeDrafts() {
+export function NfeDrafts({ model }: { model?: 55 | 65 } = {}) {
   const [rows, setRows] = useState<NfeDraft[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [query, setQuery] = useState("")
@@ -42,10 +42,13 @@ export function NfeDrafts() {
     void load()
     return () => controller.abort()
   }, [pageRequest])
-  const filtered = rows.filter(row => `${row.id} ${row.input.recipient.legalName} ${row.input.recipient.taxId} ${row.input.operationNature}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")))
+  const modelRows = model ? rows.filter(row => row.input.model === model) : rows
+  const filtered = modelRows.filter(row => `${row.id} ${row.input.recipient.legalName} ${row.input.recipient.taxId} ${row.input.operationNature}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")))
+  const label = model === 65 ? "NFC-e" : "NF-e"
+  const createHref = model === 65 ? "/fiscal/notas-saida/nova?modelo=65" : "/fiscal/notas-saida/nova"
   return <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
     <Link className="text-sm text-primary underline" href="/fiscal">Voltar ao fiscal</Link>
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold">Notas fiscais de saída</h1><p className="mt-3 text-muted-foreground">Rascunhos de NF-e modelo 55, salvos na empresa ativa para conferência e emissão no ambiente configurado.</p></div>{canEdit && <Link className={buttonVariants()} href="/fiscal/notas-saida/nova">Preparar nota</Link>}</header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold">{model ? `Rascunhos de ${label}` : "Notas fiscais de saída"}</h1><p className="mt-3 text-muted-foreground">Rascunhos de {label} salvos na empresa ativa para conferência e emissão no ambiente configurado.</p></div>{canEdit && <Link className={buttonVariants()} href={createHref}>{model === 65 ? "Preparar NFC-e" : "Preparar nota"}</Link>}</header>
     <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">Rascunho não é nota autorizada. Não possui número fiscal, chave de acesso, XML ou DANFE. A emissão usa o ambiente escolhido na configuração fiscal. Homologação é um ambiente de testes, sem valor fiscal.</p>
     {readiness && <details className="rounded-xl border p-4"><summary className="cursor-pointer font-medium">Preparação para emissão — pendências atuais</summary><ul className="mt-3 list-disc space-y-2 pl-5 text-sm">{readiness.blockers.map(blocker => <li key={blocker}>{blockerLabels[blocker] || "Há uma pendência fiscal que exige revisão"}</li>)}</ul><div className="mt-4 flex flex-wrap gap-4 text-sm"><Link className="text-primary underline" href="/preferencias/fiscal">Configuração fiscal</Link><Link className="text-primary underline" href="/preferencias/certificado-digital">Certificado A1</Link></div></details>}
     <section className="form-section space-y-4" aria-label="Rascunhos salvos">
@@ -53,7 +56,7 @@ export function NfeDrafts() {
       {busy && <p role="status">Carregando rascunhos…</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {loaded && !error && !busy && filtered.length === 0 && <p className="py-6 text-sm text-muted-foreground">{rows.length ? "Nenhum rascunho carregado corresponde à busca." : "Nenhum rascunho cadastrado nesta empresa."}</p>}
-      {filtered.map(row => <article key={row.id} className="flex flex-wrap justify-between gap-4 rounded-xl border p-4"><div className="min-w-0"><Link href={`/fiscal/notas-saida/${row.id}`} className="break-words font-medium text-primary underline">{row.input.recipient.legalName}</Link><p className="mt-1 text-sm">{row.input.operationNature} · {row.input.items.length} item(ns)</p><p className="mt-1 break-all text-xs text-muted-foreground">{row.id} · Revisão {row.revision}</p></div><div className="text-sm"><p>Rascunho · {row.input.environment === "production" ? "Produção" : "Homologação"}</p><p className="mt-2 font-medium">Produtos: R$ {row.productsTotal.replace(".", ",")}</p></div></article>)}
+      {filtered.map(row => <article key={row.id} className="flex flex-wrap justify-between gap-4 rounded-xl border p-4"><div className="min-w-0"><Link href={`/fiscal/notas-saida/${row.id}`} className="break-words font-medium text-primary underline">{row.input.recipient.legalName}</Link><p className="mt-1 text-sm">Modelo {row.input.model} · {row.input.operationNature} · {row.input.items.length} item(ns)</p><p className="mt-1 break-all text-xs text-muted-foreground">{row.id} · Revisão {row.revision}</p></div><div className="text-sm"><p>Rascunho · {row.input.environment === "production" ? "Produção" : "Homologação"}</p><p className="mt-2 font-medium">Produtos: R$ {row.productsTotal.replace(".", ",")}</p></div></article>)}
       {cursor && <Button variant="outline" disabled={busy} onClick={() => { setBusy(true); setPageRequest({ cursor }) }}>Carregar mais rascunhos</Button>}
     </section>
   </main>

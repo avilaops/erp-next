@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
 import axe from "axe-core"
@@ -97,13 +97,43 @@ test("platform directory shows but disables suspended companies", async ({ page,
   await page.goto("/empresas")
   await expect(page.getByRole("button", { name: /Empresa 2/ })).toBeDisabled()
   await expect(page.getByRole("button", { name: "Empresa 1", exact: true })).toBeEnabled()
+  await expect(page.locator("main").getByRole("link", { name: /Entrar/ })).toHaveCount(0)
 })
+
+for (const status of [401, 403, 503]) test(`company directory offers login recovery only for 401, received ${status}`, async ({ page, context }) => {
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/companies", route => route.fulfill({ status, json: { title: "Falha de acesso" } }))
+  await page.goto("/empresas?returnTo=%2Fpreferencias")
+  await expect(page.locator("main").getByRole("alert")).toBeVisible()
+  const login = page.locator("main").getByRole("link", { name: "Entrar novamente", exact: true })
+  if (status === 401) {
+    await expect(login).toHaveAttribute("href", "/entrar?returnTo=%2Fpreferencias")
+    await page.unroute("**/api/erp/companies")
+    await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
+    await expect(page.getByText("Você ainda não possui empresas cadastradas", { exact: true })).toBeVisible()
+  }
+  await expect(login).toHaveCount(0)
+})
+
+for (const status of [401, 403, 503]) test(`company selection offers login recovery only for 401, received ${status}`, async ({ page, context }) => {
+  companyCount = 1
+  await context.addCookies([cookie()])
+  await page.route("**/api/auth/company", route => route.fulfill({ status, json: { title: "Falha de acesso" } }))
+  await page.goto("/empresas?returnTo=%2Fpreferencias")
+  await page.getByRole("button", { name: "Empresa 1", exact: true }).click()
+  await expect(page.locator("main").getByRole("alert")).toBeVisible()
+  const login = page.locator("main").getByRole("link", { name: "Entrar novamente", exact: true })
+  if (status === 401) await expect(login).toHaveAttribute("href", "/entrar?returnTo=%2Fpreferencias")
+  else await expect(login).toHaveCount(0)
+})
+
+const primaryAccess = (page: Page) => page.locator("#acessar, .entry-recovery-content")
 
 for (const error of ["", "restart"]) test(`entry login reaches Auth from ${error || "normal access"} under the same-origin form policy and preserves its return path`, async ({ page, context }) => {
   const destination = "/cadastros/produtos?status=active&offset=25"
   const entry = await page.goto("/entrar?" + new URLSearchParams({ returnTo: destination, erro: error }))
   expect(entry!.headers()["content-security-policy"]).toContain("form-action 'self'")
-  await page.getByText("Entrar", { exact: true }).click()
+  await primaryAccess(page).getByRole("link", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(url => url.origin === issuer && url.pathname === "/authorize")
   const authorization = new URL(page.url())
   expect(authorization.searchParams.get("code_challenge_method")).toBe("S256")
@@ -125,7 +155,7 @@ for (const error of ["", "restart"]) test(`entry login completes the browser cal
     const url = new URL(request.url())
     if (url.origin === issuer && url.pathname === "/authorize") authorizations.push(url)
   })
-  await page.getByRole("link", { name: "Entrar", exact: true }).click()
+  await primaryAccess(page).getByRole("link", { name: "Entrar", exact: true }).click()
   await expect(page).toHaveURL(origin + destination)
   expect(authorizations).toHaveLength(1)
   expect(authorizations[0].searchParams.get("code_challenge_method")).toBe("S256")
@@ -133,90 +163,32 @@ for (const error of ["", "restart"]) test(`entry login completes the browser cal
   await expect(page.getByRole("heading", { name: "Preferências", exact: true })).toBeVisible()
 })
 
-test("entry offers persistent light, dark and system themes with readable text", async ({ page }, info) => {
-  test.setTimeout(60_000)
-  await page.goto("/entrar")
-  const theme = page.getByRole("combobox", { name: "Tema", exact: true })
-  await expect(theme).toBeVisible()
-  for (const value of ["dark", "light"] as const) {
-    await theme.selectOption(value)
-    await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(value === "dark")
-    await page.reload()
-    await expect(theme).toHaveValue(value)
-    for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 568, height: 320 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
-      await page.setViewportSize(viewport)
-      await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect(await page.locator("#acesso > p").evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14)
-      await page.addScriptTag({ content: axe.source })
-      const result = await page.evaluate(async () => (window as unknown as { axe: typeof axe }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } }))
-      expect(result.violations.map(item => ({ id: item.id, targets: item.nodes.map(node => node.target) }))).toEqual([])
-      await page.screenshot({ path: info.outputPath(`entrada-${value}-${viewport.width}x${viewport.height}.png`), fullPage: true })
-    }
+test("entry keeps access visible and distinguishes its illustration from the actual ERP", async ({ page }) => {
+  const destination = "/cadastros/produtos?status=active"
+  await page.goto("/entrar?" + new URLSearchParams({ returnTo: destination }))
+  const access = primaryAccess(page)
+  const login = access.getByRole("link", { name: "Entrar", exact: true })
+  const signup = access.getByRole("link", { name: "Criar minha conta", exact: true })
+  await expect(login).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
+  await expect(signup).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination, intent: "signup" }))
+  const illustration = page.getByRole("img", { name: /composição ilustrativa.*não representa a interface real/i })
+  await expect(illustration).toBeVisible()
+  await expect.poll(() => illustration.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+  await page.addScriptTag({ content: axe.source })
+
+  for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 568, height: 320 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    await expect(login).toBeInViewport({ ratio: 1 })
+    await expect(signup).toBeInViewport({ ratio: 1 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const result = await page.evaluate(async () => (window as unknown as { axe: typeof axe }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } }))
+    expect(result.violations.map(item => ({ id: item.id, targets: item.nodes.map(node => node.target) }))).toEqual([])
   }
-  await theme.selectOption("system")
-  await page.emulateMedia({ colorScheme: "dark" })
-  await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(true)
-  await page.emulateMedia({ colorScheme: "light" })
-  await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(false)
-})
 
-test("entry keeps access visible and its single preview supports keyboard reading and closing", async ({ page }) => {
-  for (const width of [320, 390, 1440]) {
-    await page.setViewportSize({ width, height: width === 320 ? 568 : 900 })
-    await page.goto("/entrar?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
-    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
-    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
-
-    const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
-    await expect(trigger).toContainText("Ver tela completa")
-    const thumbnail = trigger.locator("picture")
-    await expect.poll(() => thumbnail.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
-    const thumbnailBox = await thumbnail.locator("..").boundingBox()
-    if (width < 640) expect(thumbnailBox!.height).toBeLessThanOrEqual(320)
-    else expect(thumbnailBox!.height).toBeGreaterThan(320)
-    await trigger.focus()
-    await page.keyboard.press("Enter")
-    const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
-    await expect(dialog).toBeVisible()
-    const image = dialog.getByRole("img")
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBeGreaterThan(0)
-    await expect(image).toHaveCSS("opacity", "1")
-
-    const capture = dialog.getByRole("region", { name: "Imagem ampliada do ERP", exact: true })
-    await expect(dialog.getByRole("button")).toHaveCount(1)
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe(width < 640 ? "/erp-preview-mobile.png" : "/erp-preview.webp")
-    await expect.poll(() => capture.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-    const geometry = await capture.evaluate(element => {
-      const image = element.querySelector("img")!
-      const box = element.getBoundingClientRect()
-      const picture = image.getBoundingClientRect()
-      return { widthDifference: Math.abs(box.width - picture.width), topDifference: Math.abs(box.top - picture.top), naturalRatio: image.naturalWidth / image.naturalHeight, renderedRatio: picture.width / picture.height }
-    })
-    expect(geometry.widthDifference).toBeLessThanOrEqual(1)
-    expect(geometry.topDifference).toBeLessThanOrEqual(1)
-    expect(geometry.renderedRatio).toBeCloseTo(geometry.naturalRatio, 2)
-    await capture.focus()
-    if (width === 320) {
-      await page.keyboard.press("ArrowDown")
-      await expect.poll(() => capture.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
-    }
-
-    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
-    await close.focus()
-    await page.keyboard.press("Tab")
-    await expect(capture).toBeFocused()
-    await page.keyboard.press("Tab")
-    await expect(close).toBeFocused()
-    await page.keyboard.press("Escape")
-    await expect(dialog).toBeHidden()
-    await expect(trigger).toBeFocused()
-    await trigger.click()
-    await expect.poll(() => capture.evaluate(element => element.scrollTop)).toBe(0)
-    await close.click()
-    await expect(dialog).toBeHidden()
-    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toHaveAttribute("href", "/criar-conta?returnTo=%2Fcadastros%2Fprodutos%3Fstatus%3Dactive")
-  }
+  const skip = page.getByRole("link", { name: "Pular para o conteúdo" })
+  await skip.focus()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL(/#conteudo$/)
 })
 
 test("entry recovery keeps the error and access controls together in the first phone viewport", async ({ page }) => {
@@ -228,110 +200,13 @@ test("entry recovery keeps the error and access controls together in the first p
       await expect(page.getByRole("heading", { name: "Retome o acesso", exact: true })).toBeVisible()
       const alert = page.locator("main").getByRole("alert")
       await expect(alert).toBeInViewport({ ratio: 1 })
-      const login = page.getByRole("link", { name: "Entrar", exact: true })
+      const login = primaryAccess(page).getByRole("link", { name: "Entrar", exact: true })
       await expect(login).toBeInViewport({ ratio: 1 })
       await expect(login).toHaveAttribute("aria-describedby", "access-error")
-      await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
+      await expect(primaryAccess(page).getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
       await expect(login).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
     }
   }
-})
-
-test("entry preview shows complete product data with margins in landscape and adapts when rotated", async ({ page }) => {
-  for (const viewport of [{ width: 568, height: 320 }, { width: 844, height: 390 }]) {
-    await page.setViewportSize(viewport)
-    await page.goto("/entrar")
-    await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeInViewport({ ratio: 1 })
-    await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeInViewport({ ratio: 1 })
-    await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
-    const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
-    const image = dialog.getByRole("img")
-    await image.evaluate((image: HTMLImageElement) => image.decode())
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-landscape.png")
-    const close = dialog.getByRole("button", { name: "Fechar prévia", exact: true })
-    const capture = dialog.getByRole("region")
-    await expect(close).toBeInViewport({ ratio: 1 })
-    expect(await capture.evaluate(element => element.clientHeight)).toBeGreaterThan(viewport.height / 2)
-    expect(await capture.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-    expect(await image.evaluate(element => element.clientWidth)).toBeGreaterThan(viewport.width - 40)
-    await expect.poll(() => capture.evaluate(element => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
-    const box = await dialog.boundingBox()
-    expect(box!.x).toBeGreaterThanOrEqual(15.5)
-    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width - 15.5)
-    await expect(image).toBeInViewport({ ratio: 1 })
-    expect(await image.evaluate((element: HTMLImageElement) => [element.naturalWidth, element.naturalHeight])).toEqual([638, 208])
-
-    await page.setViewportSize({ width: 390, height: 680 })
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname)).toBe("/erp-preview-mobile.png")
-    await image.evaluate((element: HTMLImageElement) => element.decode())
-    await expect(dialog).toBeVisible()
-    expect(await capture.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-    await expect(close).toBeInViewport({ ratio: 1 })
-    await close.click()
-  }
-})
-
-test("entry preview announces loading and recovers from a failed image without losing keyboard access", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 680 })
-  let fail = false
-  let releaseImage!: () => void
-  const pending = new Promise<void>(resolve => { releaseImage = resolve })
-  await page.route("**/erp-preview-mobile.png*", async route => {
-    await pending
-    if (fail) return route.abort("failed")
-    return route.continue()
-  })
-  await page.goto("/entrar", { waitUntil: "domcontentloaded" })
-  const trigger = page.getByRole("button", { name: "Ver tela completa do ERP", exact: true })
-  await expect(trigger.getByRole("status")).toHaveText("Carregando prévia…")
-  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeEnabled()
-  await trigger.click()
-  const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
-  await expect(dialog.getByRole("status")).toHaveText("Carregando prévia…")
-  fail = true
-  releaseImage()
-  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
-  await dialog.getByRole("button", { name: "Fechar prévia", exact: true }).click()
-  await expect(trigger.getByRole("alert")).toContainText("Prévia indisponível.")
-  expect(await trigger.locator("button").count()).toBe(0)
-  await trigger.click()
-  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
-  const retry = dialog.getByRole("button", { name: "Tentar novamente", exact: true })
-  await expect(retry).toBeInViewport({ ratio: 1 })
-  await expect(dialog.getByRole("button", { name: "Fechar prévia", exact: true })).toBeInViewport({ ratio: 1 })
-  fail = false
-  await retry.focus()
-  await page.keyboard.press("Enter")
-  await expect(dialog.getByRole("region")).toBeFocused()
-  await expect(dialog.getByRole("alert")).toHaveCount(0)
-  const image = dialog.getByRole("img")
-  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
-  expect(await image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).searchParams.get("retry"))).toBe("1")
-  await expect(dialog.getByRole("status")).toHaveCount(0)
-  await page.keyboard.press("Escape")
-  await expect(dialog).toBeHidden()
-  await expect(trigger).toBeFocused()
-  await expect(trigger.getByRole("alert")).toHaveCount(0)
-  await expect.poll(() => trigger.locator("picture img").evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(390)
-})
-
-test("a loaded preview reports a failed source after rotation and recovers when rotated back", async ({ page }) => {
-  await page.route("**/erp-preview-landscape.png*", route => route.abort("failed"))
-  await page.setViewportSize({ width: 390, height: 680 })
-  await page.goto("/entrar")
-  await page.getByRole("button", { name: "Ver tela completa do ERP", exact: true }).click()
-  const dialog = page.getByRole("dialog", { name: "Por dentro do Avila ERP", exact: true })
-  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
-  await expect(dialog.getByRole("status")).toHaveCount(0)
-  await page.setViewportSize({ width: 568, height: 320 })
-  await expect(dialog.getByRole("alert")).toContainText("Não foi possível carregar a prévia.")
-  await dialog.getByRole("button", { name: "Tentar novamente", exact: true }).focus()
-  await page.setViewportSize({ width: 390, height: 680 })
-  await expect(dialog.getByRole("alert")).toHaveCount(0)
-  await expect.poll(() => dialog.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(390)
-  await expect(dialog.getByRole("region")).toBeFocused()
-  await page.keyboard.press("Escape")
-  await expect(dialog).toBeHidden()
 })
 
 test("OIDC without a company code routes zero, one and many companies after verified discovery", async ({ context }) => {
@@ -372,8 +247,8 @@ test("cadastros distinguish a signed-out user from an authenticated user without
   await page.goto("/cadastros/produtos")
   await expect(page).toHaveURL(/\/entrar\?returnTo=%2Fcadastros%2Fprodutos$/)
   await expect(page.getByRole("heading", { name: "Sua operação, sob controle.", exact: true })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
+  await expect(primaryAccess(page).getByRole("link", { name: "Entrar", exact: true })).toBeVisible()
+  await expect(primaryAccess(page).getByRole("link", { name: "Criar minha conta", exact: true })).toBeVisible()
   await context.addCookies([cookie()])
   for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
     await page.goto(route)
@@ -421,7 +296,7 @@ test("expired access preserves the internal path and filters through the login f
   const destination = "/cadastros/produtos?status=archived&offset=25"
   await page.goto(destination)
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(destination)
-  await expect(page.getByRole("link", { name: "Entrar", exact: true })).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
+  await expect(primaryAccess(page).getByRole("link", { name: "Entrar", exact: true })).toHaveAttribute("href", "/api/auth/login?" + new URLSearchParams({ returnTo: destination }))
 })
 
 test("expired company selection retains the original destination during recovery", async ({ page, context }) => {
@@ -434,7 +309,7 @@ test("expired company selection retains the original destination during recovery
   await context.addCookies([cookie(tenant)])
   await page.route("**/api/erp/companies", route => route.fulfill({ status: 401, json: { title: "Sessão expirada" } }))
   await page.goto("/empresas?" + new URLSearchParams({ returnTo: destination }))
-  await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: destination }))
+  await expect(page.locator("main").getByRole("link", { name: "Entrar novamente", exact: true })).toHaveAttribute("href", "/entrar?" + new URLSearchParams({ returnTo: destination }))
 })
 
 test("OIDC returns to the sealed destination and ignores callback redirect parameters", async ({ context }) => {
@@ -472,6 +347,35 @@ test("multiple companies keep the requested destination until verified selection
   await page.getByRole("button", { name: "Empresa 2", exact: true }).click()
   await expect(page).toHaveURL(origin + destination)
   expect(session((await context.cookies()).find(item => item.name === "erp_session")!.value).tenantId).toBe("22222222-2222-4222-8222-222222222222")
+})
+
+test("posting form explains an invalid service response without exposing parser errors", async ({ page, context }) => {
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/logistics/postings?*", route => route.fulfill({ status: 503, body: "" }))
+  await page.goto("/logistica/postagens/novo")
+  await expect(page.locator("main").getByRole("alert")).toHaveText("O ERP retornou uma resposta inválida. Tente novamente.")
+  await expect(page.getByRole("button", { name: "Criar postagem", exact: true })).toBeDisabled()
+})
+
+for (const [path, endpoint] of [
+  ["/cadastros/clientes-fornecedores", "parties?*"],
+  ["/cadastros/funcionarios", "staff?*"],
+  ["/cadastros/produtos", "products?*"],
+  ["/cadastros/produtos/novo", "products?*"],
+  ["/preferencias/sistema/arquivos", "system/files?*"],
+  ["/historico", "legacy-history?*"],
+]) test(`resource failure does not request login unless unauthorized: ${path}`, async ({ page, context }) => {
+  test.setTimeout(60000)
+  await context.addCookies([cookie(tenant)])
+  await page.route("**/api/erp/preferences", route => route.fulfill({ json: { data: { productPageSize: 25 } } }))
+  let status = 503
+  await page.route(`**/api/erp/${endpoint}`, route => route.fulfill({ status, json: { title: "Falha da consulta" } }))
+  for (const code of [503, 401, 503]) {
+    status = code
+    await page.goto(path)
+    await expect(page.getByText("Falha da consulta", { exact: true }).first()).toBeVisible()
+    await expect(page.locator("main").getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveCount(code === 401 ? 1 : 0)
+  }
 })
 
 test("401 offers contextual login while 503 remains retryable and company switch opens picker", async ({ page, context }) => {

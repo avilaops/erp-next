@@ -6,9 +6,9 @@ use utoipa::{
 
 use super::health;
 use crate::domains::{
-    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance, fiscal,
-    inventory, legacy, parties, payables, production, purchasing, reference_data, registry_lookup,
-    returns, sales, staff, staff_payroll,
+    assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance,
+    financial_account_ledger, fiscal, inventory, legacy, parties, payables, production, purchasing,
+    reference_data, registry_lookup, returns, sales, staff, staff_payroll,
 };
 use crate::platform::{
     access, access_management, company, invitations, onboarding, service_auth, workflows,
@@ -73,6 +73,8 @@ use crate::platform::{
         sales::proposals::revise, sales::proposals::convert,
         sales::proposals::update,
         finance::list, finance::get, finance::pay, finance::reverse,
+        financial_account_ledger::list, financial_account_ledger::create,
+        financial_account_ledger::transfer,
         commissions::get_order, commissions::configure_order, commissions::list,
         commissions::get_seller, commissions::adjust, commissions::pay,
         production::list_orders, production::get_order, production::create_orders,
@@ -391,7 +393,10 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 220);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 222);
+        assert!(doc["paths"]["/api/v1/financial-account-entries"]["get"].is_object());
+        assert!(doc["paths"]["/api/v1/financial-account-entries"]["post"].is_object());
+        assert!(doc["paths"]["/api/v1/financial-account-transfers"]["post"].is_object());
         assert!(
             doc["components"]["schemas"]["ProductInput"]["properties"]["armColors"].is_object()
         );
@@ -523,6 +528,25 @@ mod tests {
             assert!(required.iter().any(|value| value == field));
         }
         assert!(doc["paths"]["/api/v1/company-account"]["get"].is_object());
+        let account = &doc["paths"]["/api/v1/company-account"]["get"];
+        let response_schema = &account["responses"]["200"]["content"]["application/json"]["schema"];
+        let schema_ref = response_schema["$ref"].as_str().unwrap();
+        let schema = doc.pointer(schema_ref.strip_prefix('#').unwrap()).unwrap();
+        let required = schema["required"].as_array().unwrap();
+        for field in [
+            "tenantId",
+            "canEdit",
+            "providerConfigured",
+            "plans",
+            "subscriptions",
+            "activeUsers",
+            "productPhotoBytes",
+        ] {
+            assert!(
+                required.iter().any(|value| value == field),
+                "missing company account field: {field}"
+            );
+        }
         for action in ["checkout", "refresh", "change-plan", "cancel"] {
             assert!(
                 doc["paths"][format!("/api/v1/company-account/{action}")]["post"]["requestBody"]

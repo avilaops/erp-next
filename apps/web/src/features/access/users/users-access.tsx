@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -90,7 +91,7 @@ export function UsersAccess() {
       <div className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
         <header>
           <p className="mb-2 text-sm font-medium text-primary">Preferências / Usuários e acessos</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Usuários e acessos</h1>
+          <PageTitle className="text-3xl font-semibold tracking-tight sm:text-4xl">Usuários e acessos</PageTitle>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Gerencie quem acessa a empresa e defina responsabilidades com permissões por domínio.</p>
         </header>
         <Button onClick={openCreate}><Plus />Convidar usuário</Button>

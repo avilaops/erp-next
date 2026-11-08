@@ -1,4 +1,4 @@
-import { ServicesList } from "@/features/services/services-pages"
-export default function Page() { return <ServicesList kind="cte" /> }
+import { CteDistributionScreen } from "@/features/fiscal/cte-distribution-screen"
+export default function Page() { return <CteDistributionScreen /> }
 
 export const metadata = { title: "CT-e" }

@@ -37,6 +37,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
   const [query, setQuery] = useState({ q: "", role: kind === "funcionarios" ? "employee" : "seller", status: "", offset: 0 })
   const [result, setResult] = useState<Page | null>(null)
   const [error, setError] = useState("")
+  const [responseStatus, setResponseStatus] = useState(0)
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
   const [showResults, setShowResults] = useState(false)
@@ -53,15 +54,17 @@ export function StaffList({ kind }: { kind: StaffKind }) {
   }, [kind])
   useEffect(() => {
     const controller = new AbortController()
+    let requestStatus = 0
     const search = kind === "vendedores" && query.q.trim() === "%%" ? "" : query.q
     const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: String(pageSize) })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
     erpFetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+      requestStatus = response.status
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
       if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
+    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [query, retry, kind, pageSize])
@@ -90,7 +93,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
       {!showResults && result?.canEdit && <Link className={`${linkClass} mt-2 inline-flex min-h-11 items-center`} href="/cadastros/vendedores/novo">Cadastrar vendedor</Link>}
       {!showResults && result && !result.canEdit && <p className="mt-3 text-sm text-muted-foreground">Somente consulta.</p>}
       {showResults && <div id={resultsId} role="region" aria-label="Resultados de vendedores" className="absolute inset-x-0 top-full z-40 mt-2 max-h-[min(24rem,50dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl">
-        {loading ? <p role="status">Consultando vendedores…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+        {loading ? <p role="status">Consultando vendedores…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
           <ul className="space-y-2">{result.data.map(staff => <li className="min-w-0" key={staff.id}>
             <Link aria-label={`Consultar ${staff.name}`} href={`/cadastros/vendedores/${staff.id}`} className={buttonVariants({ variant: "outline", className: "h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal px-3 py-2 text-left" })}>
               <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">{staff.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("")}</span>
@@ -124,7 +127,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
         <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={linkClass} >Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(staff => <li key={staff.id} className="min-w-0 rounded-xl border p-4">
           <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${staff.id}`}>Consultar {staff.name}</Link>

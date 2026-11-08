@@ -1,10 +1,10 @@
 import { Suspense } from "react"
-import { MovementDetail } from "@/features/inventory/details-movements-forms";
+import { InventoryCapabilityUnavailable } from "@/features/inventory/inventory-capability-unavailable";
 async function ResolvedMovementDetailPage({
   params,
 }: PageProps<"/estoque/lancamentos/[id]">) {
   const { id } = await params;
-  return <MovementDetail movementId={id} />;
+  return <InventoryCapabilityUnavailable eyebrow="Estoque / Movimentações" title="Detalhe de lançamento" description={`O identificador ${id} não pode ser consultado por esta rota antiga.`} requirement="O histórico real de movimentos está disponível ao selecionar um produto no workspace de Estoque. Nenhum detalhe fictício será exibido por esta URL." />;
 }
 
 export const metadata = { title: "Detalhes de lançamento de estoque" }

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./workspace-ui.css";
 
 .erp-overview-body { container: overview-body / inline-size; }
 .erp-overview-bottom { display: grid; min-width: 0; gap: 1.5rem; align-items: start; }
@@ -128,6 +129,7 @@ html { scroll-padding-top: 76px; }
 .erp-menu-icon:hover { background: var(--muted); }
 .erp-menu-icon svg { width: 20px; height: 20px; }
 .erp-module-groups { display: grid; gap: 18px; align-content: start; padding: 16px; }
+.erp-module-groups > section + section { border-top: 1px solid var(--border); padding-top: 20px; }
 .erp-module-groups h3 { margin: 0 12px 8px; color: var(--muted-foreground); font-size: 13px; font-weight: 600; }
 .erp-module-groups ul { display: grid; gap: 2px; }
 .erp-navigation-drawer[data-side=left] { width: min(360px, 100%); max-width: 100%; height: 100dvh; gap: 0; }
@@ -149,7 +151,7 @@ html { scroll-padding-top: 76px; }
 @media (min-width: 1200px) {
   .erp-workspace:not([data-collapsed=true]) { --navigation-width: 256px; }
   .erp-module-panel { width: min(500px, calc(100vw - var(--navigation-width) - 16px)); }
-  .erp-module-panel .erp-module-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .erp-module-panel .erp-module-groups { grid-template-columns: 1fr; }
 }
 @media (max-width: 1199px) { .erp-header { gap: 12px; padding: 0 16px; } .erp-search-trigger kbd { display: none; } }
 @media (max-width: 699px) {
@@ -168,38 +170,38 @@ html { scroll-padding-top: 76px; }
 :root {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #1c1917;
+  --foreground: #172033;
   --card: #ffffff;
-  --card-foreground: #1c1917;
+  --card-foreground: #172033;
   --popover: #ffffff;
-  --popover-foreground: #1c1917;
-  --primary: #0f766e;
-  --primary-hover: #115e59;
+  --popover-foreground: #172033;
+  --primary: #155eef;
+  --primary-hover: #124cc4;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f4;
-  --secondary-foreground: #1c1917;
-  --muted: #f5f5f4;
-  --muted-foreground: #57534e;
-  --accent: #f0fdfa;
-  --accent-foreground: #0f766e;
+  --secondary: #f2f4f7;
+  --secondary-foreground: #344054;
+  --muted: #f5f6f8;
+  --muted-foreground: #596579;
+  --accent: #edf3ff;
+  --accent-foreground: #155eef;
   --destructive: #b91c1c;
-  --border: #e7e5e4;
-  --input: #a8a29e;
-  --ring: #0f766e;
+  --border: #e4e7ec;
+  --input: #cfd5df;
+  --ring: #155eef;
   --chart-1: #0f766e;
   --chart-2: #115e59;
   --chart-3: #0d9488;
   --chart-4: #134e4a;
   --chart-5: #5eead4;
-  --radius: 0.75rem;
-  --sidebar: #fafaf9;
-  --sidebar-foreground: #1c1917;
-  --sidebar-primary: #0f766e;
+  --radius: 0.5rem;
+  --sidebar: #fafbfc;
+  --sidebar-foreground: #172033;
+  --sidebar-primary: #155eef;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0fdfa;
-  --sidebar-accent-foreground: #0f766e;
-  --sidebar-border: #e7e5e4;
-  --sidebar-ring: #0f766e;
+  --sidebar-accent: #edf3ff;
+  --sidebar-accent-foreground: #155eef;
+  --sidebar-border: #e4e7ec;
+  --sidebar-ring: #155eef;
 }
 
 .dark {
@@ -210,8 +212,8 @@ html { scroll-padding-top: 76px; }
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: #5eead4;
-  --primary-hover: #99f6e4;
+  --primary: #91b5ff;
+  --primary-hover: #b2ccff;
   --primary-foreground: oklch(0.15 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
@@ -222,7 +224,7 @@ html { scroll-padding-top: 76px; }
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: #5eead4;
+  --ring: #91b5ff;
   --chart-1: #5eead4;
   --chart-2: #2dd4bf;
   --chart-3: #14b8a6;
@@ -230,17 +232,17 @@ html { scroll-padding-top: 76px; }
   --chart-5: #0d9488;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #5eead4;
+  --sidebar-primary: #91b5ff;
   --sidebar-primary-foreground: oklch(0.15 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #5eead4;
+  --sidebar-ring: #91b5ff;
 }
 
 :root.avila-theme {
   color-scheme: light;
-  --background: #f7faff;
+  --background: #ffffff;
   --foreground: #14213d;
   --card: #ffffff;
   --card-foreground: #14213d;
@@ -257,7 +259,7 @@ html { scroll-padding-top: 76px; }
   --accent-foreground: #0648c9;
   --destructive: #c9232e;
   --border: #d8e3f4;
-  --input: #9eb2d1;
+  --input: #cfd5df;
   --ring: #0759f8;
   --chart-1: #0759f8;
   --chart-2: #ff282c;
@@ -273,36 +275,8 @@ html { scroll-padding-top: 76px; }
   --sidebar-ring: #0759f8;
   --avila-red: #ff282c;
   --avila-yellow: #f0b90b;
-}
-
-:root.avila-theme .erp-header {
-  box-shadow: inset 0 3px 0 var(--primary);
-}
-
-:root.avila-theme .erp-brand {
-  position: relative;
-  border-bottom-color: var(--sidebar-border);
-}
-
-:root.avila-theme .erp-brand::after {
-  position: absolute;
-  right: 20px;
-  bottom: -1px;
-  left: 20px;
-  height: 3px;
-  content: "";
-  background: linear-gradient(90deg, var(--primary) 0 58%, var(--avila-red) 58% 79%, var(--avila-yellow) 79%);
-  border-radius: 999px 999px 0 0;
-}
-
-:root.avila-theme .erp-module-button[data-active=true],
-:root.avila-theme .erp-module-button[aria-current=page],
-:root.avila-theme .erp-option[aria-current=page] {
-  box-shadow: inset 3px 0 0 var(--primary);
-}
-
-:root.avila-theme .form-section:first-of-type {
-  border-top: 3px solid var(--primary);
+  --avila-blue-soft: #e8f0ff;
+  --avila-yellow-soft: #fff8dc;
 }
 
 .theme-option {
@@ -316,6 +290,12 @@ html { scroll-padding-top: 76px; }
 .theme-option-avila {
   position: relative;
   overflow: hidden;
+  background: linear-gradient(135deg, #fff 0%, #f8fbff 65%, #fff8dc 100%);
+}
+
+.theme-option-avila:has(:checked) {
+  background: linear-gradient(135deg, #edf4ff 0%, #fff 56%, #fff4c5 100%);
+  box-shadow: 0 8px 18px rgb(7 89 248 / 10%);
 }
 
 .theme-option-avila::after {
@@ -449,7 +429,7 @@ html { scroll-padding-top: 76px; }
   }
 
   .form-section {
-    @apply rounded-2xl border border-border bg-card p-5 sm:p-6;
+    @apply rounded-xl border border-border bg-card p-5 sm:p-6;
   }
 
   .form-grid {
@@ -457,7 +437,7 @@ html { scroll-padding-top: 76px; }
   }
 
   .form-actions {
-    @apply sticky top-20 z-30 flex min-h-14 items-center gap-2 rounded-2xl border border-border bg-background/95 p-2.5 shadow-lg backdrop-blur-xl;
+    @apply sticky bottom-4 z-30 flex min-h-14 flex-wrap items-center gap-2 rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur-xl;
   }
 
   .field {
@@ -467,7 +447,7 @@ html { scroll-padding-top: 76px; }
   .field input,
   .field select,
   .field textarea {
-    @apply min-h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-normal text-foreground shadow-sm placeholder:text-muted-foreground;
+    @apply min-h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2 text-sm font-normal text-foreground shadow-none placeholder:text-muted-foreground;
   }
 
   .field.span-2 {

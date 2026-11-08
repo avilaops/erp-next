@@ -1,6 +1,7 @@
 pub mod api;
 mod email;
 mod model;
+mod package;
 pub mod provider;
 mod sync;
 pub mod templates;
@@ -38,6 +39,10 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/commercial-contracts/{id}", get(detail))
         .route("/api/v1/commercial-contracts/{id}/review", post(review))
         .route("/api/v1/commercial-contracts/{id}/send", post(send))
+        .route(
+            "/api/v1/commercial-contracts/{id}/send-package",
+            post(send_package),
+        )
         .route("/api/v1/commercial-contracts/{id}/sync", post(refresh))
         .route("/api/v1/commercial-contracts/{id}/files/{file}", get(file))
 }
@@ -531,6 +536,141 @@ pub async fn send(
                 Some(&invitation),
             )
             .await;
+    }
+    reconcile_response(&state, &identity, &headers, tenant, id).await
+}
+
+#[utoipa::path(post,path="/api/v1/commercial-contracts/{id}/send-package",operation_id="contracts_send_package",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=Value,responses((status=200,body=api::ContractDetail),(status=403,description="Sem permissão de envio"),(status=409,description="Documentos ou SMTP indisponíveis")))]
+pub async fn send_package(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(_): Json<Value>,
+) -> Result<Response, DomainError> {
+    let mailer = state.mail.as_ref().ok_or(DomainError::Conflict(
+        "SMTP não configurado para envio de documentos",
+    ))?;
+    let key = command_key(&headers)?;
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
+    if !can_send(&mut tx, tenant, &identity).await?
+        || access::require_permission(
+            &access::load_access(&mut tx, tenant, &identity.subject).await?,
+            "sales.contracts.package",
+        )
+        .is_err()
+    {
+        return Err(access::AccessError::Forbidden.into());
+    }
+    let request = json!({"id":id});
+    if let Some(previous) = replay(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "contract.send_package",
+        &request,
+    )
+    .await?
+    {
+        let _ = previous;
+        let result = sync::detail(&mut tx, tenant, id, true, true, true).await?;
+        tx.commit().await.map_err(db)?;
+        return Ok(result);
+    }
+    let contract = model::load(&mut tx, tenant, id).await?;
+    if !["reviewed", "send_requested", "sent", "opened", "completed"]
+        .contains(&contract.status.as_str())
+    {
+        return Err(DomainError::Conflict(
+            "Revise o contrato antes de enviar os documentos",
+        ));
+    }
+    ensure_active_order(&mut tx, tenant, contract.order_id).await?;
+    let package = package::build(&mut tx, &contract, state.danfe.as_ref()).await?;
+    let message_sha256 = model::digest(
+        format!(
+            "{}\n{}\n{}",
+            package.subject, package.body, package.manifest
+        )
+        .as_bytes(),
+    );
+    let already_sent: Option<String> = sqlx::query_scalar(
+        "SELECT status FROM commercial_contract_deliveries WHERE tenant_id=$1 AND contract_id=$2",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?;
+    if already_sent.as_deref() == Some("sent") {
+        tx.commit().await.map_err(db)?;
+        return reconcile_response(&state, &identity, &headers, tenant, id).await;
+    }
+    sqlx::query("INSERT INTO commercial_contract_deliveries(tenant_id,contract_id,status,recipients,attachments,message_sha256) VALUES($1,$2,'sending',$3,$4,$5) ON CONFLICT(tenant_id,contract_id) DO UPDATE SET status='sending',attempts=commercial_contract_deliveries.attempts+1,recipients=excluded.recipients,attachments=excluded.attachments,message_sha256=excluded.message_sha256,last_error=NULL,updated_at=now()")
+        .bind(tenant).bind(id).bind(json!(package.recipients)).bind(&package.manifest).bind(&message_sha256).execute(&mut *tx).await.map_err(db)?;
+    remember(
+        &mut tx,
+        tenant,
+        &identity.subject,
+        key,
+        "contract.send_package",
+        &request,
+        &json!({"id":id}),
+    )
+    .await?;
+    tx.commit().await.map_err(db)?;
+    let result = mailer
+        .send_with_attachments(
+            &package.recipients,
+            &package.subject,
+            &package.body,
+            &package.attachments,
+        )
+        .await;
+    let mut tx = access::tenant_transaction(&state, tenant).await?;
+    let send_error = match result {
+        Ok(()) => {
+            sqlx::query("UPDATE commercial_contract_deliveries SET status='sent',sent_at=now(),updated_at=now() WHERE tenant_id=$1 AND contract_id=$2").bind(tenant).bind(id).execute(&mut *tx).await.map_err(db)?;
+            record(
+                &mut tx,
+                tenant,
+                &identity,
+                &headers,
+                DomainChange {
+                    kind: "commercial_contract",
+                    id,
+                    event: "contract.package_sent",
+                    details: json!({"messageSha256":message_sha256,"attachments":package.manifest}),
+                },
+            )
+            .await?;
+            None
+        }
+        Err(error) => {
+            tracing::error!(contract_id=%id, error=%error, "SMTP document package failed");
+            sqlx::query("UPDATE commercial_contract_deliveries SET status='failed',last_error=$3,updated_at=now() WHERE tenant_id=$1 AND contract_id=$2").bind(tenant).bind(id).bind("Falha no envio SMTP").execute(&mut *tx).await.map_err(db)?;
+            record(
+                &mut tx,
+                tenant,
+                &identity,
+                &headers,
+                DomainChange {
+                    kind: "commercial_contract",
+                    id,
+                    event: "contract.package_failed",
+                    details: json!({"messageSha256":message_sha256}),
+                },
+            )
+            .await?;
+            Some(error)
+        }
+    };
+    tx.commit().await.map_err(db)?;
+    if send_error.is_some() {
+        return Err(DomainError::Conflict(
+            "O pacote foi preparado, mas o SMTP não confirmou o envio",
+        ));
     }
     reconcile_response(&state, &identity, &headers, tenant, id).await
 }

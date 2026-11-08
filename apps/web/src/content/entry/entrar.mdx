@@ -1,0 +1,133 @@
+import Image from "next/image"
+
+<section className="entry-hero entry-container" id="inicio" aria-labelledby="entry-title">
+  <div>
+    <p className="entry-eyebrow">Gestão que acompanha você</p>
+    <h1 id="entry-title">Sua operação,<br /><span>sob controle.</span></h1>
+    <p className="entry-lead">Do primeiro cadastro ao próximo passo. Um espaço para organizar as informações da sua empresa e trabalhar com a sua equipe.</p>
+    <div id="acessar">
+      {props.accessActions}
+    </div>
+    <a className="entry-discover" href="#quem-somos">Conheça quem está por trás do ERP <span aria-hidden="true">↓</span></a>
+  </div>
+  <div className="min-w-0">
+    <Image
+      src="/brand/erp-dashboard-illustration.svg"
+      alt="Composição ilustrativa de dashboards fictícios, com gráficos de linhas, barras e anéis. Não representa a interface real do ERP."
+      width={720}
+      height={640}
+      sizes="(max-width: 700px) 100vw, 50vw"
+      className="block h-auto w-full"
+      priority
+    />
+  </div>
+</section>
+
+<section className="entry-strip entry-container" aria-label="Os fundamentos do ERP">
+  <div><span>01</span><h2>Informação organizada</h2><p>Uma base para os cadastros da empresa.</p></div>
+  <div><span>02</span><h2>Contexto para trabalhar</h2><p>A empresa certa, do acesso à operação.</p></div>
+  <div><span>03</span><h2>Equipe conectada</h2><p>Uma referência comum para o dia a dia.</p></div>
+</section>
+
+<section className="entry-about" id="quem-somos" aria-labelledby="about-title">
+  <div className="entry-container entry-section-grid">
+    <div>
+      <p className="entry-eyebrow">Quem somos</p>
+      <h2 id="about-title">Por trás do sistema,<br /><span>a Ávila Ops.</span></h2>
+    </div>
+    <div className="entry-prose">
+
+Somos a **Ávila Ops**, desenvolvedora do Avila ERP. Nosso trabalho é criar tecnologia para organizar a rotina das empresas e aproximar as pessoas das informações que precisam.
+
+O ERP é parte desse trabalho: um ambiente para reunir cadastros e atividades da operação, com acesso pela conta Ávila Ops.
+
+Queremos que você saiba onde está entrando, quem desenvolve o produto e qual é o próximo passo. Essa clareza começa aqui, antes mesmo do login.
+
+    </div>
+  </div>
+</section>
+
+<section className="entry-section entry-container" id="seu-dia-a-dia" aria-labelledby="routine-title">
+  <p className="entry-eyebrow">Feito para a rotina</p>
+  <h2 id="routine-title">Uma base bem organizada.<br />Um trabalho que continua.</h2>
+  <p className="entry-section-intro">O ponto de partida é simples: saber o que está cadastrado, em qual empresa você está e onde encontrar cada informação.</p>
+  <div className="entry-cards">
+    <article>
+      <span className="entry-card-number">01 / CADASTROS</span>
+
+### Comece pela informação certa
+
+Organize produtos, clientes e fornecedores. Consulte os registros antes de iniciar uma nova atividade e mantenha uma referência para a equipe.
+
+    </article>
+    <article>
+      <span className="entry-card-number">02 / EMPRESA</span>
+
+### Trabalhe no contexto certo
+
+Confira a empresa ativa ao entrar. Se sua conta tiver acesso a mais de uma empresa, selecione o ambiente em que deseja trabalhar.
+
+    </article>
+    <article>
+      <span className="entry-card-number">03 / CONTINUIDADE</span>
+
+### Encontre o próximo passo
+
+Navegue pelas áreas do ERP a partir da necessidade da sua operação. Combine com o responsável da empresa como a equipe vai utilizar o sistema.
+
+    </article>
+  </div>
+</section>
+
+<section className="entry-start" id="como-comecar" aria-labelledby="start-title">
+  <div className="entry-container entry-section-grid">
+    <div>
+      <p className="entry-eyebrow">Primeiro acesso</p>
+      <h2 id="start-title">Da sua conta<br />à sua empresa.</h2>
+      <p className="entry-section-intro">Um caminho claro para começar, sem precisar adivinhar o que vem depois.</p>
+    </div>
+    <ol className="entry-steps">
+      <li><span>1</span><div><h3>Entre com sua conta Ávila Ops</h3><p>O botão de acesso leva ao login da Ávila Ops. Se ainda não tem uma conta, use “Criar minha conta”.</p></div></li>
+      <li><span>2</span><div><h3>Confira a empresa</h3><p>O ERP identifica as empresas disponíveis para sua conta. Conforme seu acesso, você entra na empresa, escolhe uma ou segue para o cadastro.</p></div></li>
+      <li><span>3</span><div><h3>Organize o início do trabalho</h3><p>Revise os dados da empresa e os cadastros que sua equipe precisa. Em caso de dúvida, procure o responsável pelo ERP na sua empresa.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<section className="entry-section entry-container entry-section-grid" id="duvidas" aria-labelledby="faq-title">
+  <div>
+    <p className="entry-eyebrow">Antes de entrar</p>
+    <h2 id="faq-title">Acesso com<br />mais clareza.</h2>
+  </div>
+  <div className="entry-faq">
+    <details>
+      <summary>Quem desenvolve o Avila ERP?</summary>
+      <p>O Avila ERP é um produto da Ávila Ops. A conta Ávila Ops é utilizada para identificar você ao acessar o sistema.</p>
+    </details>
+    <details>
+      <summary>Por que sou direcionado para outro login?</summary>
+      <p>A autenticação acontece no login da Ávila Ops. Depois de confirmar sua identidade, você retorna ao ERP para continuar o acesso.</p>
+    </details>
+    <details>
+      <summary>Recebi um convite. Qual conta devo usar?</summary>
+      <p>Use a conta com o mesmo e-mail do convite. Se a empresa esperada não aparecer, confirme seu acesso com o responsável pelo ERP na sua empresa.</p>
+    </details>
+    <details>
+      <summary>A imagem mostra dados de uma empresa?</summary>
+      <p>Não. Os dashboards são uma composição visual ilustrativa, sem dados de empresas. Não representam a interface real do ERP.</p>
+    </details>
+    <details>
+      <summary>O que fazer se não conseguir acessar?</summary>
+      <p>Confira se está usando a conta correta. Se o acesso estiver indisponível ou sua empresa não aparecer, procure o responsável pelo ERP na sua empresa.</p>
+    </details>
+  </div>
+</section>
+
+<section className="entry-closing entry-container" aria-labelledby="closing-title">
+  <div>
+    <p className="entry-eyebrow">Vamos começar?</p>
+    <h2 id="closing-title">Sua próxima etapa<br />começa por aqui.</h2>
+    <p>Entre na sua conta e encontre o espaço da sua empresa.</p>
+  </div>
+  {props.accessActions}
+</section>

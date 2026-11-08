@@ -1,4 +1,5 @@
 "use client"
+import { DataTable } from "@/components/workspace/data-table"
 
 import Link from "next/link"
 import type { Schema } from "@/lib/api/types"
@@ -36,7 +37,7 @@ export function money(value: string | null | undefined) {
 export function SalesSeries({ data, average = false }: { data: DashboardData; average?: boolean }) {
   if (!data.salesSeries) return <p className="mt-4 text-sm">Seu acesso não permite consultar pedidos.</p>
   if (!data.salesSeries.length) return <p className="mt-4 text-sm">Nenhum pedido neste período.</p>
-  return <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">Pedidos não cancelados, agrupados por mês de criação</caption><thead><tr className="border-b"><th className="p-2">Mês</th><th className="p-2">Pedidos</th><th className="p-2">{average ? "Ticket médio" : "Valor em pedidos"}</th></tr></thead><tbody>{data.salesSeries.map(row => <tr key={row.month} className="border-b"><td className="whitespace-nowrap p-2">{row.month.split("-").reverse().join("/")}</td><td className="p-2">{row.orders}</td><td className="whitespace-nowrap p-2">{money(average ? row.average : row.amount)}</td></tr>)}</tbody></table></div>
+  return <div className="mt-4 overflow-x-auto"><DataTable className="w-full text-left text-sm"><caption className="sr-only">Pedidos não cancelados, agrupados por mês de criação</caption><thead><tr className="border-b"><th className="p-2">Mês</th><th className="p-2">Pedidos</th><th className="p-2">{average ? "Ticket médio" : "Valor em pedidos"}</th></tr></thead><tbody>{data.salesSeries.map(row => <tr key={row.month} className="border-b"><td className="whitespace-nowrap p-2">{row.month.split("-").reverse().join("/")}</td><td className="p-2">{row.orders}</td><td className="whitespace-nowrap p-2">{money(average ? row.average : row.amount)}</td></tr>)}</tbody></DataTable></div>
 }
 
 export function RecentActivity() {

@@ -6,7 +6,7 @@
     "fiscal-engine": "Adaptador interno XML, A1, XSD e SOAP; sem banco e sem acesso do navegador."
   },
   "webLayers": {
-    "content": "Conteúdo editorial MDX da ajuda; sem regras de negócio.",
+    "content": "Conteúdo e composição MDX de páginas; importa componentes, sem consultas HTTP, sessão ou regras de negócio.",
     "app": "URLs, páginas, layouts e entradas HTTP.",
     "features": "Funcionalidades agrupadas pelo assunto de negócio.",
     "components": "UI reutilizável, estrutura visual e mensagens compartilhadas.",
@@ -43,8 +43,8 @@
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 450,
-    "sha256": "33d394dc609376616da384a31e6afedc28b23fa0300bbe44b3f6bff2642744b9"
+    "count": 470,
+    "sha256": "a72c5498e0d9392591fa45bee24949599eec6f34ea205a5d67ce811753ab3a0c"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

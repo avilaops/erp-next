@@ -124,6 +124,19 @@ impl LineTaxRules {
         Ok(())
     }
 }
+fn normalize_profile_rate(rate: &str) -> Result<String, DomainError> {
+    let (whole, fraction) = match rate.split_once('.') {
+        Some((_, "")) => return Err(DomainError::Invalid("Alíquota decimal inválida")),
+        Some(parts) => parts,
+        None => (rate, ""),
+    };
+    let value = crate::domains::fixed(&format!("{whole}.{fraction:0<4}"), 4)?;
+    if value >= 1_000_000 {
+        return Err(DomainError::Invalid("Alíquota deve ser menor que 100"));
+    }
+    Ok(crate::domains::decimal(value, 4))
+}
+
 impl TaxProfile {
     pub fn validate(&mut self) -> Result<(), DomainError> {
         if self
@@ -148,11 +161,7 @@ impl TaxProfile {
             .into_iter()
             .flatten()
             {
-                let value = crate::domains::fixed(rate, 4)?;
-                if value >= 1_000_000 {
-                    return Err(DomainError::Invalid("Alíquota deve ser menor que 100"));
-                }
-                *rate = crate::domains::decimal(value, 4);
+                *rate = normalize_profile_rate(rate)?;
             }
             if defaults
                 .ipi_frame_code
@@ -178,13 +187,8 @@ impl TaxProfile {
         {
             return Err(DomainError::Invalid("Nome ou natureza do perfil inválidos"));
         }
-        self.pis_rate = crate::domains::decimal(crate::domains::fixed(&self.pis_rate, 4)?, 4);
-        self.cofins_rate = crate::domains::decimal(crate::domains::fixed(&self.cofins_rate, 4)?, 4);
-        for rate in [&self.pis_rate, &self.cofins_rate] {
-            if super::model::exact_decimal(rate, 2, 4)? >= 1_000_000 {
-                return Err(DomainError::Invalid("Alíquota deve ser menor que 100"));
-            }
-        }
+        self.pis_rate = normalize_profile_rate(&self.pis_rate)?;
+        self.cofins_rate = normalize_profile_rate(&self.cofins_rate)?;
         if self.ibs_cbs_cst.len() != 3
             || !self.ibs_cbs_cst.bytes().all(|c| c.is_ascii_digit())
             || self.class_code.len() != 6

@@ -8,6 +8,8 @@ import { useCommand, useResource } from "@/hooks/use-operation"
 import { blockerLabels } from "./nfe-draft-model"
 
 type Emission = { tenantId: string; id: string; revision: number; status: string; environment?: "homologation" | "production"; model?: 55 | 65; number: number; series: number; accessKey?: string; protocol?: string; result: { code?: string; reason?: string; blockers?: string[] } }
+type FiscalEvent = { id: string; kind: string; sequence: number; revision: number; status: string; request: { text?: string }; result: { reason?: string; protocol?: string } }
+type FiscalEvents = { tenantId: string; data: FiscalEvent[] }
 type Danfe = { url: string; filename: string; xmlHash: string; pdfHash: string }
 const labels: Record<string, string> = { preparing: "Preparação pendente", prepared: "XML preparado", unknown: "Resultado fiscal incerto", rejected: "Rejeitada", cancelled: "Cancelada na SEFAZ" }
 
@@ -17,6 +19,7 @@ async function sha256(bytes: BufferSource) {
 
 export function EmissionActions({ id, tenantId, draftRevision, environment, model = 55, canIssue, canCancel, canCorrect, dirty, onLocked }: { id: string; tenantId: string; draftRevision: number; environment: "homologation" | "production"; model?: 55 | 65; canIssue: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void }) {
   const resource = useResource<Emission>(`/api/erp/fiscal/nfe/${id}/emission`)
+  const events = useResource<FiscalEvents>(`/api/erp/fiscal/nfe/${id}/events`)
   const command = useCommand()
   const [pendingAction, setPendingAction] = useState("issue")
   const [event, setEvent] = useState("correction")
@@ -40,7 +43,7 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
     if (!command.uncertain && !window.confirm(action === "issue" ? `Emitir esta ${documentLabel} em ${environmentLabel}, gerando XML e transmitindo à SEFAZ?` : action === "consult" ? `Consultar e reconciliar este documento em ${environmentLabel} na SEFAZ?` : `Transmitir este evento fiscal em ${environmentLabel} com o texto informado?`)) return
     setPendingAction(action); setNotice("")
     const result = await command.send<Emission>(`/api/erp/fiscal/nfe/${id}/${action}`, tenantId, ["cancel", "correction"].includes(action) ? { text } : {}, revision)
-    if (result) { setNotice("Resultado registrado. Confira a situação fiscal atualizada abaixo."); resource.reload() }
+    if (result) { setNotice("Resultado registrado. Confira a situação fiscal atualizada abaixo."); resource.reload(); events.reload() }
   }
   async function download() {
     try {
@@ -99,5 +102,15 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
         <Button className="min-h-11" type="submit" disabled={command.stale}>Transmitir evento fiscal</Button>
       </fieldset>
     </form>}
+    {document && events.value?.data.length ? <section className="space-y-3 rounded-xl border p-4" aria-labelledby="fiscal-events-title">
+      <h3 id="fiscal-events-title" className="font-semibold">Histórico de eventos fiscais</h3>
+      <div className="divide-y divide-border">
+        {events.value.data.map(item => <article className="space-y-1 py-3 first:pt-0 last:pb-0" key={item.id}>
+          <div className="flex flex-wrap justify-between gap-2 text-sm"><strong>{item.kind === "cancelamento" ? "Cancelamento" : item.kind === "correcao" ? "Carta de correção" : item.kind}</strong><span>{item.status}</span></div>
+          {item.request.text && <p className="text-sm text-muted-foreground">{item.request.text}</p>}
+          {(item.result.protocol || item.result.reason) && <p className="text-xs text-muted-foreground">{item.result.protocol ? `Protocolo: ${item.result.protocol}` : item.result.reason}</p>}
+        </article>)}
+      </div>
+    </section> : null}
   </section>
 }

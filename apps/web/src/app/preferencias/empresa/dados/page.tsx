@@ -1,12 +1,8 @@
-import { Suspense } from "react"
-import { CompanyWorkspace } from "@/features/company/company-workspace"
-import { AccountShell } from "@/features/company/account/account-shell"
+import CompanyContent from "@/content/company/dados.mdx"
 
 export default function CompanyDataPage() {
   return (
-    <AccountShell>
-      <Suspense fallback={<p role="status">Carregando empresa…</p>}><CompanyWorkspace /></Suspense>
-    </AccountShell>
+    <CompanyContent />
   )
 }
 

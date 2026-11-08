@@ -1,0 +1,316 @@
+# Operações do ERP
+
+Este documento define o escopo para transformar os módulos de Operações em
+fluxos reais usando Next.js, React, TypeScript, MDX para conteúdo documentado,
+API Rust/Axum e PostgreSQL multiempresa.
+
+## Escopo
+
+O trabalho cobre:
+
+- Objetos de postagem
+- Logística reversa
+- Checkout de pedidos
+- Etiquetas
+- Ávila Envios
+- Contratos
+- Ordens de serviço
+- CT-e
+- Notas de serviço
+- Cobranças
+
+O objetivo é entregar operações persistentes e verificáveis. Uma tela com botão
+que altera apenas `useState` não conta como funcionalidade concluída. Esse tipo
+de protótipo é útil para layout; como sistema, é basicamente um quadro branco
+com CSS.
+
+## Estado atual
+
+### Base já existente
+
+Contratos comerciais já possuem API Rust, migrations, autenticação, tenant,
+revisão, geração, envio, sincronização e arquivos. O frontend já tem listas,
+detalhes, modelos e geração vinculada a pedidos.
+
+CT-e já possui distribuição de documentos recebidos, cursor, XML, conferência
+local e vínculos comerciais. Isso não representa emissão oficial. Emissão,
+autorização, cancelamento e contingência continuam dependentes de regras fiscais,
+certificado, credenciamento e homologação.
+
+Pedidos, clientes e fornecedores, produtos, estoque, arquivos, auditoria,
+outbox, permissões e contas a receber já são fundamentos reutilizáveis.
+
+### Limites atuais
+
+As telas de objetos de postagem, checkout, volumes e fila de etiquetas usam
+persistência, permissões, revisão e comandos idempotentes. Elas ainda não
+imprimem fisicamente, contratam frete ou comprovam entrega. Cotação, contratação
+e rastreamento de transportadoras continuam dependentes de adaptadores e
+credenciais externas.
+
+Contratos comerciais e contas a receber possuem operações persistentes. Ordens
+de serviço e cobranças exibem apenas os contratos de backend atualmente
+disponíveis; não devem declarar atendimento concluído, cobrança emitida ou
+pagamento bancário sem uma operação confirmada pelo servidor.
+
+## Arquitetura obrigatória
+
+### Next.js e React
+
+As páginas ficam em `apps/web/src/app`. Componentes de tela ficam em
+`apps/web/src/features`. Chamadas ao backend passam por rotas BFF em
+`apps/web/src/app/api/erp`, usando `forwardErp`.
+
+Cada tela deve tratar:
+
+- carregamento;
+- vazio;
+- erro recuperável;
+- acesso negado;
+- paginação;
+- escrita confirmada pelo servidor;
+- resultado incerto de comandos repetíveis.
+
+O estado operacional não deve ficar apenas no navegador. O frontend pode manter
+estado de formulário e seleção, mas a fonte de verdade é a API.
+
+### MDX
+
+MDX será usado para ajuda contextual, regras operacionais, documentação de
+processos e conteúdo de orientação. Documentos MDX não substituem validações no
+servidor nem contratos OpenAPI. Valores, permissões e estados exibidos na UI
+devem vir da API.
+
+### API Rust
+
+Cada domínio deve ter módulo próprio em `apps/api/src/domains`, rotas registradas
+em `apps/api/src/http/mod.rs` e contratos tipados. Reutilizar:
+
+- `authorized` para tenant e permissões;
+- `command_key`, `replay` e `remember` para idempotência;
+- `revision` para `If-Match`;
+- `record` para auditoria e outbox;
+- `DomainError` para problemas HTTP consistentes.
+
+### PostgreSQL
+
+Toda entidade operacional deve ter `tenant_id`, RLS habilitado e RLS forçado.
+Índices devem começar por tenant quando usados em consultas de negócio. Chaves
+estrangeiras compostas devem preservar o isolamento por empresa.
+
+Migrations de produção continuam sendo executadas pelo workflow autorizado da
+CI. Não executar `migrate` manualmente no servidor.
+
+## Regras comuns
+
+- Toda leitura exige identidade, empresa explícita e permissão de leitura.
+- Toda escrita exige permissão de gestão.
+- Toda criação ou comando repetível exige `Idempotency-Key`.
+- Toda atualização baseada em revisão exige `If-Match`.
+- Eventos de auditoria e outbox são gravados na mesma transação.
+- Respostas não podem revelar dados de outra empresa.
+- Integrações externas precisam de timeout, estado persistido e reconciliação.
+- Uma simulação nunca pode ser apresentada como contratação, impressão, entrega
+  ou autorização fiscal real.
+
+## Módulos
+
+### Objetos de postagem
+
+Unidade enviada ao destinatário, normalmente originada de um pedido.
+
+Campos: pedido, destinatário, destino, volumes, peso, valor declarado, serviço,
+transportadora, rastreio, etiqueta, situação e datas operacionais.
+
+Estados: `prepared`, `posted`, `in_transit`, `delivered`, `cancelled`.
+
+Regras: não entregar antes de postar; não alterar postagem cancelada; pedido e
+volumes devem pertencer ao mesmo tenant; rastreio não comprova entrega.
+
+### Logística reversa
+
+Autorização de retorno ligada a pedido, item, garantia ou motivo comercial.
+
+Estados: `requested`, `authorized`, `in_transit`, `received`, `inspecting`,
+`approved`, `rejected`, `cancelled`.
+
+Receber um item não gera automaticamente estorno, crédito ou entrada de estoque.
+Essas decisões precisam de comandos próprios.
+
+### Checkout de pedidos
+
+Fluxo de seleção, separação, conferência, divergência e conclusão do pedido.
+
+1. selecionar pedido elegível;
+2. conferir quantidade por item;
+3. registrar divergências;
+4. concluir transacionalmente;
+5. gerar ou vincular volumes e postagem.
+
+O checkout não pode baixar estoque duas vezes.
+
+### Etiquetas
+
+Fila persistente com origem, tipo, template, arquivo, cópias, tentativas, estado
+e erro. Geração de arquivo e impressão física são atos separados.
+
+Estados: `queued`, `rendering`, `ready`, `printing`, `printed`, `failed`,
+`cancelled`.
+
+Etiqueta pronta ou impressa não comprova postagem ou entrega.
+
+### Ávila Envios
+
+Separar cotação, contratação e rastreamento.
+
+Uma cotação guarda origem, destino, volumes, dimensões, peso, serviço, preço,
+prazo, validade e fonte. Contratação é idempotente. Rastreamento preserva fonte,
+horário e código original.
+
+Nenhuma transportadora real será chamada sem adaptador, ambiente, credenciais e
+homologação configurados.
+
+### Contratos
+
+Reutilizar o domínio comercial existente. O complemento de serviços deve ligar
+contrato, vigência, reajuste, renovação, ordens e cobrança elegível sem duplicar
+contratos comerciais.
+
+### Ordens de serviço
+
+Campos: cliente, contrato, ativo, técnico, equipe, prioridade, SLA, agenda,
+diagnóstico, materiais, horas, despesas, evidências, aceite e histórico.
+
+Estados: `opened`, `scheduled`, `in_progress`, `waiting_parts`,
+`waiting_customer`, `completed`, `cancelled`, `closed`.
+
+Materiais usam estoque. Concluir gera elegibilidade para cobrança, sem faturar
+silenciosamente.
+
+### CT-e
+
+O módulo de CT-e emitido deve ser separado da distribuição de CT-e recebido.
+Deve cobrir tomador, partes, origem, destino, carga, valores, série, número,
+XML, assinatura, ambiente, transmissão, autorização, rejeição, cancelamento,
+eventos, protocolo e vínculos comerciais.
+
+Produção permanece bloqueada até homologação e aprovação fiscal.
+
+### Notas de serviço
+
+Começar pela preparação e validação local: prestador, tomador, serviço, código,
+competência, retenções, município, RPS, lote, XML e protocolo.
+
+Transmissão depende de adaptador municipal ou nacional configurado. A UI não deve
+declarar autorização com base em simulação.
+
+### Cobranças
+
+Consolidar contratos e ordens concluídas por competência, validar preço,
+impostos, descontos e origem, gerar prévia auditável, aprovar e então criar a
+conta a receber existente.
+
+Duplicidade deve ser impedida por origem e período. Pagamento e estorno ficam no
+financeiro.
+
+## Fases
+
+### Fase 1 Objetos de postagem
+
+- migration, RLS e permissões;
+- listagem, busca, paginação, criação e detalhe;
+- transição de situação;
+- auditoria, outbox e idempotência;
+- BFF e tela Next/React sem dados fixos;
+- testes de API e UI.
+
+### Fase 2 Checkout e volumes
+
+Itens, quantidades, divergências, conclusão transacional e vínculo com postagem.
+
+### Fase 3 Etiquetas e reversa
+
+Fila de etiquetas, templates, arquivos, autorizações e transições da reversa.
+
+### Fase 4 Ávila Envios
+
+Cotação, adaptador, credenciais seguras, contratação idempotente, rastreio e
+reconciliação.
+
+### Fase 5 Ordens de serviço
+
+Execução, agenda, SLA, técnicos, materiais, evidências, aceite e cobrança
+elegível.
+
+### Fase 6 Cobranças e notas
+
+Prévia, aprovação, contas a receber, preparação NFS-e, adaptadores e homologação.
+
+### Fase 7 CT-e e relatórios
+
+Emissão em homologação, eventos, cancelamento, contingência, vínculos e
+relatórios operacionais, fiscais e financeiros.
+
+## Critérios de conclusão
+
+Uma funcionalidade só será concluída quando:
+
+- a tela não usar dados fixos;
+- API validar tenant, identidade, permissão, campos e transições;
+- migration aplicar em banco limpo;
+- RLS impedir leitura cruzada;
+- repetição idempotente não duplicar registros;
+- conflito de revisão preservar a edição;
+- auditoria e outbox registrarem a mudança;
+- testes cobrirem sucesso, falha, vazio, acesso negado e duplicidade;
+- lint, typecheck, testes e build passarem na CI;
+- UI for verificada em desktop e viewport estreito;
+- publicação e produção forem verificadas separadamente da implementação.
+
+## Pendências externas
+
+- contrato e endpoint do Ávila Envios;
+- transportadoras e credenciais de homologação;
+- provedor municipal ou nacional de NFS-e;
+- certificado e credenciamento de CT-e;
+- regras de frete, devolução, garantia e cobrança;
+- modelos de etiqueta e impressoras;
+- matriz final de permissões;
+- exigência de assinatura ou aceite em ordens.
+
+## Implementação iniciada
+
+A primeira fatia é Objetos de postagem. A implementação introduz persistência,
+permissões, endpoints autenticados e integração BFF.
+
+A Fase 2 foi iniciada com sessões de checkout persistidas, snapshot das linhas
+do pedido, conferência por linha, controle de revisão, idempotência, auditoria,
+outbox e endpoints BFF para leitura, início, conferência e conclusão. A baixa de
+estoque e a geração da postagem ainda não são feitas automaticamente; serão
+conectadas depois que o contrato de volumes e a transação de expedição forem
+fechados.
+
+A entidade de volumes foi adicionada ao checkout com sequência por sessão, peso,
+dimensões, código de etiqueta e status operacional. O endpoint de inclusão usa
+idempotência e revisão otimista; impressão, contratação de frete e baixa de
+estoque continuam fora dessa operação.
+
+O detalhe do checkout já permite incluir volumes e exibe os volumes persistidos
+da sessão. A mudança de status para etiquetado ou embalado ficará condicionada
+ao próximo contrato de impressão e expedição; as transições operacionais já
+foram implementadas com revisão, idempotência e auditoria.
+
+A interface também cria a fila de etiquetas para volumes etiquetados e permite
+informar o UUID do checkout na postagem para vincular volumes embalados. Essas
+ações persistem jobs e vínculos, mas não imprimem nem enviam dados a
+transportadoras automaticamente.
+
+A fila de etiquetas passou a ter consulta própria na tela de Etiquetas, com
+status persistido (`queued`, `printed` ou `failed`), checkout, volume e código
+de etiqueta. A impressão física ainda depende do contrato de impressoras.
+
+As telas que ainda não têm domínio persistente continuam explicitamente
+indisponíveis até suas fases, evitando que uma interface bonita finja que o ERP
+já integrou serviços que ainda não existem. O wrapper de prévias deve conter
+somente essas rotas; operações persistentes ficam fora de
+`apps/web/src/lib/demonstration-routes.ts`.

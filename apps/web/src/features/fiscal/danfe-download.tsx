@@ -14,6 +14,7 @@ const subscribeHydration = (notify: () => void) => {
 }
 export function DanfeDownload({ tenantId }: { tenantId: string }) {
   const ready = useSyncExternalStore(subscribeHydration, () => true, () => false)
+  const fileInput = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -22,13 +23,14 @@ export function DanfeDownload({ tenantId }: { tenantId: string }) {
   useEffect(() => () => activeRequest.current?.abort(), [])
   useEffect(() => () => { if (download) URL.revokeObjectURL(download.url) }, [download])
   async function generate() {
-    if (!file || busy) return
+    const selectedFile = fileInput.current?.files?.[0] ?? file
+    if (!selectedFile || busy) return
     setBusy(true); setError(""); setDownload(null)
     const controller = new AbortController()
     activeRequest.current = controller
     try {
-      if (!file.size || file.size > 900 * 1024) throw new Error("Selecione um XML de até 900 KiB")
-      const original = await file.arrayBuffer()
+      if (!selectedFile.size || selectedFile.size > 900 * 1024) throw new Error("Selecione um XML de até 900 KiB")
+      const original = await selectedFile.arrayBuffer()
       let xml: string
       try { xml = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(original) }
       catch { throw new Error("O XML precisa estar codificado em UTF-8") }
@@ -51,7 +53,7 @@ export function DanfeDownload({ tenantId }: { tenantId: string }) {
     <p>Selecione o XML completo da NF-e modelo 55, com assinatura e protocolo de autorização. O emitente ou destinatário precisa corresponder à empresa ativa.</p>
     <p className="text-sm text-muted-foreground">A geração confere o protocolo contido no arquivo, o esquema XML e a assinatura. A situação atual da nota, incluindo eventual cancelamento, depende de consulta à SEFAZ. O arquivo não é transmitido para autorização nem armazenado pelo ERP nesta operação.</p>
     <form className="space-y-4" onSubmit={event => { event.preventDefault(); void generate() }}>
-      <label className="block space-y-2">XML autorizado da NF-e<input className="block w-full rounded-lg border p-3" type="file" accept=".xml,application/xml,text/xml" disabled={!ready || busy} onChange={event => { setFile(event.target.files?.[0] || null); setDownload(null); setError("") }} /></label>
+      <label className="block space-y-2">XML autorizado da NF-e<input ref={fileInput} className="block w-full rounded-lg border p-3" type="file" accept=".xml,application/xml,text/xml" disabled={!ready || busy} onInput={event => setFile(event.currentTarget.files?.[0] || null)} onChange={event => { setFile(event.currentTarget.files?.[0] || null); setDownload(null); setError("") }} /></label>
       <Button type="submit" disabled={!file || busy}>{busy ? "Validando XML e gerando DANFE…" : "Gerar DANFE"}</Button>
     </form>
     {error && <p role="alert" className="text-destructive">{error}</p>}

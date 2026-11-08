@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
@@ -128,7 +129,7 @@ export function ErpAssistantModule() {
     <Link className="inline-flex items-center gap-1 text-sm text-muted-foreground" href="/"><ArrowLeft className="size-4" />Início</Link>
     <header className="mb-6 mt-6 border-b border-border pb-6">
       <p className="flex items-center gap-2 text-sm font-medium text-primary"><Sparkles className="size-4" />Central de trabalho</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Assistente do ERP</h1>
+      <PageTitle className="mt-2 text-3xl font-semibold tracking-tight">Assistente do ERP</PageTitle>
       <p className="mt-3 text-muted-foreground">Localize telas e consulte produtos, estoque, clientes e pedidos da empresa ativa.</p>
       {tenant && <p className="mt-2 text-sm font-medium text-primary">{tenant.legalName}</p>}
     </header>

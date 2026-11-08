@@ -135,12 +135,12 @@ pub(super) async fn payload(
 pub(super) fn now() -> String {
     OffsetDateTime::now_utc().format(&Rfc3339).expect("RFC3339")
 }
-pub(super) fn available_response() -> Response {
+pub(super) fn available_response(production_enabled: bool) -> Response {
     super::problem(
         StatusCode::SERVICE_UNAVAILABLE,
         "nfe_emission_unavailable",
         "Configure o motor fiscal e um certificado A1 válido para emitir no ambiente escolhido",
-        json!({"productionEnabled":true}),
+        json!({"productionEnabled":production_enabled}),
     )
 }
 pub(super) fn reply(document: &Document, tenant: Uuid) -> Response {
@@ -252,10 +252,18 @@ pub async fn issue(
     }
     if state.fiscal_engine.is_none() || !certificates::verified(&state, &mut tx, tenant).await? {
         tx.commit().await.map_err(db)?;
-        return Ok(available_response());
+        return Ok(available_response(state.nfe_production_enabled_for(tenant)));
     }
     if draft.issuer.profile.state != "SP" {
         return Err(DomainError::Conflict("Emissão disponível para emitente de São Paulo").into());
+    }
+    if draft.input.environment == super::model::Environment::Production
+        && !state.nfe_production_enabled_for(tenant)
+    {
+        return Err(DomainError::Conflict(
+            "Emissão em produção permanece bloqueada até homologação externa e liberação operacional",
+        )
+        .into());
     }
     // Revalidate the snapshot and order linkage before permanently allocating a number.
     draft.input.validate(&draft.issuer.profile)?;

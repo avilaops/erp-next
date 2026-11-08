@@ -1,4 +1,5 @@
 "use client"
+import { DataTable } from "@/components/workspace/data-table"
 
 import { erpFetch } from "@/lib/api/client"
 
@@ -47,18 +48,21 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
   const { q, status, offset, categoryId } = query
   const [result, setResult] = useState<ProductList | null>(null)
   const [error, setError] = useState("")
+  const [responseStatus, setResponseStatus] = useState(0)
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
+    let requestStatus = 0
     const params = new URLSearchParams({ q, offset: String(offset), limit: String(pageSize) })
     if (status) params.set("status", status)
     if (categoryId) params.set("category_id", categoryId)
     erpFetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+      requestStatus = response.status
       const data = await response.json()
       if (!response.ok) throw new Error(data.title || "Catálogo indisponível")
       if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message) } })
+    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [q, status, offset, retry, pageSize, categoryId])
@@ -81,10 +85,10 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
         <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-10 w-full rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
         <Button className="h-10" type="submit" disabled={loading}>Buscar</Button>
       </form>
-      {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p><AccessLink className={catalogLink} >Entrar com Avila Ops</AccessLink><Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={catalogLink}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <>
-          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block"><table aria-label="Catálogo de produtos" className="min-w-[860px] w-full text-left text-sm"><thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="w-[44%] px-5 py-3.5 font-semibold">Produto</th><th className="w-[18%] px-4 py-3.5 font-semibold">SKU</th><th className="w-[11%] px-4 py-3.5 font-semibold">Unidade</th><th className="w-[16%] px-4 py-3.5 text-right font-semibold">Preço base</th><th className="w-[11%] px-5 py-3.5 font-semibold">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-t border-border transition-colors hover:bg-muted/40"><td className="px-5 py-4"><Link className={`${catalogLink} flex min-w-0 items-center gap-4 text-base`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span className="min-w-0 truncate">{product.name}</span></Link></td><td className="px-4 py-4 font-medium text-muted-foreground">{product.sku}</td><td className="px-4 py-4">{product.unit}</td><td className="whitespace-nowrap px-4 py-4 text-right font-semibold">R$ {product.basePrice.replace(".", ",")}</td><td className="px-5 py-4"><span className={product.status === "active" ? "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary" : "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"}>{product.status === "active" ? "Ativo" : "Arquivado"}</span></td></tr>)}</tbody></table></div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block"><DataTable aria-label="Catálogo de produtos" className="min-w-[860px] w-full text-left text-sm"><thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="w-[44%] px-5 py-3.5 font-semibold">Produto</th><th className="w-[18%] px-4 py-3.5 font-semibold">SKU</th><th className="w-[11%] px-4 py-3.5 font-semibold">Unidade</th><th className="w-[16%] px-4 py-3.5 text-right font-semibold">Preço base</th><th className="w-[11%] px-5 py-3.5 font-semibold">Situação</th></tr></thead><tbody>{result.data.map(product => <tr key={product.id} className="border-t border-border transition-colors hover:bg-muted/40"><td className="px-5 py-4"><Link className={`${catalogLink} flex min-w-0 items-center gap-4 text-base`} href={`/cadastros/produtos/${product.id}`}><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><span className="min-w-0 truncate">{product.name}</span></Link></td><td className="px-4 py-4 font-medium text-muted-foreground">{product.sku}</td><td className="px-4 py-4">{product.unit}</td><td className="whitespace-nowrap px-4 py-4 text-right font-semibold">R$ {product.basePrice.replace(".", ",")}</td><td className="px-5 py-4"><span className={product.status === "active" ? "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary" : "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"}>{product.status === "active" ? "Ativo" : "Arquivado"}</span></td></tr>)}</tbody></DataTable></div>
           <div aria-label="Lista de produtos" className="space-y-3 lg:hidden">{result.data.map(product => <article key={product.id} className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex min-w-0 items-start gap-4"><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} /><div className="min-w-0 flex-1"><Link className={`${catalogLink} block truncate text-base`} href={`/cadastros/produtos/${product.id}`}>{product.name}</Link><p className="mt-1 text-sm text-muted-foreground">SKU {product.sku} · {product.unit}</p><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><strong>R$ {product.basePrice.replace(".", ",")}</strong><span className={product.status === "active" ? "rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary" : "rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground"}>{product.status === "active" ? "Ativo" : "Arquivado"}</span></div></div></div></article>)}</div>
         </> : <p>Nenhum produto encontrado.</p>}
         <div className="flex items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - pageSize) })}>Anterior</Button><span className="text-center text-sm"><span>Página {Math.floor(offset / pageSize) + 1}</span> · {pageSize} por página</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + pageSize >= result.total} onClick={() => navigate({ ...query, offset: offset + pageSize })}>Próxima</Button></div>
@@ -101,6 +105,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
   const [baseline, setBaseline] = useState(JSON.stringify(empty))
   const [etag, setEtag] = useState("")
   const [error, setError] = useState("")
+  const [responseStatus, setResponseStatus] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -121,6 +126,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
   useEffect(() => {
     const controller = new AbortController()
     erpFetch(id ? `/api/erp/products/${id}` : "/api/erp/products?limit=1", { cache: "no-store", signal: controller.signal }).then(async response => {
+      if (!controller.signal.aborted) setResponseStatus(response.status)
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
@@ -181,13 +187,13 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     if ((dirty || recovered || storageInvalid) && !window.confirm("Descartar sua edição e carregar o cadastro atual do servidor?")) return
     if (!writeProductDraft(storageKey, null)) { setStorageError("Não foi possível descartar o rascunho. Verifique o armazenamento desta aba."); return }
     setStorageInvalid(false); command.current = null
-    setLoading(true); setRetry(value => value + 1); setSaved(false); setRecovered(false); setStorageError("")
+    setLoading(true); setResponseStatus(0); setRetry(value => value + 1); setSaved(false); setRecovered(false); setStorageError("")
   }
   return <div>
     <PageHeader eyebrow="Cadastros · Produtos" title={view ? snapshot?.data?.name || "Produto" : id ? "Editar produto" : "Novo produto"} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." />
     <Link className={catalogLink} href="/cadastros/produtos">Voltar ao catálogo</Link>
     <section className="form-section mt-5 space-y-5">
-      {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><AccessLink className={catalogLink} >Entrar com Avila Ops</AccessLink><Button onClick={reload}>Tentar novamente</Button></> : <>
+      {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p>{responseStatus === 401 && <AccessLink className={catalogLink}>Entrar com Avila Ops</AccessLink>}<Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar produtos.</p>}
         {recovered && <p role="status">Rascunho recuperado nesta aba. Confira os dados antes de salvar.</p>}

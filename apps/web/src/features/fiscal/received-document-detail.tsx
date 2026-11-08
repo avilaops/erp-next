@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
 
@@ -8,7 +9,7 @@ import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Download, Eye, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { fetchReceivedDocument, saveDocument, type ReceivedNote } from "./received-documents"
+import { fetchReceivedDocument, saveDocument } from "./received-documents"
 import { ReceivedActions } from "./incoming-actions"
 
 type Detail = Schema<"ReceivedDetail">
@@ -54,7 +55,7 @@ export function ReceivedDocumentDetail({ id }: { id: string }) {
   const note = detail?.data
   return <main className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
     <Link className="inline-flex items-center gap-2 text-sm text-primary" href="/fiscal/monitor"><ArrowLeft className="size-4" />Voltar ao monitor</Link>
-    <header className="border-b pb-6"><p className="text-sm text-primary">Fiscal / NF-e recebida</p><h1 className="mt-2 text-3xl font-semibold">{note ? `NF-e ${note.number} · Série ${note.series}` : "Documento fiscal"}</h1><p className="mt-2 text-muted-foreground">Consulte o XML armazenado e visualize seu DANFE em PDF.</p></header>
+    <header className="border-b pb-6"><p className="text-sm text-primary">Fiscal / NF-e recebida</p><PageTitle className="mt-2 text-3xl font-semibold">{note ? `NF-e ${note.number} · Série ${note.series}` : "Documento fiscal"}</PageTitle><p className="mt-2 text-muted-foreground">Consulte o XML armazenado e visualize seu DANFE em PDF.</p></header>
     {loading && <p role="status">Carregando documento da empresa…</p>}
     {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}
     {note && <>

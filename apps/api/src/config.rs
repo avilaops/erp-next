@@ -1,6 +1,7 @@
 use std::{env, net::SocketAddr};
 
 use anyhow::{Context, ensure};
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -8,16 +9,30 @@ pub struct Config {
     pub auth_userinfo_url: String,
     pub database_url: String,
     pub database_max_connections: u32,
+    pub nfe_production_enabled: bool,
+    pub nfe_production_tenant_id: Option<Uuid>,
     pub invitations: Option<crate::platform::invitations::ProvisioningClient>,
+    pub mail: Option<crate::platform::mail::SmtpMailer>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
     pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
 }
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
-        validate_legacy_fiscal_flag(
+        let nfe_production_enabled = parse_legacy_fiscal_flag(
             &env::var("NFE_PRODUCTION_ENABLED").unwrap_or_else(|_| "false".to_owned()),
         )?;
+        let nfe_production_tenant_id = env::var("NFE_PRODUCTION_TENANT_ID")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| {
+                Uuid::parse_str(value.trim()).context("NFE_PRODUCTION_TENANT_ID must be a UUID")
+            })
+            .transpose()?;
+        ensure!(
+            !nfe_production_enabled || nfe_production_tenant_id.is_some(),
+            "NFE_PRODUCTION_TENANT_ID is required when NFE_PRODUCTION_ENABLED=true"
+        );
         let bind_address = env::var("API_BIND_ADDRESS")
             .unwrap_or_else(|_| "0.0.0.0:8080".to_owned())
             .parse()
@@ -46,7 +61,10 @@ impl Config {
             auth_userinfo_url,
             database_url,
             database_max_connections,
+            nfe_production_enabled,
+            nfe_production_tenant_id,
             invitations: crate::platform::invitations::ProvisioningClient::from_env(&auth_issuer)?,
+            mail: crate::platform::mail::SmtpMailer::from_env()?,
             danfe: danfe_configuration()?,
             contracts: crate::domains::contracts::provider::Docuseal::from_env()?,
         })
@@ -75,25 +93,25 @@ fn danfe_configuration() -> anyhow::Result<Option<crate::domains::fiscal::danfe_
     crate::domains::fiscal::danfe_client::DanfeClient::new(&endpoint, &token, bundle).map(Some)
 }
 
-// Kept for deployment compatibility. Environment selection belongs to the
-// persisted tenant profile; this legacy variable cannot issue or switch a note.
-fn validate_legacy_fiscal_flag(value: &str) -> anyhow::Result<()> {
+// This is an explicit deployment gate. It never selects a tenant environment,
+// provisions credentials or proves fiscal homologation by itself.
+fn parse_legacy_fiscal_flag(value: &str) -> anyhow::Result<bool> {
     ensure!(
         ["false", "true"].contains(&value),
         "NFE_PRODUCTION_ENABLED must be a boolean; select the fiscal environment in the company profile"
     );
-    Ok(())
+    Ok(value == "true")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::validate_legacy_fiscal_flag;
+    use super::parse_legacy_fiscal_flag;
     #[test]
     fn legacy_flag_accepts_booleans_without_selecting_a_company_environment() {
-        assert!(validate_legacy_fiscal_flag("false").is_ok());
-        assert!(validate_legacy_fiscal_flag("true").is_ok());
+        assert!(!parse_legacy_fiscal_flag("false").unwrap());
+        assert!(parse_legacy_fiscal_flag("true").unwrap());
         for value in ["1", "", "False", "production"] {
-            assert!(validate_legacy_fiscal_flag(value).is_err());
+            assert!(parse_legacy_fiscal_flag(value).is_err());
         }
     }
 }

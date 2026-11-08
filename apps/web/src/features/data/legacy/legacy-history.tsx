@@ -36,21 +36,24 @@ export function LegacyHistory() {
   const [offset, setOffset] = useState(0)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [error, setError] = useState("")
+  const [responseStatus, setResponseStatus] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
+    let requestStatus = 0
     const params = new URLSearchParams({ offset: String(offset) })
     if (collection) params.set("collection", collection)
     erpFetch(`/api/erp/legacy-history?${params}`, { cache: "no-store", signal: controller.signal })
       .then(async response => {
+        requestStatus = response.status
         const body = await response.json()
         if (!response.ok) throw new Error(body.title || "Não foi possível consultar o histórico")
         setSnapshot(body); setError("")
-      }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
+      }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message); setResponseStatus(requestStatus) } })
     return () => controller.abort()
   }, [collection, offset])
   return <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
     <PageHeader eyebrow="Dados da empresa" title="Histórico do ERP anterior" description="Registros e arquivos originais preservados na migração. A consulta não altera pedidos nem repete operações financeiras ou fiscais." />
-    <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href="/cadastros/produtos">Cadastro atual de produtos</Link><AccessLink className="text-primary underline" >Entrar com Avila Ops</AccessLink></div>
+    <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href="/cadastros/produtos">Cadastro atual de produtos</Link>{error && responseStatus === 401 && <AccessLink className="text-primary underline">Entrar com Avila Ops</AccessLink>}</div>
     {error && <p role="alert" className="form-section">{error}</p>}
     {!snapshot && !error && <p role="status">Carregando histórico…</p>}
     {snapshot && <>

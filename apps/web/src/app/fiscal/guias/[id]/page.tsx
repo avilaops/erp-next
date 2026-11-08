@@ -1,13 +1,13 @@
 import { Suspense } from "react"
-import { TaxGuideDetail } from "@/features/fiscal/fiscal-details"
+import { FiscalCapabilityUnavailable } from "@/features/fiscal/fiscal-screen"
 
 export function generateStaticParams() {
   return [{ id: "GUIA-091" }]
 }
 
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  return <TaxGuideDetail id={id} />
+  await params
+  return <FiscalCapabilityUnavailable />
 }
 
 export const metadata = { title: "Detalhes da guia fiscal" }

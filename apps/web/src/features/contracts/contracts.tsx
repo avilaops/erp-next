@@ -17,7 +17,7 @@ import { contractFieldLabels as fieldLabels, contractFieldGroups, contractFieldG
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">
 type StoredFile = Schema<"ContractFile">
-type Detail = Schema<"ContractDetail">
+type Detail = Schema<"ContractDetail"> & { packageStatus?: "sending" | "sent" | "failed" | "unknown"; packageUpdatedAt?: string }
 type Options = Schema<"ContractOptions">
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"
@@ -140,11 +140,11 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
     if (!result.value) return
     setPendingAction(name); setNotice("")
     const updated = await command.send<Detail>(`/api/erp/commercial-contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
-    if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
+    if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : name === "send-package" ? "Pacote enviado por SMTP. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
   }
   if (result.loading) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><p role="status">Carregando contrato…</p></>
   if (result.error || !result.value) return <><PageHeader eyebrow="Avila Ops · Contratos" title="Detalhes do contrato" description="Consulte o documento, os destinatários e o andamento." /><Link className={linkClass} href="/servicos/contratos">Voltar à lista</Link><section className="form-section space-y-4"><p role="alert"><RequestError message={result.error || "Contrato indisponível"} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></section></>
-  const { data: contract, files, canEdit, canSend, emailReady, email } = result.value
+  const { data: contract, files, canEdit, canSend, emailReady, email, packageStatus } = result.value
   if (orderId && contract.orderId !== orderId) return <section className="form-section space-y-3"><p role="alert">Este contrato não pertence ao pedido consultado.</p><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link></section>
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
   const blocked = command.busy || command.uncertain || command.stale
@@ -174,6 +174,7 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar contrato</Button>}
           {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi o pedido, os documentos, o e-mail e os destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}
           {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>O pedido e o link do contrato seguem juntos para os destinatários acima, pelo e-mail configurado no serviço de contratos.</p><Button disabled={blocked || !emailReady || !email} onClick={() => action("send")}>Enviar pedido e contrato</Button>{!email && <p role="status">Atualize a integração antes de enviar o pedido e o contrato juntos.</p>}</div>}
+          {canEdit && canSend && ["reviewed", "send_requested", "sent", "opened", "completed"].includes(contract.status) && <div className="space-y-3 border-t pt-4"><p>Envia por SMTP o contrato preservado, o pedido, a NF-e autorizada e, se o recebível estiver quitado, o comprovante de pagamento.</p>{packageStatus && <p role="status">Último pacote documental: {packageStatus === "sent" ? "enviado" : packageStatus === "failed" ? "falhou" : packageStatus === "sending" ? "em envio" : "resultado incerto"}.</p>}<Button variant="outline" disabled={blocked || packageStatus === "sending"} onClick={() => action("send-package")}>Enviar pacote de documentos</Button></div>}
           {canEdit && !canSend && <p className="text-sm">A revisão e o envio exigem permissão específica para contratos.</p>}
         </section>
         <section className="form-section space-y-3"><h2 className="font-semibold">Dados preservados</h2><p>{contract.snapshot.company.legalName}</p><p>{contract.snapshot.customer.name} · {contract.snapshot.customer.taxId}</p><p>R$ {contract.snapshot.order.amount.replace(".", ",")} · Pedido na revisão {contract.snapshot.order.revision}</p><details><summary className="cursor-pointer font-medium">Conferir campos utilizados</summary><dl className="mt-3 space-y-3">{Object.entries(contract.fields).map(([key, value]) => <div key={key}><dt className="text-sm font-medium">{fieldLabels[key] || key}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value || "Não informado"}</dd></div>)}</dl></details><p className="break-all text-xs text-muted-foreground">Contrato {contract.id}{contract.externalId ? ` · Solicitação ${contract.externalId}` : ""}</p></section>

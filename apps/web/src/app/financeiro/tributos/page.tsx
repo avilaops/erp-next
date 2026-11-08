@@ -1,4 +1,4 @@
-import { FinanceList } from "@/features/finance/finance-pages"
-export default function Page() { return <FinanceList kind="tributos" /> }
+import { FinanceCapabilityUnavailable } from "@/features/finance/finance-capability-unavailable"
+export default function Page() { return <FinanceCapabilityUnavailable title="Tributos" description="Apuração, agenda e pagamentos de tributos." /> }
 
 export const metadata = { title: "Tributos e guias" }

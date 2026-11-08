@@ -49,7 +49,7 @@ test("fiscal integrado mantém listagem e preparação do pedido fora das prévi
   await page.route("**/api/erp/fiscal/order-preparations/" + record, route => route.fulfill({ json: { tenantId: tenant, orderId: record, orderRevision: 2, customerId: record, recipient: input.recipient, items: input.items, productsTotal: input.productsTotal } }))
   await page.goto("/fiscal")
   const fiscalLink = page.locator('main a[href="/fiscal/notas-saida"]')
-  await expect(fiscalLink).toContainText("Abrir funcionalidade", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
+  await expect(fiscalLink).toContainText("Preparar e consultar NF-e", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
   await fiscalLink.click()
   await expect(page).toHaveTitle("NF-e de saída · Avila ERP")
   await expect(page.getByText("Nenhum rascunho cadastrado nesta empresa.", { exact: true })).toBeVisible()
@@ -104,7 +104,8 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       await page.setViewportSize({ width: 390, height: 844 })
       await page.goto(route)
       await expect(page.locator("h1")).toBeVisible()
-      await expect(page.locator('main [role="alert"], main [role="status"]').filter({ hasText: "Operação indisponível" })).toBeVisible()
+      const unavailable = route === "/fiscal/notas-saida" ? page.getByRole("region", { name: "Rascunhos salvos", exact: true }).getByRole("alert") : page.locator('main [role="alert"], main [role="status"]').filter({ hasText: "Operação indisponível" })
+      await expect(unavailable).toContainText("Operação indisponível")
       await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(theme === "dark")
       // Theme changes can precede the inherited color transition on settings links.
       if (route === "/preferencias/empresa") await expect.poll(() => page.locator('[aria-labelledby^="company-settings-"] strong').evaluateAll(elements => {

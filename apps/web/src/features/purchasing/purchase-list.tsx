@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { Pagination } from "@/components/workspace/pagination"
 import { useResource } from "@/hooks/use-operation"
 import { money, purchaseLabels, purchaseLink, type PurchaseList as Listing } from "./purchase-types"
 
@@ -20,7 +21,7 @@ export function PurchaseList({ receiving = false }: { receiving?: boolean }) {
         <p>{result.value?.total || 0} compra(s)</p>
         {!result.value?.data.length && <p>Nenhuma compra cadastrada neste módulo. Os documentos antigos preservados podem ser consultados no <Link className={purchaseLink} href="/historico">histórico importado</Link>.</p>}
         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(order => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={order.id}><Link className={`${purchaseLink} break-words`} href={`/compras/pedidos/${order.id}`}>Compra de {order.supplierName}</Link><p>{purchaseLabels[order.status] || order.status} · {money(order.amount)}</p><p>Vencimento: {order.dueDate}</p>{receiving && <p className="text-sm text-muted-foreground">Recebimentos e saldo disponível no detalhe da compra.</p>}</li>)}</ul>
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><span>Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <Pagination offset={offset} pageSize={25} total={result.value?.total || 0} loading={result.loading} onOffsetChange={setOffset} />
       </>}
     </section>
   </>

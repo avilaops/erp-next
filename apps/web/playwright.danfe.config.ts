@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import path from "node:path"
 
 // Public fixture values, restricted to this isolated browser test.
-export const origin = "http://127.0.0.1:33118"
+export const origin = process.env.ERP_TEST_WEB_ORIGIN || "http://127.0.0.1:33118"
 export const secret = "danfe-browser-fixture-not-a-real-service-secret"
 const runId = process.env.ERP_DANFE_BROWSER_RUN_ID ||= `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`
 const directory = path.resolve("../../artifacts/danfe-browser", runId)

@@ -226,7 +226,7 @@ test("consulta de exclusões separa remoções concluídas de cancelamentos", as
     return route.fulfill({ json: { tenantId: tenant, data: deletions, nextCursor: null } })
   })
   await page.goto("/preferencias/sistema/exclusoes")
-  await expect(page.getByRole("heading", { name: "Consulta de exclusões realizadas", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Exclusões registradas", exact: true })).toBeVisible()
   await expect.poll(() => queries.at(-1)?.get("category")).toBe("deletions")
   await expect(page.getByRole("listitem").filter({ hasText: "Perfil de acesso removido" })).toBeVisible()
   await expect(page.getByRole("listitem").filter({ hasText: "Certificado digital removido" })).toBeVisible()

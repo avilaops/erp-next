@@ -86,7 +86,14 @@ export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, 
   return <section ref={section} className={searchOnly ? "relative min-w-0 self-start" : "min-w-0 space-y-3 rounded-xl border p-4"} aria-label={`Seleção de ${label}`}
     onBlur={event => { if (searchOnly && !event.currentTarget.contains(event.relatedTarget)) setShowResults(false) }}
     onKeyDown={event => { if (searchOnly && event.key === "Escape") { setShowResults(false); section.current?.querySelector("input")?.focus() } }}>
-    <form className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 }); setShowResults(true); result.reload() }}>
+    <form className="flex flex-wrap items-end gap-2" onSubmit={event => {
+      event.preventDefault()
+      // Keep focus inside the lookup when loading disables the submit button.
+      event.currentTarget.querySelector("input")?.focus()
+      setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 })
+      setShowResults(true)
+      result.reload()
+    }}>
       <label className="min-w-0 flex-1 space-y-2">Buscar {label}<SearchInput aria-expanded={searchOnly ? showResults : undefined} aria-controls={searchOnly && showResults ? resultsId : undefined} onSearch={q => { setQuery({ q, offset: 0 }); if (!searchOnly || section.current?.contains(document.activeElement)) setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="submit" disabled={disabled || result.loading}>Pesquisar {label}</Button>
     </form>
     {selectedName && <p role="status" className="mt-3 break-words text-sm font-medium text-primary">Cliente selecionado: {selectedName}</p>}

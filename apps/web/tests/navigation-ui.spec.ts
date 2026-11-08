@@ -14,6 +14,18 @@ async function openPreferences(page: Page) {
   }
 }
 
+async function preferenceMenu(page: Page) {
+  await expect(page.getByRole("dialog")).toBeHidden()
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
+  const drawer = page.getByRole("dialog")
+  await expect(drawer).toHaveCSS("opacity", "1")
+  await drawer.getByRole("button", { name: "Preferências", exact: true }).click()
+  // The module heading receives focus again in the menu's next animation frame.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await expect(drawer.getByRole("heading", { name: "Preferências", exact: true })).toBeFocused()
+  return drawer
+}
+
 
 test("retorno compartilhado mantém filtros e recusa outro destino", () => {
   const listing = "/cadastros/clientes-fornecedores"
@@ -134,12 +146,14 @@ test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: "erp_session", value: Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString("base64url"), url: origin, httpOnly: true, sameSite: "Lax" }])
 })
 
-test("preferências usa só a navegação lateral e mantém categorias no celular", async ({ page }, info) => {
+test("preferências recolhe a navegação global e mantém categorias no menu", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 950 })
   await page.goto("/preferencias?categoria=sistema")
   await expect(page.getByRole("navigation", { name: "Categorias de preferências" })).toHaveCount(0)
-  const nav = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
-  await expect(nav.getByRole("link", { name: "Sistema", exact: true })).toHaveAttribute("aria-current", "page")
+  await expect(page.getByRole("navigation", { name: "Módulos do ERP", exact: true })).toHaveCount(0)
+  const desktopDrawer = await preferenceMenu(page)
+  await expect(desktopDrawer.getByRole("link", { name: "Sistema", exact: true })).toHaveAttribute("aria-current", "page")
+  await page.keyboard.press("Escape")
   await expect(page.locator("#preference-category-title")).toHaveText("Sistema")
   await page.screenshot({ path: info.outputPath("preferences-single-navigation.png"), fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
@@ -155,12 +169,16 @@ test("preferências usa só a navegação lateral e mantém categorias no celula
 test("menu acompanha a categoria de preferências selecionada pela URL", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 950 })
   await page.goto("/preferencias?categoria=suprimentos")
-  const navigation = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
+  await expect(page.getByRole("navigation", { name: "Módulos do ERP", exact: true })).toHaveCount(0)
+  const navigation = await preferenceMenu(page)
   await expect(navigation.getByRole("link", { name: "Suprimentos", exact: true })).toHaveAttribute("aria-current", "page")
-  await expect(navigation.getByRole("button", { name: "Preferências", exact: true }).locator("small")).toHaveText("Suprimentos")
+  await expect(navigation.getByRole("heading", { name: "Preferências", exact: true })).toBeFocused()
   await navigation.getByRole("link", { name: "Notas Fiscais", exact: true }).click()
-  await expect(navigation.getByRole("link", { name: "Notas Fiscais", exact: true })).toHaveAttribute("aria-current", "page")
+  await expect(navigation).toBeHidden()
   await expect(page.locator("#preference-category-title")).toHaveText("Notas Fiscais")
+  const reopened = await preferenceMenu(page)
+  await expect(reopened.getByRole("link", { name: "Notas Fiscais", exact: true })).toHaveAttribute("aria-current", "page")
+  await page.keyboard.press("Escape")
 })
 
 test("tipografia interna mantém escala 18/14/12 no desktop e celular", async ({ page }, info) => {
@@ -180,18 +198,20 @@ test("tipografia interna mantém escala 18/14/12 no desktop e celular", async ({
     await expect(main).toHaveCSS("font-family", /geist/i)
     await page.screenshot({ path: info.outputPath(`typography-preferences-${width}.png`), fullPage: true })
     await page.goto("/cadastros/funcionarios")
-    await expect(main.getByRole("heading", { name: "Funcionários", exact: true })).toHaveCSS("font-size", "18px")
+    await expect(main.getByRole("heading", { name: "Funcionários", exact: true })).toHaveCount(0)
     await expect(main.getByRole("heading", { name: "Equipe cadastrada", exact: true })).toHaveCSS("font-size", "18px")
     await expect(main.getByRole("link", { name: "Maria da Silva", exact: true })).toHaveCSS("font-size", "14px")
     await expect(main.getByRole("textbox")).toHaveCSS("font-size", "14px")
-    await expect(main.locator(".erp-page-header > p").last()).toHaveCSS("font-size", "14px")
     await page.screenshot({ path: info.outputPath(`typography-staff-${width}.png`), fullPage: true })
+    await page.goto("/cadastros/funcionarios/novo")
+    await expect(main.getByRole("heading", { name: "Novo cadastro", exact: true })).toHaveCSS("font-size", "18px")
+    await expect(main.locator(".erp-page-header > p").last()).toHaveCSS("font-size", "14px")
   }
 })
 
 test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1749, height: 900 })
-  await page.goto("/preferencias")
+  await page.goto("/cadastros")
   const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
   await expect(desktop).toBeVisible()
   const destinations: string[] = []
@@ -257,13 +277,18 @@ test("preferências abre o índice pelo menu e só entra na empresa após escolh
 test("todas as categorias das referências mostram opções e destinos existentes", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 915, height: 950 })
   await page.goto("/preferencias")
-  const navigation = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
   for (const category of preferenceCategories) {
+    const navigation = await preferenceMenu(page)
     const link = navigation.getByRole("link", { name: category.label, exact: true })
-    await link.focus()
+    for (let tab = 0; tab < preferenceCategories.length + 4 && !await link.evaluate(element => element === document.activeElement); tab++) await page.keyboard.press("Tab")
+    await expect(link).toBeFocused()
     await page.keyboard.press("Enter")
-    await expect(link).toHaveAttribute("aria-current", "page")
+    await expect(navigation).toBeHidden()
     await expect(page).toHaveURL(origin + "/preferencias?categoria=" + category.id)
+    const current = await preferenceMenu(page)
+    await expect(current.getByRole("link", { name: category.label, exact: true })).toHaveAttribute("aria-current", "page")
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("button", { name: "Abrir menu", exact: true })).toBeFocused()
     await expect(page.locator("#preference-options").getByRole("heading", { name: category.label, exact: true })).toBeVisible()
     for (const item of category.sections.flatMap(section => section.items)) {
       const row = page.locator("#preference-options li").filter({ hasText: item.label }).filter({ has: page.getByText(item.label, { exact: true }) })
@@ -280,11 +305,16 @@ test("todas as categorias das referências mostram opções e destinos existente
     await page.screenshot({ path: testInfo.outputPath(`preferences-${category.id}.png`), fullPage: true })
   }
   await page.reload()
-  await expect(page.getByRole("link", { name: "Backup e Exportação de Dados", exact: true })).toHaveAttribute("aria-current", "page")
+  let navigation = await preferenceMenu(page)
+  await expect(navigation.getByRole("link", { name: "Backup e Exportação de Dados", exact: true })).toHaveAttribute("aria-current", "page")
+  await page.keyboard.press("Escape")
   await page.goBack()
-  await expect(page.getByRole("link", { name: "Importações de Dados", exact: true })).toHaveAttribute("aria-current", "page")
-  await page.getByRole("link", { name: "Sistema", exact: true }).click()
-  await expect(page.getByRole("link", { name: "Sistema", exact: true })).toHaveAttribute("aria-current", "page")
+  navigation = await preferenceMenu(page)
+  await expect(navigation.getByRole("link", { name: "Importações de Dados", exact: true })).toHaveAttribute("aria-current", "page")
+  await navigation.getByRole("link", { name: "Sistema", exact: true }).click()
+  navigation = await preferenceMenu(page)
+  await expect(navigation.getByRole("link", { name: "Sistema", exact: true })).toHaveAttribute("aria-current", "page")
+  await page.keyboard.press("Escape")
   await page.locator("#preference-options").getByRole("link", { name: "Usuários", exact: true }).click()
   await expect(page).toHaveURL(origin + "/preferencias/usuarios")
 })
@@ -458,15 +488,17 @@ for (const scenario of [
   }
 })
 
-test("cabeçalho sem preferências duplicadas e produtos com caminho de navegação", async ({ page }) => {
+test("cabeçalho sem preferências duplicadas, lista compacta e criação com caminho de navegação", async ({ page }) => {
   await page.goto("/cadastros")
   await expect(page.locator(".erp-header").getByRole("link", { name: "Preferências", exact: true })).toHaveCount(0)
   await expect(page.locator("main").getByText(/As áreas abaixo consultam os registros/)).toHaveCount(0)
   await page.goto("/cadastros/produtos")
+  await expect(page.getByRole("navigation", { name: "Caminho de navegação", exact: true })).toHaveCount(0)
+  await page.goto("/cadastros/produtos/novo")
   const breadcrumb = page.getByRole("navigation", { name: "Caminho de navegação", exact: true })
   await expect(breadcrumb.getByRole("link", { name: "Cadastros", exact: true })).toHaveAttribute("href", "/cadastros")
   await expect(breadcrumb.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
-  await expect(breadcrumb.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("aria-current", "page")
+  await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Novo produto")
   await breadcrumb.getByRole("link", { name: "Cadastros", exact: true }).click()
   await expect(page).toHaveURL(origin + "/cadastros")
 })

@@ -24,9 +24,12 @@ test.beforeEach(async ({ context, page }) => {
   })
 })
 
-test("produtos mantém o caminho de navegação na lista, criação, consulta e edição", async ({ page }) => {
+test("produtos mantém a lista compacta e o caminho de navegação na criação, consulta e edição", async ({ page }) => {
+  await page.goto("/cadastros/produtos")
+  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Caminho de navegação", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Novo produto", exact: true })).toHaveAttribute("href", "/cadastros/produtos/novo")
   for (const [route, current] of [
-    ["/cadastros/produtos", "Produtos"],
     ["/cadastros/produtos/novo", "Novo produto"],
     [`/cadastros/produtos/${productId}`, product.name],
     [`/cadastros/produtos/${productId}/editar`, "Editar produto"],
@@ -175,10 +178,10 @@ test("rascunho antigo mantém os acabamentos atuais do servidor", async ({ page 
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("Edição anterior", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
   await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
-  await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")
+  await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Azul")
 })
 
-test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento", async ({ page }) => {
+test("menu desktop, módulos, busca e breadcrumb respeitam cancelamento", async ({ page }) => {
   await page.setViewportSize({ width: 1749, height: 950 })
   await page.goto("/cadastros/produtos/novo")
   const name = page.getByRole("textbox", { name: "Nome do produto", exact: true })
@@ -189,7 +192,8 @@ test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento
   if (await desktop.getByRole("button", { name: "Cadastros", exact: true }).getAttribute("aria-expanded") !== "true") await desktop.getByRole("button", { name: "Cadastros", exact: true }).click()
   await desktop.getByRole("link", { name: "Produtos", exact: true }).click()
   await page.keyboard.press("Escape")
-  await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
+  await expect(page.getByRole("link", { name: "Voltar ao catálogo", exact: true })).toHaveCount(0)
+  await page.getByRole("navigation", { name: "Caminho de navegação", exact: true }).getByRole("link", { name: "Produtos", exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
   await page.getByRole("dialog").getByRole("button", { name: "Cadastros", exact: true }).click()

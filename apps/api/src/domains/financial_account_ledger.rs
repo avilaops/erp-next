@@ -118,7 +118,7 @@ async fn load(
 ) -> Result<AccountLedger, DomainError> {
     let account = sqlx::query_as::<_, Account>("SELECT id,code,name,status,account_type FROM financial_accounts WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(account_id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    let (credit, debit): (i64, i64) = sqlx::query_as("SELECT COALESCE(SUM(amount_cents) FILTER (WHERE direction='credit'),0), COALESCE(SUM(amount_cents) FILTER (WHERE direction='debit'),0) FROM financial_account_entries WHERE tenant_id=$1 AND account_id=$2")
+    let (credit, debit): (i64, i64) = sqlx::query_as("SELECT COALESCE(SUM(amount_cents) FILTER (WHERE direction='credit'),0)::bigint, COALESCE(SUM(amount_cents) FILTER (WHERE direction='debit'),0)::bigint FROM financial_account_entries WHERE tenant_id=$1 AND account_id=$2")
         .bind(tenant).bind(account_id).fetch_one(&mut **tx).await.map_err(db)?;
     let entries = sqlx::query_as::<_, Entry>("SELECT e.id,e.account_id,e.transfer_id,e.category_id,c.name AS category_name,e.direction,(e.amount_cents::numeric/100)::numeric(16,2)::text AS amount,e.occurred_on::text,e.description,e.reference FROM financial_account_entries e LEFT JOIN financial_categories c ON c.tenant_id=e.tenant_id AND c.id=e.category_id WHERE e.tenant_id=$1 AND e.account_id=$2 ORDER BY e.occurred_on DESC,e.id DESC LIMIT $3 OFFSET $4")
         .bind(tenant).bind(account_id).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut **tx).await.map_err(db)?;

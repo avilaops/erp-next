@@ -469,6 +469,8 @@ async fn services_with_ibpt(
         )
         .with_certificates(Some(vault))
         .with_ibpt(ibpt)
+        .with_nfe_production_enabled(mode == "both")
+        .with_nfe_production_tenant_id(Some(Uuid::parse_str(TENANT).unwrap()))
         .with_fiscal_engine(Some(
             FiscalEngine::new(&format!("http://{engine_address}"), "synthetic-token").unwrap(),
         )),

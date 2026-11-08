@@ -92,7 +92,7 @@ async fn financial_account_ledger_is_idempotent_atomic_and_tenant_isolated(admin
         Value::Null,
     )
     .await;
-    assert_eq!(source.0, StatusCode::OK);
+    assert_eq!(source.0, StatusCode::OK, "{}", source.1);
     assert_eq!(source.1["data"]["credit"], "100.00");
     assert_eq!(source.1["data"]["debit"], "30.00");
     assert_eq!(source.1["data"]["balance"], "70.00");
@@ -107,6 +107,7 @@ async fn financial_account_ledger_is_idempotent_atomic_and_tenant_isolated(admin
         Value::Null,
     )
     .await;
+    assert_eq!(target.0, StatusCode::OK, "{}", target.1);
     assert_eq!(target.1["data"]["balance"], "30.00");
     assert_eq!(
         sqlx::query_scalar::<_, i64>(

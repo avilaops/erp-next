@@ -120,6 +120,16 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       })).toBe(true)
       if (route === "/fiscal/notas-saida") await expect(page.getByRole("button", { name: "Atualizar lista", exact: true })).toBeEnabled()
       await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))))
+      // The theme class can change before inherited text colors reach their final value.
+      await expect.poll(() => page.evaluate(() => {
+        const probe = document.createElement("span")
+        probe.style.color = "var(--foreground)"
+        document.body.append(probe)
+        try {
+          const foreground = getComputedStyle(probe).color
+          return [document.body, document.querySelector("h1")!].every(element => getComputedStyle(element).color === foreground)
+        } finally { probe.remove() }
+      })).toBe(true)
       await page.addScriptTag({ content: axe.source })
       const result = await page.evaluate(async () => {
         const scanner = (window as unknown as { axe: typeof axe }).axe

@@ -398,7 +398,19 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 222);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 231);
+        for (path, method) in [
+            ("/api/v1/fiscal/outgoing-imports", "get"),
+            ("/api/v1/fiscal/outgoing-imports/import", "post"),
+            ("/api/v1/fiscal/outgoing-imports/{id}/xml", "get"),
+            ("/api/v1/price-lists", "post"),
+            ("/api/v1/price-lists/{id}", "put"),
+            ("/api/v1/proposals/{id}/approve-order", "post"),
+            ("/api/v1/proposals/{id}/email", "get"),
+            ("/api/v1/proposals/{id}/email", "post"),
+        ] {
+            assert!(doc["paths"][path][method].is_object(), "{method} {path}");
+        }
         assert!(doc["paths"]["/api/v1/financial-account-entries"]["get"].is_object());
         assert!(doc["paths"]["/api/v1/financial-account-entries"]["post"].is_object());
         assert!(doc["paths"]["/api/v1/financial-account-transfers"]["post"].is_object());

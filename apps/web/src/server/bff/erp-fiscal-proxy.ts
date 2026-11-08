@@ -1,7 +1,7 @@
 import "server-only"
 
 import { currentSession, erpConfiguration } from "../auth/erp-session"
-import { fiscalApiOrigin } from "./local-fiscal-api"
+import { fiscalApiOrigin } from "@/lib/api/local-fiscal-origin"
 
 const noStore = { "Cache-Control": "no-store, no-transform", "X-Content-Type-Options": "nosniff" }
 const failure = (title: string, status: number) => Response.json({ title }, { status, headers: noStore })

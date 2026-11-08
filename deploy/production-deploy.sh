@@ -67,7 +67,7 @@ fiscal = environment(config["services"]["fiscal-engine"])
 token = api.get("ERP_FISCAL_ENGINE_TOKEN") or fiscal.get("ERP_FISCAL_ENGINE_TOKEN")
 if not token or len(token) < 24:
     raise SystemExit("Private fiscal token missing")
-api.update({"DANFE_MCP_URL": "http://127.0.0.1:8093/mcp", "DANFE_MCP_TOKEN": token,
+api.update({"ERP_CNPJ_WS_ENABLED": "true", "DANFE_MCP_URL": "http://127.0.0.1:8093/mcp", "DANFE_MCP_TOKEN": token,
             "DANFE_MCP_TOOL_PREFIX": "bare", "DANFE_CA_BUNDLE_FILE": "/etc/ssl/certs/erp-icp-brasil-roots.pem"})
 config["services"]["fiscal-mcp"] = {
     "image": "erp-next-fiscal-mcp:sha-" + sys.argv[2], "restart": "unless-stopped",

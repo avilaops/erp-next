@@ -106,7 +106,7 @@ async fn approve_order_is_atomic_authorized_and_idempotent(admin: PgPool) {
         StatusCode::FORBIDDEN
     );
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES($1::uuid,'sales.proposals.decide')").bind(EDITOR_ROLE).execute(&admin).await.unwrap();
-    sqlx::query("UPDATE products SET status='inactive' WHERE id=$1::uuid")
+    sqlx::query("UPDATE products SET status='archived' WHERE id=$1::uuid")
         .bind(PRODUCT)
         .execute(&admin)
         .await

@@ -1,5 +1,5 @@
 import "server-only"
-import { fiscalApiOrigin } from "./local-fiscal-api"
+import { fiscalApiOrigin } from "@/lib/api/local-fiscal-origin"
 
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 

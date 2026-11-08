@@ -24,6 +24,7 @@ test("release dispatcher preserves private config and pins the restricted MCP ru
     assert.equal(result.status, 0, result.stderr || result.error?.message);
     const value = JSON.parse(readFileSync(file, "utf8")).services;
     assert.equal(value.api.environment.DANFE_MCP_TOKEN, privateToken);
+    assert.equal(value.api.environment.ERP_CNPJ_WS_ENABLED, "true");
     assert.equal(value.api.environment.DANFE_MCP_TOOL_PREFIX, "bare");
     assert.equal(value.api.environment.DANFE_MCP_URL, "http://127.0.0.1:8093/mcp");
     assert.equal(value.web.environment.ERP_SESSION_SECRET, "synthetic-original-session-secret");

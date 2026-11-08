@@ -1,4 +1,4 @@
-/** Local development can run the fiscal API without changing the other ERP services. */
+/** Pure origin selection; callers supply configuration and never pass credentials. */
 export function fiscalApiOrigin(resource: string, defaultOrigin: string, override: string | undefined, environment: string | undefined): string {
   if (environment !== "development" || !override || !/^\/fiscal\/(?:nfe(?:\/|$)|issued-nfes$|outgoing-imports(?:\/|$)|readiness$|config$|certificate$|order-preparations\/|ibpt(?:\/|$))/.test(resource)) return defaultOrigin
   const url = new URL(override)

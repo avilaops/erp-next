@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { fiscalApiOrigin } from "../src/server/bff/local-fiscal-api.ts"
+import { fiscalApiOrigin } from "../src/lib/api/local-fiscal-origin.ts"
 test("fiscal development override is limited to loopback and fiscal preparation routes", () => {
   const original = "https://api.example.test"
   for (const route of ["/fiscal/nfe", "/fiscal/nfe/123/emission", "/fiscal/readiness", "/fiscal/certificate", "/fiscal/outgoing-imports", "/fiscal/outgoing-imports/17/xml"]) assert.equal(fiscalApiOrigin(route, original, "http://127.0.0.1:8081", "development"), "http://127.0.0.1:8081")

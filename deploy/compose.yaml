@@ -3,6 +3,8 @@ services:
     image: ${ERP_API_IMAGE:?CI image required}
     restart: unless-stopped
     env_file: api.env
+    environment:
+      ERP_CNPJ_WS_ENABLED: "true"
     extra_hosts:
       - host.docker.internal:host-gateway
     networks: [erp]

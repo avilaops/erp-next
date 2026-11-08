@@ -16,5 +16,5 @@ export function CatalogFormSkeleton() {
 }
 
 export function CatalogEditorLoading({ title = "Editar produto" }: { title?: string }) {
-  return <div className="erp-editor"><PageHeader back={{ href: "/cadastros/produtos", label: "Voltar ao catálogo" }} breadcrumbs={[{ label: "Cadastros", href: "/cadastros" }, { label: "Produtos", href: "/cadastros/produtos" }, { label: title }]} eyebrow="Cadastros · Produtos" title={title} description="Preço base e classificação declarada. Condições negociadas e cálculo fiscal pertencem aos respectivos fluxos." /><section className="form-section"><CatalogFormSkeleton /></section></div>
+  return <div className="erp-editor"><PageHeader breadcrumbs={[{ label: "Cadastros", href: "/cadastros" }, { label: "Produtos", href: "/cadastros/produtos" }, { label: title }]} eyebrow="Cadastros · Produtos" title={title} /><section className="form-section"><CatalogFormSkeleton /></section></div>
 }

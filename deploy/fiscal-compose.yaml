@@ -5,6 +5,26 @@ services:
     environment:
       ERP_FISCAL_ENGINE_URL: http://127.0.0.1:8091
       ERP_FISCAL_ENGINE_TOKEN: ${ERP_FISCAL_ENGINE_TOKEN:?Private fiscal token required}
+      DANFE_MCP_URL: http://127.0.0.1:8093/mcp
+      DANFE_MCP_TOKEN: ${ERP_FISCAL_ENGINE_TOKEN:?Private fiscal token required}
+      DANFE_MCP_TOOL_PREFIX: bare
+      DANFE_CA_BUNDLE_FILE: /etc/ssl/certs/erp-icp-brasil-roots.pem
+  fiscal-mcp:
+    image: ${ERP_FISCAL_MCP_IMAGE:?Validated CI MCP image required}
+    restart: unless-stopped
+    network_mode: service:api
+    depends_on:
+      api:
+        condition: service_healthy
+    read_only: true
+    environment:
+      XDG_CACHE_HOME: /tmp/cache
+    mem_limit: 512m
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
   fiscal-engine:
     image: ${ERP_FISCAL_ENGINE_IMAGE:?Validated CI fiscal image required}
     restart: unless-stopped

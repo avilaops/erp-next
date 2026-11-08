@@ -33,7 +33,7 @@ export function Receivables({ id }: { id?: string }) {
 function ReceivableList() {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/receivables?offset=${offset}&limit=25`)
-  return <><PageHeader eyebrow="Financeiro" title="Contas a receber" description="Títulos de pedidos concluídos. Os recebimentos são declarações manuais, sem confirmação bancária automática." />
+  return <>
     <section className="form-section min-w-0 space-y-4"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>
       {result.loading ? <p role="status">Carregando contas…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} conta(s)</p>

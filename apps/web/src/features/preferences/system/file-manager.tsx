@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +18,7 @@ export function FileManager(){
   function filter(update:()=>void){update();setOffset(0)}
   async function archive(file:FileItem){if(busy)return;setBusy(file.id);setError("");setNotice("");try{const response=await erpFetch(`/api/erp/system/files/${file.id}/archive`,{method:"POST",headers:{"Content-Type":"application/json","If-Match":`"${file.revision}"`},body:"{}"});const body=await response.json();if(!response.ok)throw new Error(body.title||"Não foi possível arquivar o arquivo");setNotice(`${file.filename} foi arquivado.`);setReload(value=>value+1)}catch(reason){setError(reason instanceof Error?reason.message:"Falha ao arquivar arquivo")}finally{setBusy("")}}
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Gerenciador de arquivos" description="Consulte o catálogo de arquivos da empresa, baixe originais preservados do ERP anterior e arquive registros atuais. O conteúdo atual permanece no storage que o originou; o banco mantém somente seus metadados." />
+
     <section className="form-section space-y-4" aria-labelledby="file-filters"><h2 id="file-filters" className="text-lg font-semibold">Localizar arquivos</h2><div className="grid gap-4 md:grid-cols-[minmax(16rem,1fr)_12rem_12rem]">
       <label className="grid gap-2 text-sm font-medium">Nome, tipo ou hash<Input value={query} onChange={event=>filter(()=>setQuery(event.target.value))} placeholder="Ex.: nota.xml ou application/pdf" /></label>
       <label className="grid gap-2 text-sm font-medium">Origem<select className="min-h-11 rounded-lg border bg-background px-3" value={origin} onChange={event=>filter(()=>setOrigin(event.target.value))}><option value="">Todas</option><option value="system">ERP atual</option><option value="legacy">ERP anterior</option></select></label>

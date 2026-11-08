@@ -1,117 +1,31 @@
 import { expect, test } from "@playwright/test"
-import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
+import { installFrontendFixture } from "./helpers/frontend-fixture"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
-const layout = () => ({
-  favoritePaths: ["/vendas/pedidos", "/compras/pedidos"],
-  charts: ["Ticket médio", "Valor faturado"],
-  period: "6M",
+test("página inicial limpa mostra só título e atalhos no desktop e celular", async ({ page }, info) => {
+  await page.goto("/")
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 950 })
+    const main = page.locator("main")
+    await expect(main.getByRole("heading")).toHaveText(["Visão geral"])
+    const shortcuts = main.getByRole("navigation", { name: "Atalhos", exact: true })
+    await expect(shortcuts.getByRole("link")).toHaveCount(3)
+    await expect(shortcuts.getByRole("link", { name: "Novo pedido", exact: true })).toHaveAttribute("href", "/vendas/pedidos/novo")
+    await expect(shortcuts.getByRole("link", { name: "Consultar estoque", exact: true })).toHaveAttribute("href", "/estoque")
+    await expect(shortcuts.getByRole("link", { name: "Documentos fiscais", exact: true })).toHaveAttribute("href", "/fiscal")
+    await expect(main.getByRole("button")).toHaveCount(0)
+    await expect(main.getByRole("status")).toHaveCount(0)
+    await expect(main.getByText("Carregando sua página inicial…")).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath(`home-clean-${width}.png`), fullPage: true })
+  }
 })
 
-test("layout salvo é relido e preserva a preferência de paginação", async ({ page }) => {
-  let revision = 3
-  let data = { productPageSize: 50, dashboardLayout: layout() }
-  await page.route("**/api/erp/preferences", async route => {
-    if (route.request().method() === "PUT") {
-      expect(route.request().headers()["if-match"]).toBe(`"${revision}"`)
-      expect(route.request().headers()["x-tenant-id"]).toBe(tenant)
-      data = route.request().postDataJSON()
-      revision++
-    }
-    await route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, ownerKey: "fixture-owner", revision, data } })
-  })
+test("início não consulta indicadores ou preferências de personalização", async ({ page }) => {
+  const requests: string[] = []
+  page.on("request", request => { if (/\/api\/erp\/(preferences|orders|products|audit|receivables|payables)(?:[?/]|$)/.test(request.url())) requests.push(request.url()) })
   await page.goto("/")
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
-  await page.getByRole("button", { name: "Remover Pedidos de venda", exact: true }).click()
-  await page.getByRole("button", { name: "Salvar página inicial", exact: true }).click()
-  await expect(page.getByRole("status").filter({ hasText: "Página inicial salva" })).toBeVisible()
-  expect(data.productPageSize).toBe(50)
-  expect(data.dashboardLayout.favoritePaths).toEqual(["/compras/pedidos"])
-  await page.reload()
-  await expect(page.getByRole("button", { name: "Recarregar página inicial", exact: true })).toBeEnabled()
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
-})
-
-test("conflito preserva edição e exige releitura antes de nova gravação", async ({ page }) => {
-  let attempts = 0
-  await page.route("**/api/erp/preferences", async route => {
-    if (route.request().method() === "PUT") {
-      attempts++
-      return route.fulfill({ status: 412, json: { title: "Preferências alteradas em outra tela" } })
-    }
-    return route.fulfill({ headers: { ETag: '"2"' }, json: { tenantId: tenant, ownerKey: "fixture-owner", revision: 2, data: { productPageSize: 25, dashboardLayout: layout() } } })
-  })
-  await page.goto("/")
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
-  await page.getByRole("button", { name: "Remover Pedidos de venda", exact: true }).click()
-  await page.getByRole("button", { name: "Salvar página inicial", exact: true }).click()
-  await expect(page.getByRole("alert").filter({ hasText: "Preferências alteradas" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Salvar página inicial", exact: true })).toBeDisabled()
-  expect(attempts).toBe(1)
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
-  page.once("dialog", dialog => dialog.accept())
-  await page.getByRole("button", { name: "Recarregar página inicial", exact: true }).click()
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toBeVisible()
-})
-
-test("leitura lenta não aplica edição sobre defaults e gráficos removidos podem voltar", async ({ page }) => {
-  let release!: () => void
-  const pending = new Promise<void>(resolve => { release = resolve })
-  await page.route("**/api/erp/preferences", async route => {
-    await pending
-    return route.fulfill({ headers: { ETag: '"1"' }, json: {
-      tenantId: tenant, ownerKey: "fixture-owner", revision: 1,
-      data: { productPageSize: 25, dashboardLayout: { favoritePaths: ["/compras/pedidos"], charts: ["Valor faturado"], period: "6M" } },
-    } })
-  })
-  await page.goto("/")
-  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeDisabled()
-  release()
-  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeEnabled()
-  await page.getByRole("button", { name: "30D", exact: true }).click()
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "Remover gráfico Ticket médio", exact: true })).toHaveCount(0)
-  await page.getByRole("button", { name: "Adicionar gráfico", exact: true }).click()
-  await expect(page.getByRole("button", { name: "Remover gráfico Ticket médio", exact: true })).toBeVisible()
-})
-
-test("navegação por favorito pede confirmação antes de descartar edição", async ({ page }) => {
-  await page.route("**/api/erp/preferences", route => route.fulfill({ headers: { ETag: '"1"' }, json: {
-    tenantId: tenant, ownerKey: "fixture-owner", revision: 1, data: { productPageSize: 25, dashboardLayout: layout() },
-  } }))
-  await page.goto("/")
-  await expect(page.getByRole("button", { name: "30D", exact: true })).toBeEnabled()
-  await page.getByRole("button", { name: "30D", exact: true }).click()
-  const dialog = page.waitForEvent("dialog")
-  const click = page.locator('main a[href="/compras/pedidos"]').first().click()
-  const confirmation = await dialog
-  expect(confirmation.message()).toContain("descartar")
-  await confirmation.dismiss()
-  await click
-  await expect(page).toHaveURL(/\/$/)
-})
-
-test("resposta antiga é descartada após perda de foco e troca de conta", async ({ page }) => {
-  let release!: () => void
-  const first = new Promise<void>(resolve => { release = resolve })
-  let calls = 0
-  await page.route("**/api/erp/preferences", async route => {
-    calls++
-    const previous = calls === 1
-    if (previous) await first
-    await route.fulfill({ headers: { ETag: '"1"' }, json: {
-      tenantId: tenant, ownerKey: previous ? "owner-a" : "owner-b", revision: 1,
-      data: { productPageSize: 25, dashboardLayout: {
-        favoritePaths: [previous ? "/vendas/pedidos" : "/financeiro/contas-pagar"], charts: [], period: "30D",
-      } },
-    } }).catch(() => {})
-  })
-  await page.goto("/")
-  await expect.poll(() => calls).toBe(1)
-  await page.evaluate(() => { window.dispatchEvent(new Event("blur")); window.dispatchEvent(new Event("focus")) })
-  await expect.poll(() => calls).toBeGreaterThan(1)
-  await expect(page.getByRole("button", { name: "Remover Contas a pagar", exact: true })).toBeVisible()
-  release()
-  await expect(page.getByRole("button", { name: "Remover Pedidos de venda", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("navigation", { name: "Atalhos", exact: true })).toBeVisible()
+  expect(requests).toEqual([])
 })

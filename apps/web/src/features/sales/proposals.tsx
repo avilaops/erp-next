@@ -15,6 +15,7 @@ import type { Schema } from "@/lib/api/types"
 import { commercialMoney, commercialMoneyInput, normalizeCommercialMoney } from "./order-presentation"
 import { quantity, useCommand, useResource } from "@/hooks/use-operation"
 import { ColorChoice, Lookup, type Choice } from "./orders"
+import { ProposalDocument, type ProposalIssuer } from "./proposal-document"
 import "./proposals-print.css"
 
 type Detail = Schema<"ProposalSnapshot">
@@ -41,7 +42,7 @@ function ProposalList() {
   const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, status: query.status, offset: String(query.offset), limit: "25" })
   const result = useResource<Listing>(`/api/erp/proposals?${params}`)
-  return <><PageHeader eyebrow="Vendas" breadcrumbs={[proposalTrail[0], { label: "Propostas" }]} title="Propostas comerciais" description="Orçamentos, condições e versões comerciais da empresa ativa." />
+  return <>
     <section className="form-section min-w-0 space-y-5">
       {result.value?.canEdit && <Link className={linkClass} href="/vendas/propostas/novo">Nova proposta</Link>}
       <form className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
@@ -138,6 +139,7 @@ function ProposalDetail({ id }: { id: string }) {
   const [version, setVersion] = useState("")
   const result = useResource<Detail>(`/api/erp/proposals/${id}${version ? `?version=${version}` : ""}`)
   const access = useResource<{ tenant: { id: string; legalName: string }; permissions: string[] }>("/api/erp/me")
+  const issuer = useResource<{ tenantId: string; data: ProposalIssuer }>("/api/erp/company")
   const command = useCommand()
   const [action, setAction] = useState("")
   const [reason, setReason] = useState("")
@@ -156,21 +158,15 @@ function ProposalDetail({ id }: { id: string }) {
   }
   return <><div className="print:hidden"><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, { label: value ? `Proposta ${value.data.number} · versão ${value.data.version}` : "Proposta" }]} title={value ? `Proposta ${value.data.number}` : "Proposta comercial"} description="Consulte o documento comercial e registre as decisões sobre cada versão." /></div>
     <div className="print:hidden"><Link className={linkClass} href="/vendas/propostas">Voltar às propostas</Link></div>
-    <section data-proposal-document className="form-section mt-5 min-w-0 space-y-5">
+    <section className="mt-5 min-w-0 space-y-5">
       {notice && <p role="status" className="print:hidden">{notice}</p>}
       {result.loading ? <p role="status">Carregando proposta…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button onClick={result.reload}>Tentar novamente</Button></div> : value && <>
-        {sameTenant && <p className="font-semibold">{access.value?.tenant.legalName}</p>}
-        <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="font-semibold">{value.data.customerName}</h2><p>{value.data.customerTaxId}</p><p>Proposta {value.data.number} · versão {value.data.version} · {labels[value.data.expired ? "expired" : value.data.status]}</p></div><Button className="print:hidden" variant="outline" onClick={() => window.print()}>Imprimir / salvar PDF</Button></div>
+        <div className="flex justify-end print:hidden"><Button variant="outline" onClick={() => window.print()}>Imprimir / salvar PDF</Button></div>
         <label className="grid gap-2 print:hidden">Histórico de versões<select className="min-h-10 rounded-lg border bg-background px-3" value={version} disabled={frozen} onChange={event => { setVersion(event.target.value); setAction("") }}><option value="">Versão atual</option>{value.versions.map(item => <option key={item.version} value={String(item.version)}>Versão {item.version} · {labels[item.status]} · {money(item.amount)}</option>)}</select></label>
-        <p>Validade: {value.data.validUntil}</p>
-        <div className="overflow-x-auto"><DataTable className="w-full text-left text-sm"><caption className="sr-only">Itens da proposta</caption><thead><tr><th className="p-2">Produto</th><th className="p-2">Quantidade</th><th className="p-2">Unitário</th><th className="p-2">Total</th></tr></thead><tbody>{value.items.map(item => <tr key={item.productId} className="border-t"><td className="p-2">{item.name}<span className="block text-xs">{item.sku}{item.structureColor && ` · Estrutura: ${item.structureColor}`}{item.plateHolderColor && ` · Anilheiros: ${item.plateHolderColor}`}{item.plateHolderType && ` · Tipo de anilheiro: ${item.plateHolderType}`}{item.upholsteryColor && ` · Estofado: ${item.upholsteryColor}`}</span></td><td className="p-2">{item.quantity} {item.unit}</td><td className="whitespace-nowrap p-2">{money(item.unitPrice)}</td><td className="whitespace-nowrap p-2">{money(item.amount)}</td></tr>)}</tbody></DataTable></div>
-        <p className="text-xl font-semibold">Total: {money(value.data.amount)}</p>
-        <section><h3 className="font-medium">Pagamento</h3><p className="whitespace-pre-wrap break-words">{value.data.paymentTerms}</p></section>
-        <section><h3 className="font-medium">Entrega</h3><p className="whitespace-pre-wrap break-words">{value.data.deliveryTerms}</p></section>
-        {value.data.notes && <section><h3 className="font-medium">Observações</h3><p className="whitespace-pre-wrap break-words">{value.data.notes}</p></section>}
-        {value.data.decisionReason && <p className="whitespace-pre-wrap">Motivo registrado: {value.data.decisionReason}</p>}
+        <ProposalDocument snapshot={value} issuer={issuer.value?.tenantId === value.tenantId ? issuer.value.data : undefined} issuerName={sameTenant ? access.value?.tenant.legalName : undefined} />
+        {value.data.decisionReason && <p className="whitespace-pre-wrap print:hidden">Motivo registrado: {value.data.decisionReason}</p>}
         {value.data.orderId && <Link className={`${linkClass} print:hidden`} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido gerado</Link>}
-        {!value.data.isCurrent && <p>Versão histórica. Consulte a versão atual para realizar operações.</p>}
+        {!value.data.isCurrent && <p className="print:hidden">Versão histórica. Consulte a versão atual para realizar operações.</p>}
         <div className="space-y-4 print:hidden">
           {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); setAction(""); result.reload() }}>Recarregar proposta</Button>}

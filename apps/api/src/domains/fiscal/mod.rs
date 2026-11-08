@@ -8,6 +8,7 @@ pub mod danfe_client;
 #[cfg(test)]
 pub(crate) mod danfe_test_support;
 pub mod distribution;
+pub mod draft_extras;
 pub mod emission;
 pub mod engine_client;
 pub mod ibpt;
@@ -21,6 +22,7 @@ pub mod model;
 pub mod monitor;
 mod monitor_store;
 pub mod order_source;
+pub mod outgoing_import;
 pub mod preferences;
 pub(crate) mod production_events;
 pub mod purchase_match;
@@ -29,6 +31,7 @@ pub mod received_model;
 pub mod received_nfse;
 pub mod sefaz_client;
 pub mod sefaz_response;
+pub mod simplified;
 pub mod tax_profiles;
 
 use axum::{
@@ -98,6 +101,26 @@ pub fn routes() -> Router<AppState> {
         .route("/api/v1/fiscal/nfe/{id}", get(get_draft).put(update))
         .route("/api/v1/fiscal/nfe/{id}/issue", axum::routing::post(issue))
         .route("/api/v1/fiscal/received-nfes", get(received::list))
+        .route(
+            "/api/v1/fiscal/outgoing-imports",
+            get(outgoing_import::list),
+        )
+        .route(
+            "/api/v1/fiscal/outgoing-imports/import",
+            axum::routing::post(outgoing_import::import),
+        )
+        .route(
+            "/api/v1/fiscal/outgoing-imports/{id}",
+            get(outgoing_import::get_document),
+        )
+        .route(
+            "/api/v1/fiscal/outgoing-imports/{id}/xml",
+            get(outgoing_import::download_xml),
+        )
+        .route(
+            "/api/v1/fiscal/outgoing-imports/{id}/danfe",
+            get(outgoing_import::download_danfe),
+        )
         .route(
             "/api/v1/fiscal/received-nfes/{id}",
             get(received::get_document),
@@ -353,6 +376,9 @@ pub struct Readiness {
     production_enabled: bool,
     profile_configured: bool,
     certificate_verified: bool,
+    crt: Option<u8>,
+    series: Option<u16>,
+    next_number: Option<u32>,
     blockers: Vec<String>,
 }
 #[utoipa::path(get,path="/api/v1/fiscal/readiness",tag="Fiscal",security(("bearerAuth"=[])),params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Readiness),(status=403,description="Sem permissão fiscal")))]
@@ -420,6 +446,21 @@ pub async fn readiness(
             production_enabled: state.nfe_production_enabled_for(tenant),
             profile_configured: row.is_some(),
             certificate_verified,
+            crt: row
+                .as_ref()
+                .map(profile_data)
+                .transpose()?
+                .map(|profile| profile.crt),
+            series: row
+                .as_ref()
+                .map(profile_data)
+                .transpose()?
+                .map(|profile| profile.series),
+            next_number: row
+                .as_ref()
+                .map(profile_data)
+                .transpose()?
+                .and_then(|profile| profile.next_number),
             blockers,
         },
     ))
@@ -533,15 +574,24 @@ pub async fn list(
     } else {
         None
     };
+    let ids: Vec<Uuid> = data.iter().map(|draft| draft.id).collect();
+    let dates: serde_json::Value = sqlx::query_scalar(
+        "SELECT coalesce(jsonb_object_agg(id::text,created_at),'{}'::jsonb) FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND id=ANY($2)"
+    ).bind(tenant).bind(&ids).fetch_one(&mut *tx).await.map_err(db)?;
+    let data = data
+        .into_iter()
+        .map(|draft| {
+            let id = draft.id.to_string();
+            let mut value = serde_json::to_value(draft).expect("serializable draft");
+            value["createdAt"] = dates.get(&id).cloned().unwrap_or(serde_json::Value::Null);
+            value
+        })
+        .collect::<Vec<_>>();
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         None,
-        DraftPage {
-            tenant_id: tenant,
-            data,
-            next_cursor,
-        },
+        serde_json::json!({ "tenantId": tenant, "data": data, "nextCursor": next_cursor }),
     ))
 }
 #[utoipa::path(get,path="/api/v1/fiscal/nfe/{id}",tag="Fiscal",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=DraftSnapshot),(status=403,description="Sem permissão fiscal"),(status=404,description="Rascunho não encontrado")))]
@@ -583,9 +633,33 @@ async fn prepare(
         .ok_or(DomainError::Conflict(
             "Configure a preparação fiscal antes de criar o rascunho",
         ))?;
-    let profile = profile_data(&row)?;
+    let mut profile = profile_data(&row)?;
+    if profile.environment != value.environment {
+        profile.next_number = Some(1);
+        profile.environment = value.environment;
+    }
+    if let Some(series) = value.series {
+        if series != profile.series {
+            profile.next_number = Some(1);
+        }
+        profile.series = series;
+    }
+    if let Some(crt) = value.crt {
+        profile.crt = crt;
+    }
     let total = value.validate(&profile)?;
+    if let Some(category) = value.financial_category_id {
+        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM financial_categories WHERE tenant_id=$1 AND id=$2 AND status='active' AND direction='income')")
+            .bind(tenant).bind(category).fetch_one(&mut **tx).await.map_err(db)?;
+        if !valid {
+            return Err(DomainError::Invalid(
+                "Categoria financeira deve estar ativa e ser de receita da empresa",
+            ));
+        }
+    }
+
     let (company_revision, company) = issuer(tx, tenant, &profile).await?;
+    value.validate_reference_issuer(&company.tax_id)?;
     Ok((
         IssuerSnapshot {
             tax_id: company.tax_id.clone(),
@@ -776,8 +850,8 @@ pub async fn update(
     }
     let (issuer, total) = prepare(&mut tx, tenant, &value).await?;
     let ibpt_snapshot = draft_ibpt_snapshot(&state, tenant, &value)?;
-    if let Some((series, model)) = sqlx::query_as::<_, (i32, i16)>(
-        "SELECT series,model FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
+    if let Some((series, model, number)) = sqlx::query_as::<_, (i32, i16, i64)>(
+        "SELECT series,model,number FROM fiscal_nfe_documents WHERE tenant_id=$1 AND id=$2",
     )
     .bind(tenant)
     .bind(id)
@@ -785,6 +859,9 @@ pub async fn update(
     .await
     .map_err(db)?
         && (series != i32::from(issuer.profile.series)
+            || value
+                .number
+                .is_some_and(|requested| i64::from(requested) != number)
             || model != i16::from(value.model)
             || issuer.tax_id != current.issuer.tax_id)
     {

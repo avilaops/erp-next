@@ -45,7 +45,13 @@
     ".next-reference-data/types/**/*.ts",
     ".next-reference-data/dev/types/**/*.ts",
     ".next-auth-picker-check/types/**/*.ts",
-    ".next-auth-picker-check/dev/types/**/*.ts"
+    ".next-auth-picker-check/dev/types/**/*.ts",
+    ".next-navigation-test/types/**/*.ts",
+    ".next-navigation-test/dev/types/**/*.ts",
+    ".next-outgoing-tests/types/**/*.ts",
+    ".next-outgoing-tests/dev/types/**/*.ts",
+    ".next-release-candidate/types/**/*.ts",
+    ".next-release-candidate/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

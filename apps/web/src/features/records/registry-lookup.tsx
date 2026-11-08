@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { Search, LoaderCircle } from "lucide-react"
 import type { Schema } from "@/lib/api/types"
 import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
@@ -13,9 +14,9 @@ const labels: Record<string, string> = { postalCode: "CEP", state: "UF", city: "
 const normalized = (value: string) => value.trim().replace(/[.\s/-]/g, "").toUpperCase()
 const date = (value: string) => Number.isNaN(Date.parse(value)) ? "Data não informada" : new Date(value).toLocaleString("pt-BR")
 
-export function RegistryLookup({ kind, context, tenantId, readValue, readState, onApply, disabled = false, automaticValue }: {
+export function RegistryLookup({ kind, context, tenantId, readValue, readState, onApply, disabled = false, automaticValue, documentField }: {
   kind: Kind; context: Context; tenantId: string; readValue: () => string; readState?: () => string;
-  onApply: (fields: Record<string, string>) => number; disabled?: boolean; automaticValue?: string;
+  onApply: (fields: Record<string, string>) => number; disabled?: boolean; automaticValue?: string; documentField?: ReactNode;
 }) {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<{ reply: Reply; key: string } | null>(null)
@@ -108,11 +109,13 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     setResult(null); setMessage((count ? "Campos vazios preenchidos. Dados já informados foram preservados; revise antes de salvar" : "Nenhum campo vazio para preencher. Seus dados foram preservados") + origin)
   }
 
-  return <div className="col-span-full min-w-0 space-y-3 rounded-lg border border-border p-3">
+  return <div className={documentField ? "min-w-0 space-y-2" : "col-span-full min-w-0 space-y-3 rounded-lg border border-border p-3"}>
+    {documentField ? <div className="flex items-end gap-2"><div className="min-w-0 flex-1">{documentField}</div><Button type="button" variant="outline" className="size-9 shrink-0 p-0" aria-label={`Consultar ${label}`} title={`Consultar ${label}`} disabled={disabled || pending} onClick={() => lookup(automaticDocument !== null)}>{pending ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Search aria-hidden="true" className="size-4" />}</Button></div> : <>
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="outline" disabled={disabled || pending} onClick={() => lookup(automaticDocument !== null)}>{pending ? `Consultando ${label}…` : `Consultar ${label}`}</Button>
       <p className="min-w-0 text-sm text-muted-foreground">{automaticDocument !== null ? "O CNPJ válido preenche automaticamente dados disponíveis em campos vazios." : kind === "ie" ? "Consulta cadastral não determina a condição de contribuinte." : "Confira a prévia para preencher somente campos vazios."} Você pode preencher manualmente.</p>
     </div>
+    </>}
     {pending && <p role="status">Conferindo os dados da consulta de {label}…</p>}
     {error && <p role="alert" className="break-words text-sm text-destructive">{error}</p>}
     {message && <p role="status" className="break-words text-sm">{message}</p>}

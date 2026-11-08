@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,7 +48,7 @@ export function FinancialAccountLedger() {
   }
 
   return <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
-    <PageHeader eyebrow="Financeiro / Caixa e bancos" title="Caixas e bancos" description="Lançamentos manuais append-only por conta financeira. O saldo é calculado no servidor e não representa conciliação bancária automática." />
+
     {accounts.loading ? <p role="status">Carregando contas financeiras…</p> : accounts.error ? <section className="rounded-xl border p-4" role="alert"><RequestError message={accounts.error} status={accounts.status} /><Button variant="outline" onClick={accounts.reload}>Tentar novamente</Button></section> : !accounts.value?.data.length ? <section className="rounded-xl border p-5"><p>Nenhuma conta financeira ativa. Cadastre uma conta antes de lançar movimentos.</p></section> : <>
       <label className="grid max-w-xl gap-2 text-sm">Conta financeira<select className="h-10 rounded-lg border bg-background px-3" value={accountId} onChange={event => { setSelected(event.target.value); command.reset() }}>{accounts.value.data.map(account => <option value={account.id} key={account.id}>{account.code} · {account.name}</option>)}</select></label>
       {ledger.loading ? <p role="status">Carregando saldo e lançamentos…</p> : ledger.error ? <section className="rounded-xl border p-4" role="alert"><RequestError message={ledger.error} status={ledger.status} /><Button variant="outline" onClick={ledger.reload}>Tentar novamente</Button></section> : value && <>

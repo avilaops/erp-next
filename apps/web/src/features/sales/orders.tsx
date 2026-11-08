@@ -22,7 +22,6 @@ import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
 import { OrderSalesRules } from "./settings/sales-settings"
 import { OrderNegotiation } from "./order-negotiation"
-import { CommercialMetrics } from "./commercial-metrics"
 import { commercialMoney, commercialQuantity, orderNumber } from "./order-presentation"
 import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 
@@ -112,10 +111,8 @@ function OrderList() {
   const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
   if (query.q) params.set("q", query.q)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
-  return <><PageHeader eyebrow="Vendas" title="Pedidos de venda" description="Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal." />
-    <CommercialMetrics kind="orders" />
-    <nav className="my-4 flex flex-wrap gap-4"><Link className={linkClass} href="/vendas/funil">Funil comercial</Link><Link className={linkClass} href="/vendas/tabela-precos">Tabela de preços</Link><Link className={linkClass} href="/vendas/simulador">Simular negociação</Link></nav>
-    <section className="form-section min-w-0 space-y-4">
+  return <><div className="mb-4 flex flex-wrap justify-end gap-3">{result.value?.canEdit && <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>}</div>
+    <section className="min-w-0 space-y-3" aria-label="Pedidos de venda">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
           event.preventDefault()
@@ -127,7 +124,6 @@ function OrderList() {
           <Button type="submit" disabled={result.loading}>Pesquisar</Button>
           {(search || query.q) && <Button type="button" variant="outline" onClick={() => { setSearch(""); setQuery({ q: "", offset: 0 }) }}>Limpar</Button>}
         </form>
-        {result.value?.canEdit && <Link className={`${linkClass} py-2`} href="/vendas/pedidos/novo">Novo pedido</Link>}
       </div>
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
@@ -139,7 +135,7 @@ function OrderList() {
               <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
               <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="block text-xs text-muted-foreground">{order.customerTaxId}</span></td>
               <td className="whitespace-nowrap p-3">{labels[order.status] || order.status}</td>
-              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "—"}</td>
+              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "Não informado"}</td>
               <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(order.amount)}</td>
             </tr>)}</tbody>
           </DataTable>
@@ -152,8 +148,8 @@ function OrderList() {
 
 function OrderEditor({ id }: { id?: string }) {
   const access = useResource<Listing | Detail>(id ? `/api/erp/orders/${id}` : "/api/erp/orders?limit=1")
-  if (access.loading) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><p role="status">Carregando rascunho e permissões…</p></>
-  if (access.error || !access.value) return <><PageHeader eyebrow="Vendas" title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Consulte os dados e as permissões antes de editar o pedido." /><Link className={linkClass} href="/vendas/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section></>
+  if (access.loading) return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: id ? "Editar" : "Novo" }]} title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Selecione o cliente e adicione os produtos do pedido." /><p role="status">Carregando rascunho e permissões…</p></>
+  if (access.error || !access.value) return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: id ? "Editar" : "Novo" }]} title={id ? "Editar pedido de venda" : "Novo pedido de venda"} description="Selecione o cliente e adicione os produtos do pedido." /><Link className={linkClass} href="/vendas/pedidos">Voltar à lista</Link><section className="form-section space-y-3"><p role="alert"><RequestError message={access.error || "Pedido indisponível"} status={access.status} /></p><Button onClick={access.reload}>Tentar novamente</Button></section></>
   const initial = "items" in access.value ? access.value : undefined
   if (initial?.pricingOrigin) return <><PageHeader eyebrow="Vendas" title="Condições preservadas" description="Este pedido mantém os itens e preços da simulação publicada." /><Link className={linkClass} href={`/vendas/pedidos/${initial.data.id}`}>Consultar pedido e condições</Link></>
   if (!access.value.canEdit || (initial && initial.data.status !== "draft")) {
@@ -189,17 +185,16 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
     const prevent = (event: BeforeUnloadEvent) => { if (dirty || command.uncertain) event.preventDefault() }
     window.addEventListener("beforeunload", prevent); return () => window.removeEventListener("beforeunload", prevent)
   }, [dirty, command.uncertain])
-  return <><PageHeader eyebrow="Vendas" title={initial ? "Editar rascunho do pedido" : "Novo pedido"} description={initial ? "Itens mantidos preservam os preços registrados. Novos itens recebem o preço do catálogo ao salvar." : "Preços base do catálogo são fixados no rascunho. Sem descontos, frete ou apuração fiscal nesta primeira etapa."} />
+  return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, ...(initial ? [{ label: orderNumber(initial.data.number), href: `/vendas/pedidos/${initial.data.id}` }] : []), { label: initial ? "Editar" : "Novo" }]} title={initial ? "Editar pedido" : "Novo pedido"} description="Selecione o cliente, adicione os produtos e informe o vencimento." />
     <section className="form-section min-w-0 space-y-5">
         <Link className={linkClass} href={initial ? `/vendas/pedidos/${initial.data.id}` : "/vendas/pedidos"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações deste rascunho?")) event.preventDefault() }}>Voltar aos pedidos</Link>
-        <div className="grid min-w-0 gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" disabled={frozen} choose={value => { setCustomer(value.id === originalCustomer?.id ? originalCustomer : value); setDirty(true) }} /><Lookup endpoint="products" label="produto" disabled={frozen || items.length >= 100} choose={value => {
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value.id === originalCustomer?.id ? originalCustomer : value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
           if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade no item existente."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
           setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
         }} /></div>
         <OrderSalesRules tenantId={tenantId} />
-        <p className="break-words">Cliente selecionado: {customer?.legalName || "Nenhum"}</p>
         <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
@@ -208,7 +203,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "—"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
+            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-3 rounded-xl border p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "Não informado"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
               <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />{item.upholsteryConfigurable !== false && <ColorChoice label={`Cor do estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}</div>
               <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
@@ -235,20 +230,20 @@ function OrderDetail({ id }: { id: string }) {
     const response = await command.send<Detail>(`/api/erp/orders/${id}/${action}`, value.tenantId, {}, result.etag)
     if (response) { setNotice("Operação confirmada no servidor."); result.reload() }
   }
-  return <><PageHeader eyebrow="Vendas" title="Pedido de venda" description="Concluir registra saída de estoque e conta a receber. Não emite NF-e nem comprova entrega física." /><Link className={linkClass} href="/vendas/pedidos">Voltar aos pedidos</Link>
-    <section className="form-section mt-5 min-w-0 space-y-4">
+  return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: value ? orderNumber(value.data.number) : "Detalhe" }]} back={{ href: "/vendas/pedidos", label: "Voltar aos pedidos" }} title="Pedido de venda" description="Concluir registra saída de estoque e conta a receber. Não emite NF-e nem comprova entrega física." />
+    <section className="min-w-0 space-y-4" aria-label="Detalhes do pedido">
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
-        <h2 className="break-words font-semibold">{orderNumber(value.data.number)}</h2><p className="break-words">{value.data.customerName}</p><p>Situação: {labels[value.data.status]}</p><p>Total: {commercialMoney(value.data.amount)}</p><p>Vencimento: {value.data.dueDate.split("-").reverse().join("/")}</p>
-        <OrderNegotiation id={id} onDecision={result.reload} />
-        {value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}
-        {value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} />}
-        <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
-        {value.canEdit && value.data.status !== "cancelled" && <div className="space-y-2 rounded-xl border border-primary/30 p-4"><Link className={buttonVariants()} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link><p className="text-sm text-muted-foreground">Confira o documento e os destinatários. O resumo do pedido e o link de assinatura seguem no mesmo e-mail.</p></div>}
-        {access.value?.permissions.includes("finance.commissions.read") && <OrderCommissionTerms orderId={id} onSaved={result.reload} />}
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-4 border-b pb-4">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h2 className="font-semibold">{orderNumber(value.data.number)}</h2><span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">{labels[value.data.status]}</span></div><p className="mt-1 break-words">{value.data.customerName}</p></div>
+          <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">Total do pedido</dt><dd className="font-semibold tabular-nums">{commercialMoney(value.data.amount)}</dd></div><div><dt className="text-xs text-muted-foreground">Vencimento</dt><dd className="tabular-nums">{value.data.dueDate.split("-").reverse().join("/")}</dd></div></dl>
+        </div>
+        <div className="flex flex-wrap items-center gap-3" aria-label="Documentos do pedido">
+          {value.canEdit && value.data.status !== "cancelled" && <Link className={buttonVariants({ variant: "outline" })} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link>}
+          <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
+        </div>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
-        <ul className="space-y-3">{value.items.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.productId}><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div>{item.structureColor && <p className="break-words text-sm">Estrutura: {item.structureColor}</p>}{item.plateHolderColor && <p className="break-words text-sm">Anilheiros: {item.plateHolderColor}</p>}{item.plateHolderType && <p className="break-words text-sm">Tipo de anilheiro: {item.plateHolderType}</p>}{item.upholsteryColor && <p className="break-words text-sm">Estofado: {item.upholsteryColor}</p>}<p className="break-words text-sm">Quantidade: {commercialQuantity(item.quantity)} {item.unit}</p><p className="break-words text-sm">Unitário: {commercialMoney(item.unitPrice)}</p><p className="break-words text-sm">Total do item: {commercialMoney(item.amount)}</p></li>)}</ul>
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}
@@ -257,6 +252,24 @@ function OrderDetail({ id }: { id: string }) {
           {value.data.status === "confirmed" && <Button className="h-auto max-w-full whitespace-normal" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Registrar saída de estoque e gerar a conta a receber deste pedido?")) void act("complete") }}>Concluir e gerar conta a receber</Button>}
           {["draft", "confirmed"].includes(value.data.status) && <Button variant="outline" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Cancelar o pedido e liberar sua reserva, se houver?")) void act("cancel") }}>Cancelar pedido</Button>}
         </div>}
+        <section className="min-w-0 space-y-2" aria-label="Itens do pedido">
+          <h2 className="font-semibold">Itens do pedido <span className="text-xs font-normal text-muted-foreground">({value.items.length})</span></h2>
+          <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Tabela de itens" tabIndex={0}>
+            <DataTable className="w-full text-left text-sm"><caption className="sr-only">Itens do pedido</caption>
+              <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Produto e acabamento</th><th scope="col" className="p-3 text-right">Quantidade</th><th scope="col" className="p-3 text-right">Unitário</th><th scope="col" className="p-3 text-right">Total</th></tr></thead>
+              <tbody>{value.items.map(item => <tr className="border-t" key={item.productId}>
+                <td className="min-w-56 p-3"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><div className="min-w-0"><strong className="break-words font-medium">{item.name}</strong><p className="text-xs text-muted-foreground">{item.sku}</p><p className="break-words text-xs text-muted-foreground">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p></div></div></td>
+                <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialQuantity(item.quantity)} {item.unit}</td>
+                <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(item.unitPrice)}</td>
+                <td className="whitespace-nowrap p-3 text-right font-medium tabular-nums">{commercialMoney(item.amount)}</td>
+              </tr>)}</tbody>
+            </DataTable>
+          </div>
+        </section>
+        <div className="divide-y border-y">
+          <details className="py-3"><summary className="cursor-pointer text-sm font-medium">Negociação e condições comerciais</summary><div className="space-y-4 pt-3"><OrderNegotiation id={id} onDecision={result.reload} />{value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}{value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} />}</div></details>
+          {access.value?.permissions.includes("finance.commissions.read") && <details className="py-3"><summary className="cursor-pointer text-sm font-medium">Comissões do pedido</summary><div className="pt-3"><OrderCommissionTerms orderId={id} onSaved={result.reload} /></div></details>}
+        </div>
         {value.data.status === "completed" && <Link className={linkClass} href="/financeiro/contas-receber">Consultar contas a receber</Link>}
         {["completed", "cancelled"].includes(value.data.status) && <CommercialReturn kind="sale" id={id} tenantId={value.tenantId} etag={result.etag} reversed={value.data.status === "cancelled"} canManage={value.canEdit && access.value?.tenant.id === value.tenantId && ["inventory.stock.manage", "finance.receivables.manage"].every(permission => access.value!.permissions.includes(permission))} disabled={command.busy || command.uncertain || command.stale} onSuccess={() => { setNotice("Cancelamento integral confirmado. Consulte o histórico e acompanhe a situação fiscal da NF-e."); result.reload() }} onReload={result.reload} />}
       </>}

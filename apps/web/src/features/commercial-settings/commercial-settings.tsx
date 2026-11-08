@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DataTable } from "@/components/workspace/data-table"
 import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { useResource } from "@/hooks/use-operation"
@@ -13,15 +14,15 @@ import { fieldGroups, states, toDraft, toParameters, type Calculation, type Draf
 export function CommercialSettings() {
   const [line, setLine] = useState<"imported" | "national">("imported")
   const resource = useResource<Snapshot>(`/api/erp/commercial-settings/${line}`)
-  return <main className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-6">
-    <PageHeader eyebrow="Preferências" title="Parâmetros comerciais" description="Política de preço por linha e simulação gerencial. Acesso restrito à gestão da empresa." />
+  return <div className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-6">
+    <PageHeader breadcrumbs={[{ label: "Preferências", href: "/preferencias" }, { label: "Parâmetros comerciais" }]} title="Parâmetros comerciais" description="Configure a política de preços e confira o resultado por linha comercial." />
     <div className="flex flex-wrap gap-4"><Link className="text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="text-primary underline" href="/preferencias/tabela-precos">Publicar tabela</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link><Link className="text-primary underline" href="/vendas/simulador">Simulador comercial</Link></div>
     <div className="flex gap-2" aria-label="Linha de produto">
       <Button type="button" variant={line === "imported" ? "default" : "outline"} aria-pressed={line === "imported"} onClick={() => { if (line !== "imported" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("imported") }}>Importada</Button>
       <Button type="button" variant={line === "national" ? "default" : "outline"} aria-pressed={line === "national"} onClick={() => { if (line !== "national" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("national") }}>Nacional</Button>
     </div>
     {resource.loading ? <p role="status">Carregando parâmetros…</p> : resource.error ? <p role="alert"><RequestError message={resource.error} status={resource.status} /></p> : resource.value && <Editor key={`${resource.value.tenantId}:${line}:${resource.value.revision}`} snapshot={resource.value} etag={resource.etag} reload={resource.reload} />}
-  </main>
+  </div>
 }
 function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; reload: () => void }) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(snapshot.data, snapshot.monthlyExpensesCents))
@@ -32,6 +33,7 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
   const [notice, setNotice] = useState("")
   const [calculation, setCalculation] = useState<Calculation | null>(snapshot.calculation)
   const [suggestion, setSuggestion] = useState(snapshot.suggestedDownPayment || null)
+  const [section, setSection] = useState(0)
   useNavigationGuard(dirty ? "Descartar os parâmetros comerciais não salvos?" : null)
   function change(next: Draft) { setDraft(next); setDirty(true); setCalculation(null); setSuggestion(null); setError(""); setNotice("") }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -53,14 +55,14 @@ function Editor({ snapshot, etag, reload }: { snapshot: Snapshot; etag: string; 
     } catch (reason) { if (save) setBlocked(true); setError(reason instanceof Error ? reason.message : "Falha na operação") }
     finally { setBusy(false) }
   }
-  return <form className="space-y-5" data-commercial-dirty={dirty} onSubmit={submit}>
+  return <form noValidate className="min-w-0 space-y-5" data-commercial-dirty={dirty} onSubmit={submit}>
     {notice && <p role="status">{notice}</p>}
     {!snapshot.data && <p role="status">Esta linha ainda não tem parâmetros. Informe as alíquotas da empresa.</p>}
-    <fieldset disabled={busy || blocked || !snapshot.canEdit} className="space-y-5">
-      <label className="grid max-w-sm gap-2">UF de origem<select required className="min-h-10 rounded-lg border bg-background px-2" value={draft.originState} onChange={e => change({ ...draft, originState: e.target.value })}><option value="">Selecione</option>{states.map(state => <option key={state}>{state}</option>)}</select></label>
-      {fieldGroups.map(group => <section className="form-section space-y-3" key={group.title}><h2 className="font-semibold">{group.title}</h2><div className="grid gap-3 sm:grid-cols-2">{group.fields.map(([key, label, unit]) => <label key={key} className="grid gap-1">{label} ({unit === "percent" ? "%" : unit === "money" ? "R$" : "dias"})<Input required readOnly={key === "monthlyExpensesCents"} inputMode={unit === "days" ? "numeric" : "decimal"} value={draft[key]} onChange={e => change({ ...draft, [key]: e.target.value })} /></label>)}</div>{group.title === "Provisões e despesas" && <p>Despesas fixas são somadas dos cadastros vigentes. <Link className="text-primary underline" href="/preferencias/despesas-fixas">Gerenciar despesas fixas</Link></p>}</section>)}
-      <section className="form-section space-y-3"><h2 className="font-semibold">ICMS por UF de destino</h2><p>Saída em branco usa a alíquota interestadual padrão. Zero é um valor explícito.</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{draft.stateRates.map((row, index) => <fieldset key={row.state} className="rounded-lg border p-3"><legend>{row.state}</legend><div className="grid grid-cols-3 gap-2">{([ ["internalBps", "Interno"], ["fcpBps", "FCP"], ["outgoingBps", "Saída"] ] as const).map(([key, label]) => <label key={key} className="grid gap-1 text-xs">{label}<Input aria-label={`${row.state} ${label}`} required={key !== "outgoingBps"} inputMode="decimal" value={row[key]} onChange={e => change({ ...draft, stateRates: draft.stateRates.map((item, position) => position === index ? { ...item, [key]: e.target.value } : item) })} /></label>)}</div></fieldset>)}</div></section>
-      <div className="flex gap-3"><Button type="submit" value="preview" variant="outline">Simular</Button><Button type="submit" value="save" disabled={!dirty}>Salvar parâmetros</Button></div>
+    <nav aria-label="Seções dos parâmetros comerciais" className="flex max-w-full gap-2 overflow-x-auto pb-2">{["Política comercial", "Tributos", "Canal de venda", "Provisões e despesas", "ICMS por UF"].map((label, index) => <Button key={label} type="button" variant={section === index ? "default" : "outline"} aria-pressed={section === index} aria-controls={`commercial-section-${index}`} className="shrink-0" onClick={() => setSection(index)}>{label}</Button>)}</nav>
+    <fieldset disabled={busy || blocked || !snapshot.canEdit} className="min-w-0 space-y-5">
+      {fieldGroups.map((group, index) => <section id={`commercial-section-${index}`} hidden={section !== index} className="form-section space-y-4" key={group.title}><h2 className="font-semibold">{group.title}</h2>{index === 0 && <label className="grid max-w-sm gap-2">UF de origem<select required className="min-h-10 rounded-lg border bg-background px-2" value={draft.originState} onChange={e => change({ ...draft, originState: e.target.value })}><option value="">Selecione</option>{states.map(state => <option key={state}>{state}</option>)}</select></label>}<div className="grid gap-4 sm:grid-cols-2">{group.fields.map(([key, label, unit]) => <label key={key} className="grid gap-1">{label} ({unit === "percent" ? "%" : unit === "money" ? "R$" : "dias"})<Input required readOnly={key === "monthlyExpensesCents"} inputMode={unit === "days" ? "numeric" : "decimal"} value={draft[key]} onChange={e => change({ ...draft, [key]: e.target.value })} /></label>)}</div>{group.title === "Provisões e despesas" && <p className="text-sm text-muted-foreground">Despesas fixas são somadas dos cadastros vigentes. <Link className="text-primary underline" href="/preferencias/despesas-fixas">Gerenciar despesas fixas</Link></p>}</section>)}
+      <section id="commercial-section-4" hidden={section !== 4} className="form-section min-w-0 space-y-3"><h2 className="font-semibold">ICMS por UF de destino</h2><p id="state-rates-help" className="text-sm text-muted-foreground">Valores em %. Saída em branco usa a alíquota interestadual padrão. Zero é um valor explícito.</p><div className="workspace-list-scroll max-h-[28rem] overflow-y-auto" role="region" aria-label="Tabela de alíquotas" tabIndex={0}><DataTable aria-label="Alíquotas por UF de destino" aria-describedby="state-rates-help" className="min-w-[440px]"><thead className="sticky top-0 z-10 bg-background"><tr><th scope="col">UF</th><th scope="col">Interno (%)</th><th scope="col">FCP (%)</th><th scope="col">Saída (%)</th></tr></thead><tbody>{draft.stateRates.map((row, index) => <tr key={row.state}><th scope="row">{row.state}</th>{([ ["internalBps", "Interno"], ["fcpBps", "FCP"], ["outgoingBps", "Saída"] ] as const).map(([key, label]) => <td key={key}><Input aria-label={`${row.state} ${label}`} required={key !== "outgoingBps"} inputMode="decimal" value={row[key]} onChange={e => change({ ...draft, stateRates: draft.stateRates.map((item, position) => position === index ? { ...item, [key]: e.target.value } : item) })} /></td>)}</tr>)}</tbody></DataTable></div></section>
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4"><Button type="submit" value="preview" variant="outline" disabled={busy}>Simular</Button><Button type="submit" value="save" disabled={!dirty || busy}>Salvar parâmetros</Button>{dirty && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}</div>
     </fieldset>
     {error && <p role="alert">{error}. Sua edição foi preservada.</p>}
     {blocked && <Button type="button" onClick={() => { if (window.confirm("Descartar edição e recarregar?")) { setDirty(false); reload() } }}>Recarregar</Button>}

@@ -29,7 +29,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  devIndicators: process.env.ERP_BROWSER_DEV === "1" ? false : undefined,
+  devIndicators: false,
+  experimental: {
+    // Avoid stale persistent task references crashing the local dev server.
+    turbopackFileSystemCacheForDev: false,
+  },
   output: "standalone",
   outputFileTracingIncludes: {
     "/assets/contract-editor-worker": ["./node_modules/pdfjs-dist/build/pdf.worker.min.mjs"],

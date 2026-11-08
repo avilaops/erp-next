@@ -595,7 +595,7 @@ test("paginação CT-e preserva filtros permitidos e cinco tamanhos não cortam 
   await page.goto("/fiscal/ctes")
   await expect(page.getByRole("button", { name: "Próximos arquivos" })).toBeEnabled()
   await page.getByRole("button", { name: "Próximos arquivos" }).click()
-  await expect(page.getByText("26–26 de 26", { exact: true })).toBeVisible()
+  await expect(page.getByText("26 a 26 de 26", { exact: true })).toBeVisible()
   await expect(page.getByText("NSU 000000000000026", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Próximos arquivos" })).toBeDisabled()
   for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [1280, 900], [1920, 1080]]) {
@@ -605,5 +605,5 @@ test("paginação CT-e preserva filtros permitidos e cinco tamanhos não cortam 
     await page.screenshot({ path: info.outputPath(`cte-${width}.png`), fullPage: true })
   }
   await page.getByRole("button", { name: "Arquivos anteriores" }).click()
-  await expect(page.getByText("1–25 de 26", { exact: true })).toBeVisible()
+  await expect(page.getByText("1 a 25 de 26", { exact: true })).toBeVisible()
 })

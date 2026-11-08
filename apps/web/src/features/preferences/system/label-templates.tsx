@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +34,7 @@ export function LabelTemplates() {
     try{const response=await erpFetch(id?`/api/erp/system/label-templates/${id}`:"/api/erp/system/label-templates",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json",...(revision?{"If-Match":`"${revision}"`}:{})},body:JSON.stringify(payload)});const body=await response.json();if(!response.ok)throw new Error(body.title||"Não foi possível salvar o modelo");setDraft(empty);setEditing(null);setNotice(id?"Modelo atualizado.":"Modelo de etiqueta criado.");resource.reload()}catch(reason){setError(reason instanceof Error?reason.message:"Falha ao salvar modelo")}finally{setBusy("")}
   }
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Etiquetas customizadas" description="Defina modelos de impressão usando apenas campos autorizados do ERP. A impressão e a contratação logística continuam em seus fluxos próprios." />
+
     {resource.error&&<div role="alert" className="form-section space-y-3"><p>{resource.error}</p>{resource.status===401?<AccessLink/>:<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button>}</div>}
     {resource.value?.canEdit&&<section className="form-section space-y-5" aria-labelledby="new-label"><div className="flex flex-wrap items-center justify-between gap-3"><h2 id="new-label" className="text-lg font-semibold">{editing?"Editar modelo":"Novo modelo"}</h2>{editing&&<Button variant="outline" onClick={()=>{setEditing(null);setDraft(empty)}}>Cancelar edição</Button>}</div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <label className="grid gap-2 text-sm font-medium sm:col-span-2">Nome<Input value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label>

@@ -34,7 +34,7 @@ test("consulta NSU repete o comando após resposta perdida e respeita o interval
     return route.fulfill({ headers: { ETag: '"3"' }, json: { ...status(), status: "completed", runId: purchase } })
   })
   await page.goto("/fiscal/monitor")
-  await page.getByText("Distribuição em homologação — sem valor fiscal", { exact: true }).click()
+  await page.getByText("Distribuição em homologação, sem valor fiscal", { exact: true }).click()
   await page.getByRole("button", { name: "Consultar notas agora", exact: true }).click()
   await page.getByRole("button", { name: "Conferir consulta anterior", exact: true }).click()
   await expect(page.getByText("Consulta concluída. Os documentos recebidos estão armazenados nesta empresa.", { exact: true })).toBeVisible()

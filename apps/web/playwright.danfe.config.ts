@@ -11,7 +11,7 @@ const webkit = process.env.ERP_BROWSER_ENGINE === "webkit"
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["simulator-ui.spec.ts", "orders-list-ui.spec.ts", "staff-payroll-ui.spec.ts","registration-settings-ui.spec.ts","logout-navigation.spec.ts", "supply-ui.spec.ts", "sales-settings-ui.spec.ts", "help-ui.spec.ts", "dashboard-preferences.spec.ts", "company-account-ui.spec.ts", "company-sections-ui.spec.ts", "danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts", "catalog-navigation-ui.spec.ts", "file-manager-ui.spec.ts", "frontend-controls-ui.spec.ts", "frontend-states-ui.spec.ts", "frontend-models.spec.ts", "frontend-integration-ui.spec.ts", "returns-ui.spec.ts", "fiscal-operations-ui.spec.ts", "fiscal-incoming-ui.spec.ts", "commissions-ui.spec.ts", "production-ui.spec.ts", "fiscal-tax-ui.spec.ts", "fiscal-settings-ui.spec.ts"],
+  testMatch: ["simulator-ui.spec.ts", "orders-list-ui.spec.ts", "staff-payroll-ui.spec.ts","registration-settings-ui.spec.ts","logout-navigation.spec.ts", "supply-ui.spec.ts", "sales-settings-ui.spec.ts", "help-ui.spec.ts", "dashboard-preferences.spec.ts", "company-account-ui.spec.ts", "company-sections-ui.spec.ts", "danfe-ui.spec.ts", "service-key-ui.spec.ts", "onboarding-ui.spec.ts", "party-complements-ui.spec.ts", "staff-ui.spec.ts", "purchase-ui.spec.ts", "contracts-ui.spec.ts", "navigation-ui.spec.ts", "catalog-navigation-ui.spec.ts", "file-manager-ui.spec.ts", "frontend-controls-ui.spec.ts", "frontend-states-ui.spec.ts", "frontend-models.spec.ts", "frontend-integration-ui.spec.ts", "returns-ui.spec.ts", "fiscal-operations-ui.spec.ts", "fiscal-incoming-ui.spec.ts", "commissions-ui.spec.ts", "production-ui.spec.ts", "fiscal-tax-ui.spec.ts", "fiscal-settings-ui.spec.ts", "outgoing-nfes-ui.spec.ts", "nfe-reference-ui.spec.ts", "outgoing-import-ui.spec.ts", "nfe-modalities-ui.spec.ts", "nfe-financial-ui.spec.ts"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
@@ -24,8 +24,8 @@ export default defineConfig({
     command: process.env.ERP_BROWSER_DEV === "1" ? "pnpm dev --hostname 127.0.0.1 --port 33118" : "pnpm start --hostname 127.0.0.1 --port 33118",
     url: `${origin}/entrar`,
     reuseExistingServer: false,
-    timeout: 60_000,
-    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_DEFAULT_TENANT_ID: "99999999-9999-4999-8999-999999999999", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
+    timeout: process.env.ERP_BROWSER_DEV === "1" ? 180_000 : 60_000,
+    env: { ERP_WEB_ORIGIN: origin, ERP_API_URL: "http://127.0.0.1:33119", ERP_FISCAL_API_URL: "", ERP_SESSION_SECRET: secret, AUTH_ISSUER: "http://127.0.0.1:33120", ERP_DEFAULT_TENANT_ID: "99999999-9999-4999-8999-999999999999", ERP_AUTH_CLIENT_ID: "browser-fixture-client", ERP_AUTH_CLIENT_SECRET: "browser-fixture-client-secret" },
   },
 })
 

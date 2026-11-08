@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
@@ -154,7 +153,7 @@ export function ProductionWorkspace({ id }: { id?: string }) {
   }
 
   return <div className="mx-auto w-full min-w-0 max-w-[1600px] space-y-5 px-4 pb-24 pt-6 sm:px-6">
-    <PageHeader eyebrow="Estoque" title="Ordens de produção" description="Etapas e consumo real de componentes por pedido da empresa ativa." />
+
     <p className="rounded-xl border p-4 text-sm text-muted-foreground">Cada ordem conserva o produto e a quantidade vendidos. Registre os componentes efetivamente consumidos. Marcar como pronta registra a conclusão; os consumos voltam ao estoque ao reabrir uma ordem pronta ou cancelar integralmente a venda.</p>
     {notice && <p role="status" className="rounded-xl border p-4">{notice}</p>}
     {writeError && <p role="alert" className="rounded-xl border p-4">{writeError}</p>}

@@ -1,7 +1,7 @@
-import { PayrollOverview } from "@/features/staff/payroll-workspace"
+import { redirect } from "next/navigation"
 
-export const metadata = { title: "Pagamentos da equipe" }
+export const instant = false
 
 export default function Page() {
-  return <PayrollOverview />
+  redirect("/financeiro/contas-pagar?aba=funcionarios")
 }

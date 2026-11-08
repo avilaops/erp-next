@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { BadgeCheck, Building2, ChevronRight, CircleDollarSign, Fingerprint, Landmark, LockKeyhole, PlugZap, ReceiptText, Search, Settings2, ShieldCheck, Users } from "lucide-react"
+import { BadgeCheck, Building2, ChevronRight, CircleDollarSign, Fingerprint, Landmark, LockKeyhole, PlugZap, ReceiptText, Search, ShieldCheck, Users } from "lucide-react"
 import { GuardedLink as Link } from "@/components/shell/navigation-guard"
-import { preferenceGroups } from "@/components/shell/navigation-catalog"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { useCompanyProfile } from "./company-profile-context"
 import { companySectionStatus, type CompanySection } from "./company-sections"
 
@@ -32,27 +30,13 @@ const settingsGroups = [
 
 function normalize(value: string) { return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR").trim() }
 
-function PreferenceLinks({ onNavigate }: { onNavigate?: () => void }) {
-  return <nav className="space-y-6" aria-label="Categorias de preferências">{preferenceGroups.map(group => <div key={group.label}>
-    <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
-    <div className="space-y-1">{group.items.map(item => <Link key={item.href} href={item.href} onNavigate={onNavigate}
-      className={`preferences-link ${item.href === "/preferencias/empresa" ? "is-active" : ""}`} aria-current={item.href === "/preferencias/empresa" ? "page" : undefined}>{item.label}</Link>)}</div>
-  </div>)}</nav>
-}
-
 export function CompanyPreferences({ summary }: { summary: ReactNode }) {
   const { company } = useCompanyProfile()
   const [query, setQuery] = useState("")
-  const [open, setOpen] = useState(false)
   const search = normalize(query)
   const groups = settingsGroups.map(group => ({ ...group, items: group.items.filter(item => normalize(`${group.title} ${item.title} ${item.description}`).includes(search)) })).filter(group => group.items.length)
-  return <div className="mx-auto grid max-w-[1600px] gap-0 px-4 pb-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-6">
-    <aside className="hidden border-r border-border py-8 pr-5 lg:block"><div className="mb-6 flex items-center gap-2"><Settings2 className="size-5 text-primary" /><h2 className="text-lg font-semibold">Preferências</h2></div><PreferenceLinks /></aside>
-    <div className="min-w-0 py-8 lg:pl-8 xl:pl-12">
-      <div className="mb-6 lg:hidden"><Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={<Button variant="outline" />}><Settings2 />Preferências<ChevronRight /></DialogTrigger>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Preferências</DialogTitle><DialogDescription>Acesse as configurações do ERP.</DialogDescription></DialogHeader><PreferenceLinks onNavigate={() => setOpen(false)} /></DialogContent>
-      </Dialog></div>
+  return <div className="mx-auto max-w-6xl px-4 pb-8 lg:px-6">
+    <div className="min-w-0 py-8">
       <Link href="/preferencias" className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-primary hover:underline"><ChevronRight className="size-4 rotate-180" aria-hidden="true" />Todas as preferências</Link>
       <PageHeader eyebrow="Preferências / Empresa" title="Empresa" description="Identidade, configuração fiscal, acesso e conexões da empresa ativa." />
       <div className="mb-6 flex items-center gap-2">

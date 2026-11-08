@@ -4,7 +4,6 @@ import { RequestError } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Pagination } from "@/components/workspace/pagination"
 import { useResource } from "@/hooks/use-operation"
@@ -14,7 +13,7 @@ export function PurchaseList({ receiving = false }: { receiving?: boolean }) {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/purchase-orders?offset=${offset}&limit=25`)
   return <>
-    <PageHeader eyebrow="Compras" title={receiving ? "Recebimentos de compras" : "Pedidos de compra"} description={receiving ? "Selecione uma compra para consultar os recebimentos e registrar a entrada dos produtos entregues." : "Compras da empresa ativa. O estoque e a conta a pagar são registrados no recebimento, não na criação do pedido."} />
+
     <section className="form-section min-w-0 space-y-4">
       <div className="flex flex-wrap gap-4">{result.value?.canEdit && <Link className={purchaseLink} href="/compras/pedidos/novo">Novo pedido de compra</Link>}<Link className={purchaseLink} href="/financeiro/contas-pagar">Contas a pagar</Link></div>
       {result.loading ? <p role="status">Carregando compras…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>

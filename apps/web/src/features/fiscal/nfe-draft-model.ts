@@ -1,12 +1,25 @@
+import { emptyRetentions, emptyTransport, type FiscalExtras } from "./nfe-extras-model"
 import type { TaxProfile, FiscalScenario } from "./settings/tax-profile-model"
 
 import type { Schema } from "@/lib/api/types"
-export type DraftItem = Schema<"DraftItem">
+export type Exportation = Schema<"Exportation">
+export type ExportDetail = Schema<"ExportDetail">
+export type DraftItem = Schema<"DraftItem"> & { insuranceAmount?: string | null; otherAmount?: string | null; taxableUnit?: string | null; taxableQuantity?: string | null; taxableUnitPrice?: string | null; exportDetails?: ExportDetail[]; referencedDfe?: { accessKey: string; itemNumber?: number | null } | null }
 export type IbptDraftItem = Omit<Schema<"IbptItemSelection">, "origin"> & { origin: "national" | "imported" | "" }
 export type IbptDraftSelection = Omit<Schema<"IbptSelection">, "items"> & { items: IbptDraftItem[] }
-export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration" | "ibpt"> & { taxDeclaration?: TaxDeclaration | null; ibpt?: IbptDraftSelection | null }
+export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration" | "ibpt" | "recipient" | "items"> & FiscalExtras & {
+  items: DraftItem[];
+  taxDeclaration?: TaxDeclaration | null; ibpt?: IbptDraftSelection | null;
+  issuedAt?: string | null; departureAt?: string | null; presenceIndicator?: number | null;
+  printType?: number | null; finalConsumer?: boolean | null; salesperson?: string | null;
+  exportation?: Exportation | null;
+  simplifiedDanfe?: { qrCodeUrl: string; accessKeyUrl: string } | null;
+  creditType?: string | null; debitType?: string | null;
+  series?: number | null; number?: number | null; crt?: number | null;
+  recipient: Schema<"Recipient"> & { complement?: string | null; phone?: string | null; email?: string | null; cityName?: string | null; foreignId?: string | null; countryCode?: string | null; countryName?: string | null };
+}
 export type NfeDraft = Schema<"Draft">
-export type FiscalReadiness = Schema<"Readiness">
+export type FiscalReadiness = Schema<"Readiness"> & { crt?: number | null; series?: number | null; nextNumber?: number | null }
 type TaxBooleanField = "recipientTaxpayer" | "finalConsumer" | "ipiInIcmsBase" | "icmsOutOfContributions"
 export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & Record<TaxBooleanField, boolean | null>
 
@@ -52,7 +65,9 @@ function commercialItemCents(item: DraftItem): bigint {
   const gross = scaled(itemTotal(item.quantity, item.unitPrice))
   const freight = scaled(fixed(item.freightAmount || "0", 2, 13))
   const discount = scaled(fixed(item.discountAmount || "0", 2, 13))
-  const net = gross + freight - discount
+  const insurance = scaled(fixed(item.insuranceAmount || "0", 2, 13))
+  const other = scaled(fixed(item.otherAmount || "0", 2, 13))
+  const net = gross + freight + insurance + other - discount
   if (discount > gross || net <= BigInt(0)) throw new Error("Confira o desconto e o total do item com frete")
   return net
 }
@@ -79,13 +94,25 @@ function declaredTaxes(declaration: TaxDeclaration): Schema<"TaxDeclaration"> {
 
 export function submission(draft: DraftInput): Schema<"DraftInput"> {
   const { taxDeclaration, ibpt, ...input } = draft
+  if (input.transport) {
+    input.transport = { ...emptyTransport(), ...input.transport }
+    for (const key of ["netWeight", "grossWeight"] as const) if (input.transport[key]) input.transport[key] = fixed(input.transport[key]!, 3, 12)
+  }
+  if (input.retentions) input.retentions = { ...emptyRetentions(), ...Object.fromEntries(Object.entries(input.retentions).map(([key, value]) => [key, value ? fixed(value, 2, 13) : null])) }
+  if (input.installments) input.installments = input.installments.map(item => ({ ...item, amount: fixed(item.amount, 2, 13) }))
+
   const items = draft.items.map((item, index) => {
     if (item.origin < 0) throw new Error(`Informe a origem da mercadoria no item ${index + 1}`)
     if (!!item.icmsCst === !!item.csosn) throw new Error(`Informe CST ou CSOSN, conforme o CRT, no item ${index + 1}`)
     commercialItemCents(item)
     const freightAmount = fixed(item.freightAmount || "0", 2, 13)
     if (scaled(freightAmount) > BigInt(0) && (draft.freightMode ?? "9") === "9") throw new Error("Frete cobrado exige modalidade de transporte diferente de 9")
-    return { ...item, ...(item.freightAmount === undefined ? {} : { freightAmount }), ...(item.discountAmount === undefined ? {} : { discountAmount: fixed(item.discountAmount || "0", 2, 13) }), quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
+    const exportFields = {
+      ...(item.taxableQuantity ? { taxableQuantity: fixed(item.taxableQuantity, 4, 11) } : {}),
+      ...(item.taxableUnitPrice ? { taxableUnitPrice: fixed(item.taxableUnitPrice, 10, 11) } : {}),
+      ...(item.exportDetails ? { exportDetails: item.exportDetails.map(detail => ({ ...detail, ...(detail.exportedQuantity ? { exportedQuantity: fixed(detail.exportedQuantity, 4, 11) } : {}) })) } : {}),
+    }
+    return { ...item, ...exportFields, ...(item.freightAmount === undefined ? {} : { freightAmount }), ...(item.insuranceAmount == null ? {} : { insuranceAmount: fixed(item.insuranceAmount, 2, 13) }), ...(item.otherAmount == null ? {} : { otherAmount: fixed(item.otherAmount, 2, 13) }), ...(item.discountAmount === undefined ? {} : { discountAmount: fixed(item.discountAmount || "0", 2, 13) }), quantity: fixed(item.quantity, 4, 11), unitPrice: fixed(item.unitPrice, 10, 11), grossTotal: itemTotal(item.quantity, item.unitPrice) }
   })
   return { ...input, items, productsTotal: productsTotal(items), ...(draft.changeAmount === undefined ? {} : { changeAmount: fixed(draft.changeAmount || "0", 2, 13) }), ...(ibpt === undefined ? {} : { ibpt: ibpt === null ? null : ibptSubmission(ibpt, items.length) }), ...(taxDeclaration ? { taxDeclaration: declaredTaxes(taxDeclaration) } : {}), ...(draft.payments ? { payments: draft.payments.map(payment => ({ ...payment, amount: fixed(payment.amount, 2, 13) })) } : {}) }
 }

@@ -1,0 +1,17 @@
+import { Suspense } from "react"
+import { ChevronRight } from "lucide-react"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { PageTitle } from "@/components/workspace/page-title"
+import { PreferencesOverview } from "@/features/preferences/search/preferences-overview"
+
+<div className="mx-auto max-w-[1600px] px-4 pb-28 pt-8 lg:px-6">
+  <nav className="mb-4 flex items-center gap-2 text-sm text-muted-foreground" aria-label="Caminho de navegação">
+    <Link href="/" className="hover:text-foreground">Início</Link>
+    <ChevronRight className="size-4" aria-hidden="true" />
+    <span aria-current="page">Preferências</span>
+  </nav>
+  <PageTitle className="text-3xl font-semibold tracking-tight sm:text-4xl">Preferências</PageTitle>
+  <Suspense fallback={<p role="status" className="p-6">Carregando preferências…</p>}>
+    <PreferencesOverview instruction="Escolha uma das opções abaixo" />
+  </Suspense>
+</div>

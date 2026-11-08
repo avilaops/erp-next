@@ -9,6 +9,7 @@ import { AccessLink } from "@/components/feedback/session-recovery"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
+import { DataTable } from "@/components/workspace/data-table"
 import { PageHeader } from "@/components/page-header"
 import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
@@ -56,7 +57,7 @@ export function PartyList() {
   }, [query, retry])
 
   return <>
-    <PageHeader eyebrow="Cadastros" title="Clientes e fornecedores" description="Um cadastro por CPF ou CNPJ na empresa ativa. A mesma pessoa pode exercer os dois papéis comerciais." />
+
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Pessoas cadastradas</h2>{result?.canEdit && <Link className={linkClass} href="/cadastros/clientes-fornecedores/novo">Nova pessoa</Link>}</div>
       <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={event => {
@@ -70,11 +71,13 @@ export function PartyList() {
       </form>
       {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(party => <li key={party.id} className="min-w-0 rounded-xl border p-4">
-          <Link className={`${linkClass} break-words`} href={`/cadastros/clientes-fornecedores/${party.id}`}>Consultar {party.legalName}</Link>
-          <p className="mt-2 break-all text-sm">{party.personType === "fisica" ? "CPF" : "CNPJ"}: {party.taxId}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{relationship(party)} · {party.status === "active" ? "Ativo" : "Arquivado"}</p>
-        </li>)}</ul> : <p>Nenhuma pessoa encontrada.</p>}
+        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de clientes e fornecedores" tabIndex={0}><DataTable aria-label="Clientes e fornecedores" className="min-w-[640px]">
+          <thead><tr><th scope="col">Nome</th><th scope="col">CPF / CNPJ</th><th scope="col">Relacionamento</th><th scope="col">Contato</th><th scope="col">Situação</th></tr></thead>
+          <tbody>{result.data.map(party => <tr key={party.id}>
+            <th scope="row" className="font-medium"><Link className={linkClass} href={`/cadastros/clientes-fornecedores/${party.id}`}>{party.legalName}</Link></th>
+            <td className="whitespace-nowrap">{party.taxId}</td><td>{relationship(party)}</td><td>{party.email || party.phone || "Não informado"}</td><td>{party.status === "active" ? "Ativo" : "Arquivado"}</td>
+          </tr>)}</tbody>
+        </DataTable></div> : <p>Nenhuma pessoa encontrada.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
       </>}
     </section>
@@ -166,8 +169,7 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
   }
 
   return <>
-    <PageHeader eyebrow="Cadastros · Clientes e fornecedores" title={view ? snapshot?.data?.legalName || "Pessoa" : id ? "Editar pessoa" : "Nova pessoa"} description="Identificação e contatos declarados. A validação do documento não consulta a situação cadastral nem aprova crédito ou tratamento fiscal." />
-    <Link className={linkClass} href="/cadastros/clientes-fornecedores" onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
+    <PageHeader eyebrow="Cadastros · Clientes e fornecedores" title={view ? snapshot?.data?.legalName || "Pessoa" : id ? "Editar pessoa" : "Nova pessoa"} />
     <section className="form-section mt-5 min-w-0 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
@@ -180,17 +182,18 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/clientes-fornecedores/${id}/editar`}>Editar pessoa</Link>}
         </> : <form className="space-y-5" onSubmit={save}>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
-            <label className="min-w-0 space-y-2">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
-            <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
-            {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["taxId", "CPF ou CNPJ", 30], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName" || field === "taxId"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" || field === "taxId" ? "" : null))} /></label>)}
-            {draft.personType === "juridica" && <RegistryLookup kind="cnpj" context="party" tenantId={snapshot.tenantId} automaticValue={draft.taxId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
+            {draft.personType === "juridica" ? <RegistryLookup documentField={<label className="block min-w-0 space-y-2"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>} kind="cnpj" context="party" tenantId={snapshot.tenantId} automaticValue={draft.taxId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
               const result = fillPartyCnpj(draft, fields, cnpjProvenance.current)
               if (!result.count) return 0
               cnpjProvenance.current = result.provenance
               setDraft(result.draft)
               setSaved(false)
               return result.count
-            }} />}
+            }} /> : <label className="block min-w-0 space-y-2"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>}
+            <label className="min-w-0 space-y-2">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
+            <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
+            {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" ? "" : null))} /></label>)}
+
             <div className="min-w-0 space-y-3"><p className="font-medium">Relacionamento comercial</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos um papel.</p></div>
           <PartyComplements tenantId={snapshot.tenantId} addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />
           </fieldset>

@@ -2,35 +2,35 @@
   "format": 1,
   "sourceUrl": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w%3D",
   "sourceRecord": "tests/fixtures/nfe-xsd/ORIGEM.md",
-  "sourceCheckedAt": "2026-10-10",
+  "sourceCheckedAt": "2026-11-08",
   "packages": {
     "nfe": {
-      "release": "PL_010f v1.04",
+      "release": "PL_010g v1.03",
       "entry": "nfe_v4.00.xsd",
       "files": [
         {
           "name": "nfe_v4.00.xsd",
-          "sha256": "4c482477ad9b26e0e7ad00528a2a8e23e393a8b1ab16da8f02658785cb373f53",
+          "sha256": "adce3646c13ceb54922ec3142fc1dc45bd4fb839ac35ad583e86c733c07d27df",
           "fixture": "nfe_v4.00.xsd"
         },
         {
           "name": "leiauteNFe_v4.00.xsd",
-          "sha256": "2bace939973916d54184ff3e2740041a932de5d79772f3363504504160f22542",
+          "sha256": "e8470f5d85ded3d99010676087907214aef71c9626140b672abbafa72656c0f5",
           "fixture": "leiauteNFe_v4.00.xsd"
         },
         {
           "name": "tiposBasico_v4.00.xsd",
-          "sha256": "23a57c2a159ea17b21d79b7d23d517e160fa506bc079e122a40576f64d821486",
+          "sha256": "772619c85723e598840667ca66e7298a250442df47eeb94b397d2a333ce62047",
           "fixture": "tiposBasico_v4.00.xsd"
         },
         {
           "name": "DFeTiposBasicos_v1.00.xsd",
-          "sha256": "8d2f4d64a7a83a507acb65ac533221f83315238bb5e3cee96707926113c033c5",
+          "sha256": "2da0785a6c70db4f93571187a28514dde715cfd0b0f41e746176fbf3444549f2",
           "fixture": "DFeTiposBasicos_v1.00.xsd"
         },
         {
           "name": "xmldsig-core-schema_v1.01.xsd",
-          "sha256": "9ee96a739280d64e68f1b5c9e1e32519a249ad25f87edaff800c15150897c98b",
+          "sha256": "f56744a5f51c03f027de13f39f869307091781a9ef1d91b1ebe14719ce28e1ac",
           "fixture": "xmldsig-core-schema_v1.01.xsd"
         }
       ]

@@ -1,8 +1,10 @@
 import "server-only"
+import { fiscalApiOrigin } from "./local-fiscal-api"
 
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
+  const priceListResource = /^\/price-lists(?:\/[a-f0-9-]{36})?$/i.test(resource) && (resource === "/price-lists" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const opportunityResource = /^\/opportunities(?:\/[a-f0-9-]{36})?$/.test(resource) && (resource === "/opportunities" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const metricResource = request.method === "GET" && /^\/commercial\/metrics\/(?:orders|commissions)$/.test(resource)
   const negotiationResource = metricResource || request.method === "GET" && /^\/commercial\/(?:tables\/(?:imported|national)|orders\/[a-f0-9-]{36}|approval-settings)$/.test(resource)
@@ -63,7 +65,7 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "POST" && (/^\/logistics\/postings$/i.test(resource) || /^\/logistics\/postings\/[a-f0-9-]{36}\/(?:status|packages)$/i.test(resource) || /^\/logistics\/checkouts(?:\/[a-f0-9-]{36}(?:\/(?:complete|labels|lines\/\d+\/check|packages(?:\/[a-f0-9-]{36}\/status)?))?)?$/i.test(resource))
   const purchaseCollection = /^\/(?:purchase-orders|payables|financial-payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables|financial-payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/(?:payables|financial-payables)\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!priceListResource && !opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = resource === "/companies" || resource === "/company-registration/lookup" ? await currentIdentitySession() : await currentSession()
@@ -93,7 +95,8 @@ export async function forwardErp(request: Request, resource: string) {
     if (etag) headers.set("If-Match", etag)
     const commandKey = request.headers.get("idempotency-key")
     if (commandKey) headers.set("Idempotency-Key", commandKey)
-    const upstream = new URL(`${config.api}/api/v1${resource}`)
+    const api = fiscalApiOrigin(resource, config.api, process.env.ERP_FISCAL_API_URL, process.env.NODE_ENV)
+    const upstream = new URL(`${api}/api/v1${resource}`)
     if (opportunityResource) {
       const query = new URL(request.url).searchParams
       const allowed = request.method === "GET" && resource === "/opportunities" ? ["q", "stage", "offset", "limit"] : []

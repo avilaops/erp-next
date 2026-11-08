@@ -29,7 +29,7 @@ export function Payables({ id }: { id?: string }) {
 function PayableList() {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/financial-payables?offset=${offset}&limit=25`)
-  return <><PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Obrigações de compras e pagamentos aprovados de funcionários. O registro de pagamento é manual e não envia dinheiro nem confirma liquidação bancária." />
+  return <>
     <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
       {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar encontrada.</p>}

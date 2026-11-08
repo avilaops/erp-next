@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AccessLink } from "@/components/feedback/session-recovery"
@@ -26,7 +25,7 @@ export function CustomFields() {
     try { const response=await erpFetch(`/api/erp/system/custom-fields/${field.id}`,{method:"PUT",headers:{"Content-Type":"application/json","If-Match":`"${field.revision}"`},body:JSON.stringify({entityType:field.entityType,code:field.code,label:field.label,valueType:field.valueType,required:field.required,choices:field.choices,status:"archived"})}); const body=await response.json(); if(!response.ok) throw new Error(body.title||"Não foi possível arquivar o campo"); setNotice("Campo arquivado; valores existentes foram preservados."); resource.reload() } catch(reason){setError(reason instanceof Error?reason.message:"Falha ao arquivar campo") } finally {setBusy("")}
   }
   return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Campos customizados" description="Crie campos adicionais para produtos, clientes e fornecedores ou pedidos de venda. A estrutura do campo não pode ser trocada depois de receber valores." />
+
     {resource.error&&<div role="alert" className="form-section space-y-3"><p>{resource.error}</p>{resource.status===401?<AccessLink/>:<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button>}</div>}
     {resource.value?.canEdit&&<section className="form-section space-y-4" aria-labelledby="new-field"><h2 id="new-field" className="text-lg font-semibold">Novo campo</h2><div className="grid gap-4 sm:grid-cols-2">
       <label className="grid gap-2 text-sm font-medium">Entidade<select className="min-h-11 rounded-lg border bg-background px-3" value={draft.entityType} onChange={e=>setDraft({...draft,entityType:e.target.value})}>{Object.entries(entities).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { assertFiscalXml, createFiscalXmlValidator, FiscalXmlError, readFiscalSchemas } from "@/lib/fiscal/local-layout";
@@ -22,7 +23,8 @@ test("schemas locais: versões, hashes e arquivos coincidem com as fontes versio
     assert.equal(bundle.release, manifest.packages[kind].release);
     for (const file of manifest.packages[kind].files) {
       const source = await readFile(new URL(`./fixtures/nfe-xsd/${file.fixture}`, import.meta.url), "utf8");
-      assert.equal(bundle.files.find((item) => item.fileName === file.name)!.contents.trimEnd(), source.replace(/\r\n/g, "\n").trimEnd());
+      if (kind === "nfe") assert.equal(createHash("sha256").update(source).digest("hex"), file.sha256);
+      assert.equal(bundle.files.find((item) => item.fileName === file.name)!.contents.replace(/\r\n/g, "\n").trimEnd(), source.replace(/\r\n/g, "\n").trimEnd());
     }
   }
 });

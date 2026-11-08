@@ -258,6 +258,7 @@ async fn fiscal_draft_updates_preserve_snapshots_and_detect_concurrent_edits(adm
         .await;
     assert_eq!(page.2["data"].as_array().unwrap().len(), 1);
     assert!(page.2["nextCursor"].is_null());
+    assert!(page.2["data"][0]["createdAt"].as_str().is_some());
     cleanup(&admin, app, server, &role).await;
 }
 

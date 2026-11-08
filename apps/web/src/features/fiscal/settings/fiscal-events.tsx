@@ -38,7 +38,7 @@ export function FiscalEvents({ kind }: { kind: "correcao" | "inutilizacao" }) {
     {page && !loading && items.length === 0 && <p>{page.items.length ? "Nenhum evento carregado corresponde à busca." : "Nenhum evento desta categoria registrado nesta empresa."}</p>}
     <div className="space-y-4">{items.map(item=><article key={item.id} className="form-section min-w-0 space-y-3">
       <div className="flex flex-wrap justify-between gap-3"><h2 className="font-semibold">{kind === "correcao" ? `CC-e ${item.sequence} · NF-e ${item.number ?? "sem número"}` : `Inutilização · ${item.request.year ?? ""} · Série ${item.request.series ?? ""}`}</h2><span>{statusLabels[item.status] || item.status}</span></div>
-      <p className="text-sm">{item.environment === "production" ? "Produção" : "Homologação — sem valor fiscal"} · {item.createdAt}</p>
+      <p className="text-sm">{item.environment === "production" ? "Produção" : "Homologação, sem valor fiscal"} · {item.createdAt}</p>
       {kind === "inutilizacao" && <p>Faixa: {item.request.first} a {item.request.last}</p>}
       {item.accessKey && <p className="break-all text-sm">Chave: {item.accessKey}</p>}
       {item.request.text && <p className="break-words whitespace-pre-wrap text-sm">{item.request.text}</p>}

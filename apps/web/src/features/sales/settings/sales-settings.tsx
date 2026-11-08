@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import { erpFetch } from "@/lib/api/client"
@@ -53,7 +52,7 @@ export function SalesSettings() {
   }
 
   return <div className="mx-auto max-w-4xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Vendas" title="Configurações de vendas" description="Regras verificadas ao confirmar os pedidos desta empresa." />
+
     <Link className="inline-flex min-h-11 items-center text-primary underline" href="/preferencias?categoria=vendas">Voltar às preferências de vendas</Link>
     {resource.loading && <p role="status">Carregando configurações de vendas…</p>}
     {resource.error && <p role="alert"><RequestError message={resource.error} status={resource.status} /></p>}

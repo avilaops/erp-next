@@ -1,4 +1,5 @@
-import { buildNfeXml, accessKeyDigit, nfeTotals, UF_CODES, IPI_TAXED_CSTS, IPI_UNTAXED_CSTS, exactFiscalCents, INVALID_FISCAL_TEXT, NFE_MAX_CENTS } from "./lib/fiscal/nfe.ts";
+import { financialLegacyMode, financialNoteProblems } from "./lib/fiscal/financial-note.ts";
+import { buildNfeXml, accessKeyDigit, nfeTotals, nfeProblems, UF_CODES, IPI_TAXED_CSTS, IPI_UNTAXED_CSTS, exactFiscalCents, INVALID_FISCAL_TEXT, NFE_MAX_CENTS } from "./lib/fiscal/nfe.ts";
 import type { NfeInput, NfeItem } from "./lib/fiscal/nfe.ts";
 import { readCertificate } from "./lib/fiscal/certificate.ts";
 import { signNfeXml, signEventXml, signVoidXml, signingKeyOf } from "./lib/fiscal/sign.ts";
@@ -9,6 +10,7 @@ import { AUTHORIZATION_ACTION, CONSULT_ACTION, VOID_ACTION, authorizationEnvelop
 import { EVENT_ACTION, eventEnvelope, eventUrl, eventXml, parseEvent, processedEventXml } from "./lib/fiscal/events.ts";
 import { DISTRIBUTION_ACTION, distributionEnvelope, distributionUrl, parseDistributionResponse } from "./lib/fiscal/distribution.ts";
 import { recipientManifestXml } from "./lib/fiscal/recipient-manifest.ts";
+import { supplementSimplifiedNfe } from "./lib/fiscal/simplified-nfe.ts";
 import { createNfceQrPayload } from "./lib/fiscal/nfce-qr.ts";
 import { queryCteDistribution } from "./lib/fiscal/cte-distribution-client.ts";
 import { inspectReceivedNationalNfse } from "./lib/fiscal/nfse-received.ts";
@@ -105,7 +107,7 @@ function optionalMoney(value: unknown): number {
   return amount;
 }
 
-const commercialCents = (item: NfeItem) => centsOf(roundCents(item.quantity * item.unitPrice)) + centsOf(item.freightAmount ?? 0) - centsOf(item.discountAmount ?? 0);
+const commercialCents = (item: NfeItem) => centsOf(roundCents(item.quantity * item.unitPrice)) + centsOf(item.freightAmount ?? 0) + centsOf(item.insuranceAmount ?? 0) + centsOf(item.otherAmount ?? 0) - centsOf(item.discountAmount ?? 0);
 
 function ibptText(value: unknown, label: string, max = 200): string {
   const result = text(value, label, max);
@@ -193,16 +195,16 @@ function assertExactTaxes(mapped: NfeInput, declaredProducts: bigint): void {
   for (const item of mapped.items) {
     const product = centsOf(roundCents(item.quantity * item.unitPrice));
     const freight = centsOf(item.freightAmount ?? 0), discount = centsOf(item.discountAmount ?? 0);
-    const commercial = product + freight - discount;
+    const commercial = product + freight + centsOf(item.insuranceAmount ?? 0) + centsOf(item.otherAmount ?? 0) - discount;
     const ipi = taxCents(commercial, item.ipiRate);
-    const icmsBase = mapped.issuer.taxRegime === 3 && mapped.rules.icmsCode === "00" ? commercial + (mapped.rules.finalConsumer && mapped.rules.ipiInIcmsBase ? ipi : 0n) : 0n;
+    const icmsBase = financialLegacyMode(mapped) === "all" && mapped.issuer.taxRegime === 3 && mapped.rules.icmsCode === "00" ? commercial + (mapped.rules.finalConsumer && mapped.rules.ipiInIcmsBase ? ipi : 0n) : 0n;
     const icms = taxCents(icmsBase, mapped.icmsRate);
     const contributionBase = commercial - (mapped.rules.icmsOutOfContributions ? icms : 0n);
     const pis = taxCents(contributionBase, mapped.rules.pisRate), cofins = taxCents(contributionBase, mapped.rules.cofinsRate);
-    const owesDifal = mapped.issuer.taxRegime === 3 && mapped.rules.icmsCode === "00" && mapped.recipient.uf !== mapped.issuer.uf && !mapped.recipient.taxpayer && mapped.rules.finalConsumer;
+    const owesDifal = mapped.purpose !== 5 && mapped.purpose !== 6 && mapped.issuer.taxRegime === 3 && mapped.rules.icmsCode === "00" && mapped.recipient.uf !== "EX" && mapped.recipient.uf !== mapped.issuer.uf && !mapped.recipient.taxpayer && mapped.rules.finalConsumer;
     const difal = owesDifal ? taxCents(icmsBase, mapped.destination.internalIcms - mapped.icmsRate) : 0n;
     const fcp = owesDifal ? taxCents(icmsBase, mapped.destination.fcp) : 0n;
-    const reformBase = mapped.rules.ibsCbs ? commercial - icms - pis - cofins - difal - fcp : 0n;
+    const reformBase = mapped.rules.ibsCbs && mapped.rules.ibsCbs.cst !== "410" ? commercial - icms - pis - cofins - difal - fcp : 0n;
     if (contributionBase < 0n || reformBase < 0n) refuse("Base tributária negativa fora do recorte");
     const expected = { products: product, freight, discount, ipi, icmsBase, icms, pis, cofins, difal, fcp, invoice: commercial + ipi, reformBase, ibsState: taxCents(reformBase, mapped.rules.ibsCbs?.ibsStateRate ?? 0), ibsCity: taxCents(reformBase, mapped.rules.ibsCbs?.ibsCityRate ?? 0), cbs: taxCents(reformBase, mapped.rules.ibsCbs?.cbsRate ?? 0) };
     const actual = nfeTotals({ ...mapped, items: [item] });
@@ -225,7 +227,10 @@ export function mapDraft(value: unknown): NfeInput {
   const issuer = object(input.issuer), company = object(issuer.company), profile = object(issuer.profile), draft = object(input.draft);
   if (draft.environment !== input.environment || (profile.environment ?? "homologation") !== input.environment) refuse("Ambiente deve corresponder ao perfil e ao rascunho de homologação ou produção");
   const model = draft.model === 65 ? 65 : draft.model === 55 ? 55 : refuse("Modelo fiscal deve ser 55 ou 65", "tax_rule_scope");
-  const purpose = draft.purpose == null ? 1 : draft.purpose === 4 ? 4 : draft.purpose === 1 ? 1 : refuse("Finalidade fiscal deve ser 1 ou 4", "tax_rule_scope");
+  const purpose = draft.purpose == null ? 1 : [1, 2, 3, 4, 5, 6].includes(Number(draft.purpose)) && typeof draft.purpose === "number" ? draft.purpose as 1 | 2 | 3 | 4 | 5 | 6 : refuse("Finalidade fiscal não implementada no motor", "tax_rule_scope");
+  const creditType = draft.creditType == null ? undefined : text(draft.creditType, "Tipo de crédito", 2), debitType = draft.debitType == null ? undefined : text(draft.debitType, "Tipo de débito", 2);
+  if (purpose !== 4 && draft.returnDirection != null) refuse("Direção de devolução exige finalidade 4");
+  const incoming = purpose === 5 || purpose === 4 && draft.returnDirection === "incoming";
   const returnDirection = purpose === 4
     ? draft.returnDirection === "incoming" || draft.returnDirection === "outgoing" ? draft.returnDirection : refuse("Devolução fiscal exige direção explícita", "tax_rule_scope")
     : undefined;
@@ -236,6 +241,19 @@ export function mapDraft(value: unknown): NfeInput {
       : refuse("Chaves referenciadas inválidas", "tax_rule_scope");
   if (profile.crt !== 1 && profile.crt !== 3 || profile.state !== "SP") refuse("Emissão fora do recorte: NF-e/NFC-e de SP, CRT 1 ou 3", "tax_rule_scope");
   const recipient = object(draft.recipient), state = text(recipient.state, "UF", 2);
+  const foreign = state === "EX";
+  const exportation = draft.exportation == null ? undefined : declaredObject(draft.exportation, ["kind", "exitState", "exportLocation", "dispatchLocation"]);
+  if (exportation && (model !== 55 || purpose !== 1 || !["direct", "indirect", "trading"].includes(String(exportation.kind)) || foreign !== (exportation.kind !== "trading")) || foreign && !exportation) refuse("Modalidade de exportação incompatível com modelo, finalidade ou destinatário");
+  if (exportation) {
+    if (foreign) {
+      if (!Object.hasOwn(UF_CODES, String(exportation.exitState))) refuse("Informe a UF brasileira de saída do país");
+      text(exportation.exportLocation, "Local de exportação", 60);
+      if (exportation.dispatchLocation != null) text(exportation.dispatchLocation, "Local de despacho", 60);
+    } else if (exportation.exitState != null || exportation.exportLocation != null || exportation.dispatchLocation != null) refuse("Venda para trading no Brasil não declara saída do país");
+  }
+  if (foreign && (recipient.taxId !== "" || recipient.postalCode !== "" || recipient.municipalityCode !== "9999999" || typeof recipient.foreignId !== "string" || !/^[a-zA-Z0-9]{0,20}$/.test(recipient.foreignId) || !/^\d{4}$/.test(String(recipient.countryCode)) || ["1058", "0000"].includes(String(recipient.countryCode)))) refuse("Identificação e endereço estrangeiro inválidos");
+  if (foreign) { text(recipient.countryName, "País", 60); text(recipient.cityName, "Cidade exterior", 60); }
+  else if (recipient.foreignId != null || recipient.countryCode != null || recipient.countryName != null) refuse("País e identificação estrangeira exigem UF EX");
   const rawItems = draft.items;
   if (!Array.isArray(rawItems) || !rawItems.length || rawItems.length > 990) refuse("Itens fiscais inválidos");
   const first = object(rawItems[0]);
@@ -250,11 +268,12 @@ export function mapDraft(value: unknown): NfeInput {
   const finalConsumer = declaration ? declaredBoolean(declaration, "finalConsumer") : true;
   if (model === 65 && !finalConsumer) refuse("NFC-e modelo 65 exige operação com consumidor final", "tax_rule_scope");
   const stateRegistration = declaration?.recipientStateRegistration == null ? null : text(declaration.recipientStateRegistration, "IE do destinatário", 14);
-  if (taxpayer ? !stateRegistration || !/^\d{2,14}$/.test(stateRegistration) : stateRegistration !== null || !finalConsumer || first.icmsCst === "50") refuse("Declaração de contribuinte, inscrição estadual ou consumidor final incompatível");
+  if (taxpayer ? !stateRegistration || !/^\d{2,14}$/.test(stateRegistration) : stateRegistration !== null || !foreign && purpose !== 5 && purpose !== 6 && !finalConsumer || first.icmsCst === "50") refuse("Declaração de contribuinte, inscrição estadual ou consumidor final incompatível");
+  if (foreign && taxpayer) refuse("Destinatário exterior não pode declarar IE brasileira");
   const icmsRate = declaration ? rate(declaration.icmsRate, first.icmsCst === "00") : 0;
-  const interstate = state !== "SP";
+  const interstate = !foreign && state !== "SP";
   if (normal && interstate && first.icmsCst === "00" && ![0.04, 0.07, 0.12].includes(icmsRate)) refuse("ICMS interestadual tributado exige alíquota declarada de 4%, 7% ou 12%");
-  const difal = normal && interstate && !taxpayer && finalConsumer;
+  const difal = purpose !== 5 && purpose !== 6 && normal && interstate && !taxpayer && finalConsumer;
   if (difal && first.icmsCst !== "00") refuse("Venda interestadual a não contribuinte disponível somente com ICMS CST 00 e DIFAL declarado", "tax_rule_scope");
   const destinationIcms = declaration ? rate(declaration.destinationIcmsRate, difal) : 0;
   const destinationFcp = declaration ? rate(declaration.destinationFcpRate, difal) : 0;
@@ -267,10 +286,12 @@ export function mapDraft(value: unknown): NfeInput {
   const ipiFrameCode = ipiCst === null ? "999" : text(declaration?.ipiFrameCode, "Enquadramento do IPI", 3);
   if (!/^\d{3}$/.test(ipiFrameCode) || ipiCst === null && declaration?.ipiFrameCode != null) refuse("Enquadramento do IPI incompatível com o CST declarado");
   const ibs = declaration ? declaredObject(declaration.ibsCbs, ["cst", "classCode", "ibsStateRate", "ibsCityRate", "cbsRate"]) : null;
-  if (ibs && (ibs.cst !== "000" || ibs.classCode !== "000001")) refuse("IBS/CBS fora do recorte tributado integral 000/000001", "tax_rule_scope");
-  const ibsCbs = ibs ? { cst: "000", classCode: "000001", ibsStateRate: rate(ibs.ibsStateRate, true), ibsCityRate: rate(ibs.ibsCityRate, true), cbsRate: rate(ibs.cbsRate, true) } : null;
+  const immunity = foreign && ibs?.cst === "410" && ibs.classCode === "410004";
+  if (ibs && !immunity && (ibs.cst !== "000" || ibs.classCode !== "000001")) refuse("IBS/CBS fora do recorte tributado integral 000/000001", "tax_rule_scope");
+  const ibsCbs = ibs ? { cst: String(ibs.cst), classCode: String(ibs.classCode), ibsStateRate: rate(ibs.ibsStateRate, !immunity), ibsCityRate: rate(ibs.ibsCityRate, !immunity), cbsRate: rate(ibs.cbsRate, !immunity) } : null;
   const cfop = text(first.cfop, "CFOP", 4);
-  const expectedPrefix = purpose === 4 && returnDirection === "incoming"
+  if (exportation?.kind === "trading" && !["5501", "5502", "6501", "6502"].includes(cfop)) refuse("Venda para trading com fim específico de exportação exige CFOP 5501/5502 ou 6501/6502");
+  const expectedPrefix = foreign ? "7" : incoming
     ? state === "SP" ? "1" : "2"
     : state === "SP" ? "5" : "6";
   if (!new RegExp(`^${expectedPrefix}[0-9]{3}$`).test(cfop)) refuse("CFOP incompatível com finalidade e destino");
@@ -286,18 +307,43 @@ export function mapDraft(value: unknown): NfeInput {
     const exactGross = (BigInt(String(item.quantity).replace(".", "")) * BigInt(String(item.unitPrice).replace(".", "")) + 500_000_000_000n) / 1_000_000_000_000n;
     if (formatCents(exactGross) !== gross) refuse("Total do item diverge do cálculo inteiro do rascunho");
     const freightAmount = optionalMoney(item.freightAmount), discountAmount = optionalMoney(item.discountAmount);
-    const commercial = exactGross + centsOf(freightAmount) - centsOf(discountAmount);
+    const insuranceAmount = optionalMoney(item.insuranceAmount), otherAmount = optionalMoney(item.otherAmount);
+    const commercial = exactGross + centsOf(freightAmount) + centsOf(insuranceAmount) + centsOf(otherAmount) - centsOf(discountAmount);
     if (centsOf(discountAmount) > exactGross || commercial <= 0n || commercial > NFE_MAX_CENTS) refuse("Desconto não pode superar o produto; total com frete deve ser positivo e respeitar o limite fiscal");
     if (freightAmount > 0 && freightMode === "9") refuse("Frete cobrado exige modalidade de transporte diferente de 9");
     cents += BigInt(gross.replace(".", ""));
     if (!Number.isInteger(item.origin) || Number(item.origin) < 0 || Number(item.origin) > 8) refuse("Origem inválida");
-    return { freightAmount, discountAmount, additionalInfo: item.additionalInfo == null ? null : text(item.additionalInfo, "Informações do item", 500), code: text(item.code, "Código", 60), name: text(item.description, "Descrição", 120), ncm: text(item.ncm, "NCM", 8), cest: null, origin: Number(item.origin), unit: text(item.unit, "Unidade", 6), quantity, unitPrice, ipiRate };
+    let taxableUnit: string | undefined, taxableQuantity: number | undefined, taxableUnitPrice: number | undefined;
+    if (foreign || item.taxableUnit != null || item.taxableQuantity != null || item.taxableUnitPrice != null) {
+      taxableUnit = text(item.taxableUnit, "Unidade tributável do NCM", 6);
+      taxableQuantity = decimal(item.taxableQuantity, 4); taxableUnitPrice = decimal(item.taxableUnitPrice, 10);
+      const taxableCents = (BigInt(String(item.taxableQuantity).replace(".", "")) * BigInt(String(item.taxableUnitPrice).replace(".", "")) + 500_000_000_000n) / 1_000_000_000_000n;
+      if (taxableQuantity <= 0 || taxableUnitPrice <= 0 || taxableCents !== exactGross) refuse("Quantidade e preço tributáveis devem corresponder ao total do produto");
+    }
+    const exportDetails = item.exportDetails == null ? [] : Array.isArray(item.exportDetails) ? item.exportDetails.map(raw => {
+      const detail = declaredObject(raw, ["drawbackNumber", "exportRegistration", "referencedAccessKey", "exportedQuantity"]);
+      const drawbackNumber = detail.drawbackNumber == null ? undefined : text(detail.drawbackNumber, "Ato concessório drawback", 20);
+      if (drawbackNumber && INVALID_FISCAL_TEXT.test(drawbackNumber)) refuse("Ato concessório drawback inválido");
+      const indirect = exportation?.kind === "indirect" || detail.exportRegistration != null || detail.referencedAccessKey != null || detail.exportedQuantity != null;
+      const exportRegistration = indirect ? typeof detail.exportRegistration === "string" && /^\d{0,12}$/.test(detail.exportRegistration) ? detail.exportRegistration : refuse("Registro de exportação exige até 12 dígitos, vazio quando não existente") : undefined;
+      const referencedAccessKey = indirect ? validKey(detail.referencedAccessKey) : undefined;
+      const exportedQuantity = indirect ? decimal(detail.exportedQuantity, 4) : undefined;
+      if (referencedAccessKey && referencedAccessKey.slice(20,22) !== "55" || exportedQuantity != null && exportedQuantity <= 0 || !indirect && !drawbackNumber) refuse("Detalhamento da exportação inválido");
+      return { drawbackNumber, exportRegistration, referencedAccessKey, exportedQuantity };
+    }) : refuse("Detalhamento da exportação inválido");
+    const exported = exportDetails.reduce((sum, detail) => sum + BigInt((detail.exportedQuantity ?? 0).toFixed(4).replace(".", "")), 0n);
+    if (exportDetails.length > 500 || !foreign && exportDetails.length || exportation?.kind === "indirect" && !exportDetails.length || exported > BigInt(String(item.quantity).replace(".", ""))) refuse("Quantidade ou referências de exportação incompatíveis com o item");
+    const referencedDfe = item.referencedDfe == null ? undefined : (() => {
+      const ref = declaredObject(item.referencedDfe, ["accessKey", "itemNumber"]);
+      return { accessKey: validKey(ref.accessKey), itemNumber: ref.itemNumber == null ? undefined : whole(ref.itemNumber, 990) };
+    })();
+    return { referencedDfe, taxableUnit, taxableQuantity, taxableUnitPrice, exportDetails, freightAmount, discountAmount, insuranceAmount, otherAmount, additionalInfo: item.additionalInfo == null ? null : text(item.additionalInfo, "Informações do item", 500), code: text(item.code, "Código", 60), name: text(item.description, "Descrição", 120), ncm: text(item.ncm, "NCM", 8), cest: null, origin: Number(item.origin), unit: text(item.unit, "Unidade", 6), quantity, unitPrice, ipiRate };
   });
   const productsTotal = text(draft.productsTotal, "Total de produtos", 17);
   if (!/^(0|[1-9][0-9]{0,12})\.\d{2}$/.test(productsTotal) || cents !== BigInt(productsTotal.replace(".", "")) || cents > BigInt(Number.MAX_SAFE_INTEGER)) refuse("Total de produtos diverge da soma dos itens");
   const taxId = text(issuer.taxId, "CNPJ", 14);
   if (company.taxId !== taxId || !/^\d{14}$/.test(taxId)) refuse("CNPJ do emitente diverge do cadastro");
-  const recipientTaxId = text(recipient.taxId, "Documento", 14);
+  const recipientTaxId = foreign ? "" : text(recipient.taxId, "Documento", 14);
   if (!Array.isArray(draft.payments) || !draft.payments.length || draft.payments.length > 100) refuse("Informe as formas de pagamento declaradas na nota; não são inferidas dos recebimentos", "payments_required");
   const payments = draft.payments.map((raw) => {
     const payment = object(raw), code = text(payment.code, "Forma de pagamento", 2);
@@ -309,16 +355,87 @@ export function mapDraft(value: unknown): NfeInput {
   const emissionType = draft.emissionType == null ? "1" : text(draft.emissionType, "Modalidade de emissão", 1);
   if (!(model === 65 ? ["1", "3", "4", "9"] : ["1"]).includes(emissionType)) refuse("Modalidade de emissão incompatível com o modelo fiscal", "tax_rule_scope");
   if (model !== 65 && changeAmount !== 0) refuse("Troco somente pode ser declarado na NFC-e modelo 65", "tax_rule_scope");
+  const presenceIndicator = draft.presenceIndicator ?? 9;
+  if (typeof presenceIndicator !== "number" || ![0, 1, 2, 3, 4, 5, 9].includes(presenceIndicator)) refuse("Indicador de presença inválido");
+  if (model === 65 && draft.presenceIndicator != null && ![1, 4, 5].includes(presenceIndicator)) refuse("NFC-e exige presença 1, 4 ou 5");
+  const printType = draft.printType ?? (model === 65 ? 4 : 1);
+  if (typeof printType !== "number" || !(model === 65 ? [4] : [1, 2, 6]).includes(printType)) refuse("Apresentação do DANFE incompatível com o modelo");
+  const issuedAt = date(input.issuedAt);
+  if (draft.issuedAt != null && date(draft.issuedAt) !== issuedAt) refuse("Data de emissão diverge da data fixada no documento");
+  const departureAt = draft.departureAt == null ? undefined : date(draft.departureAt);
+  if (departureAt && (model === 65 || new Date(departureAt) < new Date(issuedAt))) refuse("Data de saída incompatível com o modelo ou anterior à emissão");
+  if (draft.finalConsumer != null && (typeof draft.finalConsumer !== "boolean" || declaration && draft.finalConsumer !== finalConsumer)) refuse("Consumidor final diverge da declaração tributária");
+  const effectiveFinalConsumer = draft.finalConsumer == null ? finalConsumer : draft.finalConsumer as boolean;
+  if (model === 65 && !effectiveFinalConsumer) refuse("NFC-e exige consumidor final");
+  const complement = recipient.complement == null ? undefined : text(recipient.complement, "Complemento", 60);
+  const phone = recipient.phone == null ? undefined : text(recipient.phone, "Telefone", 14);
+  const email = recipient.email == null ? undefined : text(recipient.email, "E-mail", 60);
+  if (phone && !/^\d{6,14}$/.test(phone) || email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) refuse("Telefone ou e-mail do destinatário inválido");
   const noPayment = payments.some((payment) => payment.code === "90");
+  if (purpose === 3 && (!noPayment || payments.length !== 1)) refuse("Nota de ajuste exige meio 90, sem pagamento");
   const mapped: NfeInput = {
-    environment, model, purpose, returnDirection, referencedAccessKeys, emissionType: emissionType as NfeInput["emissionType"], changeAmount, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
-    series: whole(profile.series, 999), number: whole(input.number, 999_999_999), randomCode: text(input.randomCode, "Código aleatório", 8), issuedAt: date(input.issuedAt),
+    exportation: exportation as NfeInput["exportation"],
+    environment, model, purpose, creditType, debitType, presenceIndicator, printType, departureAt, returnDirection, referencedAccessKeys, emissionType: emissionType as NfeInput["emissionType"], changeAmount, freightMode: freightMode as NfeInput["freightMode"], transport: { carrier: null, volumes: null, volumeKind: null, netWeight: null, grossWeight: null }, delivery: null,
+    series: whole(profile.series, 999), number: whole(input.number, 999_999_999), randomCode: text(input.randomCode, "Código aleatório", 8), issuedAt,
     issuer: { cnpj: taxId, legalName: text(company.legalName, "Razão social", 60), stateRegistration: text(profile.stateRegistration, "IE", 14), taxRegime: normal ? 3 : 1, street: text(company.street), number: text(company.number), district: text(company.district), cityCode: text(profile.municipalityCode), city: city("SP", profile.municipalityCode), uf: "SP", cep: text(company.postalCode, "CEP", 8) },
-    recipient: { kind: recipientTaxId.length === 11 ? "PF" : "PJ", document: recipientTaxId, name: text(recipient.legalName, "Destinatário", 60), stateRegistration, taxpayer, street: text(recipient.street), number: text(recipient.number), district: text(recipient.district), cityCode: text(recipient.municipalityCode), city: city(state, recipient.municipalityCode), uf: state, cep: text(recipient.postalCode, "CEP", 8) },
-    rules: { operationNature: text(draft.operationNature, "Natureza", 60), cfopInternal: `${purpose === 4 && returnDirection === "incoming" ? "1" : "5"}${cfop.slice(1)}`, cfopInterstate: `${purpose === 4 && returnDirection === "incoming" ? "2" : "6"}${cfop.slice(1)}`, cfopInterstateNonTaxpayer: `${purpose === 4 && returnDirection === "incoming" ? "2" : "6"}${cfop.slice(1)}`, icmsCode: String(normal ? first.icmsCst : first.csosn), ipiCst, ipiFrameCode, pisCst: String(first.pisCst), pisRate, cofinsCst: String(first.cofinsCst), cofinsRate, finalConsumer, ipiInIcmsBase: declaration ? declaredBoolean(declaration, "ipiInIcmsBase") : false, icmsOutOfContributions: declaration ? declaredBoolean(declaration, "icmsOutOfContributions") : false, additionalInfo: draft.additionalInformation ? text(draft.additionalInformation, "Informações complementares", 5000) : null, ibsCbs },
+    recipient: { foreignId: foreign ? String(recipient.foreignId) : undefined, countryCode: foreign ? String(recipient.countryCode) : undefined, countryName: foreign ? String(recipient.countryName) : undefined, complement, phone, email, kind: recipientTaxId.length === 11 ? "PF" : "PJ", document: recipientTaxId, name: text(recipient.legalName, "Destinatário", 60), stateRegistration, taxpayer, street: text(recipient.street), number: text(recipient.number), district: text(recipient.district), cityCode: text(recipient.municipalityCode), city: foreign ? text(recipient.cityName, "Cidade exterior", 60) : city(state, recipient.municipalityCode), uf: state, cep: foreign ? "" : text(recipient.postalCode, "CEP", 8) },
+    rules: { operationNature: text(draft.operationNature, "Natureza", 60), cfopInternal: foreign ? cfop : `${incoming ? "1" : "5"}${cfop.slice(1)}`, cfopInterstate: foreign ? cfop : `${incoming ? "2" : "6"}${cfop.slice(1)}`, cfopInterstateNonTaxpayer: foreign ? cfop : `${incoming ? "2" : "6"}${cfop.slice(1)}`, icmsCode: String(normal ? first.icmsCst : first.csosn), ipiCst, ipiFrameCode, pisCst: String(first.pisCst), pisRate, cofinsCst: String(first.cofinsCst), cofinsRate, finalConsumer: effectiveFinalConsumer, ipiInIcmsBase: declaration ? declaredBoolean(declaration, "ipiInIcmsBase") : false, icmsOutOfContributions: declaration ? declaredBoolean(declaration, "icmsOutOfContributions") : false, additionalInfo: draft.additionalInformation ? text(draft.additionalInformation, "Informações complementares", 5000) : null, ibsCbs },
     items, icmsRate, destination: { internalIcms: destinationIcms, fcp: destinationFcp },
     payments, software: "ERP Next 0.1",
   };
+  const optionalText = (value: unknown, label: string, max = 60) => value == null ? null : text(value, label, max);
+  if (draft.transport != null) {
+    const transport = declaredObject(draft.transport, ["carrierTaxId", "carrierName", "stateRegistration", "address", "city", "state", "plate", "vehicleState", "rntc", "volumes", "volumeKind", "volumeNumber", "brand", "netWeight", "grossWeight"]);
+    if (freightMode === "9") refuse("Dados de transporte exigem modalidade de frete diferente de 9");
+    const carrierDocument = optionalText(transport.carrierTaxId, "Documento da transportadora", 14);
+    const carrierName = optionalText(transport.carrierName, "Nome da transportadora");
+    if (!!carrierDocument !== !!carrierName || carrierDocument && !/^\d{11}(?:\d{3})?$/.test(carrierDocument)) refuse("Documento e nome da transportadora devem ser informados juntos");
+    const carrierState = optionalText(transport.state, "UF da transportadora", 2);
+    const vehicleState = optionalText(transport.vehicleState, "UF do veículo", 2);
+    const plate = optionalText(transport.plate, "Placa", 7);
+    if (carrierState && !UF_CODES[carrierState] || vehicleState && !UF_CODES[vehicleState] || plate && !/^[A-Z0-9]{7}$/.test(plate) || vehicleState && !plate) refuse("Placa ou UF do transporte inválida");
+    const stateRegistration = optionalText(transport.stateRegistration, "IE da transportadora", 14);
+    if (stateRegistration && !carrierState) refuse("Transportadora com IE exige UF");
+    const netWeight = transport.netWeight == null ? null : decimal(transport.netWeight, 3);
+    const grossWeight = transport.grossWeight == null ? null : decimal(transport.grossWeight, 3);
+    if (netWeight !== null && grossWeight !== null && netWeight > grossWeight) refuse("Peso líquido não pode superar o bruto");
+    if (transport.volumes != null && (typeof transport.volumes !== "number" || !Number.isInteger(transport.volumes) || transport.volumes < 0 || transport.volumes > 999999999)) refuse("Quantidade de volumes inválida");
+    mapped.transport = { carrier: carrierDocument && carrierName ? { kind: carrierDocument.length === 11 ? "PF" : "PJ", document: carrierDocument, name: carrierName, stateRegistration, address: optionalText(transport.address, "Endereço da transportadora"), city: optionalText(transport.city, "Município da transportadora"), uf: carrierState } : null,
+      volumes: transport.volumes as number | null ?? null, volumeKind: optionalText(transport.volumeKind, "Espécie"), volumeNumber: optionalText(transport.volumeNumber, "Numeração"), brand: optionalText(transport.brand, "Marca"), netWeight, grossWeight,
+      vehicle: plate ? { plate, uf: vehicleState, rntc: optionalText(transport.rntc, "RNTC", 20) } : null };
+  }
+  if (draft.authorizedXml != null) {
+    if (!Array.isArray(draft.authorizedXml) || draft.authorizedXml.length > 10) refuse("Informe até 10 pessoas autorizadas");
+    mapped.xmlAccess = draft.authorizedXml.map(raw => {
+      const entry = declaredObject(raw, ["taxId", "name"]), document = text(entry.taxId, "Documento autorizado", 14);
+      if (!/^\d{11}(?:\d{3})?$/.test(document)) refuse("Documento autorizado inválido");
+      return document;
+    });
+    if (new Set(mapped.xmlAccess).size !== mapped.xmlAccess.length) refuse("Documentos autorizados não podem se repetir");
+  }
+  if (draft.intermediary != null) {
+    const intermediary = declaredObject(draft.intermediary, ["taxId", "registration"]);
+    const taxId = text(intermediary.taxId, "CNPJ do intermediador", 14);
+    if (!/^\d{14}$/.test(taxId) || ![2, 3, 4, 9].includes(presenceIndicator)) refuse("Intermediador exige CNPJ e operação não presencial");
+    mapped.intermediary = { taxId, registration: text(intermediary.registration, "Cadastro no intermediador", 60) };
+  }
+  if (draft.retentions != null) {
+    const retentions = declaredObject(draft.retentions, ["pis", "cofins", "csll", "incomeTaxBase", "incomeTax", "socialSecurityBase", "socialSecurity"]);
+    mapped.retentions = Object.fromEntries(Object.entries(retentions).filter(([, value]) => value != null).map(([key, value]) => [key, optionalMoney(value)]));
+  }
+  mapped.taxAuthorityInformation = optionalText(draft.taxAuthorityInformation, "Informações do fisco", 2000);
+  if (draft.installments != null) {
+    if (!Array.isArray(draft.installments) || draft.installments.length > 120 || model === 65 && draft.installments.length) refuse("Parcelas exigem NF-e modelo 55 e limite de 120");
+    mapped.installments = draft.installments.map(raw => {
+      const installment = declaredObject(raw, ["number", "dueDate", "amount"]), number = text(installment.number, "Número da parcela", 3), dueDate = ibptDate(installment.dueDate), amount = optionalMoney(installment.amount);
+      if (!/^\d{3}$/.test(number) || amount <= 0) refuse("Número ou valor da parcela inválido");
+      return { number, dueDate, amount };
+    });
+    if (new Set(mapped.installments.map(item => item.number)).size !== mapped.installments.length) refuse("Número de parcela repetido");
+    if (mapped.installments.length && mapped.installments.reduce((sum, item) => sum + centsOf(item.amount), 0n) !== centsOf(nfeTotals(mapped).invoice)) refuse("Soma das parcelas diverge do total da NF-e");
+  }
+  const financialProblems = financialNoteProblems(mapped);
+  if (financialProblems.length) refuse(financialProblems.join(" "), "tax_rule_scope");
   assertExactTaxes(mapped, cents);
   const approximateTaxes = mapIbptSnapshot(input, draft, mapped);
   if (approximateTaxes) mapped.approximateTaxes = approximateTaxes;
@@ -326,6 +443,15 @@ export function mapDraft(value: unknown): NfeInput {
   const paymentCents = payments.reduce((sum, payment) => sum + centsOf(payment.amount), 0n);
   const expectedPayment = nfeTotals(mapped).invoice + changeAmount;
   if (noPayment ? payments.length !== 1 || payments[0].amount !== 0 || changeAmount !== 0 : formatCents(paymentCents) !== expectedPayment.toFixed(2) || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0)).toFixed(2) !== expectedPayment.toFixed(2) || roundCents(payments.reduce((sum, payment) => sum + payment.amount, 0) - invoice).toFixed(2) !== changeAmount.toFixed(2)) refuse("Valores das formas de pagamento ou troco divergem do total da NFC-e");
+  if (mapped.printType === 6) {
+    const endpoints = object(draft.simplifiedDanfe);
+    for (const name of ["qrCodeUrl", "accessKeyUrl"]) {
+      const url = new URL(text(endpoints[name], "URL oficial do DANFE Simplificado Tipo 2", 300));
+      if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !/(^|\.)gov\.br$/.test(url.hostname)) refuse("Informe URLs oficiais HTTPS da UF para o DANFE Simplificado Tipo 2");
+    }
+    const problems = nfeProblems(mapped);
+    if (problems.length) refuse(problems.join(" "));
+  } else if (draft.simplifiedDanfe != null) refuse("Endereços de consulta simplificada exigem impressão tipo 6");
   return mapped;
 }
 
@@ -364,6 +490,11 @@ export async function dispatch(operation: string, value: unknown, send: Send = s
     if (mapped.model === 65) {
       const qr = await createNfceQrPayload({ signedXml, profile: input.nfce as Parameters<typeof createNfceQrPayload>[0]["profile"] });
       return { accessKey: generated.key, signedXml, qrCode: qr.payload, qrMode: qr.mode, qrVersion: qr.version, qrSourceSha256: qr.sourceSha256 };
+    }
+    if (mapped.printType === 6) {
+      const endpoints = declaredObject(object(input.draft).simplifiedDanfe, ["qrCodeUrl", "accessKeyUrl"]);
+      const supplemented = await supplementSimplifiedNfe({ signedXml, endpoints: { qrCodeUrl: text(endpoints.qrCodeUrl, "URL QR Code", 300), accessKeyUrl: text(endpoints.accessKeyUrl, "URL consulta por chave", 300) } });
+      return { accessKey: generated.key, signedXml: supplemented.xml, qrCode: supplemented.qrCodeUrl, qrMode: "online", qrVersion: "3" };
     }
     return { accessKey: generated.key, signedXml };
   }

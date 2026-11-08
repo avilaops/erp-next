@@ -18,9 +18,26 @@ test.beforeEach(async ({ context, page }) => {
   await authenticate(context)
   await page.route("**/api/erp/products**", route => {
     if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { title: "Gravação não configurada nesta fixture" } })
+    if (new URL(route.request().url()).pathname.endsWith("/catalog")) return route.fulfill({ status: 404, json: { title: "Ficha de apresentação ainda não cadastrada" } })
     const detail = new URL(route.request().url()).pathname.endsWith(productId)
     return route.fulfill({ json: { tenantId: tenant, canEdit: true, data: detail ? product : Array.from({ length: 25 }, (_, index) => ({ ...product, id: `${productId.slice(0, -2)}${String(index).padStart(2, "0")}`, name: `Produto de teste ${index + 1}` })), total: 50 }, headers: { etag: '"revision-1"' } })
   })
+})
+
+test("produtos mantém o caminho de navegação na lista, criação, consulta e edição", async ({ page }) => {
+  for (const [route, current] of [
+    ["/cadastros/produtos", "Produtos"],
+    ["/cadastros/produtos/novo", "Novo produto"],
+    [`/cadastros/produtos/${productId}`, product.name],
+    [`/cadastros/produtos/${productId}/editar`, "Editar produto"],
+  ]) {
+    await page.goto(route)
+    const path = page.getByRole("navigation", { name: "Caminho de navegação", exact: true })
+    await expect(path.getByRole("link", { name: "Cadastros", exact: true })).toHaveAttribute("href", "/cadastros")
+    await expect(path.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
+    await expect(path.locator('[aria-current="page"]')).toHaveText(current)
+    if (route.endsWith("/editar")) await expect(path.getByRole("link", { name: product.name, exact: true })).toHaveAttribute("href", `/cadastros/produtos/${productId}`)
+  }
 })
 
 test("cadastro identifica a empresa pelo nome e não mistura empresas em respostas divergentes", async ({ page }) => {
@@ -62,19 +79,15 @@ test("ações finais do catálogo ficam acima da navegação compacta", async ({
   }
 })
 
-test("catálogo troca a tabela comprimida por cartões legíveis quando a área útil fica estreita", async ({ page }) => {
-  await page.setViewportSize({ width: 915, height: 844 })
+test("catálogo mantém a lista em linhas com rolagem interna em telas estreitas", async ({ page }) => {
   await page.goto("/cadastros/produtos")
-  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeHidden()
-  const list = page.getByLabel("Lista de produtos")
-  await expect(list).toBeVisible()
-  await expect(list.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
-  await expect(list.getByText("SKU TEST-001 · UN", { exact: true }).first()).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-
-  await page.setViewportSize({ width: 1440, height: 950 })
-  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeVisible()
-  await expect(page.getByLabel("Lista de produtos")).toBeHidden()
+  for (const width of [390, 915, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    const table = page.getByRole("table", { name: "Catálogo de produtos" })
+    await expect(table).toBeVisible()
+    await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
 })
 
 test("Início pede confirmação e cancelar preserva a edição", async ({ page }) => {

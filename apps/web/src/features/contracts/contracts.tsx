@@ -37,7 +37,7 @@ export function ContractsList({ orderId, customerId }: { orderId?: string; custo
   const query = new URLSearchParams({ offset: String(offset), ...(orderId ? { orderId } : {}), ...(customerId ? { customerId } : {}) })
   const result = useResource<{ tenantId: string; canEdit: boolean; data: ContractSummary[]; total: number }>(`/api/erp/commercial-contracts?${query}`)
   return <>
-    <PageHeader eyebrow={orderId ? "Vendas / Pedido" : "Avila Ops · Comercial"} title={orderId ? "Pedido e contrato" : "Contratos"} description={orderId ? "Prepare e confira o contrato. O resumo do pedido e o link de assinatura serão enviados no mesmo e-mail." : "Documentos vinculados à empresa, ao cliente e ao pedido, da revisão à assinatura."} />
+
     <div className="mb-5 flex flex-wrap gap-4">
       <Link className={linkClass} href="/servicos/contratos/modelos">Modelos de contrato</Link>
       {orderId && <Link className={linkClass} href={`/vendas/pedidos/${orderId}`}>Voltar ao pedido</Link>}

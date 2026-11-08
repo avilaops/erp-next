@@ -194,6 +194,9 @@ pub async fn get(
         .find(|address| address.primary)
         .or_else(|| (addresses.len() == 1).then(|| &addresses[0]));
     let mut recipient = Recipient {
+        foreign_id: None,
+        country_code: None,
+        country_name: None,
         tax_id,
         legal_name: order.customer_name,
         state: String::new(),
@@ -202,6 +205,10 @@ pub async fn get(
         street: String::new(),
         number: String::new(),
         district: String::new(),
+        complement: None,
+        phone: None,
+        email: None,
+        city_name: None,
     };
     if let Some(address) = address {
         recipient.state.clone_from(&address.state);
@@ -209,6 +216,8 @@ pub async fn get(
         recipient.street.clone_from(&address.street);
         recipient.number.clone_from(&address.number);
         recipient.district.clone_from(&address.district);
+        recipient.complement.clone_from(&address.complement);
+        recipient.city_name = Some(address.city.clone());
     }
     let mut items = Vec::new();
     for line in lines(&mut tx, tenant, id).await? {

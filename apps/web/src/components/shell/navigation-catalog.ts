@@ -1,3 +1,5 @@
+import { preferenceCategories } from "./preference-catalog.ts"
+
 export const desktopMenus = [
   {
     label: "Meu Negócio",
@@ -9,14 +11,14 @@ export const desktopMenus = [
   {
     label: "Cadastros",
     columns: [
-      { title: "", items: [{ label: "Visão geral", href: "/cadastros" }, { label: "Produtos", href: "/cadastros/produtos" }, { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Vendedores", href: "/cadastros/vendedores" }, { label: "Funcionários", href: "/cadastros/funcionarios" }] },
-      { title: "Ferramentas", items: [{ label: "Contas financeiras", href: "/cadastros/contas-financeiras" }, { label: "Categorias financeiras", href: "/cadastros/categorias-financeiras" }, { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Listas de preços", href: "/cadastros/listas-precos" }, { label: "Formas de pagamento", href: "/cadastros/formas-pagamento" }] },
+      { title: "", items: [{ label: "Visão geral", href: "/cadastros" }, { label: "Produtos", href: "/cadastros/produtos" }, { label: "Clientes e fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Funcionários", href: "/cadastros/funcionarios" }] },
+      { title: "Ferramentas", items: [{ label: "Contas financeiras", href: "/cadastros/contas-financeiras" }, { label: "Categorias financeiras", href: "/cadastros/categorias-financeiras" }, { label: "Categorias de produtos", href: "/cadastros/categorias-produtos" }, { label: "Listas de preços", href: "/cadastros/listas-precos" }, { label: "Formas de pagamento", href: "/cadastros/formas-pagamento" }, { label: "Grupos de produtos", href: "/cadastros/grupos-produtos" }, { label: "Grupos de tags", href: "/cadastros/grupos-tags" }, { label: "Tags", href: "/cadastros/tags" }] },
     ],
   },
   {
     label: "Vendas",
     columns: [
-      { title: "Operação", items: [{ label: "Visão geral", href: "/vendas" }, { label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Garantias", href: "/vendas/garantias" }] },
+      { title: "Operação", items: [{ label: "Visão geral", href: "/vendas" }, { label: "Funil comercial", href: "/vendas/funil" }, { label: "Tabela publicada", href: "/vendas/tabela-precos" }, { label: "Simulador", href: "/vendas/simulador" }, { label: "Propostas", href: "/vendas/propostas" }, { label: "Pedidos de venda", href: "/vendas/pedidos" }, { label: "PDV", href: "/vendas/pdv" }, { label: "Fechamento do PDV", href: "/vendas/pdv/fechamento" }, { label: "Histórico do PDV", href: "/vendas/pdv/historico" }, { label: "Garantias", href: "/vendas/garantias" }] },
       { title: "Canais e importação", items: [{ label: "Loja virtual", href: "/vendas/loja-virtual" }, { label: "Anúncios", href: "/vendas/anuncios" }, { label: "Importar pedidos", href: "/vendas/importacao" }, { label: "Relatórios de vendas", href: "/relatorios/vendas" }] },
       { title: "Documentos fiscais", items: [{ label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }] },
     ],
@@ -24,8 +26,13 @@ export const desktopMenus = [
   {
     label: "Estoque",
     columns: [
-      { title: "Compras", items: [{ label: "Pedidos de compra", href: "/compras/pedidos" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }, { label: "Fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Sugestões de compra", href: "/compras/sugestoes" }, { label: "Check-in de recebimentos", href: "/compras/recebimentos" }] },
       { title: "Estoque", items: [{ label: "Visão geral", href: "/estoque" }, { label: "Saldos", href: "/estoque/saldos" }, { label: "Lançamentos de estoque", href: "/estoque/lancamentos" }, { label: "Conferência de estoque", href: "/estoque/inventarios" }, { label: "Ordens de produção", href: "/estoque/ordens-producao" }, { label: "Depósitos", href: "/estoque/depositos" }, { label: "Relatórios de estoque", href: "/relatorios/estoque" }] },
+    ],
+  },
+  {
+    label: "Compras",
+    columns: [
+      { title: "Operação", items: [{ label: "Visão geral", href: "/compras" }, { label: "Pedidos de compra", href: "/compras/pedidos" }, { label: "Notas fiscais de entrada", href: "/compras/notas-entrada" }, { label: "Fornecedores", href: "/cadastros/clientes-fornecedores" }, { label: "Sugestões de compra", href: "/compras/sugestoes" }, { label: "Check-in de recebimentos", href: "/compras/recebimentos" }] },
     ],
   },
   {
@@ -37,10 +44,22 @@ export const desktopMenus = [
     ],
   },
   {
-    label: "Operações",
+    label: "Fiscal",
     columns: [
-      { title: "Logística", items: [{ label: "Visão geral", href: "/logistica" }, { label: "Objetos de postagem", href: "/logistica/postagens" }, { label: "Logística reversa", href: "/logistica/reversa" }, { label: "Checkout de pedidos", href: "/logistica/checkout" }, { label: "Etiquetas", href: "/logistica/etiquetas" }, { label: "Ávila Envios", href: "/logistica/envios" }] },
-      { title: "Serviços", items: [{ label: "Visão geral", href: "/servicos" }, { label: "Contratos", href: "/servicos/contratos" }, { label: "Ordens de serviço", href: "/servicos/ordens" }, { label: "CT-e", href: "/servicos/cte" }, { label: "Notas de serviço", href: "/servicos/notas" }, { label: "Cobranças", href: "/servicos/cobrancas" }] },
+      { title: "Documentos fiscais", items: [{ label: "Visão geral", href: "/fiscal" }, { label: "NF-e", href: "/fiscal/notas-saida" }, { label: "NFC-e", href: "/fiscal/nfce" }, { label: "Monitor fiscal e XML recebidos", href: "/fiscal/monitor" }, { label: "CT-e recebidos", href: "/fiscal/ctes" }, { label: "NFS-e recebidas", href: "/fiscal/nfses" }, { label: "DANFE de XML autorizado", href: "/fiscal/danfe" }, { label: "Guias tributárias", href: "/fiscal/guias" }] },
+      { title: "Configurações", items: [{ label: "Configurações fiscais", href: "/preferencias/fiscal" }, { label: "Certificado digital", href: "/preferencias/certificado-digital" }] },
+    ],
+  },
+  {
+    label: "Logística",
+    columns: [
+      { title: "Operação", items: [{ label: "Visão geral", href: "/logistica" }, { label: "Objetos de postagem", href: "/logistica/postagens" }, { label: "Logística reversa", href: "/logistica/reversa" }, { label: "Checkout de pedidos", href: "/logistica/checkout" }, { label: "Etiquetas", href: "/logistica/etiquetas" }, { label: "Ávila Envios", href: "/logistica/envios" }] },
+    ],
+  },
+  {
+    label: "Serviços",
+    columns: [
+      { title: "Operação", items: [{ label: "Visão geral", href: "/servicos" }, { label: "Contratos", href: "/servicos/contratos" }, { label: "Modelos de contratos", href: "/servicos/contratos/modelos" }, { label: "Ordens de serviço", href: "/servicos/ordens" }, { label: "CT-e", href: "/servicos/cte" }, { label: "Notas de serviço", href: "/servicos/notas" }, { label: "Cobranças", href: "/servicos/cobrancas" }] },
     ],
   },
   {
@@ -84,12 +103,27 @@ export const preferenceGroups = [
   ] },
 ]
 
+const categoryPreferences = preferenceCategories.map(category => ({
+  label: category.label,
+  items: category.sections.flatMap(section => section.items.flatMap(item => item.href ? [{ label: item.label, href: item.href }] : [])),
+}))
+
+desktopMenus.push({
+  label: "Preferências",
+  columns: [{ title: "Configurações", items: [
+    { label: "Visão geral das preferências", href: "/preferencias" },
+    ...preferenceCategories.map(category => ({ label: category.label, href: `/preferencias?categoria=${category.id}` })),
+  ] }],
+})
+
 type Destination = { label: string; href: string; category: string; keywords: string }
 const candidates = [
   { label: "Visão geral", href: "/", category: "Módulos" },
+  { label: "Pagamentos de funcionários", href: "/financeiro/contas-pagar?aba=funcionarios", category: "Financeiro / Contas a pagar" },
   ...preferenceGroups.flatMap(group => group.items.map(item => ({ ...item, category: `Preferências / ${group.label}` }))),
   ...moduleLinks.map(([label, href]) => ({ label, href, category: "Módulos" })),
   ...desktopMenus.flatMap(menu => menu.columns.flatMap(column => column.items.map(item => ({ ...item, category: `${menu.label} / ${column.title}` })))),
+  ...categoryPreferences.flatMap(group => group.items.map(item => ({ ...item, category: `Preferências / ${group.label}` }))),
   { label: "Monitor fiscal", href: "/fiscal/monitor", category: "Fiscal" },
 ]
 const unique = new Map<string, Destination>()

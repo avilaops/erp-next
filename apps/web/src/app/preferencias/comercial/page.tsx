@@ -4,7 +4,11 @@ import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access
 
 export const metadata = { title: "Parâmetros comerciais · Avila ERP" }
 
-export default async function Page() {
+export default function Page() {
+  return <Suspense fallback={<p role="status">Carregando parâmetros…</p>}><CommercialAccess /></Suspense>
+}
+
+async function CommercialAccess() {
   const access = await currentWorkspaceAccess()
-  return access.session ? <Suspense fallback={<p role="status">Carregando…</p>}><CommercialSettings /></Suspense> : <WorkspaceAccessNotice state={access.state} />
+  return access.session ? <CommercialSettings /> : <WorkspaceAccessNotice state={access.state} />
 }

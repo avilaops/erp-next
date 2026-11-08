@@ -9,7 +9,7 @@ import { NegotiationResult } from "./negotiation-result"
 import type { Sale, Director } from "./negotiation-types"
 
 type Snapshot = { tenantId: string; revision: number; data: { sale: Sale; version: number } | null; director: Director | null; approvalStatus: string; canApprove: boolean; decisions: { decision: string; reason: string; createdAt: string; decidedBy: string }[] }
-const statuses: Record<string, string> = { not_required: "Dentro da política", pending: "Aguardando aprovação", approved: "Aprovada", rejected: "Recusada — refaça a negociação" }
+const statuses: Record<string, string> = { not_required: "Dentro da política", pending: "Aguardando aprovação", approved: "Aprovada", rejected: "Recusada: refaça a negociação" }
 export function OrderNegotiation({ id, onDecision }: { id: string; onDecision: () => void }) {
   const resource = useResource<Snapshot>(`/api/erp/commercial/orders/${id}`)
   const command = useCommand()

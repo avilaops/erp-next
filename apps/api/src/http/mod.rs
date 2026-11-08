@@ -63,11 +63,17 @@ pub(crate) mod openapi;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
+mod outgoing_import_tests;
+#[cfg(test)]
 mod parties_tests;
 #[cfg(test)]
 mod preferences_tests;
 #[cfg(test)]
+mod price_lists_tests;
+#[cfg(test)]
 mod production_tests;
+#[cfg(test)]
+mod proposal_actions_tests;
 #[cfg(test)]
 mod proposal_tests;
 #[cfg(test)]
@@ -114,7 +120,7 @@ use tower_http::{
 
 use crate::domains::{
     catalog, data_transfer, finance, financial_account_ledger, fiscal, inventory, inventory_counts,
-    logistics, logistics_checkout, logistics_dispatch, parties, payables, purchasing,
+    logistics, logistics_checkout, logistics_dispatch, parties, payables, price_lists, purchasing,
     reference_data, sales, staff, staff_payroll, warranties,
 };
 use crate::platform::{
@@ -360,6 +366,14 @@ pub fn router(state: AppState) -> Router {
             post(staff_payroll::propose),
         )
         .route("/api/v1/staff", get(staff::list).post(staff::create))
+        .route(
+            "/api/v1/price-lists",
+            get(price_lists::list).post(price_lists::create),
+        )
+        .route(
+            "/api/v1/price-lists/{id}",
+            get(price_lists::get).put(price_lists::update),
+        )
         .route("/api/v1/staff/{id}", get(staff::get).put(staff::update))
         .merge(fiscal::routes())
         .merge(service_auth::management_routes())
@@ -420,6 +434,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/proposals/{id}/convert",
             axum::routing::post(sales::proposals::convert),
+        )
+        .route(
+            "/api/v1/proposals/{id}/approve-order",
+            axum::routing::post(sales::proposals::approve_order),
+        )
+        .route(
+            "/api/v1/proposals/{id}/email",
+            get(sales::proposals::email::get).post(sales::proposals::email::send),
         )
         .route(
             "/api/v1/proposals/{id}/{action}",

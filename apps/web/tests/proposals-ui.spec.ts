@@ -140,7 +140,7 @@ test("cadastra acabamentos em outra aba, atualiza opções e preserva preço bra
   const editor = await opened
   await expect(editor).toHaveURL(new RegExp(`/cadastros/produtos/${product}/editar#product-colors$`))
   await editor.getByLabel("Cores da estrutura", { exact: true }).fill("Preto")
-  await editor.getByLabel("Cores do estofado", { exact: true }).fill("Azul")
+  await editor.getByLabel("Cores dos braços", { exact: true }).fill("Azul")
   await editor.getByRole("button", { name: "Salvar produto", exact: true }).click()
   await expect.poll(() => catalog.structureColors).toEqual(["Preto"])
   await editor.close()

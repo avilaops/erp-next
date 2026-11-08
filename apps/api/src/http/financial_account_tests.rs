@@ -113,7 +113,7 @@ async fn financial_account_ledger_is_idempotent_atomic_and_tenant_isolated(admin
         sqlx::query_scalar::<_, i64>(
             "SELECT count(*) FROM financial_account_entries WHERE tenant_id=$1"
         )
-        .bind(TENANT)
+        .bind(Uuid::parse_str(TENANT).unwrap())
         .fetch_one(&admin)
         .await
         .unwrap(),

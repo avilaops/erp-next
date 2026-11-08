@@ -88,7 +88,8 @@ jobs:
 
   rust:
     needs: rust-build
-    timeout-minutes: 4
+    # The test command can use five minutes by itself. Leave time for Postgres and artifacts.
+    timeout-minutes: 7
     runs-on: ubuntu-latest
     services:
       postgres:

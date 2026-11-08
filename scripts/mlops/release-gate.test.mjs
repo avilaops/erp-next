@@ -8,7 +8,7 @@ import { evaluateRelease, inspectOpenApi, inspectValidation, validateReleaseInpu
 
 const sha = "a".repeat(40);
 const valid = {
-  repository: "avilaops/ERP-Next", sourceSha: sha, checkoutSha: sha,
+  repository: "avilaops/erp-next", sourceSha: sha, checkoutSha: sha,
   ref: "refs/heads/main", runId: "4000001", runAttempt: "1",
   jobs: Object.fromEntries(["fiscal-engine", "api", "web"].map(x => [x, { result: "success" }])),
 };
@@ -22,6 +22,7 @@ const manifest = () => Buffer.from(JSON.stringify({
 
 test("rejects source mismatch, non-main branch, wrong repo and failed jobs", () => {
   assert.doesNotThrow(() => validateReleaseInputs(valid));
+  assert.doesNotThrow(() => validateReleaseInputs({ ...valid, repository: "avilaops/ERP-Next" }));
   assert.throws(() => validateReleaseInputs({ ...valid, checkoutSha: "b".repeat(40) }), /SOURCE_SHA_MISMATCH/);
   assert.throws(() => validateReleaseInputs({ ...valid, ref: "refs/heads/feature" }), /NOT_MAIN_BRANCH/);
   assert.throws(() => validateReleaseInputs({ ...valid, repository: "unknown/repo" }), /REPOSITORY_MISMATCH/);

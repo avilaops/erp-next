@@ -49,23 +49,7 @@ jobs:
 
           tested_merge=$(jq -er '.merge_commit_sha | select(test("^[a-f0-9]{40}$"))' <<<"$candidate")
           gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs" \
-            --jq '.jobs[] | select(.name == "gate" and .conclusion == "success") | .id' | grep -E '^[0-9]+
-          trap 'rm -rf "$evidence"' EXIT
-          gh run download "$RUN_ID" --name "erp-mlops-ci-$tested_merge-$ATTEMPT" --dir "$evidence"
-          jq -e --arg repo "$GH_REPO" --arg head "$EXPECTED_HEAD" --arg tested "$tested_merge" \
-            --argjson run "$RUN_ID" --argjson attempt "$ATTEMPT" '
-              .schema == "avila-mlops-ci-attestation/1" and .repository == $repo and
-              .workflow == "CI" and .event == "pull_request" and .sourceSha == $head and
-              .testedSha == $tested and .runId == $run and .runAttempt == $attempt and
-              .ciGate == "passed" and (.validationJobs | length > 0 and all(.[]; . == "success"))
-            ' "$evidence/ci-attestation.json" >/dev/null
-
-          # GitHub still enforces the protected branch rules on this merge.
-          result=$(gh api --method PUT "repos/$GH_REPO/pulls/$PR/merge" -f sha="$EXPECTED_HEAD" -f merge_method=merge)
-          release_sha=$(jq -er 'select(.merged == true) | .sha | select(test("^[a-f0-9]{40}$"))' <<<"$result")
-          # A merge by GITHUB_TOKEN does not trigger a separate push workflow.
-          gh workflow run production-release.yml --ref main -f source_ref="$release_sha"
- >/dev/null
+            --jq '.jobs[] | select(.name == "gate" and .conclusion == "success") | .id' | grep -E '^[0-9]+$' >/dev/null
           evidence=$(mktemp -d)
           trap 'rm -rf "$evidence"' EXIT
           gh run download "$RUN_ID" --name "erp-mlops-ci-$tested_merge-$ATTEMPT" --dir "$evidence"

@@ -28,24 +28,25 @@ trap cleanup EXIT
 # does not reliably match the selected names when the sender emits ./ prefixes.
 tar --extract --gzip --no-same-owner --directory "$staging" --file -
 
-for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz compose.yaml fiscal-compose.yaml; do
+for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz fiscal-mcp-image.tar.gz compose.yaml fiscal-compose.yaml; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"
 done
 [[ ! -e "$release" ]] || fail 'release already exists'
 
-for image in api web fiscal; do
+for image in api web fiscal fiscal-mcp; do
   docker load --input "$staging/$image-image.tar.gz" >/dev/null
   docker image inspect "erp-next-$image:sha-$source_sha" >/dev/null || fail "image not loaded: $image"
 done
 
 mkdir -m 700 "$release"
 
+compose_overlay_args=()
 if [[ -f "$previous_release/compose.json" ]]; then
   # Current production still uses a generated, self-contained Compose JSON.
   # Keep its private runtime configuration on the server and replace only the
   # three immutable image references.
   cp -p "$previous_release/compose.json" "$release/compose.json"
-  python3 - "$release/compose.json" <<'PY'
+  python3 - "$release/compose.json" "$source_sha" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -53,6 +54,29 @@ import sys
 target = Path(sys.argv[1])
 config = json.loads(target.read_text())
 config["services"]["fiscal-engine"]["healthcheck"]["test"] = ["CMD", "node", "scripts/healthcheck.mjs"]
+
+def environment(service):
+    value = service.get("environment", {})
+    if isinstance(value, list):
+        value = dict(entry.split("=", 1) for entry in value if "=" in entry)
+    service["environment"] = value
+    return value
+
+api = environment(config["services"]["api"])
+fiscal = environment(config["services"]["fiscal-engine"])
+token = api.get("ERP_FISCAL_ENGINE_TOKEN") or fiscal.get("ERP_FISCAL_ENGINE_TOKEN")
+if not token or len(token) < 24:
+    raise SystemExit("Private fiscal token missing")
+api.update({"ERP_CNPJ_WS_ENABLED": "true", "DANFE_MCP_URL": "http://127.0.0.1:8093/mcp", "DANFE_MCP_TOKEN": token,
+            "DANFE_MCP_TOOL_PREFIX": "bare", "DANFE_CA_BUNDLE_FILE": "/etc/ssl/certs/erp-icp-brasil-roots.pem"})
+config["services"]["fiscal-mcp"] = {
+    "image": "erp-next-fiscal-mcp:sha-" + sys.argv[2], "restart": "unless-stopped",
+    "network_mode": "service:api", "depends_on": {"api": {"condition": "service_healthy"}},
+    "read_only": True, "tmpfs": ["/tmp:rw,noexec,nosuid,size=64m,mode=1777"],
+    "environment": {"XDG_CACHE_HOME": "/tmp/cache"},
+    "security_opt": ["no-new-privileges:true"], "cap_drop": ["ALL"],
+    "mem_limit": "512m", "pids_limit": 128,
+}
 target.write_text(json.dumps(config, indent=2))
 PY
   # The generated JSON carries the public release marker in the web
@@ -73,6 +97,7 @@ PY
   grep -q "erp-next-api:sha-$source_sha" "$release/compose.json" || fail 'API image was not pinned'
   grep -q "erp-next-web:sha-$source_sha" "$release/compose.json" || fail 'web image was not pinned'
   grep -q "erp-next-fiscal:sha-$source_sha" "$release/compose.json" || fail 'fiscal image was not pinned'
+  grep -q "erp-next-fiscal-mcp:sha-$source_sha" "$release/compose.json" || fail 'MCP image was not pinned'
   grep -q "\\\"ERP_RELEASE_SHA\\\": \\\"$source_sha\\\"" "$release/compose.json" || fail 'release SHA was not pinned'
   compose_file=compose.json
   compose_env_args=()
@@ -87,16 +112,19 @@ else
     -e "s|^ERP_FISCAL_ENGINE_IMAGE=.*|ERP_FISCAL_ENGINE_IMAGE=erp-next-fiscal:sha-$source_sha|" \
     -e "s|^ERP_RELEASE_SHA=.*|ERP_RELEASE_SHA=$source_sha|" \
     "$release/.env"
+  sed -i '/^ERP_FISCAL_MCP_IMAGE=/d' "$release/.env"
+  printf '\nERP_FISCAL_MCP_IMAGE=erp-next-fiscal-mcp:sha-%s\n' "$source_sha" >> "$release/.env"
   grep -q "^ERP_API_IMAGE=erp-next-api:sha-$source_sha$" "$release/.env" || fail 'API image was not pinned'
   grep -q "^ERP_WEB_IMAGE=erp-next-web:sha-$source_sha$" "$release/.env" || fail 'web image was not pinned'
   grep -q "^ERP_RELEASE_SHA=$source_sha$" "$release/.env" || fail 'release SHA was not pinned'
   compose_file=compose.yaml
+  compose_overlay_args=(--file "$release/fiscal-compose.yaml")
   compose_env_args=(--env-file "$release/.env")
 fi
 
 compose() {
   docker compose --project-name "$APPLICATION" --project-directory "$1" \
-    "${compose_env_args[@]}" --file "$1/$compose_file" "${@:2}"
+    "${compose_env_args[@]}" --file "$1/$compose_file" "${compose_overlay_args[@]}" "${@:2}"
 }
 
 rollback() {
@@ -105,11 +133,11 @@ rollback() {
   printf '%s\n' 'ERP deploy failed; restoring previous release' >&2
   if [[ -f "$previous_release/compose.json" ]]; then
     docker compose --project-name "$APPLICATION" --project-directory "$previous_release" \
-      --file "$previous_release/compose.json" up --detach --no-build --wait --wait-timeout 120 || true
+      --file "$previous_release/compose.json" up --detach --no-build --remove-orphans --wait --wait-timeout 120 || true
   else
     docker compose --project-name "$APPLICATION" --project-directory "$previous_release" \
       --env-file "$previous_release/.env" --file "$previous_release/compose.yaml" \
-      --file "$previous_release/fiscal-compose.yaml" up --detach --no-build --wait --wait-timeout 120 || true
+      --file "$previous_release/fiscal-compose.yaml" up --detach --no-build --remove-orphans --wait --wait-timeout 120 || true
   fi
   exit "$status"
 }

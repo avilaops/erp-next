@@ -1,7 +1,4 @@
-import { Suspense } from "react"
-import { StaffAccess } from "@/features/staff/staff-access"
-export default function Page() {
-  return <Suspense fallback={<p role="status">Carregando cadastro…</p>}><StaffAccess kind="vendedores" editor /></Suspense>
-}
+import { redirect } from "next/navigation"
+export const instant = false
 
-export const metadata = { title: "Novo vendedor" }
+export default async function Page() { redirect("/cadastros/funcionarios/novo") }

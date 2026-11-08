@@ -1494,6 +1494,34 @@
         ],
         "dependencies": [],
         "nextStep": "Validar a execução dos fluxos com dados controlados da empresa."
+      },
+      {
+        "id": "price-lists",
+        "title": "Listas de preços por produto",
+        "goal": "Cadastrar listas com vigência e preços por produto, preservando isolamento da empresa e controle de revisão.",
+        "kind": "product",
+        "actionGroups": [
+          "price-lists"
+        ],
+        "dependencies": [],
+        "nextStep": "Conferir a versão publicada e o comportamento com papéis autorizados; catálogo não comprova execução.",
+        "additionalSources": [
+          "apps/api/src/domains/price_lists.rs"
+        ]
+      },
+      {
+        "id": "fiscal-outgoing-imports",
+        "title": "Arquivo de XML de notas de saída",
+        "goal": "Arquivar XML autorizado da empresa e consultar seus dados, XML e DANFE sem gerar uma nova emissão.",
+        "kind": "product",
+        "actionGroups": [
+          "fiscal-outgoing-imports"
+        ],
+        "dependencies": [],
+        "nextStep": "Conferir isolamento e integração do gerador na versão publicada; arquivo de XML não comprova autorização consultada na SEFAZ.",
+        "additionalSources": [
+          "apps/api/src/domains/fiscal/outgoing_import.rs"
+        ]
       }
     ]
   },
@@ -1671,6 +1699,14 @@
       "method": "POST",
       "actions": [
         "query"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/erp/fiscal/outgoing-imports/[id]/[format]",
+      "formats": [
+        "xml",
+        "danfe"
       ]
     }
   ],
@@ -29373,6 +29409,1081 @@
       "ui": {"pages": [], "bff": {"method": "POST", "path": "/api/erp/commercial-contracts/[id]/[action]", "action": "send-package"}, "gap": "Página consumidora não inventariada nesta ficha."},
       "sources": ["apps/api/src/domains/contracts/mod.rs", "apps/web/src/app/api/erp/commercial-contracts/[id]/[action]/route.ts"],
       "verification": {"status": "not_verified_by_catalog", "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]}
+    },
+    {
+      "id": "get-api-v1-price-lists",
+      "flow": "price-lists",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/price-lists"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "query": {
+          "source": "apps/api/src/domains/price_lists.rs",
+          "type": "PriceListQuery"
+        }
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Consulta limitada à empresa; filtros de busca, situação e paginação validados."
+      ],
+      "transition": {
+        "from": "Listas da empresa",
+        "to": "Dados consultados sem mutação"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera preço de pedidos, propostas ou produtos; não movimenta estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar listas de preços"
+      },
+      "recovery": "Revisar filtros, empresa e permissão; repetir a consulta.",
+      "ui": {
+        "pages": [
+          "/cadastros/listas-precos"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/price-lists"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/price_lists.rs",
+        "apps/web/src/features/price-lists/price-lists-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-price-lists-id",
+      "flow": "price-lists",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/price-lists/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Consulta limitada à empresa; filtros de busca, situação e paginação validados."
+      ],
+      "transition": {
+        "from": "Listas da empresa",
+        "to": "Dados consultados sem mutação"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não altera preço de pedidos, propostas ou produtos; não movimenta estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar lista de preços"
+      },
+      "recovery": "Revisar filtros, empresa e permissão; repetir a consulta.",
+      "ui": {
+        "pages": [
+          "/cadastros/listas-precos",
+          "/cadastros/listas-precos/[id]",
+          "/cadastros/listas-precos/[id]/editar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/price-lists/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/price_lists.rs",
+        "apps/web/src/features/price-lists/price-lists-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-price-lists",
+      "flow": "price-lists",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/price-lists"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/price_lists.rs",
+          "type": "PriceListInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Código único por empresa, inclusive em listas arquivadas; situação active ou archived, vigência válida e de 1 a 1000 produtos ativos distintos com preços na escala de duas casas."
+      ],
+      "transition": {
+        "from": "Código ainda não cadastrado",
+        "to": "Lista e itens persistidos com nova revisão"
+      },
+      "effects": {
+        "writes": [
+          "Lista e itens; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera preço de pedidos, propostas ou produtos; não movimenta estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Escrita serializada por empresa; mesma chave e corpo repetem o resultado; atualização exige If-Match atual."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Criar lista de preços"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo; após 412 consultar a revisão atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/listas-precos",
+          "/cadastros/listas-precos/novo"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/price-lists"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/price_lists.rs",
+        "apps/web/src/features/price-lists/price-lists-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "put-api-v1-price-lists-id",
+      "flow": "price-lists",
+      "status": "implemented",
+      "operation": {
+        "method": "PUT",
+        "path": "/api/v1/price-lists/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "catalog.products.read",
+        "catalog.products.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/price_lists.rs",
+          "type": "PriceListInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Código único por empresa, inclusive em listas arquivadas; situação active ou archived, vigência válida e de 1 a 1000 produtos ativos distintos com preços na escala de duas casas."
+      ],
+      "transition": {
+        "from": "Lista existente na revisão informada",
+        "to": "Lista e itens persistidos com nova revisão"
+      },
+      "effects": {
+        "writes": [
+          "Lista e itens; auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não altera preço de pedidos, propostas ou produtos; não movimenta estoque."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Escrita serializada por empresa; mesma chave e corpo repetem o resultado; atualização exige If-Match atual."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Atualizar lista de preços"
+      },
+      "recovery": "Após resultado incerto, repetir a mesma chave e corpo; após 412 consultar a revisão atual.",
+      "ui": {
+        "pages": [
+          "/cadastros/listas-precos",
+          "/cadastros/listas-precos/[id]",
+          "/cadastros/listas-precos/[id]/editar"
+        ],
+        "bff": {
+          "method": "PUT",
+          "path": "/api/erp/price-lists/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/price_lists.rs",
+        "apps/web/src/features/price-lists/price-lists-workspace.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-outgoing-imports",
+      "flow": "fiscal-outgoing-imports",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/outgoing-imports"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "query": {
+          "source": "apps/api/src/domains/fiscal/outgoing_import.rs",
+          "type": "OutgoingQuery"
+        }
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Documento e filtros pertencentes à empresa ativa; datas e paginação válidas."
+      ],
+      "transition": {
+        "from": "Arquivo de XML da empresa",
+        "to": "Conteúdo consultado sem mutação de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite, cancela ou consulta autorização na SEFAZ; não cria estoque, títulos ou pedidos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          422,
+          503
+        ],
+        "action": "Listar XML de saída importados"
+      },
+      "recovery": "Conferir filtros, empresa e acesso ao documento antes de repetir.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/importar"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/outgoing-imports"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/outgoing_import.rs",
+        "apps/web/src/features/fiscal/outgoing-xml-imports.tsx",
+        "apps/web/src/features/fiscal/outgoing-nfes.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-outgoing-imports-id",
+      "flow": "fiscal-outgoing-imports",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/outgoing-imports/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Documento e filtros pertencentes à empresa ativa; datas e paginação válidas."
+      ],
+      "transition": {
+        "from": "Arquivo de XML da empresa",
+        "to": "Conteúdo consultado sem mutação de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite, cancela ou consulta autorização na SEFAZ; não cria estoque, títulos ou pedidos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar nota de saída importada"
+      },
+      "recovery": "Conferir filtros, empresa e acesso ao documento antes de repetir.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/importar",
+          "/fiscal/notas-saida/importadas/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/outgoing-imports/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/outgoing_import.rs",
+        "apps/web/src/features/fiscal/outgoing-xml-imports.tsx",
+        "apps/web/src/features/fiscal/outgoing-nfes.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-outgoing-imports-id-xml",
+      "flow": "fiscal-outgoing-imports",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/outgoing-imports/{id}/xml"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Documento e filtros pertencentes à empresa ativa; datas e paginação válidas."
+      ],
+      "transition": {
+        "from": "Arquivo de XML da empresa",
+        "to": "Conteúdo consultado sem mutação de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não emite, cancela ou consulta autorização na SEFAZ; não cria estoque, títulos ou pedidos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Baixar XML original"
+      },
+      "recovery": "Conferir filtros, empresa e acesso ao documento antes de repetir.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/importar",
+          "/fiscal/notas-saida/importadas/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/outgoing-imports/[id]/[format]",
+          "format": "xml"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/outgoing_import.rs",
+        "apps/web/src/features/fiscal/outgoing-xml-imports.tsx",
+        "apps/web/src/features/fiscal/outgoing-nfes.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-fiscal-outgoing-imports-id-danfe",
+      "flow": "fiscal-outgoing-imports",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/fiscal/outgoing-imports/{id}/danfe"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Documento arquivado da empresa; gerador de DANFE configurado; autorização revalidada após a chamada ao gerador."
+      ],
+      "transition": {
+        "from": "Arquivo de XML da empresa",
+        "to": "Conteúdo consultado sem mutação de negócio"
+      },
+      "effects": {
+        "writes": [],
+        "external": [
+          "Envio do XML arquivado ao serviço configurado para renderização do DANFE."
+        ],
+        "excludes": [
+          "Não emite, cancela ou consulta autorização na SEFAZ; não cria estoque, títulos ou pedidos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          502,
+          503
+        ],
+        "action": "Gerar DANFE do XML arquivado"
+      },
+      "recovery": "Conferir configuração e disponibilidade do gerador; repetir sem alterar o XML arquivado.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/importar",
+          "/fiscal/notas-saida/importadas/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/fiscal/outgoing-imports/[id]/[format]",
+          "format": "danfe"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/outgoing_import.rs",
+        "apps/web/src/features/fiscal/outgoing-xml-imports.tsx",
+        "apps/web/src/features/fiscal/outgoing-nfes.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-fiscal-outgoing-imports-import",
+      "flow": "fiscal-outgoing-imports",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/fiscal/outgoing-imports/import"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "fiscal.nfe.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/fiscal/outgoing_import.rs",
+          "type": "ImportOutgoingNfeInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "XML autorizado de saída, emitente igual ao CNPJ da empresa ativa; corpo limitado a 1 MiB.",
+        "A chave não pode pertencer a uma emissão local; mesma chave com XML diferente é recusada.",
+        "Primeira importação exige serviço fiscal configurado para validar schema e assinatura; somente modelo 55 e tpNF=1."
+      ],
+      "transition": {
+        "from": "XML autorizado ainda não arquivado ou repetição idêntica",
+        "to": "XML e metadados arquivados ou registro existente retornado"
+      },
+      "effects": {
+        "writes": [
+          "XML original, hash SHA-256 e metadados em fiscal_outgoing_imports.",
+          "Auditoria fiscal da importação na mesma transação."
+        ],
+        "external": [
+          "XML enviado ao serviço fiscal para validação de schema e assinatura antes de arquivar."
+        ],
+        "excludes": [
+          "Não emite, cancela ou consulta autorização na SEFAZ; não cria estoque, títulos ou pedidos."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Deduplicação por empresa e chave de acesso com hash do XML; não exige Idempotency-Key nem If-Match."
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          409,
+          413,
+          422,
+          503,
+          502
+        ],
+        "action": "Importar XML de saída autorizado"
+      },
+      "recovery": "Repetir o mesmo XML após resultado incerto; em 409 conferir a chave e o documento já arquivado.",
+      "ui": {
+        "pages": [
+          "/fiscal/notas-saida",
+          "/fiscal/notas-saida/importar"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/fiscal/outgoing-imports/import"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/fiscal/outgoing_import.rs",
+        "apps/web/src/features/fiscal/outgoing-xml-imports.tsx",
+        "apps/web/src/features/fiscal/outgoing-nfes.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals-id-approve-order",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals/{id}/approve-order"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage",
+        "sales.proposals.decide",
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposals.rs",
+          "type": "ProposalConversion"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Versão atual em draft, sent ou accepted, com validade inclusiva em America/Sao_Paulo e ainda sem pedido.",
+        "Cliente e produtos ativos; unidades dos produtos compatíveis com o snapshot acordado."
+      ],
+      "transition": {
+        "from": "Proposta atual válida ainda não convertida",
+        "to": "Proposta accepted vinculada a um pedido draft"
+      },
+      "effects": {
+        "writes": [
+          "Aceite da versão quando necessário; pedido e linhas com preços e acabamentos do snapshot; revisão, auditoria, outbox e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não reserva estoque, fatura ou cobra."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Serialização por empresa, If-Match atual e chave de comando; repetição retorna o resultado anterior."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Aprovar proposta e gerar pedido"
+      },
+      "recovery": "Repetir mesma chave e corpo após resultado incerto; consultar revisão atual após 412.",
+      "ui": {
+        "pages": [],
+        "gap": "API implementada; BFF de ações atual não permite approve-order e a interface não está mapeada."
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/api/src/domains/sales/proposal_rules.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-proposals-id-email",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/proposals/{id}/email"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Proposta pertencente à empresa; consulta retorna disponibilidade do SMTP, destinatário e até 50 entregas."
+      ],
+      "transition": {
+        "from": "Proposta e histórico de entregas da empresa",
+        "to": "Estado de envio consultado sem mutação"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Resultado HTTP 200 não comprova entrega ao destinatário; falha ou incerteza permanece explícita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar disponibilidade e histórico de e-mails"
+      },
+      "recovery": "Conferir empresa e permissão antes de repetir.",
+      "ui": {
+        "pages": [],
+        "gap": "API implementada sem BFF ou interface de e-mail mapeados."
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposal_email.rs",
+        "apps/api/src/domains/sales/proposals.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-proposals-id-email",
+      "flow": "proposals",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/proposals/{id}/email"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.proposals.read",
+        "sales.proposals.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/proposal_email.rs",
+          "type": "ProposalEmailInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Versão atual válida em draft ou sent, ainda sem pedido; SMTP configurado.",
+        "Destinatário, assunto e mensagem validados; anexo gerado do snapshot comercial no servidor."
+      ],
+      "transition": {
+        "from": "Proposta e histórico de entregas da empresa",
+        "to": "Entrega sent, failed ou uncertain; sent só atualiza a versão capturada se continuar atual"
+      },
+      "effects": {
+        "writes": [
+          "Intenção de entrega uncertain e comando idempotente persistidos antes do SMTP; resultado e auditoria registrados após envio.",
+          "Em sucesso, versão ainda atual marcada sent e revisão incrementada."
+        ],
+        "external": [
+          "Envio SMTP com anexo do snapshot comercial capturado."
+        ],
+        "excludes": [
+          "Resultado HTTP 200 não comprova entrega ao destinatário; falha ou incerteza permanece explícita."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match atual e chave idempotente; replay consulta recibo persistido e nunca reenvia a mensagem."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Enviar proposta por e-mail"
+      },
+      "recovery": "Consultar o recibo após resultado incerto; repetir mesma chave e corpo sem reenviar SMTP; ausência de configuração retorna 503 sem escrita.",
+      "ui": {
+        "pages": [],
+        "gap": "API implementada sem BFF ou interface de e-mail mapeados."
+      },
+      "sources": [
+        "apps/api/src/domains/sales/proposal_email.rs",
+        "apps/api/src/domains/sales/proposals.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
     }
   ],
   "actionsAppendix": [
@@ -29645,9 +30756,8 @@
       "id": "pending-2",
       "title": "Preços e catálogo completo",
       "status": "needs_definition",
-      "intent": "Categorias de produto, variantes, imagens, tabela/lista de preços, vigência e preço por canal/cliente",
+      "intent": "Listas de preços por produto com vigência implementadas; variantes, imagens e preço por canal/cliente ainda pendentes.",
       "proposedEndpoints": [
-        "/api/v1/price-lists",
         "/{id}/items",
         "/api/v1/products/{id}/variants",
         "/{id}/media"

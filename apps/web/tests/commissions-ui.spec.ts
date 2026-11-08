@@ -97,6 +97,9 @@ test("comissão do pedido exige condições explícitas e conserva o snapshot ap
     return route.fulfill({ headers: { ETag: confirmed ? '"3"' : configured ? '"2"' : '"1"' }, json: { tenantId: tenant, canEdit: !confirmed, data: { orderId: record, revision: confirmed ? 3 : configured ? 2 : 1, status: configured ? "configured" : "not_required", locked: confirmed, sellerStaffId: configured ? seller : null, sellerName: configured ? "Maria" : null, commissionRate: configured ? "5.0000" : null, ipiRate: configured ? "10.0000" : null, paymentDay: configured ? 10 : null } } })
   })
   await page.goto(`/vendas/pedidos/${record}`)
+  const commissionTerms = page.locator("details").filter({ has: page.locator("summary", { hasText: "Comissões do pedido" }) })
+  await expect(commissionTerms).not.toHaveAttribute("open", "")
+  await commissionTerms.locator("summary").click()
   await expect(page.getByLabel("Comissão percentual", { exact: true })).toHaveValue("")
   await expect(page.getByLabel("IPI percentual da comissão", { exact: true })).toHaveValue("")
   await expect(page.getByLabel("Dia do pagamento da comissão", { exact: true })).toHaveValue("")
@@ -109,6 +112,7 @@ test("comissão do pedido exige condições explícitas e conserva o snapshot ap
   expect(calls).toEqual([{ sellerStaffId: seller, commissionRate: "5.0000", ipiRate: "10.0000", paymentDay: 10 }])
   confirmed = true
   await page.reload()
+  await commissionTerms.locator("summary").click()
   await expect(page.getByText("Vendedor: Maria", { exact: true })).toBeVisible()
   await expect(page.getByText("Comissão: 5,0000% · IPI: 10,0000% · Pagamento: dia 10 do mês seguinte.", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Salvar comissão do pedido", exact: true })).toHaveCount(0)

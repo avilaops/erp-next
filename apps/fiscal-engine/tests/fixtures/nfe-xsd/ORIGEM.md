@@ -1,5 +1,19 @@
 # Esquemas oficiais da NF-e usados nos testes
 
+## Atualização local em 08/11/2026
+
+Os cinco arquivos NF-e da raiz foram substituídos integralmente pelos arquivos de
+`PL_010g_v1.03/NFe/` do ZIP fornecido pelo usuário em
+`C:\Users\nicol\Downloads\PL_010g_v1.03.zip`.
+SHA-256 do ZIP: `b329ecbe7e4c05a41bfbc1527f105defb7047328acfeada7c77e1666da485eaf`.
+O manifest do motor registra os hashes individuais e a versão `PL_010g v1.03`.
+Em 08/11/2026, o pacote também foi baixado diretamente do Portal Nacional da NF-e:
+[PL_010g v1.03 oficial](https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=EQhOQMgipXY%3D).
+O SHA-256 do download oficial é idêntico ao ZIP fornecido pelo usuário, confirmando
+a procedência e a igualdade byte a byte. O registro local do download, tamanho e
+hash está em `artifacts/fiscal-reference-downloads/downloads.json` (entrada 01).
+Os registros PL_010f abaixo descrevem a versão anterior, substituída nesta atualização.
+
 Todos vêm do Portal Nacional da NF-e (`https://www.nfe.fazenda.gov.br/portal`, Documentos →
 Esquemas XML). Não são editados: quando a SEFAZ publica pacote novo, troca-se o arquivo inteiro e
 anota-se aqui. Conferência de 10/10/2026, por resumo SHA-256 contra os pacotes baixados no dia.

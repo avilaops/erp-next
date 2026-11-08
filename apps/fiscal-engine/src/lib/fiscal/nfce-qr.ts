@@ -105,7 +105,7 @@ function checkedSignature(root: Element, info: Element, xml: string): { digest: 
   return { digest, certificate };
 }
 
-function boundKey(info: Element): { accessKey: string; day: string; mode: "online" | "offline"; environment: "production" | "homologation"; ambient: string } {
+function boundKey(info: Element, model: "55" | "65"): { accessKey: string; day: string; mode: "online" | "offline"; environment: "production" | "homologation"; ambient: string } {
   const accessKey = (info.getAttribute("Id") ?? "").replace(/^NFe/, "");
   if (!ACCESS_KEY_PATTERN.test(accessKey) || !accessKeyUf(accessKey) || accessKeyDigit(accessKey.slice(0, 43)) !== accessKey[43]) throw invalid();
   const ide = child(info, "ide")!, issuer = child(info, "emit")!;
@@ -113,9 +113,9 @@ function boundKey(info: Element): { accessKey: string; day: string; mode: "onlin
   if (!!cnpj === !!cpf) throw invalid();
   const issuerId = field(issuer, cnpj ? "CNPJ" : "CPF").padStart(14, "0");
   const issuedAt = field(ide, "dhEmi"), emission = field(ide, "tpEmis"), ambient = field(ide, "tpAmb");
-  if (field(ide, "mod") !== "65" || !["1", "3", "4", "9"].includes(emission) || !["1", "2"].includes(ambient)) throw invalid();
+  if (field(ide, "mod") !== model || !["1", "3", "4", "9"].includes(emission) || !["1", "2"].includes(ambient)) throw invalid();
   if (field(ide, "cUF") !== accessKey.slice(0, 2) || issuedAt.slice(2, 4) + issuedAt.slice(5, 7) !== accessKey.slice(2, 6) ||
-    issuerId !== accessKey.slice(6, 20) || accessKey.slice(20, 22) !== "65" || field(ide, "serie").padStart(3, "0") !== accessKey.slice(22, 25) ||
+    issuerId !== accessKey.slice(6, 20) || accessKey.slice(20, 22) !== model || field(ide, "serie").padStart(3, "0") !== accessKey.slice(22, 25) ||
     field(ide, "nNF").padStart(9, "0") !== accessKey.slice(25, 34) || emission !== accessKey[34] ||
     field(ide, "cNF") !== accessKey.slice(35, 43) || field(ide, "cDV") !== accessKey[43]) throw invalid();
   return { accessKey, day: issuedAt.slice(8, 10), mode: emission === "9" ? "offline" : "online", environment: ambient === "1" ? "production" : "homologation", ambient };
@@ -138,7 +138,7 @@ function signParameters(prefix: string, key: SigningKey | undefined, certificate
 }
 
 /** Private, offline composition only. No URL defaults, transport, certificate loading or issuance. */
-export async function createNfceQrPayload(input: { signedXml: string; profile: NfceQrProfile }): Promise<NfceQrPayload> {
+export async function createFiscalQrPayload(input: { signedXml: string; profile: NfceQrProfile }, model: "55" | "65"): Promise<NfceQrPayload> {
   try {
     if (!record(input) || !only(input, ["signedXml", "profile"])) throw invalid();
     const profile = profileOf(input.profile), xml = input.signedXml;
@@ -154,7 +154,8 @@ export async function createNfceQrPayload(input: { signedXml: string; profile: N
     const root = document.documentElement;
     if (!root || root.localName !== "NFe" || root.namespaceURI !== NFE || root.getElementsByTagName("*").length > 50_000) throw invalid();
     const info = child(root, "infNFe")!;
-    const bound = boundKey(info), signature = checkedSignature(root, info, xml);
+    if (model === "55" && (profile.version !== "3" || field(child(info, "ide")!, "tpImp") !== "6")) throw invalid();
+    const bound = boundKey(info, model), signature = checkedSignature(root, info, xml);
     const parameters = [bound.accessKey, profile.version, bound.ambient];
     if (bound.mode === "offline") {
       const amount = field(child(child(info, "total")!, "ICMSTot")!, "vNF");
@@ -173,4 +174,8 @@ export async function createNfceQrPayload(input: { signedXml: string; profile: N
     if (error instanceof NfceQrError) throw error;
     throw new NfceQrError(error instanceof FiscalXmlError && error.reason === "unavailable" ? "unavailable" : "invalid");
   }
+}
+
+export async function createNfceQrPayload(input: { signedXml: string; profile: NfceQrProfile }): Promise<NfceQrPayload> {
+  return createFiscalQrPayload(input, "65");
 }

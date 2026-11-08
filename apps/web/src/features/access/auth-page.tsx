@@ -46,7 +46,7 @@ export function AuthPage({ loginHref, ready, error }: AuthPageProps) {
     <div className="entry-page">
       <a className="entry-skip" href="#conteudo">Pular para o conteúdo</a>
       <header className="entry-header entry-container">
-        <a className="entry-brand" href="#inicio" aria-label="Avila ERP — início">
+        <a className="entry-brand" href="#inicio" aria-label="Avila ERP: início">
           <Image src="/brand/avila-erp-symbol.svg" alt="" width={34} height={34} />
           <span>Avila ERP<small>por Ávila Ops</small></span>
         </a>

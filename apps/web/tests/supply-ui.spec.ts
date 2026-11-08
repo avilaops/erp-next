@@ -57,7 +57,7 @@ test("configurações de consulta não permitem edição", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Salvar configurações", exact: true })).toBeDisabled()
 })
 
-test("listagem alterna tabela e cartões e permite limpar a busca", async ({ page }, testInfo) => {
+test("listagem permite limpar a busca e mantém a tabela acessível no celular", async ({ page }, testInfo) => {
   await page.route("**/api/erp/warehouses**", route => {
     const query = new URL(route.request().url()).searchParams
     const data = query.get("q") ? [] : [{ id: record, revision: 1, code: "DEP-01", name: "Depósito principal", status: "active", notes: null, location: "Galpão A" }]
@@ -75,8 +75,13 @@ test("listagem alterna tabela e cartões e permite limpar a busca", async ({ pag
   await expect(table.getByText("Galpão A", { exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath("depositos-desktop.png"), fullPage: true })
   await page.setViewportSize({ width: 320, height: 844 })
-  await expect(table).toBeHidden()
-  await expect(page.getByRole("link", { name: "Depósito principal", exact: true })).toBeVisible()
+  await expect(table).toBeVisible()
+  await expect(table.getByRole("link", { name: "Depósito principal", exact: true })).toBeVisible()
+  const list = page.getByRole("region", { name: "Lista de Depósitos de estoque", exact: true })
+  expect(await list.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true)
+  await list.focus()
+  await list.press("ArrowRight")
+  await expect.poll(() => list.evaluate(node => node.scrollLeft)).toBeGreaterThan(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath("depositos-mobile.png"), fullPage: true })
 })

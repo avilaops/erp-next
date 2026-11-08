@@ -3,7 +3,8 @@
   "applications": {
     "web": "Interface Next.js e BFF autenticado.",
     "api": "Autoridade Rust para permissões, transações e persistência.",
-    "fiscal-engine": "Adaptador interno XML, A1, XSD e SOAP; sem banco e sem acesso do navegador."
+    "fiscal-engine": "Adaptador interno XML, A1, XSD e SOAP; sem banco e sem acesso do navegador.",
+    "fiscal-mcp": "Validação fiscal XSD, verificação de assinaturas e geração de PDF em serviço Python interno."
   },
   "webLayers": {
     "content": "Conteúdo e composição MDX de páginas; importa componentes, sem consultas HTTP, sessão ou regras de negócio.",
@@ -31,6 +32,7 @@
     "logistics": "Logística.",
     "parties": "Clientes e fornecedores.",
     "preferences": "Navegação das preferências e preferências pessoais.",
+    "price-lists": "Listas comerciais de preços por empresa, com itens, vigência e revisão.",
     "production": "Ordens e etapas de produção.",
     "purchasing": "Pedidos de compra, recebimentos e pagamentos vinculados.",
     "records": "Visão de cadastros, detalhes e formulários de dados de referência.",
@@ -43,8 +45,8 @@
     "workspace": "Aplicativos, eventos e novidades do ambiente."
   },
   "routeSurface": {
-    "count": 470,
-    "sha256": "a72c5498e0d9392591fa45bee24949599eec6f34ea205a5d67ce811753ab3a0c"
+    "count": 478,
+    "sha256": "c96c006179b8276267a216aa3c131c1ed53391c4a4e77676a55635f17db89667"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",

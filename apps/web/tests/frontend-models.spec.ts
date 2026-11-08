@@ -21,11 +21,28 @@ function files(directory: string): string[] {
 
 test("inventário de páginas exige título e preserva rotas operacionais nas prévias", () => {
   const root = path.resolve("src/app")
+  const canonicalAliases: Record<string, string> = {
+    "/cadastros/funcionarios/pagamentos": "/financeiro/contas-pagar?aba=funcionarios",
+    "/cadastros/vendedores": "/cadastros/funcionarios",
+    "/cadastros/vendedores/novo": "/cadastros/funcionarios/novo",
+    "/cadastros/vendedores/[id]": "/cadastros/funcionarios/[id]",
+    "/cadastros/vendedores/[id]/editar": "/cadastros/funcionarios/[id]/editar",
+  }
+  const titleExport = /export (?:const metadata = \{ title: ".+" \}|async function generateMetadata)/
   const pages = files(root).filter(file => file.endsWith(path.sep + "page.tsx"))
   expect(pages.length).toBeGreaterThanOrEqual(178)
   for (const file of pages) {
     const source = readFileSync(file, "utf8")
-    expect(source, file).toMatch(/export (?:const metadata = \{ title: ".+" \}|async function generateMetadata)/)
+    const pageRoute = "/" + path.relative(root, path.dirname(file)).split(path.sep).join("/")
+    const canonical = canonicalAliases[pageRoute]
+    if (canonical) {
+      expect(source, file).toContain('import { redirect } from "next/navigation"')
+      const redirect = source.match(/redirect\((["`])([^"`]+)\1\)/)?.[2].replaceAll("${id}", "[id]")
+      expect(redirect, file).toBe(canonical)
+      const destination = path.join(root, canonical.split("?")[0], "page.tsx")
+      expect(readFileSync(destination, "utf8"), destination).toMatch(titleExport)
+      expect(isDemonstrationRoute(canonical.split("?")[0].replace("[id]", "exemplo")), canonical).toBe(false)
+    } else expect(source, file).toMatch(titleExport)
     if (/import \{ (?:CatalogAccess|ReferenceAccess|PurchaseAccess|OperationsAccess|StaffAccess|PartyAccess|ContractsAccess|StockAccess|ServiceKeys|NfeDrafts|NfeDraftEditor|DigitalCertificate|CommissionsWorkspace|ProductionWorkspace) \}/.test(source)) {
       const route = "/" + path.relative(root, path.dirname(file)).split(path.sep).join("/").replace("[id]", "22222222-2222-4222-8222-222222222222")
       expect(isDemonstrationRoute(route), route).toBe(false)

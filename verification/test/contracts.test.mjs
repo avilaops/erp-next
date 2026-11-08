@@ -12,8 +12,8 @@ test('every production API operation and BFF has a contract without claiming ver
   const inventory = await discover(fileURLToPath(root));
   const assessment = assessContracts(catalogue, inventory);
   assert.deepEqual(assessment.findings, []);
-  assert.equal(assessment.apiOperations, 349);
-  assert.equal(assessment.bffOperations, 310);
+  assert.equal(assessment.apiOperations, 361);
+  assert.equal(assessment.bffOperations, 318);
   assert.equal(assessment.pendingFlows, 34);
   assert.equal(assessment.p0Ready, false);
   assert.equal(assessment.runtimeVerdict, 'not_verified_by_catalog');
@@ -93,6 +93,20 @@ test('catch-all handlers require explicit resources matching canonical API targe
   const changed = structuredClone(catalogue);
   changed.dispatches.find(item => item.path === '/api/erp/production/[...resource]').resources.push('orders/{id}/delete');
   assert.ok(assessContracts(changed, inventory).findings.some(finding => finding.code === 'dispatch_without_action_contract'));
+});
+
+test('outgoing download formats require explicit contracts and canonical targets', async () => {
+  const inventory = await discover(fileURLToPath(root));
+  const changed = structuredClone(catalogue);
+  const xml = changed.actions.find(action => action.operation.path === '/api/v1/fiscal/outgoing-imports/{id}/xml');
+  xml.ui.bff.format = 'invented-format';
+  const findings = assessContracts(changed, inventory).findings;
+  for (const code of ['undefined_dispatch_action', 'wrong_bff_target', 'dispatch_without_action_contract']) {
+    assert.ok(findings.some(finding => finding.code === code), code);
+  }
+  const undocumented = structuredClone(catalogue);
+  undocumented.dispatches.find(dispatch => dispatch.path.endsWith('/[format]')).formats.push('invented-format');
+  assert.ok(assessContracts(undocumented, inventory).findings.some(finding => finding.code === 'dispatch_without_action_contract'));
 });
 
 test('catalogue changes are part of source provenance and read preconditions are not invented', async () => {

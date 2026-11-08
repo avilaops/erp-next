@@ -6,7 +6,6 @@ import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
-import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
 import { useResource } from "@/hooks/use-operation"
 import { auditActions, auditAreas, auditActionLabel, auditAreaLabel, sortedOptions } from "./audit-labels"
@@ -38,7 +37,7 @@ export function SecurityAudit({ mode = "all" }: { mode?: "all" | "deletions" }) 
   function clear() { setDraft(empty); setFilters(empty); setCursors([]); setValidation("") }
 
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow={mode === "deletions" ? "Preferências / Sistema" : "Preferências / Segurança"} title={mode === "deletions" ? "Consulta de exclusões realizadas" : "Segurança e auditoria"} description={mode === "deletions" ? "Consulte remoções concluídas e preservadas na trilha de auditoria da empresa." : "Veja o que foi feito na empresa, quem realizou cada ação e quando ela aconteceu."} />
+
     {mode === "all" && <div className="grid gap-6 md:grid-cols-2">
       <section className="form-section space-y-2"><h2 className="text-lg font-semibold">Dispositivos conectados</h2><p className="text-sm text-muted-foreground">A lista de dispositivos e a opção de encerrar acessos ainda não estão disponíveis aqui.</p></section>
       <section className="form-section space-y-2"><h2 className="text-lg font-semibold">Proteção da conta</h2><p className="text-sm text-muted-foreground">As configurações de senha e verificação em duas etapas são gerenciadas no Ávila Auth. O histórico abaixo mostra as atividades realizadas dentro do ERP.</p></section>

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,7 +31,7 @@ export function WorkflowManager(){
   async function request(path:string,method:string,body?:Draft,revision?:number){if(busy)return;setBusy(path);setError("");setNotice("");try{const response=await erpFetch(path,{method,headers:{...(body?{"Content-Type":"application/json"}:{}),...(revision?{"If-Match":`"${revision}"`}:{})},body:body?JSON.stringify(body):undefined});const result=await response.json();if(!response.ok)throw new Error(result.title||"Não foi possível concluir a operação");reset();setNotice(method==="PUT"?"Fluxo atualizado.":path.endsWith("publish")?"Fluxo publicado.":path.endsWith("archive")?"Fluxo arquivado.":"Fluxo criado.");resource.reload()}catch(reason){setError(reason instanceof Error?reason.message:"Falha ao salvar fluxo")}finally{setBusy("")}}
   function edit(item:Workflow){setDraft({code:item.code,version:item.version,name:item.name,states:item.states,transitions:item.transitions});setEditing({id:item.id,revision:item.revision});window.scrollTo({top:0,behavior:"smooth"})}
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Gerenciador de transições" description="Modele fluxos declarativos e publique versões imutáveis. As rotinas operacionais do ERP continuam aplicando suas próprias regras de negócio." />
+
     {resource.error&&<div role="alert" className="form-section space-y-3"><p>{resource.error}</p>{resource.status===401?<AccessLink/>:<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button>}</div>}
     {resource.value?.canEdit&&<section className="form-section space-y-5" aria-labelledby="workflow-editor"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="workflow-editor" className="text-lg font-semibold">{editing?"Editar rascunho":"Novo fluxo"}</h2><p className="mt-1 text-sm text-muted-foreground">Código e versão identificam uma definição. Depois de publicada, crie outra versão para alterar o fluxo.</p></div>{editing&&<Button variant="outline" onClick={reset}>Cancelar edição</Button>}</div>
       <div className="grid gap-4 sm:grid-cols-3"><label className="grid gap-2 text-sm font-medium">Código<Input value={draft.code} disabled={!!editing} placeholder="aprovacao_pedido" onChange={event=>setDraft({...draft,code:event.target.value.toLocaleLowerCase("pt-BR").replace(/[^a-z0-9_]/g,"")})}/></label><label className="grid gap-2 text-sm font-medium">Versão<Input type="number" min="1" max="9999" disabled={!!editing} value={draft.version} onChange={event=>setDraft({...draft,version:Number(event.target.value)})}/></label><label className="grid gap-2 text-sm font-medium">Nome<Input value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label></div>

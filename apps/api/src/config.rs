@@ -90,7 +90,16 @@ fn danfe_configuration() -> anyhow::Result<Option<crate::domains::fiscal::danfe_
     let bundle = ca_path
         .map(|path| std::fs::read_to_string(path).context("Failed to read DANFE_CA_BUNDLE_FILE"))
         .transpose()?;
-    crate::domains::fiscal::danfe_client::DanfeClient::new(&endpoint, &token, bundle).map(Some)
+    let prefix = env::var("DANFE_MCP_TOOL_PREFIX").unwrap_or_else(|_| "fiscal_".to_owned());
+    let prefix = if prefix == "bare" {
+        ""
+    } else {
+        prefix.as_str()
+    };
+    crate::domains::fiscal::danfe_client::DanfeClient::new_with_prefix(
+        &endpoint, &token, bundle, prefix,
+    )
+    .map(Some)
 }
 
 // This is an explicit deployment gate. It never selects a tenant environment,

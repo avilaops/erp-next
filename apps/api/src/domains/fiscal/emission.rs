@@ -277,7 +277,14 @@ pub async fn issue(
         )
         .await?;
         nfce_profile = Some(profile);
-        (series, next_number)
+        (
+            draft.input.series.map(i32::from).unwrap_or(series),
+            if draft.input.series.is_some_and(|v| i32::from(v) != series) {
+                1
+            } else {
+                next_number
+            },
+        )
     } else {
         (
             i32::from(draft.issuer.profile.series),
@@ -287,7 +294,7 @@ pub async fn issue(
     let issue_time = if existing {
         load(&mut tx, tenant, id).await?.issued_at
     } else {
-        now()
+        draft.input.issued_at.clone().unwrap_or_else(now)
     };
     if !existing || load(&mut tx, tenant, id).await?.signed_xml.is_none() {
         super::ibpt_document::validate_for_issue(
@@ -344,7 +351,7 @@ pub async fn issue(
             .into());
         }
         sqlx::query("INSERT INTO fiscal_number_sequences(tenant_id,environment,model,series,next_number) VALUES($1,$3,$4,$2,$5) ON CONFLICT DO NOTHING").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(initial_number).execute(&mut *tx).await.map_err(db)?;
-        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=next_number+1 WHERE tenant_id=$1 AND environment=$3 AND model=$4 AND series=$2 AND next_number<=999999999 RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Numeração da série esgotada"))?;
+        let number: i64=sqlx::query_scalar("UPDATE fiscal_number_sequences SET next_number=COALESCE($5::bigint,next_number)+1 WHERE tenant_id=$1 AND environment=$3 AND model=$4 AND series=$2 AND next_number<=999999999 AND ($5::bigint IS NULL OR $5>=next_number) RETURNING next_number-1").bind(tenant).bind(series).bind(draft.input.environment.as_str()).bind(i32::from(draft.input.model)).bind(draft.input.number.map(i64::from)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::Conflict("Número informado já utilizado ou anterior à sequência; confira a numeração da série"))?;
         let random_code = format!("{:08}", (Uuid::now_v7().as_u128() % 100_000_000) as u64);
         sqlx::query("INSERT INTO fiscal_nfe_documents(tenant_id,id,source_order_id,source_return_id,source_return_kind,status,series,number,issued_at,random_code,environment,model,lease_until) VALUES($1,$2,$3,$4,$5,'preparing',$6,$7,$8,$9,$10,$11,clock_timestamp()+interval '120 seconds')")
             .bind(tenant)
@@ -394,6 +401,7 @@ pub async fn issue(
     body["environment"] = json!(document.environment);
     body["issuer"] =
         serde_json::to_value(&draft.issuer).map_err(|_| access::AccessError::Internal)?;
+    body["issuer"]["profile"]["series"] = json!(document.series);
     body["draft"] =
         serde_json::to_value(&draft.input).map_err(|_| access::AccessError::Internal)?;
     if let Some(snapshot) = &draft.ibpt_snapshot {
@@ -921,7 +929,16 @@ pub async fn list(
     let ids=sqlx::query_scalar::<_,Uuid>("SELECT id FROM fiscal_nfe_documents WHERE tenant_id=$1 AND ($2::uuid IS NULL OR id<$2) ORDER BY id DESC LIMIT $3").bind(tenant).bind(page.cursor).bind(limit+1).fetch_all(&mut *tx).await.map_err(db)?;
     let mut data = Vec::new();
     for id in ids.iter().take(limit as usize) {
-        data.push(load(&mut tx, tenant, *id).await?.snapshot(tenant));
+        let document = load(&mut tx, tenant, *id).await?;
+        let mut value = document.snapshot(tenant);
+        let summary: Value = sqlx::query_scalar(
+            "SELECT jsonb_build_object('recipientName',details->'recipient'->>'legalName','recipientTaxId',details->'recipient'->>'taxId','amount',details->>'productsTotal') FROM fiscal_nfe_drafts WHERE tenant_id=$1 AND id=$2"
+        ).bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?.unwrap_or(json!({}));
+        if let (Some(target), Some(fields)) = (value.as_object_mut(), summary.as_object()) {
+            target.extend(fields.clone());
+        }
+        value["issuedAt"] = json!(document.issued_at);
+        data.push(value);
     }
     let next = if ids.len() > limit as usize {
         ids.get(limit as usize - 1).copied()

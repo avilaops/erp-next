@@ -1,5 +1,5 @@
-import { PriceTables } from "@/features/commercial-settings/price-tables"
-
+import { Suspense } from "react"
+import { PriceListsAccess } from "@/features/price-lists/price-lists-access"
 export const metadata = { title: "Editar lista de preços" }
-
-export default function EditPriceListPage() { return <PriceTables /> }
+async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) { return <PriceListsAccess id={(await params).id} edit /> }
+export default function Page(props: Parameters<typeof ResolvedPage>[0]) { return <Suspense fallback={<p role="status">Carregando lista…</p>}><ResolvedPage {...props} /></Suspense> }

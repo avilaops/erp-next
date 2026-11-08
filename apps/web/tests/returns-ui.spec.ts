@@ -32,7 +32,7 @@ test("cancelamento integral repete o mesmo comando após resposta perdida e most
   await expect(page.getByLabel("Motivo do cancelamento integral", { exact: true })).toBeDisabled()
   await expect(page.getByLabel("Data do cancelamento integral", { exact: true })).toHaveValue(occurredOn)
   await page.getByRole("button", { name: "Conferir cancelamento integral", exact: true }).click()
-  await expect(page.getByText("Situação: Cancelado", { exact: true })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Detalhes do pedido", exact: true }).getByText("Cancelado", { exact: true })).toBeVisible()
   expect(calls).toHaveLength(2)
   expect(calls[0]).toEqual(calls[1])
   expect(calls[0]).toMatchObject({ revision: '"3"', body: { reason, occurredOn } })

@@ -4,7 +4,6 @@ import { erpFetch } from "@/lib/api/client"
 
 import Link from "next/link"
 import { useRef, useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -53,7 +52,7 @@ export function FinancialSettings() {
   }
   const filtered = kinds.filter(kind => `${referenceConfigs[kind].title} ${referenceConfigs[kind].description}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")))
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Financeiro" title="Configurações financeiras" description="Cadastros da empresa ativa e sugestões para preencher operações manuais." />
+
     <section className="form-section space-y-4" aria-labelledby="payment-default-title">
       <h2 id="payment-default-title" className="text-lg font-semibold">Baixas manuais</h2><p className="text-sm text-muted-foreground">O meio sugerido preenche novos formulários de contas a pagar e a receber. Pode ser alterado em cada operação. Não registra baixa, movimenta banco ou altera lançamentos anteriores.</p>
       {resource.loading && <p role="status">Carregando configuração…</p>}

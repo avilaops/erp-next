@@ -4,6 +4,7 @@ import { readFile, access } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateTypography } from "./typography-policy.mjs";
 
 const require = createRequire(new URL("../../apps/web/package.json", import.meta.url));
 const ts = require("typescript");
@@ -105,8 +106,8 @@ async function main() {
   const names = present.filter(Boolean);
   if (process.argv.includes("--print-routes")) { console.log(JSON.stringify(routeSurface(names), null, 2)); return; }
   const policy = JSON.parse(await readFile(path.join(root, "architecture/structure.json"), "utf8"));
-  const files = new Map(await Promise.all(names.filter(name => name.startsWith(web) || name.endsWith(".rs")).map(async name => [name, /\.(ts|tsx|rs|mdx)$/.test(name) ? await readFile(path.join(root, name), "utf8") : ""])));
-  const errors = validateStructure(files, policy);
+  const files = new Map(await Promise.all(names.filter(name => name.startsWith(web) || name.endsWith(".rs")).map(async name => [name, /\.(ts|tsx|rs|mdx|css)$/.test(name) ? await readFile(path.join(root, name), "utf8") : ""])));
+  const errors = [...validateStructure(files, policy), ...validateTypography(files)];
   console.log(JSON.stringify({ schemaVersion: "erp-structure-check/1", sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), routeSurface: routeSurface(names), errors }, null, 2));
   if (errors.length) process.exitCode = 1;
 }

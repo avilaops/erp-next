@@ -202,3 +202,6 @@ jobs:
       - name: Grant warranty and assistance storage access
         if: github.event_name != 'workflow_run'
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-warranty.sql
+      - name: Grant incremental release storage access
+        if: github.event_name != 'workflow_run'
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f deploy/grant-release-20261108.sql

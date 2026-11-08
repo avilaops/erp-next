@@ -49,7 +49,7 @@ test("pessoa é criada, assume os dois papéis e pode ser arquivada sem duplicar
   await page.getByRole("combobox", { name: "Relacionamento", exact: true }).selectOption("supplier")
   await page.getByRole("combobox", { name: "Situação", exact: true }).selectOption("archived")
   await page.locator("#conteudo-principal").getByRole("button", { name: "Buscar", exact: true }).click()
-  await expect(page.getByRole("link", { name: "Consultar Indústria parceira do navegador", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Indústria parceira do navegador", exact: true })).toBeVisible()
 })
 
 test("conflito de revisão preserva a edição e só recarrega com descarte confirmado", async ({ page, context }) => {

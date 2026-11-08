@@ -20,9 +20,9 @@ export function OperationNaturePicker({tenant,onApply}:{tenant:string;onApply:(n
     }).catch(reason=>{if (!controller.signal.aborted) {setItems([]);setError(reason.message)}})
     return ()=>controller.abort()
   },[tenant])
-  return <section className="form-section space-y-3"><h2 className="font-semibold">Natureza cadastrada</h2><p className="text-sm text-muted-foreground">Selecione uma natureza ativa de saída normal, modelo 55. Aplicar copia a descrição e a referência; confira e preencha os CFOPs dos itens conforme o destino.</p>
+  return <div className="space-y-2">
     {error && <p className="text-sm text-destructive">{error}</p>}
-    <div className="flex flex-wrap items-end gap-3"><label className="grid min-w-0 flex-1 gap-2 text-sm">Natureza de operação<select value={selected} onChange={event=>setSelected(event.target.value)} className="h-10 w-full rounded-lg border bg-background px-3"><option value="">Selecione uma natureza cadastrada</option>{items.map(item=><option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}</select></label><Button type="button" variant="outline" disabled={!selected} onClick={()=>{const item=items.find(item=>item.id===selected);if(item)onApply(item,revision)}}>Aplicar natureza</Button></div>
+    <div className="flex flex-wrap items-end gap-3"><label className="grid min-w-0 flex-1 gap-2 text-sm">Natureza cadastrada<select value={selected} onChange={event=>setSelected(event.target.value)} className="h-10 w-full rounded-lg border bg-background px-3"><option value="">Selecione uma natureza cadastrada</option>{items.map(item=><option key={item.id} value={item.id}>{item.code}: {item.name}</option>)}</select></label><Button type="button" variant="outline" disabled={!selected} onClick={()=>{const item=items.find(item=>item.id===selected);if(item)onApply(item,revision)}}>Aplicar natureza</Button></div>
     <Link href="/preferencias/fiscal/naturezas" target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Gerenciar naturezas de operação</Link>
-  </section>
+  </div>
 }

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { connection } from "next/server"
 import { AccessLink } from "../../components/feedback/session-recovery"
 import { currentIdentitySession, erpConfiguration, type ErpSession } from "@/server/auth/erp-session"
 
@@ -16,6 +17,8 @@ export function isErpLoginConfigured(): boolean {
 }
 
 export async function currentWorkspaceAccess(): Promise<WorkspaceAccess> {
+  // Configuration can be supplied at server startup, after the build completes.
+  await connection()
   try {
     erpConfiguration()
   } catch {

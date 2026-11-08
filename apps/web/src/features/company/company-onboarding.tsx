@@ -99,10 +99,10 @@ export function CompanyPicker() {
   }
   const busy = busyCompanyId !== null
   return <section className="form-section space-y-4" aria-busy={busy}>
-    {platformAdministrator && <p className="font-medium">Administração da plataforma — todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
+    {platformAdministrator && <p className="font-medium">Administração da plataforma: todas as empresas do ERP. O acesso à empresa selecionada será registrado.</p>}
     <p id="company-picker-feedback" role={feedback.error ? "alert" : "status"} aria-live={feedback.error ? "assertive" : "polite"}>{feedback.message}</p>
     {feedback.error && <button type="button" className="rounded-xl border px-4 py-2 text-sm" onClick={retryDirectory}>Tentar novamente</button>}
-    {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
+    {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"}: acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
     {requiresLogin && <AccessLink className="ml-4 inline-block underline">Entrar novamente</AccessLink>}
   </section>

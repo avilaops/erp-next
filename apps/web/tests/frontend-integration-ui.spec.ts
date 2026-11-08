@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test"
 import axe from "axe-core"
 import { installFrontendFixture, tenant, record } from "./helpers/frontend-fixture"
 import { blankDraft, blankItem } from "../src/features/fiscal/nfe-draft-model"
+import { origin } from "../playwright.danfe.config"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
@@ -30,12 +31,13 @@ test("redirecionamento legado e acesso ao estoque não expõem inventário fict�
   page.on("pageerror", error => errors.push(error.message))
   page.on("console", message => { if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) errors.push(message.text()) })
   await page.goto("/dashboard")
-  await expect(page).toHaveURL("http://127.0.0.1:33118/")
+  await expect(page).toHaveURL(origin + "/")
   await expect(page.getByRole("heading", { name: "Visão geral", exact: true })).toBeVisible()
   await page.goto("/estoque/inventarios/" + record)
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   await page.getByRole("navigation", { name: "Operações disponíveis" }).getByRole("link", { name: "Estoque", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Saldos e movimentos", exact: true })).toBeVisible()
+  await expect(page).toHaveTitle("Estoque · Avila ERP")
+  await expect(page.getByRole("heading", { name: "Saldos por produto", exact: true })).toBeVisible()
   await page.goBack()
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   expect(errors).toEqual([])
@@ -45,6 +47,7 @@ test("fiscal integrado mantém listagem e preparação do pedido fora das prévi
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions } }))
   await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: ready }))
   await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
+  await page.route("**/api/erp/fiscal/issued-nfes?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
   const input = { ...blankDraft(), recipient: { taxId: "52998224725", legalName: "Cliente da fixture", state: "SP", municipalityCode: "3550308", postalCode: "01001000", street: "Rua de teste", number: "1", district: "Centro" }, items: [{ ...blankItem(), code: "SKU-1", description: "Produto da fixture", unit: "UN", ncm: "00000000", quantity: "3.0000", unitPrice: "0.3333333333", grossTotal: "1.00" }], productsTotal: "1.00" }
   await page.route("**/api/erp/fiscal/order-preparations/" + record, route => route.fulfill({ json: { tenantId: tenant, orderId: record, orderRevision: 2, customerId: record, recipient: input.recipient, items: input.items, productsTotal: input.productsTotal } }))
   await page.goto("/fiscal")
@@ -52,13 +55,16 @@ test("fiscal integrado mantém listagem e preparação do pedido fora das prévi
   await expect(fiscalLink).toContainText("Preparar e consultar NF-e", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
   await fiscalLink.click()
   await expect(page).toHaveTitle("NF-e de saída · Avila ERP")
-  await expect(page.getByText("Nenhum rascunho cadastrado nesta empresa.", { exact: true })).toBeVisible()
+  await expect(page.getByText("Nenhuma nota fiscal cadastrada nesta empresa.", { exact: true })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toHaveCount(0)
   await page.goto("/fiscal/notas-saida/nova?pedido=" + record)
   await expect(page).toHaveTitle("Nova NF-e de saída · Avila ERP")
+  await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
   await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Cliente da fixture")
+  await page.getByRole("button", { name: "3. Produtos", exact: true }).click()
   await expect(page.getByLabel("Quantidade", { exact: true })).toHaveValue("3.0000")
   await expect(page.getByLabel("Quantidade", { exact: true })).toHaveAttribute("readonly", "")
+  await page.getByRole("button", { name: "1. Dados da nota", exact: true }).click()
   await expect(page.getByLabel("Natureza da operação", { exact: true })).toBeEditable()
   await expect(page.getByRole("heading", { name: "Prévia de interface", exact: true })).toHaveCount(0)
   for (const width of [390, 1749]) {
@@ -104,7 +110,7 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       await page.setViewportSize({ width: 390, height: 844 })
       await page.goto(route)
       await expect(page.locator("h1")).toBeVisible()
-      const unavailable = route === "/fiscal/notas-saida" ? page.getByRole("region", { name: "Rascunhos salvos", exact: true }).getByRole("alert") : page.locator('main [role="alert"], main [role="status"]').filter({ hasText: "Operação indisponível" })
+      const unavailable = route === "/fiscal/notas-saida" ? page.getByRole("region", { name: "Notas fiscais de saída", exact: true }).getByRole("alert") : page.locator('main [role="alert"], main [role="status"]').filter({ hasText: "Operação indisponível" })
       await expect(unavailable).toContainText("Operação indisponível")
       await expect.poll(() => page.locator("html").evaluate(element => element.classList.contains("dark"))).toBe(theme === "dark")
       // Theme changes can precede the inherited color transition on settings links.
@@ -114,6 +120,16 @@ test("áreas reconciliadas têm rótulos e contraste verificáveis em claro e es
       })).toBe(true)
       if (route === "/fiscal/notas-saida") await expect(page.getByRole("button", { name: "Atualizar lista", exact: true })).toBeEnabled()
       await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))))
+      // The theme class can change before inherited text colors reach their final value.
+      await expect.poll(() => page.evaluate(() => {
+        const probe = document.createElement("span")
+        probe.style.color = "var(--foreground)"
+        document.body.append(probe)
+        try {
+          const foreground = getComputedStyle(probe).color
+          return [document.body, document.querySelector("h1")!].every(element => getComputedStyle(element).color === foreground)
+        } finally { probe.remove() }
+      })).toBe(true)
       await page.addScriptTag({ content: axe.source })
       const result = await page.evaluate(async () => {
         const scanner = (window as unknown as { axe: typeof axe }).axe

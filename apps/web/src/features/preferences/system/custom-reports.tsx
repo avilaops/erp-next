@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { AccessLink } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,7 +38,7 @@ export function CustomReports() {
     try{const response=await erpFetch(`/api/erp/system/custom-reports/${report.id}`,{method:"PUT",headers:{"Content-Type":"application/json","If-Match":`"${report.revision}"`},body:JSON.stringify({name:report.name,dataset:report.dataset,columns:report.columns,filters:report.filters,visibility})});const body=await response.json();if(!response.ok)throw new Error(body.title||"Não foi possível alterar a visibilidade");setNotice(visibility==="tenant"?"Relatório compartilhado com a empresa.":"Relatório agora é privado.");resource.reload()}catch(reason){setError(reason instanceof Error?reason.message:"Falha ao alterar relatório")}finally{setBusy("")}
   }
   return <div className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
-    <PageHeader eyebrow="Preferências / Sistema" title="Relatórios customizados" description="Salve definições de relatórios usando fontes, colunas e filtros autorizados. Esta tela não aceita SQL nem executa consultas arbitrárias." />
+
     {resource.error&&<div role="alert" className="form-section space-y-3"><p>{resource.error}</p>{resource.status===401?<AccessLink/>:<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button>}</div>}
     {resource.value?.canEdit&&<section className="form-section space-y-5" aria-labelledby="new-report"><h2 id="new-report" className="text-lg font-semibold">Novo relatório</h2><div className="grid gap-4 sm:grid-cols-2">
       <label className="grid gap-2 text-sm font-medium">Nome<Input value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label>

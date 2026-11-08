@@ -8,7 +8,6 @@ import { AccessLink } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 
 type Snapshot = Schema<"LegacyPage">
@@ -52,7 +51,7 @@ export function LegacyHistory() {
     return () => controller.abort()
   }, [collection, offset])
   return <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
-    <PageHeader eyebrow="Dados da empresa" title="Histórico do ERP anterior" description="Registros e arquivos originais preservados na migração. A consulta não altera pedidos nem repete operações financeiras ou fiscais." />
+
     <div className="flex flex-wrap gap-3 text-sm"><Link className="text-primary underline" href="/cadastros/produtos">Cadastro atual de produtos</Link>{error && responseStatus === 401 && <AccessLink className="text-primary underline">Entrar com Avila Ops</AccessLink>}</div>
     {error && <p role="alert" className="form-section">{error}</p>}
     {!snapshot && !error && <p role="status">Carregando histórico…</p>}

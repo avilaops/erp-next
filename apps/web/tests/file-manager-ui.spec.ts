@@ -24,7 +24,7 @@ test("gerenciador de arquivos filtra, baixa legados e arquiva registros atuais",
   })
 
   await page.goto("/preferencias/sistema/arquivos")
-  await expect(page.getByRole("heading", { name: "Gerenciador de arquivos" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Arquivos da empresa", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Baixar" })).toHaveAttribute("download", "nota.xml")
   await page.getByRole("button", { name: "Arquivar" }).click()
   await expect.poll(() => archived).toBe(true)

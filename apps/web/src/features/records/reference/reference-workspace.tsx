@@ -28,18 +28,16 @@ function List({ kind }: { kind: ReferenceKind }) {
   const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
   if (query.status) params.set("status", query.status)
   const result = useResource<ReferenceList>(`/api/erp/${config.endpoint}?${params}`)
-  const supply = ["depositos", "grupos-produtos", "grupos-tags", "tags"].includes(kind)
   const filtered = !!query.q || !!query.status
   const total = result.value?.total ?? 0
   function statusLabel(status: string) {
     return <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${status === "active" ? "border-primary/20 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>{status === "active" ? "Ativo" : "Arquivado"}</span>
   }
   return <>
-    {supply && <Link className="mb-5 inline-flex min-h-11 items-center text-sm text-primary underline underline-offset-4" href="/preferencias?categoria=suprimentos">Preferências / Suprimentos</Link>}
-    <PageHeader eyebrow="Cadastros" title={config.title} description={config.description} />
+
     <section className="form-section min-w-0 space-y-5" aria-label={config.title}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="font-semibold">Registros da empresa</h2><p className="mt-1 text-sm text-muted-foreground">Consulte os dados e mantenha os cadastros atualizados.</p></div>
+        <h2 className="font-semibold">{config.title}</h2>
         {result.value?.canEdit && <Link className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover" href={`${referencePath(kind)}/novo`}>Novo cadastro</Link>}
       </div>
       <form className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-4" onSubmit={event => { event.preventDefault(); setQuery({ ...filters, q: filters.q.trim(), offset: 0 }) }}>
@@ -51,13 +49,7 @@ function List({ kind }: { kind: ReferenceKind }) {
       {result.loading ? <p role="status" className="py-8 text-center text-sm text-muted-foreground">Carregando cadastros…</p> : result.error ? <div className="space-y-3 rounded-xl border border-destructive/30 p-5" role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><p role="status">{total} registro(s){filtered ? " encontrados" : ""}</p><span className="text-muted-foreground">{result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</span></div>
         {!result.value.data.length ? <div className="space-y-2 rounded-xl border border-dashed p-8 text-center"><h3 className="font-medium">{filtered ? "Nenhum cadastro corresponde aos filtros." : "Nenhum cadastro encontrado."}</h3><p className="text-sm text-muted-foreground">{filtered ? "Revise a busca ou limpe os filtros para consultar todos os registros." : result.value.canEdit ? "Use Novo cadastro para adicionar o primeiro registro desta empresa." : "Os registros aparecerão aqui quando forem cadastrados."}</p></div> : <>
-          <ul className="grid gap-3 md:hidden">{result.value.data.map(item => <li className="min-w-0 space-y-3 rounded-xl border border-border p-4" key={item.id}>
-            <div className="flex items-start justify-between gap-3"><Link className={`${linkClass} min-w-0 break-words`} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{statusLabel(item.status)}</div>
-            <p className="break-all text-sm text-muted-foreground">Código: {item.code}</p>
-            {kind === "depositos" && <p className="break-words text-sm">Localização: {item.location || "Não informada"}</p>}
-            {result.value?.canEdit && <Link className="inline-flex min-h-11 items-center text-sm text-primary underline" href={`${referencePath(kind)}/${item.id}/editar`}>Editar {item.name}</Link>}
-          </li>)}</ul>
-          <div className="hidden overflow-x-auto rounded-xl border border-border md:block"><DataTable className="w-full text-left text-sm">
+          <div className="workspace-list-scroll" role="region" aria-label={`Lista de ${config.title}`} tabIndex={0}><DataTable className="min-w-[560px] w-full text-left text-sm">
             <caption className="sr-only">{config.title} da empresa ativa</caption>
             <thead className="bg-muted/40 text-muted-foreground"><tr><th scope="col" className="px-4 py-3 font-medium">Código</th><th scope="col" className="px-4 py-3 font-medium">Nome</th>{kind === "depositos" && <th scope="col" className="px-4 py-3 font-medium">Localização</th>}<th scope="col" className="px-4 py-3 font-medium">Situação</th><th scope="col" className="px-4 py-3 font-medium"><span className="sr-only">Ações</span></th></tr></thead>
             <tbody className="divide-y divide-border">{result.value.data.map(item => <tr className="hover:bg-muted/20" key={item.id}><td className="max-w-40 break-all px-4 py-3 font-mono text-xs">{item.code}</td><th scope="row" className="max-w-80 break-words px-4 py-3 font-medium"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link></th>{kind === "depositos" && <td className="max-w-60 break-words px-4 py-3">{item.location || "Não informada"}</td>}<td className="px-4 py-3">{statusLabel(item.status)}</td><td className="px-4 py-3">{result.value?.canEdit && <Link className="inline-flex min-h-11 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td></tr>)}</tbody>

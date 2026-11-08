@@ -1,0 +1,12 @@
+import { PageTitle } from "@/components/workspace/page-title"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { ArrowUpRight } from "lucide-react"
+
+<div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 py-6 lg:px-6">
+  <PageTitle>Visão geral</PageTitle>
+  <nav aria-label="Atalhos" className="mt-6 flex flex-wrap gap-3">
+    <Link href="/vendas/pedidos/novo" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted">Novo pedido<ArrowUpRight className="size-4 text-muted-foreground" aria-hidden="true" /></Link>
+    <Link href="/estoque" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted">Consultar estoque<ArrowUpRight className="size-4 text-muted-foreground" aria-hidden="true" /></Link>
+    <Link href="/fiscal" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted">Documentos fiscais<ArrowUpRight className="size-4 text-muted-foreground" aria-hidden="true" /></Link>
+  </nav>
+</div>

@@ -6,6 +6,11 @@ node_modules/
 target/
 .sqlx/
 .venv-verification/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
 coverage/
 test-results/
 playwright-report/

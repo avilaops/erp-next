@@ -11,6 +11,7 @@ pub(super) enum Action {
     Cancel,
     Revise,
     Convert,
+    ApproveConvert,
 }
 
 /// Expiration uses the business date supplied by the caller, never a browser clock.
@@ -31,6 +32,12 @@ pub(super) fn transition(
         ("draft" | "sent" | "accepted", Action::Cancel) => Ok("cancelled"),
         ("sent" | "rejected" | "accepted", Action::Revise) => Ok("superseded"),
         ("accepted", Action::Convert) => Ok("accepted"),
+        ("draft" | "sent" | "accepted", Action::ApproveConvert) if valid_until >= today => {
+            Ok("accepted")
+        }
+        ("draft" | "sent" | "accepted", Action::ApproveConvert) => Err(DomainError::Conflict(
+            "A validade expirou; revise a proposta antes de aprovar",
+        )),
         ("draft", Action::Send) | ("sent", Action::Accept) => Err(DomainError::Conflict(
             "A validade expirou; revise a proposta antes de enviar ou aceitar",
         )),
@@ -112,6 +119,7 @@ mod tests {
             Action::Cancel,
             Action::Revise,
             Action::Convert,
+            Action::ApproveConvert,
         ] {
             assert!(transition("accepted", action, today, today, true).is_err());
         }
@@ -136,6 +144,31 @@ mod tests {
             "rejected"
         );
         assert!(transition("superseded", Action::Revise, expired, today, false).is_err());
+    }
+
+    #[test]
+    fn approve_and_convert_accepts_only_current_valid_commercial_states() {
+        let today = day("2026-11-08");
+        for status in ["draft", "sent", "accepted"] {
+            assert_eq!(
+                transition(status, Action::ApproveConvert, today, today, false).unwrap(),
+                "accepted"
+            );
+            assert!(
+                transition(
+                    status,
+                    Action::ApproveConvert,
+                    day("2026-11-07"),
+                    today,
+                    false
+                )
+                .is_err()
+            );
+            assert!(transition(status, Action::ApproveConvert, today, today, true).is_err());
+        }
+        for status in ["cancelled", "rejected", "superseded"] {
+            assert!(transition(status, Action::ApproveConvert, today, today, false).is_err());
+        }
     }
 
     #[test]

@@ -92,7 +92,7 @@ test("manifestação exige seleção e confirmação explícitas e conserva resu
   expect(manifested).toBe(false)
   await page.getByLabel("Confirmo o envio deste evento à SEFAZ para esta NF-e.").check()
   await submit.click()
-  await expect(page.getByText(/Resultado não confirmado — conferir/)).toBeVisible()
+  await expect(page.getByText(/Resultado não confirmado: conferir/)).toBeVisible()
   await expect(submit).toBeDisabled()
   expect(manifested).toBe(true)
   expect(collected).toBe(0)

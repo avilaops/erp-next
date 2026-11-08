@@ -1,27 +1,36 @@
 "use client"
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
-import { usePathname } from "next/navigation"
-import { ArrowLeft, BarChart3, Boxes, BriefcaseBusiness, ChevronRight, History, House, LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, ShoppingCart, Truck, Users, Wallet, X } from "lucide-react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { ArrowLeft, BarChart3, Boxes, BriefcaseBusiness, ChevronRight, History, House, LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, ShoppingCart, Truck, Users, Wallet, X, PackageCheck, ReceiptText, Settings2, Wrench, type LucideIcon } from "lucide-react"
 import { GuardedLink as Link } from "./navigation-guard"
-import { desktopMenus, moduleLinks, quickLinks } from "./navigation-catalog"
+import { CategoryButton } from "./category-button"
+import { desktopMenus, moduleLinks, navigationDestinations } from "./navigation-catalog"
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-const icons = [BriefcaseBusiness, Users, ShoppingCart, Boxes, Wallet, Truck, BarChart3, LayoutGrid]
-const menuDestinations = new Set(desktopMenus.flatMap(menu => menu.columns.flatMap(group => group.items.map(item => item.href))))
-// Keep the supplemental destinations from the original mobile menu in the same catalog.
+const icons: Record<string, LucideIcon> = { "Meu Negócio": BriefcaseBusiness, Cadastros: Users, Vendas: ShoppingCart, Estoque: Boxes, Compras: PackageCheck, Financeiro: Wallet, Fiscal: ReceiptText, "Logística": Truck, Serviços: Wrench, Relatórios: BarChart3, Preferências: Settings2 }
+const modulePaths = new Set<string>(moduleLinks.map(([, href]) => href))
+const indexDestinations = navigationDestinations.filter(item => !modulePaths.has(item.href))
+const indexGroups = [...new Set(indexDestinations.map(item => item.category))].map(title => ({
+  title,
+  items: indexDestinations.filter(item => item.category === title),
+}))
 const menus = [...desktopMenus, {
   label: "Índice completo",
   columns: [
     { title: "Módulos", items: moduleLinks.map(([label, href]) => ({ label, href })) },
-    { title: "Acesso rápido", items: quickLinks.filter(([, href]) => !menuDestinations.has(href) && !moduleLinks.some(([, path]) => path === href)).map(([label, href]) => ({ label, href })) },
+    ...indexGroups,
   ],
 }]
 const MenuContext = createContext<{ open: boolean; show: (trigger: HTMLElement) => void } | null>(null)
 
 function matches(pathname: string, href: string) {
-  return pathname === href || (href !== "/" && pathname.startsWith(href + "/"))
+  const [path, query] = pathname.split("?")
+  const [destination, expectedQuery] = href.split("?")
+  if (path !== destination && !(destination !== "/" && path.startsWith(destination + "/"))) return false
+  const current = new URLSearchParams(query)
+  return [...new URLSearchParams(expectedQuery)].every(([key, value]) => current.get(key) === value)
 }
 
 function currentArea(pathname: string) {
@@ -53,7 +62,10 @@ function Options({ index, pathname, onNavigate }: { index: number; pathname: str
 }
 
 export function MenuNavigation({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
+  const routePathname = usePathname()
+  const preferences = routePathname === "/preferencias" || routePathname.startsWith("/preferencias/")
+  const category = useSearchParams().get("categoria")
+  const pathname = routePathname === "/preferencias" && category ? `${routePathname}?${new URLSearchParams({ categoria: category })}` : routePathname
   const [collapsed, setCollapsed] = useState(false)
   const [selected, setSelected] = useState<number | null>(() => currentArea(pathname) ?? null)
   const [open, setOpen] = useState(false)
@@ -71,7 +83,7 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
 
   if (previousPath !== pathname) {
     setPreviousPath(pathname)
-    setSelected(currentArea(pathname) ?? null)
+    setSelected(preferences ? null : currentArea(pathname) ?? null)
     setOpen(false)
     setScreen(null)
   }
@@ -120,22 +132,24 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
     })}
   </ul>
 
+  const collapseControl = <button type="button" className="erp-sidebar-toggle" aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"} aria-expanded={!collapsed} title={collapsed ? "Expandir navegação" : "Recolher navegação"} onClick={() => { closePanel(); setCollapsed(!collapsed) }}>{collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}</button>
+
   return <MenuContext.Provider value={{ open, show: element => { drawerTrigger.current = element; setScreen(null); setOpen(true) } }}>
     <a className="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
-    <div className="erp-workspace" data-collapsed={collapsed}>
+    <div className="erp-workspace" data-collapsed={collapsed} data-preferences={preferences}>
       <TooltipProvider delay={250}>
         <nav ref={navigation} className="erp-sidebar" aria-label="Módulos do ERP">
-          <Link href="/" className="erp-brand" aria-label="Visão geral do Avila ERP"><img className="erp-brand-mark" src="/brand/avila-erp-symbol.svg" alt="" width="32" height="32" /><span className="erp-brand-name"><strong>Avila ERP</strong><small>Avila Ops</small></span></Link>
+          <div className="erp-sidebar-heading"><Link href="/" className="erp-brand" aria-label="Visão geral do Avila ERP"><img className="erp-brand-mark" src="/brand/avila-erp-symbol.svg" alt="" width="32" height="32" /><span className="erp-brand-name"><strong>Avila ERP</strong><small>Avila Ops</small></span></Link>{collapseControl}</div>
           <div className="erp-sidebar-scroll">
             {homeLinks}
             <p className="erp-nav-caption">Módulos</p>
             <ul className="erp-module-list">{desktopMenus.map((menu, index) => {
-              const Icon = icons[index]
-              return <li key={menu.label}><Tooltip><TooltipTrigger render={<button type="button" className="erp-module-button" data-active={active === index} aria-label={menu.label} aria-expanded={selected === index} aria-controls={selected === index ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === index ? null : index) }} />}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></TooltipTrigger>{collapsed && <TooltipContent side="right">{menu.label}{active === index && activePage?.index === index ? ` · ${activePage.label}` : ""}</TooltipContent>}</Tooltip>{!collapsed && selected === index && <div id="erp-module-panel" className="erp-inline-options"><Options index={index} pathname={pathname} onNavigate={() => {}} /></div>}</li>
+              const Icon = icons[menu.label] || LayoutGrid
+              return <li key={menu.label}><Tooltip><TooltipTrigger render={<CategoryButton className="erp-module-button" data-active={active === index} aria-label={menu.label} aria-expanded={selected === index} aria-controls={selected === index ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === index ? null : index) }} />}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></TooltipTrigger>{collapsed && <TooltipContent side="right">{menu.label}{active === index && activePage?.index === index ? ` · ${activePage.label}` : ""}</TooltipContent>}</Tooltip>{!collapsed && selected === index && <div id="erp-module-panel" className="erp-inline-options"><Options index={index} pathname={pathname} onNavigate={() => {}} /></div>}</li>
             })}</ul>
             <div className="erp-index-entry"><button type="button" className="erp-module-button" data-active={active === menus.length - 1} aria-label="Índice completo" aria-expanded={selected === menus.length - 1} aria-controls={selected === menus.length - 1 ? "erp-module-panel" : undefined} onClick={event => { trigger.current = event.currentTarget; setSelected(selected === menus.length - 1 ? null : menus.length - 1) }}><LayoutGrid aria-hidden="true" /><span>Índice completo</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></button>{!collapsed && selected === menus.length - 1 && <div id="erp-module-panel" className="erp-inline-options"><Options index={selected} pathname={pathname} onNavigate={() => {}} /></div>}</div>
           </div>
-          <div className="erp-sidebar-footer"><button type="button" className="erp-module-button" aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"} aria-expanded={!collapsed} title={collapsed ? "Expandir navegação" : "Recolher navegação"} onClick={() => { closePanel(); setCollapsed(!collapsed) }}>{collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}<span>Recolher menu</span></button></div>
+          <div className="erp-sidebar-footer">{collapseControl}</div>
           {collapsed && selected !== null && <section ref={panel} tabIndex={-1} id="erp-module-panel" className="erp-module-panel" aria-labelledby="erp-module-title">
             <div className="erp-panel-heading"><h2 id="erp-module-title">{menus[selected].label}</h2><button type="button" className="erp-menu-icon" aria-label="Fechar opções do módulo" onClick={() => closePanel(true)}><X aria-hidden="true" /></button></div>
             <Options index={selected} pathname={pathname} onNavigate={() => closePanel()} />
@@ -153,8 +167,8 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
         </div>
         <nav className="erp-drawer-scroll" aria-label="Módulos e fluxos do ERP">
           {screen === null ? <>{homeLinks}<p className="erp-nav-caption">Módulos</p><ul className="erp-module-list">{desktopMenus.map((menu, index) => {
-            const Icon = icons[index]
-            return <li key={menu.label}><button ref={element => { moduleButtons.current[index] = element }} className="erp-module-button" data-active={active === index} type="button" aria-label={menu.label} onClick={() => { heading.current?.focus(); setScreen(index) }}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></button></li>
+            const Icon = icons[menu.label] || LayoutGrid
+            return <li key={menu.label}><CategoryButton ref={element => { moduleButtons.current[index] = element }} className="erp-module-button" data-active={active === index} type="button" aria-label={menu.label} onClick={() => { heading.current?.focus(); setScreen(index) }}><Icon aria-hidden="true" /><span className="erp-module-copy"><span>{menu.label}</span>{active === index && activePage?.index === index && <small>{activePage.label}</small>}</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></CategoryButton></li>
           })}</ul><div className="erp-index-entry"><button ref={element => { moduleButtons.current[menus.length - 1] = element }} className="erp-module-button" data-active={active === menus.length - 1} type="button" onClick={() => { heading.current?.focus(); setScreen(menus.length - 1) }}><LayoutGrid aria-hidden="true" /><span>Índice completo</span><ChevronRight className="erp-module-chevron" aria-hidden="true" /></button></div></> : <Options index={screen} pathname={pathname} onNavigate={() => setOpen(false)} />}
         </nav>
       </SheetContent>

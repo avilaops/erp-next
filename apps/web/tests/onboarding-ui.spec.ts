@@ -6,7 +6,7 @@ import { companyFields } from "../src/features/company/company-types"
 
 test.setTimeout(process.env.ERP_BROWSER_DEV === "1" ? 30000 : 10000)
 
-const origin = "http://127.0.0.1:33118"
+const origin = process.env.ERP_TEST_WEB_ORIGIN || "http://127.0.0.1:33118"
 const secret = "danfe-browser-fixture-not-a-real-service-secret"
 const tenant = "11111111-1111-4111-8111-111111111111"
 let companyCount = 0
@@ -252,8 +252,9 @@ test("cadastros distinguish a signed-out user from an authenticated user without
   await context.addCookies([cookie()])
   for (const route of ["/cadastros/produtos/novo", "/cadastros/clientes-fornecedores", "/cadastros/vendedores", "/cadastros/formas-pagamento"]) {
     await page.goto(route)
+    const destination = route === "/cadastros/vendedores" ? "/cadastros/funcionarios" : route
     await expect(page.getByRole("status")).toContainText("Você já entrou. Selecione uma empresa")
-    await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: route }))
+    await expect(page.getByRole("link", { name: "Selecionar empresa", exact: true })).toHaveAttribute("href", "/empresas?" + new URLSearchParams({ returnTo: destination }))
     await expect(page.getByRole("link", { name: "Cadastrar empresa", exact: true })).toHaveAttribute("href", "/cadastro/empresa")
     await expect(page.getByRole("link", { name: "Entrar com Avila Ops", exact: true })).toHaveCount(0)
   }

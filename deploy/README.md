@@ -6,6 +6,15 @@ depois das verificações de cada componente. PRs não reempacotam imagens.
 A implantação exige o resultado completo da execução aprovado.
 Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
 O artefato `erp-fiscal-<sha>` contém o motor fiscal, após os testes próprios.
+O artefato `erp-fiscal-mcp-<sha>` contém o MCP Python com schemas fixados e
+DANFE Simplificado Tipo 2. O job também testa o container sem root, com
+filesystem somente leitura, usando XML sintético e sem comunicação com SEFAZ.
+
+Antes da primeira publicação desta versão, instale o dispatcher atualizado
+`production-deploy.sh` pelo acesso administrativo autorizado. O workflow envia
+imagens e Compose; ele não substitui esse dispatcher automaticamente. O pacote
+atual exige as quatro imagens. Confira também as migrations incrementais e os
+grants das tabelas novas antes de trocar a API; não repita a importação do legado.
 
 O workflow de release tem timeout de 20 minutos para API e 15 para web.
 Falhas não autorizam build no servidor ou a retirada de testes.

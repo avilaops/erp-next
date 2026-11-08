@@ -23,29 +23,30 @@ test("dashboard inválido mostra 404 em português com saída", async ({ page })
   await expect(page).toHaveURL(origin + "/")
 })
 
-test("dashboard usa a resposta da empresa e os módulos cabem na largura disponível", async ({ page }, testInfo) => {
-  await page.route("**/api/erp/dashboard?*", route => route.fulfill({ json: dashboard }))
-  await page.route("**/api/erp/audit", route => route.fulfill({ json: { tenantId: dashboard.tenantId, data: [{ id: "event-1", occurredAt: "2026-11-05T12:00:00Z", actor: "Operador de teste", action: "order.created", entityType: "sales_order" }], nextCursor: null } }))
-  await page.goto("/")
-  await expect(page.getByRole("link", { name: /Saldo a receber/ }).filter({ visible: true })).toContainText("R$ 820,50")
-  await expect(page.getByRole("complementary", { name: "Atividade recente" })).toContainText("order.created")
+test("dashboard usa a resposta da empresa e os indicadores cabem na largura disponível", async ({ page }, testInfo) => {
+  const periods: string[] = []
+  await page.route("**/api/erp/dashboard?*", route => {
+    periods.push(new URL(route.request().url()).searchParams.get("period") || "")
+    return route.fulfill({ json: dashboard })
+  })
+  await page.goto("/dashboards")
+  const metrics = page.locator("main section").filter({ has: page.getByText("Saldo a receber", { exact: true }) })
+  await expect(metrics.locator("strong")).toHaveText(["3", "R$ 820,50", "R$ 250,00", "12"])
   for (const width of [390, 907, 1280, 1600]) {
     await page.setViewportSize({ width, height: 1000 })
-    const cards = page.getByRole("region", { name: "Módulos", exact: true }).getByRole("link")
-    await expect(cards).toHaveCount(9)
+    const cards = metrics.locator(":scope > div")
+    await expect(cards).toHaveCount(4)
     for (const card of await cards.all()) {
-      const box = await card.boundingBox()
-      expect(box!.width).toBeGreaterThanOrEqual(250)
+      await expect(card).toBeVisible()
       expect(await card.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    const activity = await page.getByRole("complementary", { name: "Atividade recente" }).boundingBox()
-    expect(activity!.height).toBeLessThan(400)
     await testInfo.attach(`dashboard-real-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
   }
   await page.goto("/dashboards/vendas")
   await expect(page.getByRole("table")).toContainText("R$ 1.500,00")
   await page.getByRole("combobox", { name: "Período do dashboard" }).selectOption("30D")
+  await expect.poll(() => periods.at(-1)).toBe("30D")
   await expect.poll(() => page.locator("main").getByText("R$ 1.500,00", { exact: true }).count()).toBeGreaterThan(0)
 })
 
@@ -124,7 +125,7 @@ test("erro inesperado oferece retry e mantém a consulta", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Não foi possível abrir esta tela", exact: true })).toBeVisible()
   broken = false
   await page.getByRole("button", { name: "Tentar novamente", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Produtos", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Não foi possível abrir esta tela", exact: true })).toHaveCount(0)
   await expect(page.getByRole("textbox", { name: "Buscar nome ou SKU", exact: true })).toHaveValue("teste")
   await expect(page).toHaveURL(origin + "/cadastros/produtos?q=teste")
 })
@@ -146,7 +147,7 @@ test("configurações mistas preservam tema local e não simulam gravação ou a
   await expect(page.getByRole("button", { name: "Salvar preferências", exact: true })).toHaveCount(0)
   for (const select of await page.locator("main select").all()) await expect(select).toBeDisabled()
   await page.goto("/preferencias/seguranca")
-  await expect(page.getByRole("heading", { name: "Segurança e auditoria", exact: true })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Histórico de atividades", exact: true })).toBeVisible()
   await expect(page.locator("main").getByRole("alert")).toContainText("Consulta indisponível no teste")
   await expect(page.getByRole("button", { name: "Tentar novamente", exact: true })).toBeEnabled()
   await expect(page.getByLabel("Simular estado")).toHaveCount(0)

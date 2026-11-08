@@ -17,6 +17,7 @@ export function TaxProfilePicker({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [reload, setReload] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   const [scenario, setScenario] = useState<FiscalScenario | "">("")
   useEffect(() => {
     const controller = new AbortController()
@@ -26,6 +27,7 @@ export function TaxProfilePicker({
         if (!response.ok) throw Error(value.title || "Não foi possível carregar os perfis tributários")
         if (value.tenantId !== tenant) throw Error("A empresa da sessão mudou. Reabra a nota")
         if (!controller.signal.aborted) {
+          setLoaded(true)
           setProfiles(value.data.profiles.filter((v: TaxProfile) => v.active))
           setRevision(value.revision)
           setSelected("")
@@ -44,6 +46,7 @@ export function TaxProfilePicker({
         Selecione e aplique o perfil. Revise CFOP, origem, CST e as demais alíquotas de cada operação antes de
         salvar.
       </p>
+      {loaded && !profiles.length && <p className="text-sm text-muted-foreground">Nenhum perfil tributário ativo cadastrado. Cadastre um perfil ou informe os tributos nesta etapa.</p>}
       <label className="grid gap-2 text-sm">
         Perfil cadastrado
         <select

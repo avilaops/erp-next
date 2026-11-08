@@ -193,6 +193,12 @@ pub(super) fn exact_decimal(
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Recipient {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreign_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country_name: Option<String>,
     /// Unformatted CPF or CNPJ. Registration status is not checked here.
     pub tax_id: String,
     pub legal_name: String,
@@ -202,6 +208,14 @@ pub struct Recipient {
     pub street: String,
     pub number: String,
     pub district: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complement: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city_name: Option<String>,
 }
 
 impl Recipient {
@@ -211,20 +225,50 @@ impl Recipient {
         } else {
             "juridica"
         };
-        if !valid_document(&self.tax_id, person) {
+        let foreign = self.state == "EX";
+        if foreign {
+            if !self.tax_id.is_empty()
+                || self.municipality_code != "9999999"
+                || !self.postal_code.is_empty()
+                || !self
+                    .country_code
+                    .as_deref()
+                    .is_some_and(|v| digits(v, 4) && v != "1058" && v != "0000")
+                || !self.country_name.as_deref().is_some_and(|v| text(v, 60))
+                || !self.city_name.as_deref().is_some_and(|v| text(v, 60))
+                || !self
+                    .foreign_id
+                    .as_deref()
+                    .is_some_and(|v| v.len() <= 20 && v.bytes().all(|b| b.is_ascii_alphanumeric()))
+            {
+                return Err(DomainError::Invalid(
+                    "Destinatário exterior exige UF EX, município 9999999, país estrangeiro, cidade e identificação estrangeira (vazia quando inexistente), sem CPF/CNPJ ou CEP",
+                ));
+            }
+        } else if self.foreign_id.is_some()
+            || self.country_code.is_some()
+            || self.country_name.is_some()
+        {
+            return Err(DomainError::Invalid(
+                "Identificação e país estrangeiro exigem UF EX",
+            ));
+        }
+        if !foreign && !valid_document(&self.tax_id, person) {
             return Err(DomainError::Invalid(
                 "CPF/CNPJ do destinatário inválido; informe sem formatação",
             ));
         }
-        let prefix =
-            state_code(&self.state).ok_or(DomainError::Invalid("UF do destinatário inválida"))?;
-        if !digits(&self.municipality_code, 7)
-            || !self.municipality_code.starts_with(prefix)
-            || !digits(&self.postal_code, 8)
-        {
-            return Err(DomainError::Invalid(
-                "Código IBGE ou CEP do destinatário inválido",
-            ));
+        if !foreign {
+            let prefix = state_code(&self.state)
+                .ok_or(DomainError::Invalid("UF do destinatário inválida"))?;
+            if !digits(&self.municipality_code, 7)
+                || !self.municipality_code.starts_with(prefix)
+                || !digits(&self.postal_code, 8)
+            {
+                return Err(DomainError::Invalid(
+                    "Código IBGE ou CEP do destinatário inválido",
+                ));
+            }
         }
         if !text(&self.legal_name, 60)
             || !text(&self.street, 60)
@@ -235,13 +279,86 @@ impl Recipient {
                 "Nome e endereço do destinatário exigem de 1 a 60 caracteres sem controles",
             ));
         }
+        if self
+            .complement
+            .as_ref()
+            .is_some_and(|value| !text(value, 60))
+            || self
+                .city_name
+                .as_ref()
+                .is_some_and(|value| !text(value, 60))
+            || self.phone.as_ref().is_some_and(|value| {
+                !(6..=14).contains(&value.len()) || !value.bytes().all(|byte| byte.is_ascii_digit())
+            })
+            || self.email.as_ref().is_some_and(|value| {
+                !text(value, 60) || !value.contains('@') || value.contains(' ')
+            })
+        {
+            return Err(DomainError::Invalid(
+                "Confira complemento, município, telefone e e-mail do destinatário",
+            ));
+        }
         Ok(())
     }
 }
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Exportation {
+    /// direct: own foreign sale; indirect: exporter referencing domestic purchases; trading: domestic sale for export.
+    pub kind: String,
+    pub exit_state: Option<String>,
+    pub export_location: Option<String>,
+    pub dispatch_location: Option<String>,
+}
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ExportDetail {
+    pub drawback_number: Option<String>,
+    pub export_registration: Option<String>,
+    pub referenced_access_key: Option<String>,
+    pub exported_quantity: Option<String>,
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ReferencedDfe {
+    pub access_key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_number: Option<u16>,
+}
+fn valid_financial_key(key: &str) -> bool {
+    if !digits(key, 44) || !["55", "65"].contains(&&key[20..22]) {
+        return false;
+    }
+    let sum: u32 = key[..43]
+        .bytes()
+        .rev()
+        .enumerate()
+        .map(|(i, b)| u32::from(b - b'0') * (2 + i as u32 % 8))
+        .sum();
+    let rest = sum % 11;
+    u32::from(key.as_bytes()[43] - b'0') == if rest < 2 { 0 } else { 11 - rest }
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftItem {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub referenced_dfe: Option<ReferencedDfe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taxable_unit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taxable_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taxable_unit_price: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub export_details: Vec<ExportDetail>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub insurance_amount: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub other_amount: Option<String>,
+
     /// Explicit item allocation, never silently distributed across products.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freight_amount: Option<String>,
@@ -279,7 +396,9 @@ impl DraftItem {
         let gross = exact_decimal(&self.gross_total, 13, 2)?;
         let freight = exact_decimal(self.freight_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
         let discount = exact_decimal(self.discount_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
-        let net = gross + freight - discount;
+        let insurance = exact_decimal(self.insurance_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+        let other = exact_decimal(self.other_amount.as_deref().unwrap_or("0.00"), 13, 2)?;
+        let net = gross + freight + insurance + other - discount;
         if discount > gross || net <= 0 || net > 999_999_999_999_999 {
             return Err(DomainError::Invalid(
                 "Desconto não pode superar o produto; total com frete deve ser positivo e respeitar o limite fiscal",
@@ -366,7 +485,9 @@ impl TaxDeclaration {
                 ));
             }
         } else if self.recipient_state_registration.is_some()
-            || !self.final_consumer
+            || (!self.final_consumer
+                && draft.recipient.state != "EX"
+                && ![5, 6].contains(&draft.purpose))
             || first.icms_cst.as_deref() == Some("50")
         {
             return Err(DomainError::Invalid(
@@ -385,13 +506,16 @@ impl TaxDeclaration {
             ));
         }
         let icms_rate = declared_rate(self.icms_rate.as_deref(), taxed_icms)?;
-        let interstate = profile.state != draft.recipient.state;
+        let interstate = draft.recipient.state != "EX" && profile.state != draft.recipient.state;
         if interstate && taxed_icms && ![40_000, 70_000, 120_000].contains(&icms_rate) {
             return Err(DomainError::Invalid(
                 "ICMS interestadual tributado exige alíquota declarada de 4%, 7% ou 12%",
             ));
         }
-        let difal = interstate && !self.recipient_taxpayer && self.final_consumer;
+        let difal = ![5, 6].contains(&draft.purpose)
+            && interstate
+            && !self.recipient_taxpayer
+            && self.final_consumer;
         if difal && !taxed_icms {
             return Err(DomainError::Invalid(
                 "Venda interestadual a não contribuinte disponível somente com ICMS CST 00 e DIFAL declarado",
@@ -433,14 +557,17 @@ impl TaxDeclaration {
             ));
         }
         let ipi_rate = declared_rate(self.ipi_rate.as_deref(), taxed_ipi)?;
-        if self.ibs_cbs.cst != "000" || self.ibs_cbs.class_code != "000001" {
+        let immunity = draft.recipient.state == "EX"
+            && self.ibs_cbs.cst == "410"
+            && self.ibs_cbs.class_code == "410004";
+        if !immunity && (self.ibs_cbs.cst != "000" || self.ibs_cbs.class_code != "000001") {
             return Err(DomainError::Invalid(
                 "IBS/CBS limitado ao recorte tributado integral 000/000001",
             ));
         }
-        let ibs_state_rate = declared_rate(Some(&self.ibs_cbs.ibs_state_rate), true)?;
-        let ibs_city_rate = declared_rate(Some(&self.ibs_cbs.ibs_city_rate), true)?;
-        let cbs_rate = declared_rate(Some(&self.ibs_cbs.cbs_rate), true)?;
+        let ibs_state_rate = declared_rate(Some(&self.ibs_cbs.ibs_state_rate), !immunity)?;
+        let ibs_city_rate = declared_rate(Some(&self.ibs_cbs.ibs_city_rate), !immunity)?;
+        let cbs_rate = declared_rate(Some(&self.ibs_cbs.cbs_rate), !immunity)?;
         let mut total_ipi = 0;
         let mut tax_totals = [0_i128; 10];
         for item in &draft.items {
@@ -485,7 +612,11 @@ impl TaxDeclaration {
             } else {
                 0
             };
-            let reform_base = product - icms - pis - cofins - difal_amount - fcp_amount;
+            let reform_base = if immunity {
+                0
+            } else {
+                product - icms - pis - cofins - difal_amount - fcp_amount
+            };
             if contribution_base < 0 || reform_base < 0 {
                 return Err(DomainError::Invalid(
                     "Base tributária negativa fora do recorte",
@@ -524,6 +655,47 @@ impl TaxDeclaration {
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DraftInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crt: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub simplified_danfe: Option<super::simplified::SimplifiedDanfe>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exportation: Option<Exportation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<super::draft_extras::Transport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retentions: Option<super::draft_extras::Retentions>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authorized_xml: Vec<super::draft_extras::XmlAccess>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intermediary: Option<super::draft_extras::Intermediary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tax_authority_information: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payment_terms: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub financial_category_id: Option<uuid::Uuid>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub installments: Vec<super::draft_extras::Installment>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub departure_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presence_indicator: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub print_type: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_consumer: Option<bool>,
+    /// Nome declarado do vendedor; nao concede permissao nem cria vinculo comercial.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub salesperson: Option<String>,
+
     /// Historical drafts without this declaration retain mode 9 and zero freight.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freight_mode: Option<String>,
@@ -538,9 +710,13 @@ pub struct DraftInput {
     pub source_return_kind: Option<String>,
     pub environment: Environment,
     pub model: u8,
-    /// 1 normal; 4 devolução de mercadoria com referência fiscal explícita.
+    /// 1 normal; 2 complementar; 3 ajuste; 4 devolução com referência fiscal explícita.
     #[serde(default = "default_fiscal_purpose")]
     pub purpose: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credit_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debit_type: Option<String>,
     /// Direção declarada pelo operador da devolução. Não é inferida do pedido.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub return_direction: Option<String>,
@@ -577,8 +753,407 @@ fn default_fiscal_purpose() -> u8 {
 }
 
 impl DraftInput {
+    pub(super) fn validate_reference_issuer(&self, tax_id: &str) -> Result<(), DomainError> {
+        if self.purpose == 5
+            && self
+                .credit_type
+                .as_deref()
+                .is_some_and(|kind| ["03", "04"].contains(&kind))
+            && self
+                .referenced_access_keys
+                .iter()
+                .any(|key| key.get(6..20) != Some(tax_id))
+        {
+            return Err(DomainError::Invalid(
+                "Crédito 03 e 04 exige referência emitida pela mesma empresa",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_financial_note(&self, profile: &ProfileInput) -> Result<(), DomainError> {
+        let credit = self.credit_type.as_deref();
+        let debit = self.debit_type.as_deref();
+        if (self.purpose == 5
+            && (!credit.is_some_and(|v| ["01", "02", "03", "04", "05", "06"].contains(&v))
+                || debit.is_some()))
+            || (self.purpose != 5 && credit.is_some())
+            || (self.purpose == 6
+                && (!debit.is_some_and(|v| {
+                    ["01", "02", "03", "04", "05", "06", "07", "08"].contains(&v)
+                }) || credit.is_some()))
+            || (self.purpose != 6 && debit.is_some())
+        {
+            return Err(DomainError::Invalid(
+                "Declare o tipo de crédito para finalidade 5 ou de débito para finalidade 6, exclusivamente",
+            ));
+        }
+        let item_refs: Vec<_> = self
+            .items
+            .iter()
+            .filter_map(|item| item.referenced_dfe.as_ref())
+            .collect();
+        if ![5, 6].contains(&self.purpose) {
+            return if item_refs.is_empty() {
+                Ok(())
+            } else {
+                Err(DomainError::Invalid(
+                    "Referência DF-e por item está habilitada somente nas notas de crédito e débito",
+                ))
+            };
+        }
+        if self.model != 55
+            || profile.crt != 3
+            || self.recipient.state == "EX"
+            || self.exportation.is_some()
+            || self.return_direction.is_some()
+            || self.tax_declaration.is_none()
+        {
+            return Err(DomainError::Invalid(
+                "Crédito e débito exigem NF-e doméstica CRT 3 com declaração tributária explícita",
+            ));
+        }
+        if self.purpose == 5 && !credit.is_some_and(|v| ["01", "03", "04", "06"].contains(&v)) {
+            return Err(DomainError::Invalid(
+                "Crédito 02 exige grupo ZFM e emissão a partir de 2029; crédito 05 exige transferência de crédito; grupos ainda não suportados",
+            ));
+        }
+        if self.purpose == 6 && !debit.is_some_and(|v| ["03", "04", "06"].contains(&v)) {
+            return Err(DomainError::Invalid(
+                "Subtipo de débito exige grupo de transferência, estorno ou ajuste de competência ainda não suportado",
+            ));
+        }
+        if credit.is_some_and(|v| ["01", "03", "04"].contains(&v))
+            && self.referenced_access_keys.len() != 1
+        {
+            return Err(DomainError::Invalid(
+                "Crédito 01, 03 e 04 exige exatamente uma referência no cabeçalho",
+            ));
+        }
+        if credit.is_some_and(|v| v != "06") && !item_refs.is_empty() {
+            return Err(DomainError::Invalid(
+                "Somente crédito 06 permite referência DF-e por item",
+            ));
+        }
+        let required = credit == Some("06") || debit.is_some_and(|v| ["03", "04"].contains(&v));
+        if required && item_refs.len() != self.items.len()
+            || !item_refs.is_empty() && !self.referenced_access_keys.is_empty()
+        {
+            return Err(DomainError::Invalid(
+                "Declare a origem de cada item sem combinar referências no cabeçalho",
+            ));
+        }
+        if credit.is_some_and(|v| ["03", "04"].contains(&v))
+            && self
+                .referenced_access_keys
+                .iter()
+                .any(|key| key.get(..2) != state_code(&profile.state))
+        {
+            return Err(DomainError::Invalid(
+                "Crédito 03 e 04 exige referência da mesma UF do emitente",
+            ));
+        }
+        let mut header = std::collections::HashSet::new();
+        if self.referenced_access_keys.len() > 99
+            || self.referenced_access_keys.iter().any(|key| {
+                !valid_financial_key(key)
+                    || !header.insert(key)
+                    || self.purpose == 5 && credit != Some("03") && &key[20..22] != "55"
+            })
+        {
+            return Err(DomainError::Invalid(
+                "Chaves de origem inválidas, repetidas ou com modelo incompatível",
+            ));
+        }
+        let mut bindings = std::collections::HashSet::new();
+        let mut keys = std::collections::HashSet::new();
+        for reference in item_refs {
+            if !valid_financial_key(&reference.access_key)
+                || &reference.access_key[20..22] != "55"
+                || (if debit == Some("03") {
+                    reference.item_number.is_some()
+                } else {
+                    !reference
+                        .item_number
+                        .is_some_and(|v| (1..=990).contains(&v))
+                })
+                || !bindings.insert((&reference.access_key, reference.item_number))
+            {
+                return Err(DomainError::Invalid(
+                    "Referência DF-e por item inválida; débito 03 proíbe nItem, os demais exigem item de 1 a 990 sem repetição",
+                ));
+            }
+            keys.insert(&reference.access_key);
+        }
+        if debit != Some("03") && keys.len() > 1 {
+            return Err(DomainError::Invalid(
+                "Este subtipo permite somente um documento fiscal de origem",
+            ));
+        }
+        let legacy = credit.is_some_and(|v| ["03", "04", "06"].contains(&v));
+        let advance = debit == Some("06");
+        let declaration = self.tax_declaration.as_ref().unwrap();
+        if !legacy
+            && self
+                .items
+                .iter()
+                .any(|item| !matches!(item.icms_cst.as_deref(), Some("40" | "41")))
+        {
+            return Err(DomainError::Invalid(
+                "Este subtipo não permite ICMS: declare CST 40/41 sem alíquota",
+            ));
+        }
+        if !legacy && declaration.ipi_cst.is_some() {
+            return Err(DomainError::Invalid(
+                "Este subtipo não permite IPI no pacote PL_010g v1.03 fixado",
+            ));
+        }
+        let no_contributions = !legacy
+            && (!advance
+                || self
+                    .issued_at
+                    .as_deref()
+                    .is_some_and(|v| !v.starts_with("2026-")));
+        if no_contributions
+            && self.items.iter().any(|item| {
+                !["04", "05", "06", "07", "08", "09"].contains(&item.pis_cst.as_str())
+                    || !["04", "05", "06", "07", "08", "09"].contains(&item.cofins_cst.as_str())
+            })
+        {
+            return Err(DomainError::Invalid(
+                "Este subtipo/ano não permite PIS ou COFINS",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_exportation(&self) -> Result<(), DomainError> {
+        let foreign = self.recipient.state == "EX";
+        let invalid = || {
+            DomainError::Invalid(
+                "Confira modalidade de exportação, local de saída e referências por item",
+            )
+        };
+        match &self.exportation {
+            Some(export) => {
+                if self.model != 55
+                    || self.purpose != 1
+                    || !["direct", "indirect", "trading"].contains(&export.kind.as_str())
+                    || foreign != (export.kind != "trading")
+                {
+                    return Err(invalid());
+                }
+                if foreign {
+                    if !export
+                        .exit_state
+                        .as_deref()
+                        .is_some_and(|v| state_code(v).is_some())
+                        || !export
+                            .export_location
+                            .as_deref()
+                            .is_some_and(|v| text(v, 60))
+                        || export
+                            .dispatch_location
+                            .as_deref()
+                            .is_some_and(|v| !text(v, 60))
+                    {
+                        return Err(invalid());
+                    }
+                    if let Some(tax) = &self.tax_declaration
+                        && (tax.recipient_taxpayer || tax.recipient_state_registration.is_some())
+                    {
+                        return Err(invalid());
+                    }
+                } else if export.exit_state.is_some()
+                    || export.export_location.is_some()
+                    || export.dispatch_location.is_some()
+                {
+                    return Err(invalid());
+                }
+            }
+            None if foreign => return Err(invalid()),
+            None => (),
+        }
+        for item in &self.items {
+            if self
+                .exportation
+                .as_ref()
+                .is_some_and(|v| v.kind == "trading")
+                && !["5501", "5502", "6501", "6502"].contains(&item.cfop.as_str())
+            {
+                return Err(DomainError::Invalid(
+                    "Venda para trading com fim específico de exportação exige CFOP 5501/5502 ou 6501/6502",
+                ));
+            }
+            let taxable = (
+                &item.taxable_unit,
+                &item.taxable_quantity,
+                &item.taxable_unit_price,
+            );
+            match taxable {
+                (Some(unit), Some(quantity), Some(price)) => {
+                    let quantity = exact_decimal(quantity, 11, 4)?;
+                    let price = exact_decimal(price, 11, 10)?;
+                    if !text(unit, 6)
+                        || quantity == 0
+                        || price == 0
+                        || (quantity * price + 500_000_000_000_i128) / 1_000_000_000_000_i128
+                            != exact_decimal(&item.gross_total, 13, 2)?
+                    {
+                        return Err(DomainError::Invalid(
+                            "Unidade tributável exige quantidade e preço equivalentes ao total do produto",
+                        ));
+                    }
+                }
+                (None, None, None) if !foreign => (),
+                _ => {
+                    return Err(DomainError::Invalid(
+                        "Exportação exige unidade tributável do NCM, quantidade e preço declarados",
+                    ));
+                }
+            }
+            let indirect = self
+                .exportation
+                .as_ref()
+                .is_some_and(|v| v.kind == "indirect");
+            if (indirect && item.export_details.is_empty())
+                || item.export_details.len() > 500
+                || (!foreign && !item.export_details.is_empty())
+            {
+                return Err(invalid());
+            }
+            let mut exported = 0_i128;
+            for detail in &item.export_details {
+                if detail
+                    .drawback_number
+                    .as_deref()
+                    .is_some_and(|v| !text(v, 20))
+                {
+                    return Err(invalid());
+                }
+                let has_indirect = detail.export_registration.is_some()
+                    || detail.referenced_access_key.is_some()
+                    || detail.exported_quantity.is_some();
+                if indirect || has_indirect {
+                    if !detail
+                        .export_registration
+                        .as_deref()
+                        .is_some_and(|v| v.len() <= 12 && v.bytes().all(|b| b.is_ascii_digit()))
+                        || !detail.referenced_access_key.as_deref().is_some_and(|v| {
+                            digits(v, 44) && &v[20..22] == "55" && {
+                                let sum: u32 = v[..43]
+                                    .bytes()
+                                    .rev()
+                                    .enumerate()
+                                    .map(|(i, b)| u32::from(b - b'0') * (2 + (i as u32 % 8)))
+                                    .sum();
+                                let rest = sum % 11;
+                                let dv = if rest < 2 { 0 } else { 11 - rest };
+                                u32::from(v.as_bytes()[43] - b'0') == dv
+                            }
+                        })
+                    {
+                        return Err(invalid());
+                    }
+                    let quantity = exact_decimal(
+                        detail.exported_quantity.as_deref().ok_or_else(invalid)?,
+                        11,
+                        4,
+                    )?;
+                    if quantity == 0 {
+                        return Err(invalid());
+                    }
+                    exported += quantity;
+                } else if detail.drawback_number.is_none() {
+                    return Err(invalid());
+                }
+            }
+            if exported > exact_decimal(&item.quantity, 11, 4)? {
+                return Err(DomainError::Invalid(
+                    "Quantidade exportada referenciada não pode superar a quantidade comercial do item",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Structural and arithmetic validation only; not an XSD or tax determination.
     pub fn validate(&self, profile: &ProfileInput) -> Result<i64, DomainError> {
+        if self.series.is_some_and(|v| !(1..=999).contains(&v))
+            || self.number.is_some_and(|v| !(1..=999_999_999).contains(&v))
+            || self.crt.is_some_and(|v| !(1..=4).contains(&v))
+        {
+            return Err(DomainError::Invalid(
+                "Confira série (1 a 999), número (1 a 999999999) e CRT (1 a 4)",
+            ));
+        }
+        super::simplified::validate(self, profile)?;
+        super::draft_extras::validate(self)?;
+        use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+        let parse_date = |value: &str| {
+            OffsetDateTime::parse(value, &Rfc3339).map_err(|_| {
+                DomainError::Invalid("Data fiscal deve incluir data, hora e fuso horario")
+            })
+        };
+        let issued_at = self.issued_at.as_deref().map(parse_date).transpose()?;
+        let departure_at = self.departure_at.as_deref().map(parse_date).transpose()?;
+        if departure_at.is_some() && issued_at.is_none()
+            || issued_at
+                .zip(departure_at)
+                .is_some_and(|(issued, departure)| departure < issued)
+        {
+            return Err(DomainError::Invalid(
+                "Data de saida exige emissao informada e nao pode antecede-la",
+            ));
+        }
+        if self
+            .presence_indicator
+            .is_some_and(|value| ![0, 1, 2, 3, 4, 5, 9].contains(&value))
+        {
+            return Err(DomainError::Invalid("Indicador de presenca invalido"));
+        }
+        if self.print_type.is_some_and(|value| {
+            if self.model == 65 {
+                value != 4
+            } else {
+                ![1, 2, 6].contains(&value)
+            }
+        }) {
+            return Err(DomainError::Invalid(
+                "Apresentacao do DANFE incompativel com o modelo",
+            ));
+        }
+        if self.model == 65
+            && (departure_at.is_some()
+                || self.final_consumer == Some(false)
+                || self
+                    .presence_indicator
+                    .is_some_and(|value| ![1, 4, 5].contains(&value)))
+        {
+            return Err(DomainError::Invalid(
+                "NFC-e exige consumidor final e nao permite data de saida",
+            ));
+        }
+        if self
+            .salesperson
+            .as_ref()
+            .is_some_and(|value| !text(value, 200))
+        {
+            return Err(DomainError::Invalid(
+                "Nome do vendedor exige ate 200 caracteres",
+            ));
+        }
+        if self
+            .tax_declaration
+            .as_ref()
+            .zip(self.final_consumer)
+            .is_some_and(|(taxes, final_consumer)| taxes.final_consumer != final_consumer)
+        {
+            return Err(DomainError::Invalid(
+                "Consumidor final diverge da declaracao tributaria",
+            ));
+        }
+
         if self.environment != profile.environment {
             return Err(DomainError::Conflict(
                 "O ambiente do rascunho deve corresponder à configuração fiscal",
@@ -602,9 +1177,9 @@ impl DraftInput {
                 "Exige modelo 55 ou 65, natureza da operação e referência à instrução fiscal",
             ));
         }
-        if ![1, 4].contains(&self.purpose) {
+        if ![1, 2, 3, 4, 5, 6].contains(&self.purpose) {
             return Err(DomainError::Invalid(
-                "Finalidade fiscal deve ser 1 (normal) ou 4 (devolução)",
+                "Finalidade fiscal deve ser normal, complementar, ajuste, devolução, crédito ou débito",
             ));
         }
         if self.purpose == 4 {
@@ -647,13 +1222,42 @@ impl DraftInput {
                 ));
             }
         } else if self.return_direction.is_some()
-            || !self.referenced_access_keys.is_empty()
+            || self.purpose == 1 && !self.referenced_access_keys.is_empty()
             || self.source_return_id.is_some()
             || self.source_return_kind.is_some()
         {
             return Err(DomainError::Invalid(
                 "Direção e chaves referenciadas só podem ser informadas em devolução",
             ));
+        }
+        if self.purpose != 1 && (self.model != 55 || self.source_order_id.is_some()) {
+            return Err(DomainError::Invalid(
+                "Finalidade especial exige NF-e modelo 55 sem vinculo direto a pedido de venda",
+            ));
+        }
+        if [2, 3].contains(&self.purpose) {
+            let mut keys = std::collections::HashSet::new();
+            if self.purpose == 2 && self.referenced_access_keys.is_empty()
+                || self.referenced_access_keys.len() > 99
+                || self
+                    .referenced_access_keys
+                    .iter()
+                    .any(|key| !digits(key, 44) || !keys.insert(key))
+            {
+                return Err(DomainError::Invalid(
+                    "Confira as chaves referenciadas; nota complementar exige ao menos uma NF-e de origem",
+                ));
+            }
+            if self.purpose == 3
+                && self
+                    .payments
+                    .as_ref()
+                    .is_some_and(|payments| payments.len() != 1 || payments[0].code != "90")
+            {
+                return Err(DomainError::Invalid(
+                    "Nota de ajuste exige meio de pagamento 90, sem pagamento",
+                ));
+            }
         }
         let emission_type = self.emission_type.as_deref().unwrap_or("1");
         if !(if self.model == 65 {
@@ -666,6 +1270,7 @@ impl DraftInput {
             ));
         }
         self.recipient.validate()?;
+        self.validate_exportation()?;
         let freight_mode = self.freight_mode.as_deref().unwrap_or("9");
         if !["0", "1", "2", "3", "4", "9"].contains(&freight_mode) {
             return Err(DomainError::Invalid("Modalidade de frete inválida"));
@@ -673,25 +1278,30 @@ impl DraftInput {
         if self.items.is_empty() || self.items.len() > 990 {
             return Err(DomainError::Invalid("Informe de 1 a 990 itens"));
         }
+        self.validate_financial_note(profile)?;
         if let Some(selection) = &self.ibpt {
             selection.validate(self.items.len())?;
         }
-        let expected_cfop = match (self.purpose, self.return_direction.as_deref()) {
-            (4, Some("incoming")) => {
-                if profile.state == self.recipient.state {
-                    b'1'
-                } else {
-                    b'2'
+        let expected_cfop = if self.recipient.state == "EX" {
+            b'7'
+        } else {
+            match (self.purpose, self.return_direction.as_deref()) {
+                (4, Some("incoming")) | (5, None) => {
+                    if profile.state == self.recipient.state {
+                        b'1'
+                    } else {
+                        b'2'
+                    }
                 }
-            }
-            (4, Some("outgoing")) | (1, None) => {
-                if profile.state == self.recipient.state {
-                    b'5'
-                } else {
-                    b'6'
+                (4, Some("outgoing")) | (1 | 2 | 3 | 6, None) => {
+                    if profile.state == self.recipient.state {
+                        b'5'
+                    } else {
+                        b'6'
+                    }
                 }
+                _ => unreachable!("purpose and return direction were validated above"),
             }
-            _ => unreachable!("purpose and return direction were validated above"),
         };
         let mut total = 0_i64;
         let mut commercial_total = 0_i128;
@@ -722,7 +1332,7 @@ impl DraftInput {
                 || item.cfop.as_bytes()[0] != expected_cfop
             {
                 return Err(DomainError::Invalid(
-                    "NCM exige 8 dígitos; CFOP de saída deve começar com 5 na mesma UF ou 6 entre UFs",
+                    "NCM exige 8 dígitos; CFOP deve corresponder à entrada/saída e ao destino da operação",
                 ));
             }
             validate_tax_codes(item, profile.crt)?;
@@ -767,6 +1377,19 @@ impl DraftInput {
             .transpose()?
             .unwrap_or(0);
         let invoice_total = commercial_total + ipi_total;
+        if !self.installments.is_empty() {
+            let installments_total =
+                self.installments
+                    .iter()
+                    .try_fold(0_i128, |sum, installment| {
+                        exact_decimal(&installment.amount, 13, 2).map(|value| sum + value)
+                    })?;
+            if installments_total != invoice_total {
+                return Err(DomainError::Invalid(
+                    "Soma das parcelas deve corresponder ao total da NF-e",
+                ));
+            }
+        }
         if invoice_total > 999_999_999_999_999 {
             return Err(DomainError::Invalid(
                 "Total da NF-e incluindo IPI excede o limite fiscal",
@@ -873,12 +1496,80 @@ pub fn products_total(cents: i64) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn editable_numbering_round_trips_and_rejects_invalid_values() {
+        let mut value = draft();
+        value.series = Some(7);
+        value.number = Some(321);
+        value.crt = Some(1);
+        assert!(value.validate(&profile()).is_ok());
+        let saved = serde_json::to_value(&value).unwrap();
+        assert_eq!(saved["series"], 7);
+        assert_eq!(saved["number"], 321);
+        assert_eq!(saved["crt"], 1);
+        value.series = Some(0);
+        assert!(value.validate(&profile()).is_err());
+        value.series = Some(1000);
+        assert!(value.validate(&profile()).is_err());
+        value.series = Some(7);
+        value.number = Some(0);
+        assert!(value.validate(&profile()).is_err());
+        value.number = Some(1_000_000_000);
+        assert!(value.validate(&profile()).is_err());
+        value.number = Some(321);
+        value.crt = Some(5);
+        assert!(value.validate(&profile()).is_err());
+    }
+
     fn profile() -> ProfileInput {
         serde_json::from_value(serde_json::json!({"environment":"homologation","state":"SP","municipalityCode":"3550308","stateRegistration":"110042490114","crt":1,"series":1,"certificateReference":"fixture-a1"})).unwrap()
     }
     fn draft() -> DraftInput {
         serde_json::from_value(serde_json::json!({"environment":"homologation","model":55,"operationNature":"Venda","taxRuleReference":"fixture-instruction","recipient":{"taxId":"52998224725","legalName":"Destinatário de teste","state":"SP","municipalityCode":"3550308","postalCode":"01001000","street":"Rua de teste","number":"1","district":"Centro"},"items":[{"code":"TEST","description":"Produto de teste","unit":"UN","ncm":"00000000","cfop":"5102","quantity":"3.0000","unitPrice":"0.3333333333","grossTotal":"1.00","origin":0,"icmsCst":null,"csosn":"102","pisCst":"07","cofinsCst":"07"}],"productsTotal":"1.00"})).unwrap()
     }
+    #[test]
+    fn export_contract_checks_foreign_address_units_and_domestic_trading_cfop() {
+        let mut value = draft();
+        value.exportation = Some(Exportation {
+            kind: "direct".into(),
+            exit_state: Some("SP".into()),
+            export_location: Some("Porto de Santos".into()),
+            dispatch_location: None,
+        });
+        value.recipient.tax_id.clear();
+        value.recipient.state = "EX".into();
+        value.recipient.municipality_code = "9999999".into();
+        value.recipient.postal_code.clear();
+        value.recipient.foreign_id = Some("US1234".into());
+        value.recipient.country_code = Some("2496".into());
+        value.recipient.country_name = Some("ESTADOS UNIDOS".into());
+        value.recipient.city_name = Some("Miami".into());
+        value.items[0].cfop = "7102".into();
+        value.items[0].taxable_unit = Some("KG".into());
+        value.items[0].taxable_quantity = Some("2.0000".into());
+        value.items[0].taxable_unit_price = Some("0.5000000000".into());
+        assert!(value.validate(&profile()).is_ok());
+        let mut invalid = value.clone();
+        invalid.recipient.country_code = Some("1058".into());
+        assert!(invalid.validate(&profile()).is_err());
+        let mut invalid = value.clone();
+        invalid.items[0].taxable_quantity = None;
+        assert!(invalid.validate(&profile()).is_err());
+        let mut invalid = value.clone();
+        invalid.exportation = None;
+        assert!(invalid.validate(&profile()).is_err());
+        let mut trading = draft();
+        trading.exportation = Some(Exportation {
+            kind: "trading".into(),
+            exit_state: None,
+            export_location: None,
+            dispatch_location: None,
+        });
+        assert!(trading.validate(&profile()).is_err());
+        trading.items[0].cfop = "5502".into();
+        assert!(trading.validate(&profile()).is_ok());
+    }
+
     #[test]
     fn draft_arithmetic_is_exact_and_rejects_tampered_totals() {
         assert_eq!(draft().validate(&profile()).unwrap(), 100);
@@ -990,6 +1681,76 @@ mod tests {
             amount: "1.10".into(),
         }]);
         (value, profile)
+    }
+
+    #[test]
+    fn credit_and_debit_require_explicit_types_and_distinct_origin_references() {
+        let key = "35261012345678000195550010000001231482917364";
+        for (purpose, subtype) in [
+            (5, "01"),
+            (5, "03"),
+            (5, "04"),
+            (5, "06"),
+            (6, "03"),
+            (6, "04"),
+            (6, "06"),
+        ] {
+            let (mut value, profile) = declared_normal_draft();
+            value.purpose = purpose;
+            if purpose == 5 {
+                value.credit_type = Some(subtype.into());
+                value.items[0].cfop = "1102".into();
+            } else {
+                value.debit_type = Some(subtype.into());
+            }
+            value.payments = Some(vec![DraftPayment {
+                code: "90".into(),
+                description: None,
+                amount: "0.00".into(),
+            }]);
+            if purpose == 5 && ["01", "03", "04"].contains(&subtype) {
+                value.referenced_access_keys = vec![key.into()];
+            }
+            if purpose == 5 && subtype == "06" || purpose == 6 && ["03", "04"].contains(&subtype) {
+                value.items[0].referenced_dfe = Some(ReferencedDfe {
+                    access_key: key.into(),
+                    item_number: if purpose == 6 && subtype == "03" {
+                        None
+                    } else {
+                        Some(1)
+                    },
+                });
+            }
+            if purpose == 6 || subtype == "01" {
+                value.items[0].icms_cst = Some("41".into());
+                value.items[0].pis_cst = "07".into();
+                value.items[0].cofins_cst = "07".into();
+                let declaration = value.tax_declaration.as_mut().unwrap();
+                declaration.icms_rate = Some("0.0000".into());
+                declaration.pis_rate = Some("0.0000".into());
+                declaration.cofins_rate = Some("0.0000".into());
+                declaration.ipi_rate = Some("0.0000".into());
+                declaration.ipi_cst = None;
+                declaration.ipi_frame_code = None;
+            }
+            assert!(value.validate(&profile).is_ok(), "{purpose}/{subtype}");
+            let mut missing = value.clone();
+            missing.credit_type = None;
+            missing.debit_type = None;
+            assert!(missing.validate(&profile).is_err());
+            if let Some(reference) = value.items[0].referenced_dfe.as_mut() {
+                reference.item_number = if subtype == "03" && purpose == 6 {
+                    Some(1)
+                } else {
+                    None
+                };
+                assert!(value.validate(&profile).is_err());
+            }
+        }
+        let (mut value, profile) = declared_normal_draft();
+        value.purpose = 6;
+        value.debit_type = Some("07".into());
+        assert!(value.validate(&profile).is_err());
     }
 
     #[test]
@@ -1106,6 +1867,20 @@ mod tests {
         let mut declaration = serde_json::to_value(value.tax_declaration.unwrap()).unwrap();
         declaration["unknownRate"] = serde_json::json!("18.0000");
         assert!(serde_json::from_value::<TaxDeclaration>(declaration).is_err());
+    }
+
+    #[test]
+    fn credit_origin_issuer_is_checked_before_persisting() {
+        let mut value = draft();
+        value.purpose = 5;
+        value.credit_type = Some("03".into());
+        value.referenced_access_keys = vec!["35261004252011000110550010000000011000000017".into()];
+        assert!(value.validate_reference_issuer("04252011000110").is_ok());
+        assert!(value.validate_reference_issuer("19131243000197").is_err());
+        value.credit_type = Some("04".into());
+        assert!(value.validate_reference_issuer("19131243000197").is_err());
+        value.credit_type = Some("01".into());
+        assert!(value.validate_reference_issuer("19131243000197").is_ok());
     }
 
     #[test]

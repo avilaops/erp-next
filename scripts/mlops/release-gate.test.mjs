@@ -10,7 +10,7 @@ const sha = "a".repeat(40);
 const valid = {
   repository: "avilaops/erp-next", sourceSha: sha, checkoutSha: sha,
   ref: "refs/heads/main", runId: "4000001", runAttempt: "1",
-  jobs: Object.fromEntries(["fiscal-engine", "api", "web"].map(x => [x, { result: "success" }])),
+  jobs: Object.fromEntries(["fiscal-engine", "fiscal-mcp", "api", "web"].map(x => [x, { result: "success" }])),
 };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const pdf = Buffer.from("%PDF-1.7\nsynthetic fixture");
@@ -27,6 +27,7 @@ test("rejects source mismatch, non-main branch, wrong repo and failed jobs", () 
   assert.throws(() => validateReleaseInputs({ ...valid, ref: "refs/heads/feature" }), /NOT_MAIN_BRANCH/);
   assert.throws(() => validateReleaseInputs({ ...valid, repository: "unknown/repo" }), /REPOSITORY_MISMATCH/);
   assert.throws(() => validateReleaseInputs({ ...valid, jobs: { ...valid.jobs, web: { result: "failure" } } }), /REQUIRED_JOB_NOT_SUCCESS:web/);
+  assert.throws(() => validateReleaseInputs({ ...valid, jobs: { ...valid.jobs, "fiscal-mcp": { result: "failure" } } }), /REQUIRED_JOB_NOT_SUCCESS:fiscal-mcp/);
 });
 
 test("rejects external OpenAPI references and missing paths", () => {

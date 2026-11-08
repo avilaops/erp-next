@@ -17,7 +17,7 @@ async function sha256(bytes: BufferSource) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
 
-export function EmissionActions({ id, tenantId, draftRevision, environment, model = 55, canIssue, canCancel, canCorrect, dirty, onLocked }: { id: string; tenantId: string; draftRevision: number; environment: "homologation" | "production"; model?: 55 | 65; canIssue: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void }) {
+export function EmissionActions({ id, tenantId, draftRevision, environment, model = 55, canIssue, canCancel, canCorrect, dirty, onLocked, onDocument }: { id: string; tenantId: string; draftRevision: number; environment: "homologation" | "production"; model?: 55 | 65; canIssue: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void; onDocument?: (document: { number: number; series: number } | null) => void }) {
   const resource = useResource<Emission>(`/api/erp/fiscal/nfe/${id}/emission`)
   const events = useResource<FiscalEvents>(`/api/erp/fiscal/nfe/${id}/events`)
   const command = useCommand()
@@ -34,6 +34,7 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
   const environmentLabel = (document?.environment || environment) === "production" ? "produção" : "homologação"
   const selectedEvent = event === "cancel" && canCancel ? "cancel" : canCorrect ? "correction" : "cancel"
   const allowed = (action: string) => action === "cancel" ? canCancel : action === "correction" ? canCorrect : ["issue", "consult"].includes(action) && canIssue
+  useEffect(() => { onDocument?.(document ? { number: document.number, series: document.series } : null) }, [document, onDocument])
   useEffect(() => { onLocked(Boolean(document?.accessKey || command.busy || command.uncertain)) }, [document?.accessKey, command.busy, command.uncertain, onLocked])
   useEffect(() => () => { if (danfe) URL.revokeObjectURL(danfe.url) }, [danfe])
   const revision = document ? resource.etag : `"${draftRevision}"`
@@ -73,9 +74,9 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
     } catch (error) { setNotice(error instanceof Error ? error.message : "Falha ao gerar o DANFE") }
     finally { setDanfeBusy(false) }
   }
-  return <section className="form-section min-w-0 space-y-4" aria-label={`Emissão e eventos da ${documentLabel}`}>
+  return <section id="fiscal-emission" className="form-section min-w-0 space-y-4" aria-label={`Emissão e eventos da ${documentLabel}`}>
     <h2 className="text-lg font-semibold">Emissão e eventos da {documentLabel}</h2>
-    <p className="text-sm text-muted-foreground">{environmentLabel === "homologação" ? "Homologação, sem valor fiscal." : "Produção — confira os dados antes da transmissão."} Salve e confira o rascunho antes de transmitir. Cancelar a nota não desfaz automaticamente a venda ou transfere dinheiro.</p>
+    <p className="text-sm text-muted-foreground">{environmentLabel === "homologação" ? "Homologação, sem valor fiscal." : "Produção: confira os dados antes da transmissão."} Salve e confira o rascunho antes de transmitir. Cancelar a nota não desfaz automaticamente a venda ou transfere dinheiro.</p>
     {resource.loading ? <p role="status">Consultando emissão…</p> : mismatched ? <p role="alert">A empresa da sessão mudou. Reabra a nota.</p> : document ? <>
       <p>Situação fiscal: {document.status === "authorized" ? `Autorizada em ${environmentLabel}` : labels[document.status] || document.status}</p>
       <p>{documentLabel} {document.number} · Série {document.series}</p>

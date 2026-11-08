@@ -6,7 +6,6 @@ import type { Schema } from "@/lib/api/types"
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -115,7 +114,7 @@ export function StockWorkspace() {
   }
 
   return <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">
-    <PageHeader eyebrow="Estoque" title="Saldos e movimentos" description="Entradas, saídas e estornos da empresa ativa. Quantidades com até seis casas decimais." />
+
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Saldos por produto</h2><Link className="text-primary underline" href="/cadastros/produtos">Consultar catálogo</Link></div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => {

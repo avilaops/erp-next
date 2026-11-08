@@ -14,6 +14,10 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("openapi") {
+        serde_json::to_writer_pretty(std::io::stdout().lock(), &http::openapi::value())?;
+        return Ok(());
+    }
     init_tracing();
     platform::langfuse::init();
     let result = run().await;
@@ -64,9 +68,23 @@ async fn run() -> anyhow::Result<()> {
         .with_invitations(config.invitations);
     state = state.with_mail(config.mail);
     state.catalog_media = domains::catalog_publication::MediaGateway::from_env()?;
-    let fiscal_worker = domains::fiscal::incoming::worker::start(state.clone())?;
-    let cte_worker = domains::fiscal::cte_distribution::worker::start(state.clone())?;
-    let payroll_worker = domains::staff_payroll::start_worker(state.clone());
+    let workers_enabled = match std::env::var("ERP_BACKGROUND_WORKERS_ENABLED").as_deref() {
+        Ok("false") => false,
+        Ok("true") | Err(_) => true,
+        Ok(_) => anyhow::bail!("ERP_BACKGROUND_WORKERS_ENABLED must be true or false"),
+    };
+    let fiscal_worker = if workers_enabled {
+        domains::fiscal::incoming::worker::start(state.clone())?
+    } else {
+        None
+    };
+    let cte_worker = if workers_enabled {
+        domains::fiscal::cte_distribution::worker::start(state.clone())?
+    } else {
+        None
+    };
+    let payroll_worker =
+        workers_enabled.then(|| domains::staff_payroll::start_worker(state.clone()));
     let app = http::router(state);
 
     info!(%local_address, "ERP Next API listening");
@@ -74,7 +92,9 @@ async fn run() -> anyhow::Result<()> {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("HTTP server failed");
-    payroll_worker.abort();
+    if let Some(worker) = payroll_worker {
+        worker.abort();
+    }
     if let Some(worker) = fiscal_worker {
         worker.abort();
     }

@@ -19,6 +19,7 @@ pub mod logistics_dispatch;
 pub mod parties;
 mod party_complements;
 pub mod payables;
+pub mod price_lists;
 pub mod production;
 pub mod purchasing;
 pub mod reference_data;

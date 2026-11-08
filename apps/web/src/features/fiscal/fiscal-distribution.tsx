@@ -13,7 +13,7 @@ import { documentHash, saveDocument } from "./received-documents"
 type Document = Schema<"MonitorDocument">
 type Snapshot = Schema<"MonitorSnapshot">
 const events: Record<string, string> = { "210210": "Ciência da operação", "210200": "Confirmação da operação", "210220": "Desconhecimento da operação", "210240": "Operação não realizada" }
-const outcomes = { unknown: "Resultado não confirmado — conferir antes de qualquer nova ação", accepted: "Registrada e vinculada à NF-e", rejected: "Recusada pela SEFAZ" }
+const outcomes = { unknown: "Resultado não confirmado: conferir antes de qualquer nova ação", accepted: "Registrada e vinculada à NF-e", rejected: "Recusada pela SEFAZ" }
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
@@ -86,7 +86,7 @@ export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
       {snapshot.lastRun?.outcome === "pending" && <p className="text-sm">A última consulta ainda não teve resultado confirmado. A pausa de proteção permanece ativa.</p>}
       <div className="space-y-3">{snapshot.documents.map(document => <DistributionDocument key={`${snapshot.tenantId}-${document.id}`} document={document} snapshot={snapshot} reload={reload} />)}</div>
       {!snapshot.documents.length && <p className="text-sm text-muted-foreground">Nenhum documento coletado na SEFAZ.</p>}
-      {snapshot.total > 25 && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={!offset || loading || busy} onClick={() => { setLoading(true); setOffset(value => Math.max(0, value - 25)) }}>Anteriores</Button><span className="text-sm">{offset + 1}–{Math.min(offset + 25, snapshot.total)} de {snapshot.total}</span><Button variant="outline" disabled={offset + 25 >= snapshot.total || loading || busy} onClick={() => { setLoading(true); setOffset(value => value + 25) }}>Próximos</Button></div>}
+      {snapshot.total > 25 && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={!offset || loading || busy} onClick={() => { setLoading(true); setOffset(value => Math.max(0, value - 25)) }}>Anteriores</Button><span className="text-sm">{offset + 1} a {Math.min(offset + 25, snapshot.total)} de {snapshot.total}</span><Button variant="outline" disabled={offset + 25 >= snapshot.total || loading || busy} onClick={() => { setLoading(true); setOffset(value => value + 25) }}>Próximos</Button></div>}
     </>}
   </section>
 }

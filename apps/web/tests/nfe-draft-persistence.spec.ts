@@ -77,7 +77,7 @@ test("resposta perdida reutiliza o comando e produto é copiado sem presumir tri
   await expect(page.getByLabel("Buscar produto por nome ou SKU")).toBeEnabled()
   await page.getByLabel("Buscar produto por nome ou SKU").fill(sku)
   await page.getByRole("button", { name: "Buscar produtos", exact: true }).click()
-  await page.getByRole("button", { name: `Adicionar ${sku} — Produto para rascunho`, exact: true }).click()
+  await page.getByRole("button", { name: `Adicionar ${sku}: Produto para rascunho`, exact: true }).click()
   await expect(page.getByLabel("Código do produto", { exact: true })).toHaveValue(sku)
   await expect(page.getByLabel("Preço unitário", { exact: true })).toHaveValue("10.00")
   await expect(page.getByLabel("CFOP", { exact: true })).toHaveValue("")

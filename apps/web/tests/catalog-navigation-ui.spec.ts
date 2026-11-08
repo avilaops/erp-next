@@ -18,9 +18,29 @@ test.beforeEach(async ({ context, page }) => {
   await authenticate(context)
   await page.route("**/api/erp/products**", route => {
     if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { title: "Gravação não configurada nesta fixture" } })
+    if (new URL(route.request().url()).pathname.endsWith("/catalog")) return route.fulfill({ status: 404, json: { title: "Ficha de apresentação ainda não cadastrada" } })
     const detail = new URL(route.request().url()).pathname.endsWith(productId)
     return route.fulfill({ json: { tenantId: tenant, canEdit: true, data: detail ? product : Array.from({ length: 25 }, (_, index) => ({ ...product, id: `${productId.slice(0, -2)}${String(index).padStart(2, "0")}`, name: `Produto de teste ${index + 1}` })), total: 50 }, headers: { etag: '"revision-1"' } })
   })
+})
+
+test("produtos mantém a lista compacta e o caminho de navegação na criação, consulta e edição", async ({ page }) => {
+  await page.goto("/cadastros/produtos")
+  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Caminho de navegação", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Novo produto", exact: true })).toHaveAttribute("href", "/cadastros/produtos/novo")
+  for (const [route, current] of [
+    ["/cadastros/produtos/novo", "Novo produto"],
+    [`/cadastros/produtos/${productId}`, product.name],
+    [`/cadastros/produtos/${productId}/editar`, "Editar produto"],
+  ]) {
+    await page.goto(route)
+    const path = page.getByRole("navigation", { name: "Caminho de navegação", exact: true })
+    await expect(path.getByRole("link", { name: "Cadastros", exact: true })).toHaveAttribute("href", "/cadastros")
+    await expect(path.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
+    await expect(path.locator('[aria-current="page"]')).toHaveText(current)
+    if (route.endsWith("/editar")) await expect(path.getByRole("link", { name: product.name, exact: true })).toHaveAttribute("href", `/cadastros/produtos/${productId}`)
+  }
 })
 
 test("cadastro identifica a empresa pelo nome e não mistura empresas em respostas divergentes", async ({ page }) => {
@@ -62,19 +82,15 @@ test("ações finais do catálogo ficam acima da navegação compacta", async ({
   }
 })
 
-test("catálogo troca a tabela comprimida por cartões legíveis quando a área útil fica estreita", async ({ page }) => {
-  await page.setViewportSize({ width: 915, height: 844 })
+test("catálogo mantém a lista em linhas com rolagem interna em telas estreitas", async ({ page }) => {
   await page.goto("/cadastros/produtos")
-  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeHidden()
-  const list = page.getByLabel("Lista de produtos")
-  await expect(list).toBeVisible()
-  await expect(list.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
-  await expect(list.getByText("SKU TEST-001 · UN", { exact: true }).first()).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-
-  await page.setViewportSize({ width: 1440, height: 950 })
-  await expect(page.getByRole("table", { name: "Catálogo de produtos" })).toBeVisible()
-  await expect(page.getByLabel("Lista de produtos")).toBeHidden()
+  for (const width of [390, 915, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    const table = page.getByRole("table", { name: "Catálogo de produtos" })
+    await expect(table).toBeVisible()
+    await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
 })
 
 test("Início pede confirmação e cancelar preserva a edição", async ({ page }) => {
@@ -162,10 +178,10 @@ test("rascunho antigo mantém os acabamentos atuais do servidor", async ({ page 
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("Edição anterior", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
   await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
-  await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")
+  await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Azul")
 })
 
-test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento", async ({ page }) => {
+test("menu desktop, módulos, busca e breadcrumb respeitam cancelamento", async ({ page }) => {
   await page.setViewportSize({ width: 1749, height: 950 })
   await page.goto("/cadastros/produtos/novo")
   const name = page.getByRole("textbox", { name: "Nome do produto", exact: true })
@@ -176,7 +192,8 @@ test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento
   if (await desktop.getByRole("button", { name: "Cadastros", exact: true }).getAttribute("aria-expanded") !== "true") await desktop.getByRole("button", { name: "Cadastros", exact: true }).click()
   await desktop.getByRole("link", { name: "Produtos", exact: true }).click()
   await page.keyboard.press("Escape")
-  await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
+  await expect(page.getByRole("link", { name: "Voltar ao catálogo", exact: true })).toHaveCount(0)
+  await page.getByRole("navigation", { name: "Caminho de navegação", exact: true }).getByRole("link", { name: "Produtos", exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
   await page.getByRole("dialog").getByRole("button", { name: "Cadastros", exact: true }).click()

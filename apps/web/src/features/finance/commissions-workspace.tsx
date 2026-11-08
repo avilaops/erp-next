@@ -3,7 +3,6 @@
 import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { orderNumber } from "@/features/sales/order-presentation"
 import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,7 +32,7 @@ export function CommissionsWorkspace() {
   const [selected, setSelected] = useState("")
   const result = useResource<Listing>(`/api/erp/commissions?offset=${offset}&limit=25`)
   return <>
-    <PageHeader eyebrow="Financeiro" title="Comissões" description="Comissões sobre recebimentos sem IPI. Os débitos são descontados quando sua competência está incluída no pagamento. Os pagamentos anteriores ficam preservados." />
+
     <CommercialMetrics kind="commissions" />
     <section className="form-section min-w-0 space-y-5">
       {result.loading ? <p role="status">Carregando comissões…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Consultar comissões novamente</Button></div> : result.value && <>
@@ -124,7 +123,7 @@ function CommissionTermsForm({ value, etag, onSaved }: { value: Terms; etag: str
   }}>
     {value.data.status === "not_required" && <p>Sem configuração, os recebimentos não geram comissão. Informe as condições acordadas antes de confirmar o pedido.</p>}
     {sellers.error && <p role="alert"><RequestError message={sellers.error} status={sellers.status} /></p>}
-    <div className="grid gap-2"><label className="block min-w-0 space-y-2">Buscar vendedor da comissão<Input disabled={frozen} maxLength={160} value={sellerQuery} onChange={event => setSellerQuery(event.target.value)} placeholder="Nome ou código" /></label><Link className="min-h-11 w-fit content-center font-medium text-primary underline underline-offset-4" href="/cadastros/vendedores/novo" target="_blank" rel="noopener noreferrer">Cadastrar vendedor</Link></div>
+    <div className="grid gap-2"><label className="block min-w-0 space-y-2">Buscar vendedor da comissão<Input disabled={frozen} maxLength={160} value={sellerQuery} onChange={event => setSellerQuery(event.target.value)} placeholder="Nome ou código" /></label><Link className="min-h-11 w-fit content-center font-medium text-primary underline underline-offset-4" href="/cadastros/funcionarios/novo" target="_blank" rel="noopener noreferrer">Cadastrar funcionário</Link></div>
     <fieldset disabled={frozen || sellers.loading || !!sellers.error || sellers.value?.tenantId !== value.tenantId} className="grid min-w-0 gap-4 sm:grid-cols-2">
       <label className="min-w-0 space-y-2">Vendedor da comissão<select required className={selectClass} value={seller} onChange={event => setSeller(event.target.value)}><option value="">Selecione um vendedor ativo</option>{value.data.sellerStaffId && !sellers.value?.data.some(candidate => candidate.id === value.data.sellerStaffId) && <option value={value.data.sellerStaffId}>{value.data.sellerName} (registrado no pedido)</option>}{sellers.value?.data.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
       <label className="min-w-0 space-y-2">Comissão percentual<Input required inputMode="decimal" pattern={decimalPattern(4)} value={commission} onChange={event => setCommission(event.target.value)} placeholder="Ex.: 5,0000" /></label>

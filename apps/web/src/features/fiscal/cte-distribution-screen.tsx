@@ -130,7 +130,7 @@ export function CteDistributionScreen() {
       <Link className={buttonVariants({ variant: "outline" })} href="/fiscal">Abrir central fiscal</Link>
     </header>
     <section className="form-section space-y-3" aria-labelledby="cte-environment">
-      <h2 id="cte-environment" className="text-lg font-semibold">Homologação — sem valor fiscal</h2>
+      <h2 id="cte-environment" className="text-lg font-semibold">Homologação, sem valor fiscal</h2>
       <p className="text-sm text-muted-foreground">Consulte os arquivos já coletados para esta empresa. Atualizar esta tela não consulta a SEFAZ. A captura em produção ainda não está disponível.</p>
       <p className="text-sm">Abra a conferência local para ver transportadora, tomador, valores e referências do arquivo. Confiança do certificado e situação fiscal atual não são comprovadas aqui. Estes arquivos não geram compras, vendas, estoque ou lançamentos financeiros.</p>
     </section>
@@ -151,7 +151,7 @@ export function CteDistributionScreen() {
           </>}
           {selected?.id === document.id && inspection?.data && <CteLinksPanel key={inspection.data.id} inspected={inspection} verifyAccess={verifyCommercialAccess} accessUnavailable={accessUnavailable} disabled={loading || !!busy && busy !== "commercial"} onBusy={commercialBusy} />}
         </article>)}
-        {!accessUnavailable && (view.total > 25 || offset > 0) && <nav aria-label="Páginas de arquivos CT-e" className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading || !!busy || !offset} onClick={() => reload(Math.max(0, offset - 25))}>Arquivos anteriores</Button><span className="text-sm">{view.data.length ? `${offset + 1}–${offset + view.data.length} de ${view.total}` : `0 de ${view.total}`}</span><Button variant="outline" disabled={loading || !!busy || offset + 25 >= view.total} onClick={() => reload(offset + 25)}>Próximos arquivos</Button></nav>}
+        {!accessUnavailable && (view.total > 25 || offset > 0) && <nav aria-label="Páginas de arquivos CT-e" className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading || !!busy || !offset} onClick={() => reload(Math.max(0, offset - 25))}>Arquivos anteriores</Button><span className="text-sm">{view.data.length ? `${offset + 1} a ${offset + view.data.length} de ${view.total}` : `0 de ${view.total}`}</span><Button variant="outline" disabled={loading || !!busy || offset + 25 >= view.total} onClick={() => reload(offset + 25)}>Próximos arquivos</Button></nav>}
       </>}
     </section>
   </div>

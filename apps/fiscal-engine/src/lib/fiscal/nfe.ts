@@ -1,3 +1,4 @@
+import { financialLegacyMode, financialNoteProblems } from "./financial-note.ts";
 import { roundCents } from "@/lib/pricing/money";
 
 /**
@@ -23,6 +24,8 @@ export function accessKeyUf(key: string): string | null {
 }
 
 export type NfeAddress = {
+  countryCode?: string;
+  countryName?: string;
   street: string;
   number: string;
   complement?: string | null;
@@ -45,6 +48,7 @@ export type NfeIssuer = NfeAddress & {
 };
 
 export type NfeRecipient = NfeAddress & {
+  foreignId?: string;
   kind: "PJ" | "PF";
   /** CNPJ or CPF, digits only. */
   document: string;
@@ -99,7 +103,14 @@ export type NfeRules = {
 };
 
 export type NfeItem = {
+  referencedDfe?: { accessKey: string; itemNumber?: number };
+  taxableUnit?: string;
+  taxableQuantity?: number;
+  taxableUnitPrice?: number;
+  exportDetails?: { drawbackNumber?: string; exportRegistration?: string; referencedAccessKey?: string; exportedQuantity?: number }[];
   freightAmount?: number;
+  insuranceAmount?: number;
+  otherAmount?: number;
   discountAmount?: number;
   additionalInfo?: string | null;
   code: string;
@@ -139,6 +150,9 @@ export type FreightMode = (typeof FREIGHT_MODES)[number][0];
 
 /** Who carries and what goes. Everything is optional in the layout: what is `null` is left out of the invoice. */
 export type NfeTransport = {
+  vehicle?: { plate: string; uf: string | null; rntc: string | null } | null;
+  volumeNumber?: string | null;
+  brand?: string | null;
   carrier: { kind: "PJ" | "PF"; document: string; name: string; stateRegistration: string | null; address: string | null; city: string | null; uf: string | null } | null;
   volumes: number | null;
   /** Kind of volume: box, pallet, crate… */
@@ -149,11 +163,24 @@ export type NfeTransport = {
 };
 
 export type NfeInput = {
+  exportation?: { kind: "direct" | "indirect" | "trading"; exitState?: string; exportLocation?: string; dispatchLocation?: string };
+  xmlAccess?: string[];
+  intermediary?: { taxId: string; registration: string };
+  retentions?: Partial<Record<"pis" | "cofins" | "csll" | "incomeTaxBase" | "incomeTax" | "socialSecurityBase" | "socialSecurity", number>>;
+  taxAuthorityInformation?: string | null;
+  installments?: { number: string; dueDate: string; amount: number }[];
+
   environment: "homologacao" | "producao";
   /** 55 = NF-e; 65 = NFC-e. Existing callers default to NF-e. */
   model?: 55 | 65;
   /** 1 normal; 4 devolução com referência fiscal. */
-  purpose?: 1 | 4;
+  purpose?: 1 | 2 | 3 | 4 | 5 | 6;
+  creditType?: string;
+  debitType?: string;
+  presenceIndicator?: number;
+  printType?: number;
+  departureAt?: string;
+
   /** Direction of a return, declared by the fiscal operator. */
   returnDirection?: "incoming" | "outgoing";
   /** Access keys of the fiscal documents that originated the return. */
@@ -295,9 +322,9 @@ function address(prefix: "enderEmit" | "enderDest", place: NfeAddress): string {
       tag("cMun", place.cityCode) +
       tag("xMun", clean(place.city, 60)) +
       tag("UF", place.uf) +
-      tag("CEP", place.cep) +
-      tag("cPais", "1058") +
-      tag("xPais", "BRASIL") +
+      tag("CEP", place.uf === "EX" ? null : place.cep) +
+      tag("cPais", place.countryCode ?? "1058") +
+      tag("xPais", place.countryName ?? "BRASIL") +
       tag("fone", place.phone ? onlyDigits(place.phone).slice(0, 14) : null),
   );
 }
@@ -332,8 +359,9 @@ export function interstateRate(origin: number, fromUf: string, toUf: string): nu
 
 /** What is missing or wrong before any XML is written. Every problem at once, each naming the register that fixes it. */
 export function nfeProblems(input: NfeInput): string[] {
-  const problems: string[] = approximateTaxProblems(input);
+  const problems: string[] = [...approximateTaxProblems(input), ...financialNoteProblems(input)];
   const { issuer, recipient, rules } = input;
+  const foreign = recipient.uf === "EX";
   const model = input.model ?? 55;
   const purpose = input.purpose ?? 1;
   const returnDirection = input.returnDirection;
@@ -342,15 +370,46 @@ export function nfeProblems(input: NfeInput): string[] {
   const need = (ok: boolean, message: string) => {
     if (!ok) problems.push(message);
   };
+  need(!foreign || model === 55 && purpose === 1 && input.exportation != null && ["direct", "indirect"].includes(input.exportation.kind) && Boolean(UF_CODES[input.exportation.exitState ?? ""]) && Boolean(input.exportation.exportLocation?.trim()), "Exportação exige NF-e normal e UF/local de saída do país.");
+  need(input.exportation?.kind !== "trading" || [rules.cfopInternal, rules.cfopInterstate, rules.cfopInterstateNonTaxpayer].every(cfop => ["5501", "5502", "6501", "6502"].includes(cfop)), "Trading com fim específico de exportação exige CFOP 5501/5502 ou 6501/6502.");
+  need(!input.exportation || foreign === (input.exportation.kind !== "trading"), "Modalidade de exportação incompatível com destinatário.");
+  need(!foreign || !recipient.taxpayer && !recipient.stateRegistration, "Destinatário exterior não possui IE brasileira.");
+  input.items.forEach((item, index) => {
+    const declared = item.taxableUnit != null || item.taxableQuantity != null || item.taxableUnitPrice != null;
+    need(!foreign && !declared || Boolean(item.taxableUnit?.trim()) && item.taxableUnit!.length <= 6 && Number.isFinite(item.taxableQuantity) && item.taxableQuantity! > 0 && Number.isFinite(item.taxableUnitPrice) && item.taxableUnitPrice! > 0 && roundCents(item.taxableQuantity! * item.taxableUnitPrice!) === roundCents(item.quantity * item.unitPrice), `Item ${index + 1}: unidade, quantidade e preço tributáveis devem corresponder ao produto.`);
+    need(input.exportation?.kind !== "indirect" || Boolean(item.exportDetails?.length), `Item ${index + 1}: exportação indireta exige referências de origem.`);
+    need(foreign || !item.exportDetails?.length, `Item ${index + 1}: referências de exportação exigem destinatário exterior.`);
+    need((item.exportDetails?.length ?? 0) <= 500, `Item ${index + 1}: máximo de 500 detalhes de exportação.`);
+    for (const detail of item.exportDetails ?? []) {
+      need(!detail.drawbackNumber || detail.drawbackNumber.length <= 20 && !INVALID_FISCAL_TEXT.test(detail.drawbackNumber), "Ato concessório drawback inválido.");
+      const indirect = input.exportation?.kind === "indirect" || detail.exportRegistration != null || detail.referencedAccessKey != null || detail.exportedQuantity != null;
+      need(indirect ? typeof detail.exportRegistration === "string" && /^\d{0,12}$/.test(detail.exportRegistration) && /^\d{44}$/.test(detail.referencedAccessKey ?? "") && detail.referencedAccessKey?.slice(20,22) === "55" && Number.isFinite(detail.exportedQuantity) && detail.exportedQuantity! > 0 : Boolean(detail.drawbackNumber), "Referências de exportação inválidas.");
+    }
+    need((item.exportDetails ?? []).reduce((sum, detail) => sum + (detail.exportedQuantity ?? 0), 0) <= item.quantity, "Quantidade exportada referenciada supera o item.");
+  });
   need(model === 55 || model === 65, "Documento: modelo deve ser 55 (NF-e) ou 65 (NFC-e).");
-  need(purpose === 1 || purpose === 4, "Documento: finalidade deve ser 1 (normal) ou 4 (devolução).");
+  need([0, 1, 2, 3, 4, 5, 9].includes(input.presenceIndicator ?? 9), "Indicador de presença inválido.");
+  need((model === 65 ? [4] : [1, 2, 6]).includes(input.printType ?? (model === 65 ? 4 : 1)), "Apresentação do DANFE incompatível com o modelo.");
+  if (input.printType === 6) {
+    need(model === 55 && purpose === 1 && rules.finalConsumer && recipient.uf === issuer.uf && !foreign && !input.exportation && !input.departureAt && references.length === 0 && !input.returnDirection && [1, 4, 5].includes(input.presenceIndicator ?? 9), "DANFE Simplificado Tipo 2 exige venda interna normal a consumidor final, presença 1, 4 ou 5, sem data de saída ou referências.");
+    need(rules.ipiCst === null && input.items.every(item => item.ipiRate === 0), "DANFE Simplificado Tipo 2 não permite grupo de IPI.");
+    need(!(input.installments?.length), "DANFE Simplificado Tipo 2 não permite fatura ou duplicatas.");
+    need((input.freightMode === "9" || input.presenceIndicator === 4) && !input.transport.vehicle, "DANFE Simplificado Tipo 2 admite frete somente para entrega a domicílio e não permite veículo de transporte.");
+    need(["5101", "5102", "5103", "5104", "5115", "5405", "5656", "5667", "5910", "5933"].includes(rules.cfopInternal) || issuer.uf === "SP" && rules.cfopInternal === "5949" && rules.icmsCode === "40", "CFOP não permitido no DANFE Simplificado Tipo 2.");
+    need(nfeTotals(input).invoice <= 200_000, "DANFE Simplificado Tipo 2 limitado a R$ 200 mil neste fluxo.");
+  }
+  need(!input.departureAt || model === 55 && Number.isFinite(Date.parse(input.departureAt)) && Date.parse(input.departureAt) >= Date.parse(input.issuedAt), "Data de saída inválida.");
+  need([1, 2, 3, 4, 5, 6].includes(purpose), "Documento: finalidade fiscal não implementada.");
+  need(purpose === 1 || model === 55, "Finalidade especial exige modelo 55.");
+  need(purpose !== 2 || references.length > 0, "NF-e complementar exige uma nota referenciada.");
   if (purpose === 4) {
     need(model === 55, "Devolução fiscal exige NF-e modelo 55.");
     need(returnDirection === "incoming" || returnDirection === "outgoing", "Devolução fiscal exige direção declarada.");
     need(references.length >= 1 && references.length <= 99, "Devolução fiscal exige de 1 a 99 documentos referenciados.");
     need(references.every((key) => /^\d{44}$/.test(key)) && new Set(references).size === references.length, "Chaves referenciadas devem ter 44 dígitos e não podem se repetir.");
   } else {
-    need(returnDirection == null && references.length === 0, "Direção e referências só existem em uma devolução fiscal.");
+    need(returnDirection == null && (purpose !== 1 || references.length === 0), "Direção de devolução ou referências incompatíveis com a finalidade.");
+    need(references.length <= 99 && references.every((key) => /^\d{44}$/.test(key)) && new Set(references).size === references.length, "Chaves referenciadas inválidas.");
   }
   need(model === 65 || emissionType === "1", "NF-e modelo 55 não aceita modalidade de contingência NFC-e.");
   need(model === 65 ? ["1", "3", "4", "9"].includes(emissionType) : emissionType === "1", "Documento: modalidade de emissão inválida para o modelo.");
@@ -367,10 +426,10 @@ export function nfeProblems(input: NfeInput): string[] {
   need(!/^\d{7}$/.test(issuer.cityCode) || !UF_CODES[issuer.uf] || issuer.cityCode.slice(0, 2) === UF_CODES[issuer.uf], "Empresa: o código do município no IBGE não é do estado informado (Parâmetros → Fiscal).");
   need(issuer.street.trim() !== "" && issuer.number.trim() !== "" && issuer.district.trim() !== "" && issuer.city.trim() !== "", "Empresa: rua, número, bairro e cidade (Parâmetros → Fiscal).");
 
-  need(recipient.kind === "PJ" ? CNPJ_PATTERN.test(recipient.document) : /^\d{11}$/.test(recipient.document), "Cliente: CNPJ ou CPF completo.");
+  need(foreign ? recipient.document === "" && typeof recipient.foreignId === "string" && /^[a-zA-Z0-9]{0,20}$/.test(recipient.foreignId) : recipient.kind === "PJ" ? CNPJ_PATTERN.test(recipient.document) : /^\d{11}$/.test(recipient.document), "Cliente: CNPJ ou CPF completo.");
   need(recipient.name.trim().length >= 2, "Cliente: nome ou razão social.");
   need(/^\d{7}$/.test(recipient.cityCode), "Cliente: código do município no IBGE (cadastro do cliente).");
-  need(/^\d{8}$/.test(recipient.cep) && Boolean(UF_CODES[recipient.uf]), "Cliente: CEP e UF.");
+  need(foreign ? recipient.cityCode === "9999999" && recipient.cep === "" && /^\d{4}$/.test(recipient.countryCode ?? "") && !["0000", "1058"].includes(recipient.countryCode ?? "") && Boolean(recipient.countryName?.trim()) : /^\d{8}$/.test(recipient.cep) && Boolean(UF_CODES[recipient.uf]), "Cliente: CEP e UF.");
   need(recipient.street.trim() !== "" && recipient.number.trim() !== "" && recipient.district.trim() !== "" && recipient.city.trim() !== "", "Cliente: rua, número, bairro e cidade.");
   need(!recipient.taxpayer || /^\d{2,14}$/.test(recipient.stateRegistration ?? ""), "Cliente contribuinte: inscrição estadual em números.");
 
@@ -384,7 +443,7 @@ export function nfeProblems(input: NfeInput): string[] {
   }
 
   need(rules.operationNature.trim() !== "", "Regras fiscais: natureza da operação.");
-  const cfopPrefixes = purpose === 4
+  const cfopPrefixes = foreign ? /^7/ : purpose === 5 ? /^[12]/ : purpose === 4
     ? returnDirection === "incoming" ? /^[12]/ : /^[56]/
     : /^[56]/;
   for (const [name, cfop] of [["dentro do estado", rules.cfopInternal], ["para outro estado", rules.cfopInterstate], ["para não contribuinte de outro estado", rules.cfopInterstateNonTaxpayer]] as const) {
@@ -394,7 +453,7 @@ export function nfeProblems(input: NfeInput): string[] {
   need(simples ? ["102", "103", "300", "400"].includes(rules.icmsCode) : ["00", "40", "41", "50"].includes(rules.icmsCode),
     simples ? "Regras fiscais: CSOSN aceito hoje é 102, 103, 300 ou 400." : "Regras fiscais: CST do ICMS aceito hoje é 00, 40, 41 ou 50.");
   // Rule E16a-40 (rejection 696): a sale to who does not pay ICMS is a sale to a final consumer.
-  need(recipient.taxpayer || rules.finalConsumer, "Regras fiscais: venda a não contribuinte do ICMS tem de ser a consumidor final. Marque a linha como venda a consumidor final ou informe a inscrição estadual do cliente.");
+  need(purpose === 5 || purpose === 6 || foreign || recipient.taxpayer || rules.finalConsumer, "Regras fiscais: venda a não contribuinte do ICMS tem de ser a consumidor final. Marque a linha como venda a consumidor final ou informe a inscrição estadual do cliente.");
   // Rule N12-70 (rejection 508): with a non taxpayer the CST is 00, 20, 40, 41 or 60; suspension (50) is not a sale to them.
   need(simples || recipient.taxpayer || rules.icmsCode !== "50", "Regras fiscais: o CST 50 (suspensão) do ICMS não vale em venda a não contribuinte. Use 00, 40 ou 41.");
   const contributionCsts = [...CONTRIBUTION_RATE_CSTS, ...CONTRIBUTION_UNTAXED_CSTS, ...CONTRIBUTION_OTHER_CSTS];
@@ -414,7 +473,7 @@ export function nfeProblems(input: NfeInput): string[] {
   need(!carrier || (carrier.kind === "PJ" ? CNPJ_PATTERN : /^\d{11}$/).test(carrier.document), "Transportadora: CNPJ ou CPF completo (Parâmetros → Transportadoras).");
   need(input.items.length > 0, "Pedido sem itens.");
   // Rule NA01-20: with the group of the DIFAL, the rates are the ones the layout checks (NA09-10 to NA09-30 and the schema: 4%, 7% or 12%).
-  const interstateTaxed = issuer.taxRegime !== 1 && rules.icmsCode === "00" && Boolean(UF_CODES[issuer.uf]) && issuer.uf !== destinationUf(input);
+  const interstateTaxed = purpose !== 5 && purpose !== 6 && !foreign && issuer.taxRegime !== 1 && rules.icmsCode === "00" && Boolean(UF_CODES[issuer.uf]) && issuer.uf !== destinationUf(input);
   const difal = interstateTaxed && !recipient.taxpayer && rules.finalConsumer;
   need(!difal || input.destination.internalIcms > 0, `Parâmetros: falta a alíquota interna do ICMS de ${destinationUf(input)}, para o DIFAL da venda a não contribuinte.`);
   input.items.forEach((item, index) => {
@@ -448,7 +507,7 @@ type ItemFigures = { product: number; contributionBase: number; ipi: number; icm
 
 /** The account of one item. The ICMS base takes the IPI only in a sale to a final consumer, when the rules say so. */
 export function commercialItemValue(item: NfeItem): number {
-  return roundCents(roundCents(item.quantity * item.unitPrice) + (item.freightAmount ?? 0) - (item.discountAmount ?? 0));
+  return roundCents(roundCents(item.quantity * item.unitPrice) + (item.freightAmount ?? 0) + (item.insuranceAmount ?? 0) + (item.otherAmount ?? 0) - (item.discountAmount ?? 0));
 }
 
 function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
@@ -458,10 +517,10 @@ function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
     // Keep the IPI agreed in the order visible while its CST is still missing.
     // nfeProblems blocks XML generation until that classification is supplied.
     const ipi = roundCents(commercial * item.ipiRate);
-  const taxed = issuer.taxRegime !== 1 && rules.icmsCode === "00";
+  const taxed = financialLegacyMode(input) === "all" && issuer.taxRegime !== 1 && rules.icmsCode === "00";
   const icmsBase = taxed ? roundCents(commercial + (rules.finalConsumer && rules.ipiInIcmsBase ? ipi : 0)) : 0;
   const interstate = issuer.uf !== destinationUf(input);
-  const owesDifal = taxed && interstate && !recipient.taxpayer && rules.finalConsumer;
+  const owesDifal = input.purpose !== 5 && input.purpose !== 6 && recipient.uf !== "EX" && taxed && interstate && !recipient.taxpayer && rules.finalConsumer;
   const icms = roundCents(icmsBase * input.icmsRate);
   // A CST without figures (04 to 09) writes no value in the item: counting one would leave the total different from the sum of the items (rules W13-10 and W14-10).
   // Only the ICMS of the operation itself leaves the base; the DIFAL belongs to the state of destination and stays out of this account.
@@ -471,7 +530,7 @@ function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
   const difal = owesDifal ? roundCents(icmsBase * Math.max(0, input.destination.internalIcms - input.icmsRate)) : 0;
   const fcp = owesDifal ? roundCents(icmsBase * input.destination.fcp) : 0;
   // Base of IBS and CBS (rule UB16-10): the product less the taxes it carries inside.
-  const reformBase = rules.ibsCbs ? roundCents(commercial - pis - cofins - icms - difal - fcp) : 0;
+  const reformBase = rules.ibsCbs && rules.ibsCbs.cst !== "410" ? roundCents(commercial - pis - cofins - icms - difal - fcp) : 0;
   return {
     product,
     contributionBase,
@@ -490,7 +549,7 @@ function figuresOf(item: NfeItem, input: NfeInput): ItemFigures {
   };
 }
 
-export type NfeTotals = { freight: number; discount: number; products: number; ipi: number; icmsBase: number; icms: number; pis: number; cofins: number; difal: number; fcp: number; invoice: number; reformBase: number; ibsState: number; ibsCity: number; cbs: number };
+export type NfeTotals = { insurance: number; other: number; freight: number; discount: number; products: number; ipi: number; icmsBase: number; icms: number; pis: number; cofins: number; difal: number; fcp: number; invoice: number; reformBase: number; ibsState: number; ibsCity: number; cbs: number };
 
 /** Sum item-rounded figures, preserving gross products, freight and discount separately. */
 export function nfeTotals(input: NfeInput): NfeTotals {
@@ -498,8 +557,11 @@ export function nfeTotals(input: NfeInput): NfeTotals {
   const products = sum((figures) => figures.product);
   const ipi = sum((figures) => figures.ipi);
   const freight = roundCents(input.items.reduce((total, item) => total + (item.freightAmount ?? 0), 0));
+  const insurance = roundCents(input.items.reduce((total, item) => total + (item.insuranceAmount ?? 0), 0));
+  const other = roundCents(input.items.reduce((total, item) => total + (item.otherAmount ?? 0), 0));
   const discount = roundCents(input.items.reduce((total, item) => total + (item.discountAmount ?? 0), 0));
   return {
+    insurance, other,
     freight,
     discount,
     products,
@@ -511,7 +573,7 @@ export function nfeTotals(input: NfeInput): NfeTotals {
     difal: sum((figures) => figures.difal),
     fcp: sum((figures) => figures.fcp),
     // In 2026 IBS and CBS are informed and do not add to the total of the invoice.
-    invoice: roundCents(products + freight - discount + ipi),
+    invoice: roundCents(products + freight + insurance + other - discount + ipi),
     reformBase: sum((figures) => figures.reformBase),
     ibsState: sum((figures) => figures.ibsState),
     ibsCity: sum((figures) => figures.ibsCity),
@@ -550,12 +612,15 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
       tag("vUnCom", unit) +
       tag("vProd", money(figures.product)) +
       tag("cEANTrib", "SEM GTIN") +
-      tag("uTrib", item.unit) +
-      tag("qTrib", quantity) +
-      tag("vUnTrib", unit) +
+      tag("uTrib", item.taxableUnit ?? item.unit) +
+      tag("qTrib", item.taxableQuantity?.toFixed(4) ?? quantity) +
+      tag("vUnTrib", item.taxableUnitPrice?.toFixed(10) ?? unit) +
       ((item.freightAmount ?? 0) > 0 ? tag("vFrete", money(item.freightAmount!)) : "") +
+      ((item.insuranceAmount ?? 0) > 0 ? tag("vSeg", money(item.insuranceAmount!)) : "") +
       ((item.discountAmount ?? 0) > 0 ? tag("vDesc", money(item.discountAmount!)) : "") +
-      tag("indTot", "1"),
+      ((item.otherAmount ?? 0) > 0 ? tag("vOutro", money(item.otherAmount!)) : "") +
+      tag("indTot", "1") +
+      (item.exportDetails ?? []).map(detail => group("detExport", tag("nDraw", detail.drawbackNumber ?? null) + (detail.exportRegistration != null ? group("exportInd", `<nRE>${detail.exportRegistration}</nRE>` + tag("chNFe", detail.referencedAccessKey!) + tag("qExport", detail.exportedQuantity!.toFixed(4))) : ""))).join(""),
   );
 
   const origin = tag("orig", String(item.origin));
@@ -593,31 +658,31 @@ function itemXml(item: NfeItem, index: number, input: NfeInput): string {
             tag("vICMSUFRemet", "0.00"),
         );
 
+  const legacyMode = financialLegacyMode(input);
   const taxes = group(
     "imposto",
     tag("vTotTrib", input.approximateTaxes?.items[index]) +
-      group("ICMS", icms) +
-      ipi +
-      contribution("PIS", rules.pisCst, figures.contributionBase, rules.pisRate, figures.pis) +
-      contribution("COFINS", rules.cofinsCst, figures.contributionBase, rules.cofinsRate, figures.cofins) +
+      (legacyMode === "all" ? group("ICMS", icms) : "") +
+      (legacyMode !== "none" ? ipi : "") +
+      (["all", "contributions-ipi"].includes(legacyMode) ? contribution("PIS", rules.pisCst, figures.contributionBase, rules.pisRate, figures.pis) + contribution("COFINS", rules.cofinsCst, figures.contributionBase, rules.cofinsRate, figures.cofins) : "") +
       difal +
       (rules.ibsCbs
         ? group(
             "IBSCBS",
             tag("CST", rules.ibsCbs.cst) +
               tag("cClassTrib", rules.ibsCbs.classCode) +
-              group(
+              (rules.ibsCbs.cst === "410" ? "" : group(
                 "gIBSCBS",
                 tag("vBC", money(figures.reformBase)) +
                   group("gIBSUF", tag("pIBSUF", rate(rules.ibsCbs.ibsStateRate)) + tag("vIBSUF", money(figures.ibsState))) +
                   group("gIBSMun", tag("pIBSMun", rate(rules.ibsCbs.ibsCityRate)) + tag("vIBSMun", money(figures.ibsCity))) +
                   tag("vIBS", money(figures.ibsState + figures.ibsCity)) +
                   group("gCBS", tag("pCBS", rate(rules.ibsCbs.cbsRate)) + tag("vCBS", money(figures.cbs))),
-              ),
+              )),
           )
         : ""),
   );
-  return group("det", product + taxes + tag("infAdProd", item.additionalInfo ? clean(item.additionalInfo, 500) : null), ` nItem="${index + 1}"`);
+  return group("det", product + taxes + tag("infAdProd", item.additionalInfo ? clean(item.additionalInfo, 500) : null) + (item.referencedDfe ? group("DFeReferenciado", tag("chaveAcesso", item.referencedDfe.accessKey) + tag("nItem", item.referencedDfe.itemNumber ?? null)) : ""), ` nItem="${index + 1}"`);
 }
 
 /** The transport group: the way of freight always; the carrier and the volumes only with what was informed. */
@@ -638,7 +703,8 @@ function transportXml(input: NfeInput): string {
               tag("UF", carrier.uf),
           )
         : "") +
-      group("vol", tag("qVol", volumes) + tag("esp", volumeKind ? clean(volumeKind, 60) : null) + tag("pesoL", weight(netWeight)) + tag("pesoB", weight(grossWeight))),
+      (input.transport.vehicle ? group("veicTransp", tag("placa", input.transport.vehicle.plate) + tag("UF", input.transport.vehicle.uf) + tag("RNTC", input.transport.vehicle.rntc)) : "") +
+      group("vol", tag("qVol", volumes) + tag("esp", volumeKind ? clean(volumeKind, 60) : null) + tag("marca", input.transport.brand || null) + tag("nVol", input.transport.volumeNumber || null) + tag("pesoL", weight(netWeight)) + tag("pesoB", weight(grossWeight))),
   );
 }
 
@@ -654,7 +720,7 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
   const model = input.model ?? 55;
   const emissionType = input.emissionType ?? "1";
   const purpose = input.purpose ?? 1;
-  const incomingReturn = purpose === 4 && input.returnDirection === "incoming";
+  const incomingReturn = purpose === 5 || purpose === 4 && input.returnDirection === "incoming";
   const key = accessKey(input);
   const totals = nfeTotals(input);
   const interstate = issuer.uf !== destinationUf(input);
@@ -669,20 +735,21 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
       tag("serie", input.series) +
       tag("nNF", input.number) +
       tag("dhEmi", input.issuedAt) +
+      tag("dhSaiEnt", input.departureAt ?? null) +
       tag("tpNF", incomingReturn ? "0" : "1") +
-      tag("idDest", interstate ? "2" : "1") +
+      tag("idDest", recipient.uf === "EX" ? "3" : interstate ? "2" : "1") +
       tag("cMunFG", issuer.cityCode) +
-      tag("tpImp", model === 65 ? "4" : "1") +
+      tag("tpImp", input.printType ?? (model === 65 ? 4 : 1)) +
       tag("tpEmis", emissionType) +
       tag("cDV", key[43]) +
       tag("tpAmb", homologation ? "2" : "1") +
-    tag("finNFe", purpose) +
+    tag("finNFe", purpose) + tag("tpNFDebito", input.debitType ?? null) + tag("tpNFCredito", input.creditType ?? null) +
       tag("indFinal", rules.finalConsumer ? "1" : "0") +
-      tag("indPres", "9") +
-      tag("indIntermed", "0") +
+      tag("indPres", input.presenceIndicator ?? 9) +
+      ([2, 3, 4, 9].includes(input.presenceIndicator ?? 9) ? tag("indIntermed", input.intermediary ? "1" : "0") : "") +
       tag("procEmi", "0") +
       tag("verProc", clean(input.software, 20)) +
-      (purpose === 4 ? group("NFref", (input.referencedAccessKeys ?? []).map((key) => tag("refNFe", key)).join("")) : "") +
+      ((input.referencedAccessKeys ?? []).map((key) => group("NFref", tag("refNFe", key))).join("")) +
       (emissionType === "9" ? tag("dhCont", input.issuedAt) + tag("xJust", "Contingência offline autorizada para a NFC-e; transmitir posteriormente.") : ""),
   );
 
@@ -693,7 +760,7 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
 
   const dest = group(
     "dest",
-    tag(recipient.kind === "PJ" ? "CNPJ" : "CPF", recipient.document) +
+    (recipient.uf === "EX" ? `<idEstrangeiro>${recipient.foreignId ?? ""}</idEstrangeiro>` : tag(recipient.kind === "PJ" ? "CNPJ" : "CPF", recipient.document)) +
       tag("xNome", homologation ? HOMOLOGATION_NAME : clean(recipient.name, 60)) +
       address("enderDest", recipient) +
       tag("indIEDest", recipient.taxpayer ? "1" : "9") +
@@ -738,14 +805,14 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
         tag("vFCPSTRet", "0.00") +
         tag("vProd", money(totals.products)) +
         tag("vFrete", money(totals.freight)) +
-        tag("vSeg", "0.00") +
+        tag("vSeg", money(totals.insurance)) +
         tag("vDesc", money(totals.discount)) +
         tag("vII", "0.00") +
         tag("vIPI", money(totals.ipi)) +
         tag("vIPIDevol", "0.00") +
         tag("vPIS", money(totals.pis)) +
         tag("vCOFINS", money(totals.cofins)) +
-        tag("vOutro", "0.00") +
+        tag("vOutro", money(totals.other)) +
         tag("vNF", money(totals.invoice)) +
         tag("vTotTrib", input.approximateTaxes?.total),
     ) +
@@ -766,6 +833,9 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
         : ""),
   );
 
+  const retentionXml = input.retentions ? group("retTrib", ([["pis", "vRetPIS"], ["cofins", "vRetCOFINS"], ["csll", "vRetCSLL"], ["incomeTaxBase", "vBCIRRF"], ["incomeTax", "vIRRF"], ["socialSecurityBase", "vBCRetPrev"], ["socialSecurity", "vRetPrev"]] as const).map(([key, name]) => tag(name, input.retentions?.[key] == null ? null : money(input.retentions[key]!))).join("")) : "";
+  const totalWithRetentions = retentionXml ? total.includes("<IBSCBSTot>") ? total.replace("<IBSCBSTot>", retentionXml + "<IBSCBSTot>") : total.replace("</total>", retentionXml + "</total>") : total;
+  const installments = input.installments?.length ? group("cobr", group("fat", tag("vOrig", money(totals.invoice)) + tag("vDesc", "0.00") + tag("vLiq", money(totals.invoice))) + input.installments.map(item => group("dup", tag("nDup", item.number) + tag("dVenc", item.dueDate) + tag("vDup", money(item.amount)))).join("")) : "";
   const payment = group(
     "pag",
     input.payments
@@ -784,14 +854,18 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
     emit +
     dest +
     entrega +
+    (input.xmlAccess || []).map(document => group("autXML", tag(document.length === 11 ? "CPF" : "CNPJ", document))).join("") +
     input.items.map((item, index) => itemXml(item, index, input)).join("") +
-    total +
+    totalWithRetentions +
     transportXml(input) +
+    installments +
     payment +
-    group("infAdic", tag("infCpl", [
+    (input.intermediary ? group("infIntermed", tag("CNPJ", input.intermediary.taxId) + tag("idCadIntTran", input.intermediary.registration)) : "") +
+    group("infAdic", tag("infAdFisco", input.taxAuthorityInformation || null) + tag("infCpl", [
       additionalInfo(input),
       emissionType === "9" ? "Contingência offline NFC-e: transmissão posterior obrigatória." : "",
-    ].filter(Boolean).map((value) => clean(value, 5000)).join("; ") || null));
+    ].filter(Boolean).map((value) => clean(value, 5000)).join("; ") || null)) +
+    (input.exportation && input.exportation.kind !== "trading" ? group("exporta", tag("UFSaidaPais", input.exportation.exitState!) + tag("xLocExporta", input.exportation.exportLocation!) + tag("xLocDespacho", input.exportation.dispatchLocation ?? null)) : "");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="${NAMESPACE}"><infNFe versao="4.00" Id="NFe${key}">${body}</infNFe></NFe>`;
   return { key, xml, totals };

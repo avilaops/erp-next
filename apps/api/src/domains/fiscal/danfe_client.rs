@@ -21,6 +21,7 @@ pub struct DanfeClient {
     client: Client,
     endpoint: Url,
     ca_bundle: Option<Arc<str>>,
+    tool_prefix: Arc<str>,
 }
 impl std::fmt::Debug for DanfeClient {
     fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -28,7 +29,21 @@ impl std::fmt::Debug for DanfeClient {
     }
 }
 impl DanfeClient {
+    #[cfg(test)]
     pub fn new(endpoint: &str, token: &str, ca_bundle: Option<String>) -> anyhow::Result<Self> {
+        Self::new_with_prefix(endpoint, token, ca_bundle, "fiscal_")
+    }
+
+    pub fn new_with_prefix(
+        endpoint: &str,
+        token: &str,
+        ca_bundle: Option<String>,
+        prefix: &str,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            ["", "fiscal_", "fiscal_brasil_"].contains(&prefix),
+            "Unsupported DANFE MCP tool prefix"
+        );
         let endpoint = Url::parse(endpoint)?;
         anyhow::ensure!(
             endpoint.scheme() == "https"
@@ -62,6 +77,7 @@ impl DanfeClient {
             client,
             endpoint,
             ca_bundle: ca_bundle.map(Arc::from),
+            tool_prefix: Arc::from(prefix),
         })
     }
 
@@ -206,15 +222,17 @@ impl DanfeClient {
             let initialized = self.rpc(&mut session, PROTOCOL, json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":PROTOCOL,"capabilities":{},"clientInfo":{"name":"erp-next-danfe","version":env!("CARGO_PKG_VERSION")}}})).await?;
             protocol = initialized["protocolVersion"].as_str().filter(|value| ["2025-03-26", "2025-06-18", "2025-11-25"].contains(value)).ok_or(RenderError::Gateway)?.to_owned();
             self.rpc(&mut session, &protocol, json!({"jsonrpc":"2.0","method":"notifications/initialized"})).await?;
-            let schema = tool_value(self.rpc(&mut session, &protocol, call(2, "fiscal_validar_xml_fiscal", json!({"xml_content":xml,"tipo":"nfe"}))).await?)?;
+            let schema = tool_value(self.rpc(&mut session, &protocol, call(2, &format!("{}validar_xml_fiscal", self.tool_prefix), json!({"xml_content":xml,"tipo":"nfe"}))).await?)?;
             if schema["valido"] == false { return Err(RenderError::Invalid); }
             if schema["valido"] != true || schema["tipo"] != "nfe" || schema["modelo"].as_str() != Some(model_code) || schema["documento"] != "nfeProc" || schema["chave_acesso"] != key { return Err(RenderError::Gateway); }
             let mut arguments = json!({"xml_content":xml});
             if let Some(bundle) = &self.ca_bundle { arguments["ca_bundle"] = Value::String(bundle.to_string()); }
-            let signature = tool_value(self.rpc(&mut session, &protocol, call(3, "fiscal_validar_assinatura_nfe", arguments)).await?)?;
+            let signature = tool_value(self.rpc(&mut session, &protocol, call(3, &format!("{}validar_assinatura_nfe", self.tool_prefix), arguments)).await?)?;
             if signature["assinatura_valida"] == false { return Err(RenderError::Invalid); }
             if signature["assinatura_valida"] != true { return Err(RenderError::Gateway); }
-            let document = tool_value(self.rpc(&mut session, &protocol, call(4, "fiscal_gerar_danfe", json!({"xml_content":xml}))).await?)?;
+            let simplified = roxmltree::Document::parse(xml).ok().and_then(|doc| doc.descendants().find(|node| node.has_tag_name(("http://www.portalfiscal.inf.br/nfe", "tpImp"))).and_then(|node| node.text()).map(|value| value == "6")).unwrap_or(false);
+            let renderer = if simplified { "gerar_danfe_simplificado_tipo2" } else { "gerar_danfe" };
+            let document = tool_value(self.rpc(&mut session, &protocol, call(4, &format!("{}{renderer}", self.tool_prefix), json!({"xml_content":xml}))).await?)?;
             if document["modelo"] != model || document["chave_acesso"] != key { return Err(RenderError::Gateway); }
             let encoded = document["pdf_base64"].as_str().filter(|value| value.len() <= MAX_RESPONSE).ok_or(RenderError::Gateway)?;
             let pdf = STANDARD.decode(encoded).map_err(|_| RenderError::Gateway)?;

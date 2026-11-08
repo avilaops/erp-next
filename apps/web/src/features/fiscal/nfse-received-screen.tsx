@@ -160,7 +160,7 @@ export function NfseReceivedScreen() {
       {view && <>
         {!view.data.length && <p className="text-sm">{view.total ? "Nenhum arquivo nesta página. Volte aos arquivos anteriores." : "Nenhuma NFS-e importada nesta empresa."}</p>}
         {view.data.map(document => <article key={document.id} aria-label={`NFS-e ${document.document.number}`} className="min-w-0 space-y-3 rounded-xl border p-4 text-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold">NFS-e {document.document.number}</h3><p className="break-words">{document.document.provider.name || document.document.provider.value}</p><p className="mt-1 text-xs text-muted-foreground">{document.document.environment === "homologation" ? "Homologação — sem valor fiscal" : "Ambiente de produção declarado no XML"} · XML nacional importado</p></div><strong>{nfseMoney(document.document.netCents)}</strong></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold">NFS-e {document.document.number}</h3><p className="break-words">{document.document.provider.name || document.document.provider.value}</p><p className="mt-1 text-xs text-muted-foreground">{document.document.environment === "homologation" ? "Homologação, sem valor fiscal" : "Ambiente de produção declarado no XML"} · XML nacional importado</p></div><strong>{nfseMoney(document.document.netCents)}</strong></div>
           <p className="break-all text-muted-foreground">Chave: {document.document.accessKey}</p>
           <p className="text-xs text-muted-foreground">Tomador: {document.companyTaxId} · Emissão: {new Date(document.document.issuedAt).toLocaleString("pt-BR")}</p>
           <p className="break-all text-xs text-muted-foreground">SHA-256: {document.document.xmlSha256}</p>
@@ -175,7 +175,7 @@ export function NfseReceivedScreen() {
             <div><dt className="text-muted-foreground">Valor do serviço</dt><dd>{nfseMoney(detail.document.serviceCents)}</dd></div><div><dt className="text-muted-foreground">Valor líquido no XML</dt><dd>{nfseMoney(detail.document.netCents)}</dd></div>
           </dl>}
         </article>)}
-        {(view.total > 25 || offset > 0) && <nav aria-label="Páginas de NFS-e" className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading || !!busy || !offset} onClick={() => reload(Math.max(0, offset - 25))}>Arquivos anteriores</Button><span className="text-sm">{view.data.length ? `${offset + 1}–${offset + view.data.length} de ${view.total}` : `0 de ${view.total}`}</span><Button variant="outline" disabled={loading || !!busy || offset + 25 >= view.total} onClick={() => reload(offset + 25)}>Próximos arquivos</Button></nav>}
+        {(view.total > 25 || offset > 0) && <nav aria-label="Páginas de NFS-e" className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading || !!busy || !offset} onClick={() => reload(Math.max(0, offset - 25))}>Arquivos anteriores</Button><span className="text-sm">{view.data.length ? `${offset + 1} a ${offset + view.data.length} de ${view.total}` : `0 de ${view.total}`}</span><Button variant="outline" disabled={loading || !!busy || offset + 25 >= view.total} onClick={() => reload(offset + 25)}>Próximos arquivos</Button></nav>}
       </>}
     </section>
   </div>

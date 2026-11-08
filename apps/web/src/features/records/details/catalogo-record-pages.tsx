@@ -334,7 +334,7 @@ function PriceListFields({ mode }: { mode: FormMode }) {
           </Field>
           <Field label="Moeda">
             <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm">
-              <option>BRL — Real brasileiro</option>
+              <option>BRL: Real brasileiro</option>
             </select>
           </Field>
         </div>

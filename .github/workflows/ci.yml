@@ -316,7 +316,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --prefer-offline
       - run: timeout 35s pnpm --filter web lint
-      - run: node --test tests/*-model.node.mjs
+      - run: node --import ./tests/helpers/register-typescript.mjs --test tests/*-model.node.mjs
         working-directory: apps/web
 
   web-browser:

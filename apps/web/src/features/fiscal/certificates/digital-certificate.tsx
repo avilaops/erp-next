@@ -17,7 +17,7 @@ type CertificateStatus = Schema<"CertificateStatus">
 type CertificateSnapshot = Schema<"CertificateSnapshot">
 const maximumFile = 64 * 1024
 const statusLabel: Record<CertificateStatus, string> = {
-  not_configured: "Nenhum certificado conectado", active: "Certificado conectado", expiring: "Certificado próximo do vencimento", expired: "Certificado vencido",
+  not_configured: "Conecte um certificado para autenticar a empresa", active: "Certificado pronto para autenticação", expiring: "Certificado próximo do vencimento", expired: "Certificado vencido",
   not_yet_valid: "Certificado ainda não vigente", company_mismatch: "O certificado pertence a outro CNPJ", unavailable: "Credencial indisponível para uso",
 }
 const formatDate = (value: number) => new Date(value * 1000).toLocaleString("pt-BR")
@@ -92,7 +92,7 @@ export function DigitalCertificate() {
       if (controller.signal.aborted) return
       setCertificate(value); setEtag(revision); setFile(null)
       if (fileInput.current) fileInput.current.value = ""
-      setNotice(remove ? "Certificado removido desta empresa." : "Certificado validado e armazenado com criptografia nesta empresa.")
+      setNotice(remove ? "Certificado removido." : "Certificado conectado com sucesso.")
     } catch (reason) {
       if (!controller.signal.aborted) setError(reason instanceof Error && reason.name !== "TimeoutError" ? reason.message : "Não foi possível confirmar a operação. Atualize a tela antes de repetir")
     } finally {
@@ -102,7 +102,7 @@ export function DigitalCertificate() {
   }
 
   return <main className="mx-auto max-w-4xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><PageTitle className="mt-2 text-3xl font-semibold">Certificado digital A1</PageTitle><p className="mt-2 text-muted-foreground">Conecte o certificado da empresa para preparar suas operações fiscais.</p></div><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link></header>
+    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6"><div><p className="text-sm text-primary">Preferências / Fiscal</p><PageTitle className="mt-2 text-3xl font-semibold">Certificado digital A1</PageTitle><p className="mt-2 text-muted-foreground">Use o certificado para autenticar sua empresa nos serviços fiscais.</p></div><Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link></header>
     {loading && <p role="status">Consultando certificado da empresa…</p>}
     {certificate && <>
       <section className="form-section space-y-4" aria-labelledby="certificate-state-title">
@@ -116,7 +116,7 @@ export function DigitalCertificate() {
             <div><dt className="text-muted-foreground">Válido até</dt><dd>{formatDate(certificate.data.validUntil)}</dd></div>
           </dl>
           {certificate.status === "expiring" && <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">O certificado vence em até 30 dias. Providencie a renovação e substitua o arquivo nesta tela.</p>}
-          {["expired", "not_yet_valid", "company_mismatch", "unavailable"].includes(certificate.status) && <p role="alert" className="text-sm text-destructive">Este certificado não está disponível para operações fiscais. Confira o CNPJ e a validade ou conecte um novo arquivo.</p>}
+          {["expired", "not_yet_valid", "company_mismatch", "unavailable"].includes(certificate.status) && <p role="alert" className="text-sm text-destructive">Certificado indisponível para autenticação. Confira o CNPJ e a validade.</p>}
           <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Dados da verificação</summary><dl className="mt-3 space-y-2"><div><dt>Número de série</dt><dd className="break-all">{certificate.data.serialNumber}</dd></div><div><dt>SHA-256 do certificado</dt><dd className="break-all">{certificate.data.fingerprint}</dd></div><div><dt>Verificado em</dt><dd>{formatDate(certificate.data.validatedAt)}</dd></div></dl><p className="mt-3">Senha, chave privada, CNPJ, validade e cadeia de confiança são conferidos no envio. A situação de revogação não foi consultada.</p></details>
         </>}
         {!certificate.canEdit && <p className="text-sm text-muted-foreground">Seu acesso permite consultar a situação. A conexão e a remoção exigem permissão para administrar certificados A1.</p>}
@@ -124,20 +124,19 @@ export function DigitalCertificate() {
       </section>
       {certificate.canEdit && <section className="form-section space-y-5" aria-labelledby="certificate-upload-title">
         <h2 id="certificate-upload-title" className="flex items-center gap-2 text-lg font-semibold"><Upload className="size-5 text-primary" />{certificate.data ? "Substituir certificado A1" : "Conectar certificado A1"}</h2>
-        <p className="text-sm text-muted-foreground">Escolha o arquivo .pfx ou .p12 com o certificado e a chave privada da empresa. Não é necessário instalar no Windows nem informar a certificadora. O ERP identifica a emissora e completa a cadeia com os certificados oficiais disponíveis.</p>
+        <p className="text-sm text-muted-foreground">Selecione o certificado da empresa e informe a senha.</p>
         {!certificate.uploadAvailable && <p role="alert" className="rounded-xl border p-4 text-sm">O armazenamento seguro de certificados precisa ser configurado para habilitar o envio.</p>}
         <form className="space-y-4" onSubmit={event => { event.preventDefault(); void save() }}>
-          <label className="block space-y-2 text-sm">Arquivo do certificado A1<input ref={fileInput} type="file" aria-label="Arquivo do certificado A1" accept=".pfx,.p12,application/x-pkcs12" className="block w-full rounded-xl border p-3" disabled={!!busy || blocked || loading || !certificate.uploadAvailable} onChange={event => { setFile(event.target.files?.[0] || null); setError(""); setNotice("") }} /><span className="block text-xs text-muted-foreground">Até 64 KiB. O CNPJ deve corresponder à empresa ativa.</span></label>
+          <label className="block space-y-2 text-sm">Arquivo do certificado A1<input ref={fileInput} type="file" aria-label="Arquivo do certificado A1" accept=".pfx,.p12,application/x-pkcs12" className="block w-full rounded-xl border p-3" disabled={!!busy || blocked || loading || !certificate.uploadAvailable} onChange={event => { setFile(event.target.files?.[0] || null); setError(""); setNotice("") }} /><span className="block text-xs text-muted-foreground">Arquivo .pfx ou .p12, até 64 KiB.</span></label>
           <div className="space-y-2"><label htmlFor="a1-password" className="text-sm">Senha do certificado</label><div className="flex gap-2"><Input id="a1-password" type={visiblePassword ? "text" : "password"} autoComplete="new-password" maxLength={1024} value={password} disabled={!!busy || blocked || loading || !certificate.uploadAvailable} onChange={event => setPassword(event.target.value)} /><Button type="button" variant="outline" aria-label={visiblePassword ? "Ocultar senha" : "Mostrar senha"} aria-pressed={visiblePassword} onClick={() => setVisiblePassword(value => !value)}>{visiblePassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</Button></div><p className="text-xs text-muted-foreground">Use a senha definida na exportação do arquivo. Deixe vazio apenas se o arquivo foi exportado sem senha.</p></div>
           <Button type="submit" disabled={!file || !!busy || blocked || loading || !certificate.uploadAvailable}><ShieldCheck className="size-4" />{busy === "upload" ? "Validando e protegendo certificado…" : certificate.data ? "Validar e substituir certificado" : "Conectar certificado"}</Button>
         </form>
-        <p className="text-xs text-muted-foreground">O arquivo e a senha são armazenados com criptografia por empresa e não ficam disponíveis para download. Conectar o A1 não autoriza a emissão de NF-e, que depende das demais etapas do motor fiscal.</p>
+        <p className="text-xs text-muted-foreground">Seu certificado e sua senha ficam protegidos por criptografia.</p>
       </section>}
     </>}
     {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive"><RequestError message={error} status={errorStatus} /></p>}
     {notice && <p role="status" className="rounded-xl border border-primary/30 p-4 text-sm">{notice}</p>}
     {blocked && <Button variant="outline" disabled={!!busy || loading} onClick={() => { setLoading(true); setReload(value => value + 1) }}>Recarregar dados do servidor</Button>}
     {!certificate && !loading && <Button variant="outline" onClick={() => { setLoading(true); setReload(value => value + 1) }}>Tentar novamente</Button>}
-    <p className="text-sm text-muted-foreground">Não é necessário certificado para <Link className="text-primary underline" href="/fiscal/monitor">importar um XML recebido</Link> ou <Link className="text-primary underline" href="/fiscal/danfe">gerar o DANFE de um XML já autorizado</Link>.</p>
   </main>
 }

@@ -25,10 +25,11 @@ test("cabeçalho cabe em 320 px sem perder os acessos", async ({ page }) => {
 test("preferências mobile abre painel e pesquisa filtra com vazio e limpeza", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/empresa")
-  const trigger = page.getByRole("button", { name: "Preferências", exact: true })
+  const trigger = page.getByRole("button", { name: "Abrir menu", exact: true })
   await trigger.click()
-  await expect(page.getByRole("dialog")).toBeVisible()
-  await expect(page.getByRole("dialog").getByRole("link", { name: "Certificado digital", exact: true })).toBeVisible()
+  const drawer = page.getByRole("dialog")
+  await drawer.getByRole("button", { name: "Preferências", exact: true }).click()
+  await expect(drawer.getByRole("link", { name: "Visão geral das preferências", exact: true })).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(trigger).toBeFocused()
   const search = page.getByRole("searchbox", { name: "Pesquisar nas preferências da empresa" })
@@ -91,9 +92,10 @@ test("cadastro mantém o retorno ao catálogo filtrado e distingue registro ause
   await page.goto(`/cadastros/produtos/${id}/editar?` + new URLSearchParams({ returnTo: destination }))
   await expect(page.getByRole("heading", { name: "Editar produto", exact: true })).toBeVisible()
   await expect(page.locator("main").getByRole("alert")).toContainText("Produto não encontrado")
-  await expect(page.getByRole("link", { name: "Voltar ao catálogo", exact: true })).toHaveAttribute("href", destination)
+  const returnToCatalog = page.getByRole("navigation", { name: "Caminho de navegação" }).getByRole("link", { name: "Produtos", exact: true })
+  await expect(returnToCatalog).toHaveAttribute("href", destination)
   await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
-  await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
+  await returnToCatalog.click()
   await expect(page).toHaveURL(new URL(destination, origin).toString())
   await expect(page.getByRole("textbox", { name: "Buscar nome ou SKU", exact: true })).toHaveValue("leg")
   await expect(page.getByRole("combobox", { name: "Situação", exact: true })).toHaveValue("active")
@@ -126,10 +128,14 @@ test("tema Avila pode ser escolhido e persiste neste navegador", async ({ page }
 test("painel mobile fecha após navegar para uma configuração", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/empresa")
-  await page.getByRole("button", { name: "Preferências", exact: true }).click()
-  await page.getByRole("dialog").getByRole("link", { name: "Exportação de dados", exact: true }).click()
-  await expect(page).toHaveURL(/\/preferencias\/dados\/exportacao$/)
+  await page.getByRole("button", { name: "Abrir menu", exact: true }).click()
+  const drawer = page.getByRole("dialog")
+  await drawer.getByRole("button", { name: "Preferências", exact: true }).click()
+  await drawer.getByRole("link", { name: "Empresa", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias?categoria=empresa")
   await expect(page.getByRole("dialog")).toHaveCount(0)
+  await page.locator("main").getByRole("link", { name: "Geral", exact: true }).click()
+  await expect(page).toHaveURL(origin + "/preferencias/empresa")
 })
 
 test("busca distingue módulos, configurações e operações financeiras", async ({ page }) => {
@@ -140,7 +146,7 @@ test("busca distingue módulos, configurações e operações financeiras", asyn
     ["Contas a pagar", "Contas a pagar", "/financeiro/contas-pagar"],
     ["Contas a receber", "Contas a receber", "/financeiro/contas-receber"],
     ["Fiscal", "Fiscal", "/fiscal"],
-    ["Monitor fiscal", "Monitor fiscal", "/fiscal/monitor"],
+    ["Monitor fiscal", "Monitor fiscal e XML recebidos", "/fiscal/monitor"],
   ]) {
     await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
     const dialog = page.getByRole("dialog")
@@ -160,7 +166,7 @@ test("importação indisponível não oferece seleção de arquivo ou relatório
 
 test("link copiado restaura consulta e limpar filtros reinicia paginação", async ({ page, context }) => {
   await page.goto("/cadastros/produtos?q=SKU+teste&status=archived&offset=25")
-  await expect(page.getByRole("heading", { name: "Produtos", exact: true })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole("textbox", { name: "Buscar nome ou SKU", exact: true })).toHaveValue("SKU teste")
   await expect(page.getByText("Página 2", { exact: true })).toBeVisible()
   const copied = await context.newPage()
   await copied.goto(page.url())

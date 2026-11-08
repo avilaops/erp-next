@@ -38,7 +38,7 @@ export function SimulationResult({ value, imported }: { value: Simulation; impor
       ["Preço por unidade, com IPI", money(sale.unitWithIpiCents)],
       ["Total da venda", money(sale.invoiceTotalCents)],
     ]} /><p className="mt-3 text-xs text-muted-foreground">Valores arredondados por unidade. O total desejado pode ter diferença de centavos para preservar o mesmo preço em todas as unidades.</p></details>
-    {director && <details><summary className="cursor-pointer py-2 font-medium text-primary">Custos e lucro — acesso da gestão</summary><div className="space-y-5 pt-3">
+    {director && <details><summary className="cursor-pointer py-2 font-medium text-primary">Custos e lucro: acesso da gestão</summary><div className="space-y-5 pt-3">
       <Facts rows={[
         ["Preço mínimo na meta por unidade, com IPI", money(director.minimumTargetUnitWithIpiCents)],
         ["Desconto máximo na meta", director.atTargetBps === null ? "Sem desconto viável nesta condição" : percent(director.atTargetBps)],

@@ -12,6 +12,36 @@ permissions:
   contents: read
   actions: read
 jobs:
+  fiscal-mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.12.24
+      - run: uv sync --frozen --extra dev --python 3.12
+        working-directory: apps/fiscal-mcp
+      - run: node --test scripts/fiscal/test/deploy-config.test.mjs
+      - run: uv run --frozen --extra dev pytest tests/test_fiscal_schema.py tests/test_simplified_danfe.py tests/test_nfe_assinatura.py
+        working-directory: apps/fiscal-mcp
+      - run: docker build -f apps/fiscal-mcp/Dockerfile -t erp-next-fiscal-mcp:sha-${{ inputs.source_ref || github.sha }} .
+      - name: Exercise MCP in its restricted runtime container
+        shell: bash
+        run: |
+          docker run --detach --name fiscal-mcp-smoke --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m,mode=1777 --security-opt no-new-privileges:true --cap-drop ALL --memory 512m --pids-limit 128 -e XDG_CACHE_HOME=/tmp/cache erp-next-fiscal-mcp:sha-${{ inputs.source_ref || github.sha }}
+          trap 'docker rm -f fiscal-mcp-smoke >/dev/null 2>&1 || true' EXIT
+          cd apps/fiscal-mcp
+          uv run --frozen --extra dev python scripts/smoke_runtime.py
+      - run: docker save erp-next-fiscal-mcp:sha-${{ inputs.source_ref || github.sha }} | gzip > fiscal-mcp-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: erp-fiscal-mcp-${{ inputs.source_ref || github.sha }}
+          path: fiscal-mcp-image.tar.gz
+          compression-level: 0
+          retention-days: 7
   fiscal-engine:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -103,7 +133,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: scripts/contracts/consumer
       - run: node scripts/contracts/generate-web.mjs
-      - run: node --test tests/fiscal-tax-model.node.mjs
+      - run: node --import ./tests/helpers/register-typescript.mjs --test tests/fiscal-tax-model.node.mjs
         working-directory: apps/web
       - run: pnpm --filter web build
       - name: Reserve browser fixture ports outside ephemeral allocation
@@ -134,7 +164,7 @@ jobs:
 
   mlops-evidence:
     name: MLOps verified release evidence
-    needs: [fiscal-engine, api, web]
+    needs: [fiscal-engine, fiscal-mcp, api, web]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -175,7 +205,7 @@ jobs:
 
   deploy:
     name: Deploy production
-    needs: [fiscal-engine, api, web, mlops-evidence]
+    needs: [fiscal-engine, fiscal-mcp, api, web, mlops-evidence]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -205,6 +235,10 @@ jobs:
         with:
           name: erp-fiscal-${{ inputs.source_ref || github.sha }}
           path: bundle
+      - uses: actions/download-artifact@v4
+        with:
+          name: erp-fiscal-mcp-${{ inputs.source_ref || github.sha }}
+          path: bundle
       - name: Send immutable release to applications
         env:
           DEPLOY_HOST: ${{ secrets.ERP_DEPLOY_HOST }}
@@ -220,10 +254,11 @@ jobs:
           test -s bundle/api-image.tar.gz
           test -s bundle/web-image.tar.gz
           test -s bundle/fiscal-image.tar.gz
+          test -s bundle/fiscal-mcp-image.tar.gz
           bundle_dir=$(mktemp -d)
           ssh_dir=$(mktemp -d)
           trap 'rm -rf "$bundle_dir" "$ssh_dir"' EXIT
-          cp bundle/api-image.tar.gz bundle/web-image.tar.gz bundle/fiscal-image.tar.gz "$bundle_dir/"
+          cp bundle/api-image.tar.gz bundle/web-image.tar.gz bundle/fiscal-image.tar.gz bundle/fiscal-mcp-image.tar.gz "$bundle_dir/"
           cp deploy/compose.yaml deploy/fiscal-compose.yaml "$bundle_dir/"
           chmod 700 "$ssh_dir"
           printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"

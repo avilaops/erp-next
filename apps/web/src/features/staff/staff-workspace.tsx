@@ -8,12 +8,13 @@ import { AccessLink } from "@/components/feedback/session-recovery"
 
 import Link from "next/link"
 import Image from "next/image"
-import { StaffPayroll } from "./payroll-workspace"
+import { DataTable } from "@/components/workspace/data-table"
+import { staffAssignment } from "./staff-assignment"
 import { useRouter } from "next/navigation"
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { RecordCompany } from "@/components/record-company"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 
@@ -22,41 +23,28 @@ type StaffInput = Omit<Schema<"StaffInput">, "profile"> & { profile?: StaffProfi
 type Staff = Omit<Schema<"Staff">, "profile"> & { profile?: StaffProfile | null }
 type Snapshot = Omit<Schema<"StaffSnapshot">, "data"> & { data?: Schema<"Staff"> }
 type Page = Schema<"StaffList">
-const blank = (kind: StaffKind): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: kind === "funcionarios", isSeller: kind === "vendedores", status: "active", profile: {} })
+const blank = (): StaffInput => ({ name: "", jobTitle: null, code: "", email: null, phone: null, isEmployee: true, isSeller: false, status: "active", profile: {} })
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 
 function values(staff: Staff): StaffInput {
-  return { name: staff.name, jobTitle: staff.jobTitle, code: staff.code, email: staff.email, phone: staff.phone, isEmployee: staff.isEmployee, isSeller: staff.isSeller, status: staff.status, profile: staff.profile || {} }
+  return { name: staff.name, jobTitle: staff.jobTitle || (staff.isSeller ? "Vendedor" : null), code: staff.code, email: staff.email, phone: staff.phone, isEmployee: staff.isEmployee, isSeller: staff.isSeller, status: staff.status, profile: staff.profile || {} }
 }
-function relationship(staff: StaffInput) { return staff.isEmployee && staff.isSeller ? "Funcionário e vendedor" : staff.isEmployee ? "Funcionário" : "Vendedor" }
 
-export type StaffKind = "funcionarios" | "vendedores"
+export type StaffKind = "funcionarios"
 
 export function StaffList({ kind }: { kind: StaffKind }) {
-  const [query, setQuery] = useState({ q: "", role: kind === "funcionarios" ? "employee" : "seller", status: "", offset: 0 })
+  const [query, setQuery] = useState({ q: "", role: "", status: "", offset: 0 })
   const [result, setResult] = useState<Page | null>(null)
   const [error, setError] = useState("")
   const [responseStatus, setResponseStatus] = useState(0)
   const [loading, setLoading] = useState(true)
   const [retry, setRetry] = useState(0)
-  const [showResults, setShowResults] = useState(false)
-  const searchSection = useRef<HTMLElement>(null)
-  const resultsId = useId()
-  const pageSize = kind === "vendedores" ? 10 : 25
-  useEffect(() => {
-    if (kind !== "vendedores") return
-    function dismiss(event: PointerEvent) {
-      if (event.target instanceof Node && !searchSection.current?.contains(event.target)) setShowResults(false)
-    }
-    document.addEventListener("pointerdown", dismiss)
-    return () => document.removeEventListener("pointerdown", dismiss)
-  }, [kind])
   useEffect(() => {
     const controller = new AbortController()
     let requestStatus = 0
-    const search = kind === "vendedores" && query.q.trim() === "%%" ? "" : query.q
-    const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: String(pageSize) })
+    const search = query.q.trim() === "%%" ? "" : query.q
+    const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: "25" })
     if (query.role) params.set("role", query.role)
     if (query.status) params.set("status", query.status)
     erpFetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -67,73 +55,32 @@ export function StaffList({ kind }: { kind: StaffKind }) {
     }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [query, retry, kind, pageSize])
-
-  if (kind === "vendedores") return <>
-    <PageHeader eyebrow="Cadastros" title="Vendedores" description="Pesquise um vendedor para consultar ou editar seu cadastro." />
-    <section ref={searchSection} aria-label="Busca de vendedores" className="relative min-w-0 max-w-2xl"
-      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setShowResults(false) }}
-      onKeyDown={event => { if (event.key === "Escape") { setShowResults(false); searchSection.current?.querySelector("input")?.focus() } }}>
-      <form className="space-y-3" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget)
-        searchSection.current?.querySelector("input")?.focus()
-        setLoading(true); setQuery({ q: String(form.get("q") || ""), role: "seller", status: String(form.get("status") || ""), offset: 0 }); setShowResults(true)
-      }}>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="min-w-0 flex-1 space-y-2">Buscar vendedor<SearchInput name="q" maxLength={160} aria-expanded={showResults} aria-controls={showResults ? resultsId : undefined}
-            onChange={() => setShowResults(false)} onSearch={(q, form) => {
-              const fields = form ? new FormData(form) : null
-              setLoading(true); setQuery({ q, role: "seller", status: String(fields?.get("status") || ""), offset: 0 })
-              if (searchSection.current?.contains(document.activeElement)) setShowResults(true)
-            }} /></label>
-          <Button type="submit" disabled={loading}>Pesquisar vendedor</Button>
-        </div>
-        <label className="flex w-fit max-w-full items-center gap-2 text-sm text-muted-foreground">Situação<select aria-label="Filtrar por situação" name="status" className={`${selectClass} w-auto`}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
-      </form>
-      {!showResults && result?.canEdit && <Link className={`${linkClass} mt-2 inline-flex min-h-11 items-center`} href="/cadastros/vendedores/novo">Cadastrar vendedor</Link>}
-      {!showResults && result && !result.canEdit && <p className="mt-3 text-sm text-muted-foreground">Somente consulta.</p>}
-      {showResults && <div id={resultsId} role="region" aria-label="Resultados de vendedores" className="absolute inset-x-0 top-full z-40 mt-2 max-h-[min(24rem,50dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl">
-        {loading ? <p role="status">Consultando vendedores…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
-          <ul className="space-y-2">{result.data.map(staff => <li className="min-w-0" key={staff.id}>
-            <Link aria-label={`Consultar ${staff.name}`} href={`/cadastros/vendedores/${staff.id}`} className={buttonVariants({ variant: "outline", className: "h-auto min-h-11 w-full max-w-full justify-start gap-3 break-words whitespace-normal px-3 py-2 text-left" })}>
-              <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">{staff.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("")}</span>
-              <span className="min-w-0"><span className="block font-medium">{staff.name}</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">{staff.code} · {staff.status === "active" ? "Ativo" : "Desligado"}</span></span>
-            </Link>
-          </li>)}</ul>
-          {!result.data.length && <p>Nenhum vendedor encontrado.</p>}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-            <Button variant="outline" aria-label="Anterior vendedor" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: Math.max(0, query.offset - pageSize) }) }}>Anterior</Button>
-            <span className="order-last w-full text-center text-xs text-muted-foreground sm:order-none sm:w-auto" aria-live="polite">{result.total} {result.total === 1 ? "vendedor" : "vendedores"} · página {query.offset / pageSize + 1}</span>
-            <Button variant="outline" aria-label="Próximo vendedor" disabled={query.offset + pageSize >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + pageSize }) }}>Próximo</Button>
-          </div>
-          {result.canEdit && <Link className={`${linkClass} inline-flex min-h-11 items-center`} href="/cadastros/vendedores/novo">Cadastrar vendedor</Link>}
-          {!result.canEdit && <p className="text-sm text-muted-foreground">Somente consulta.</p>}
-        </>}
-      </div>}
-    </section>
-  </>
+  }, [query, retry])
 
   return <>
-    <PageHeader eyebrow="Cadastros" title={kind === "funcionarios" ? "Funcionários" : "Vendedores"} description="Cadastros da empresa ativa. Uma pessoa pode exercer as duas funções no mesmo registro." />
-    {kind === "funcionarios" && <div className="mb-5 flex flex-wrap gap-4"><Link className={linkClass} href="/cadastros/funcionarios/pagamentos">Pagamentos e aprovações da equipe</Link><Link className={linkClass} href="/preferencias/usuarios">Usuários e permissões de acesso</Link></div>}
+
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Equipe cadastrada</h2>{result?.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/novo`}>Novo cadastro</Link>}</div>
-      <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={event => {
+      <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_auto]" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
-        setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
+        setQuery({ q: String(form.get("q") || ""), role: "", status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome ou código<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Código ou nome" /></label>
-        <label className="min-w-0 space-y-2">Função<select name="role" defaultValue={kind === "funcionarios" ? "employee" : "seller"} className={selectClass}><option value="">Todos</option><option value="employee">Funcionários</option><option value="seller">Vendedores</option></select></label>
+        <label className="min-w-0 space-y-2">Buscar nome, código ou cargo<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: "", status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Nome, código ou cargo" /></label>
         <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
         <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
       </form>
       {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.data.map(staff => <li key={staff.id} className="min-w-0 rounded-xl border p-4">
-          <Link className={`${linkClass} break-words`} href={`/cadastros/${kind}/${staff.id}`}>Consultar {staff.name}</Link>
-          <p className="mt-2 break-all text-sm">Código: {staff.code}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{relationship(staff)} · {staff.status === "active" ? "Ativo" : "Desligado"}</p>
-        </li>)}</ul> : <p>Nenhum cadastro encontrado.</p>}
+        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de funcionários" tabIndex={0}><DataTable aria-label="Funcionários" className="min-w-[600px]">
+          <thead><tr><th scope="col">Código</th><th scope="col">Nome</th><th scope="col">Cargo</th><th scope="col">Contato</th><th scope="col">Situação</th></tr></thead>
+          <tbody>{result.data.map(staff => <tr key={staff.id}>
+            <td className="whitespace-nowrap text-muted-foreground">{staff.code}</td>
+            <th scope="row" className="font-medium"><Link className={linkClass} href={`/cadastros/funcionarios/${staff.id}`}>{staff.name}</Link></th>
+            <td>{staff.jobTitle || (staff.isSeller ? "Vendedor" : "Não informado")}</td>
+            <td>{staff.email || staff.phone || "Não informado"}</td>
+            <td>{staff.status === "active" ? "Ativo" : "Desligado"}</td>
+          </tr>)}</tbody>
+        </DataTable></div> : <p>Nenhum cadastro encontrado.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
       </>}
     </section>
@@ -143,8 +90,8 @@ export function StaffList({ kind }: { kind: StaffKind }) {
 export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: string; view?: boolean }) {
   const router = useRouter()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
-  const [draft, setDraft] = useState<StaffInput>(blank(kind))
-  const [baseline, setBaseline] = useState(JSON.stringify(blank(kind)))
+  const [draft, setDraft] = useState<StaffInput>(blank())
+  const [baseline, setBaseline] = useState(JSON.stringify(blank()))
   const [etag, setEtag] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -164,7 +111,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
-      const input = id ? values(value.data) : blank(kind)
+      const input = id ? values(value.data) : blank()
       setSnapshot({ tenantId: value.tenantId, canEdit: value.canEdit, data: id ? value.data : undefined })
       setDraft(input); setBaseline(JSON.stringify(input)); setEtag(response.headers.get("etag") || "")
       setError(""); setConflict(false); setUncertain(false); command.current = null
@@ -184,12 +131,13 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
     if (!snapshot?.canEdit || pending.current || conflict || view) return
     if (id && draft.status === "archived" && snapshot.data?.status !== "archived" && !window.confirm("Desligar este funcionário? A recorrência será encerrada e as contas em aberto serão canceladas. Pagamentos já registrados serão preservados.")) return
     pending.current = true; setSaving(true); setSaved(false); setError("")
-    if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body: JSON.stringify(draft) }
+    const payload = { ...draft, ...staffAssignment(draft.jobTitle, snapshot.data) }
+    if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body: JSON.stringify(payload) }
     try {
       const response = await erpFetch(id ? `/api/erp/staff/${id}` : "/api/erp/staff", {
         method: id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "X-Tenant-Id": snapshot.tenantId, ...(id ? { "If-Match": etag } : { "Idempotency-Key": command.current!.key }) },
-        body: id ? JSON.stringify(draft) : command.current!.body,
+        body: id ? JSON.stringify(payload) : command.current!.body,
       })
       const value = await response.json()
       if (!response.ok) {
@@ -215,24 +163,28 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
   function change<K extends keyof StaffInput>(field: K, value: StaffInput[K]) { setDraft({ ...draft, [field]: value }); setSaved(false) }
 
   return <>
-    <PageHeader eyebrow="Cadastros · Funcionários e vendedores" title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e funções da equipe. A conta de acesso é gerenciada em Usuários e permissões." />
+    <PageHeader breadcrumbs={[
+      { label: "Cadastros", href: "/cadastros" },
+      { label: "Funcionários", href: "/cadastros/funcionarios" },
+      ...(id ? [{ label: snapshot?.data?.name || "Funcionário", href: `/cadastros/funcionarios/${id}` }] : []),
+      ...(!view ? [{ label: id ? "Editar funcionário" : "Novo funcionário" }] : []),
+    ]} title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e cargo da equipe. A conta de acesso é gerenciada em Usuários e permissões." />
     <Link className={linkClass} href={`/cadastros/${kind}`} onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
     <section className="form-section mt-5 min-w-0 space-y-5">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
-        {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar funcionários e vendedores.</p>}
+        {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar funcionários.</p>}
         {saved && <p role="status">Cadastro salvo no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view && snapshot.data ? <>
           {draft.profile?.photo && <Image src={draft.profile.photo} alt={`Foto de ${draft.name}`} width={96} height={96} unoptimized className="size-24 rounded-full object-cover" />}
-          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Funções", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Desligado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
+          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Situação", draft.status === "active" ? "Ativo" : "Desligado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
           <dl className="grid gap-4 sm:grid-cols-2">{([ ["cpf", "CPF"], ["rg", "RG"], ["birthDate", "Nascimento"], ["admissionDate", "Admissão"], ["documentIssuedOn", "Emissão do documento"], ["pis", "PIS/PASEP"], ["ctps", "CTPS"], ["address", "Endereço"], ["emergencyPhone", "Contato de emergência"] ] as const).map(([key,label]) => <div key={key} className="min-w-0"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="break-words font-medium">{draft.profile?.[key] || "Não informado"}</dd></div>)}</dl>
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/${id}/editar`}>Editar cadastro</Link>}
         </> : <form className="space-y-5" onSubmit={save}>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
             <label className="min-w-0 space-y-2">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Desligado</option></select></label>
             {([ ["name", "Nome", 200], ["jobTitle", "Cargo", 120], ["code", "Código", 40], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "name" || field === "code"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "name" || field === "code" ? "" : null))} /></label>)}
-            <div className="min-w-0 space-y-3"><p className="font-medium">Funções na empresa</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isEmployee} onChange={event => change("isEmployee", event.target.checked)} />Funcionário</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSeller} onChange={event => change("isSeller", event.target.checked)} />Vendedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos uma função.</p></div>
           </fieldset>
           <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 border-t pt-5 sm:grid-cols-2">
             <legend className="px-1 font-semibold">Dados pessoais e documentos</legend>
@@ -244,6 +196,6 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
         </form>}
       </>}
     </section>
-    {view && id && snapshot?.data?.isEmployee && <StaffPayroll id={id} />}
+    {view && id && snapshot?.data?.isEmployee && <Link className={`${linkClass} mt-5 inline-flex min-h-11 items-center`} href={`/financeiro/contas-pagar?aba=funcionarios&funcionario=${id}`}>Pagamentos em Contas a pagar</Link>}
   </>
 }

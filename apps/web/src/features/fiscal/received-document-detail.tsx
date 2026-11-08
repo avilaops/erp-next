@@ -68,7 +68,7 @@ export function ReceivedDocumentDetail({ id }: { id: string }) {
           <div><dt className="text-muted-foreground">Valor total</dt><dd>{money.format(note.totalCents / 100)} · {note.itemCount} item(ns)</dd></div>
           <div className="sm:col-span-2"><dt className="text-muted-foreground">Chave de acesso</dt><dd className="break-all">{note.accessKey}</dd></div>
         </dl>
-        <p className="text-sm font-medium">{note.environment === 2 ? "Homologação — sem valor fiscal" : "Ambiente de produção declarado no XML"}</p>
+        <p className="text-sm font-medium">{note.environment === 2 ? "Homologação, sem valor fiscal" : "Ambiente de produção declarado no XML"}</p>
         <p className="text-sm text-muted-foreground">O protocolo pertence ao XML importado. A situação atual da nota, incluindo cancelamento, depende de consulta à SEFAZ. Esta ação não emite uma nova nota.</p>
       </section>
       <section className="form-section space-y-4" aria-labelledby="view-title">

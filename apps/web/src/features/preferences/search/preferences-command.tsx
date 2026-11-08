@@ -18,5 +18,5 @@ export function PreferencesCommand() {
     document.addEventListener("keydown", handleKeyDown); window.addEventListener("erp-open-search", handleExternalOpen)
     return () => { document.removeEventListener("keydown", handleKeyDown); window.removeEventListener("erp-open-search", handleExternalOpen) }
   }, [open])
-  return <><button className="erp-search-trigger" aria-label="Buscar no ERP" type="button" onClick={openCommand}><Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">Buscar no ERP</span><kbd className="shrink-0 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">Ctrl K</kbd></button>{loaded && <PreferencesCommandPanel open={open} onOpenChange={handleOpenChange} />}</>
+  return <><button className="erp-search-trigger" aria-label="Buscar no ERP" type="button" onClick={openCommand}><Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">Buscar no ERP</span><kbd className="shrink-0 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">Ctrl K</kbd></button>{loaded && <PreferencesCommandPanel open={open} onOpenChange={handleOpenChange} />}</>
 }

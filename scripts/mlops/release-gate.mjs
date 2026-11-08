@@ -19,7 +19,7 @@ export function validateReleaseInputs(input) {
   if (typeof input.repository !== "string" || input.repository.toLowerCase() !== "avilaops/erp-next") {
     throw new Error("REPOSITORY_MISMATCH");
   }
-  for (const name of ["fiscal-engine", "api", "web"]) {
+  for (const name of ["fiscal-engine", "fiscal-mcp", "api", "web"]) {
     if (input.jobs?.[name]?.result !== "success") throw new Error("REQUIRED_JOB_NOT_SUCCESS:" + name);
   }
 }
@@ -68,7 +68,7 @@ export async function evaluateRelease(input, artifactDirectory) {
       repository: input.repository, sourceSha: input.sourceSha,
       workflowRunId: String(input.runId), attempt: Number(input.runAttempt),
     },
-    jobs: Object.fromEntries(["fiscal-engine", "api", "web"].map(n => [n, "success"])),
+    jobs: Object.fromEntries(["fiscal-engine", "fiscal-mcp", "api", "web"].map(n => [n, "success"])),
     evidence: { openapi: inspectOpenApi(contract), validation: inspectValidation(manifest, pdf, png) },
     metrics: { aiQuality: null, tokenCostUsd: null, llmLatencyMs: null, regressionsMeasured: null },
     technicalVerdict: "passed",

@@ -71,10 +71,12 @@ export function assessContracts(catalogue, inventory) {
       }
       coveredBff.add(key(proxy));
       let expected = proxy.path.replace('/api/erp/', '/api/v1/').replace('[id]', '{id}');
-      if (proxy.path.includes('[action]')) {
+      const dispatchParameter = proxy.path.includes('[format]') ? 'format' : 'action';
+      if (proxy.path.includes(`[${dispatchParameter}]`)) {
         const dispatch = catalogue.dispatches.find(item => item?.path === proxy.path && item.method === proxy.method);
-        if (!text(proxy.action) || !Array.isArray(dispatch?.actions) || !dispatch.actions.includes(proxy.action)) fail('undefined_dispatch_action', target, 'Ação dinâmica não especificada no catálogo.');
-        expected = expected.replace('[action]', proxy.action || '');
+        const values = dispatchParameter === 'format' ? dispatch?.formats : dispatch?.actions;
+        if (!text(proxy[dispatchParameter]) || !Array.isArray(values) || !values.includes(proxy[dispatchParameter])) fail('undefined_dispatch_action', target, 'Destino dinâmico não especificado no catálogo.');
+        expected = expected.replace(`[${dispatchParameter}]`, proxy[dispatchParameter] || '');
       }
       if (proxy.path.includes('[...resource]')) {
         const dispatch = catalogue.dispatches.find(item => item?.path === proxy.path && item.method === proxy.method);
@@ -88,16 +90,17 @@ export function assessContracts(catalogue, inventory) {
   for (const dispatch of catalogue.dispatches) {
     const target = `${dispatch?.method} ${dispatch?.path}`;
     const catchAll = dispatch?.path?.includes('[...resource]');
-    const values = catchAll ? dispatch.resources : dispatch?.actions;
+    const format = dispatch?.path?.includes('[format]');
+    const values = catchAll ? dispatch.resources : format ? dispatch.formats : dispatch?.actions;
     if (dispatchKeys.has(target) || !methods.has(dispatch?.method) || !text(dispatch?.path)
         || !bff.has(key(dispatch)) || !texts(values) || !values.length || new Set(values).size !== values.length
-        || (!catchAll && !dispatch.path.includes('[action]'))) {
+        || (!catchAll && !format && !dispatch.path.includes('[action]'))) {
       fail('invalid_dispatch_contract', target, 'Despacho exige handler existente, método e destinos explícitos únicos.');
       continue;
     }
     dispatchKeys.add(target);
     for (const value of values) {
-      const property = catchAll ? 'resource' : 'action';
+      const property = catchAll ? 'resource' : format ? 'format' : 'action';
         if (!actions.some(action => action.ui?.bff?.path === dispatch.path
           && action.ui.bff.method === dispatch.method && action.ui.bff[property] === value)) {
         fail('dispatch_without_action_contract', target, `Destino dinâmico sem ficha canônica: ${value}`);

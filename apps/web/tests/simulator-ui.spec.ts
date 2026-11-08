@@ -1,5 +1,25 @@
 import { expect, test } from "@playwright/test"
 import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
+import { fieldGroups, states, type Parameters } from "../src/features/commercial-settings/commercial-parameters"
+
+test("parâmetros comerciais organiza seções e alíquotas em tabela sem perder a edição", async ({ page }) => {
+  const data = { ...Object.fromEntries(fieldGroups.flatMap(group => group.fields.map(([key, , unit]) => [key, unit === "days" ? 7 : key === "monthlyExpensesCents" ? 0 : 100]))), originState: "SP", stateRates: states.map(state => ({ state, internalBps: 1800, fcpBps: 0, outgoingBps: null })) } as Parameters
+  await page.route("**/api/erp/commercial-settings/imported", route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, line: "imported", canEdit: true, revision: 1, status: "draft", data, calculation: null, monthlyExpensesCents: 0 } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/preferencias/comercial")
+  await page.getByLabel("Lucro líquido desejado (%)", { exact: true }).fill("16,5")
+  await page.getByRole("button", { name: "ICMS por UF", exact: true }).click()
+  await expect(page.getByRole("table", { name: "Alíquotas por UF de destino", exact: true })).toBeVisible()
+  await expect(page.getByRole("table").getByRole("row")).toHaveCount(28)
+  await page.getByLabel("SP Saída", { exact: true }).fill("0")
+  await page.getByRole("button", { name: "Política comercial", exact: true }).click()
+  await expect(page.getByLabel("Lucro líquido desejado (%)", { exact: true })).toHaveValue("16,5")
+  await page.getByRole("button", { name: "ICMS por UF", exact: true }).click()
+  await expect(page.getByLabel("SP Saída", { exact: true })).toHaveValue("0")
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  const path = page.getByRole("navigation", { name: "Caminho de navegação" })
+  await expect(path.getByRole("link", { name: "Preferências", exact: true })).toHaveAttribute("href", "/preferencias")
+})
 
 const product = "33333333-3333-4333-8333-333333333333"
 const version = "55555555-5555-4555-8555-555555555555"
@@ -36,7 +56,7 @@ for (const viewport of [
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toContainText("R$ 226,00")
   expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
-  await expect(page.getByText("Custos e lucro — gestão autorizada")).toHaveCount(0)
+  await expect(page.getByText("Custos e lucro: gestão autorizada")).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.evaluate(() => { window.scrollTo(0, 0) })
@@ -62,7 +82,7 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   await page.getByRole("combobox", { name: "Preencher negociação por", exact: true }).selectOption("total")
   await page.getByLabel("Total que o cliente quer pagar", { exact: true }).fill("226,00")
   await page.getByRole("button", { name: "Simular", exact: true }).click()
-  await page.getByText("Custos e lucro — gestão autorizada", { exact: true }).click()
+  await page.getByText("Custos e lucro: gestão autorizada", { exact: true }).click()
   await expect(page.getByText("Pagamento ao fornecedor / China", { exact: true })).toBeVisible()
   await expect(page.getByText("Desconto máximo sem prejuízo", { exact: true })).toBeVisible()
   await page.getByLabel("Buscar cliente", { exact: true }).fill("Cliente")
@@ -110,8 +130,13 @@ test("aprovação usa revisão do pedido e mantém custo restrito na consulta", 
   })
   await page.goto(`/vendas/pedidos/${orderId}`)
   await expect(page.getByRole("link", { name: "Editar rascunho", exact: true })).toHaveCount(0)
+  await page.getByText("Negociação e condições comerciais", { exact: true }).click()
   await page.getByLabel("Motivo da aprovação", { exact: true }).fill("Negociação revisada")
   await page.getByRole("button", { name: "Aprovar exceção comercial", exact: true }).click()
-  await expect(page.getByText("Exceção comercial aprovada pela gestão.", { exact: true })).toBeVisible()
+  const approvedNotice = page.getByText("Exceção comercial aprovada pela gestão.", { exact: true })
+  await expect(approvedNotice).toBeAttached()
+  // Reloading the order restores its compact sections after the decision.
+  if (!await approvedNotice.isVisible()) await page.getByText("Negociação e condições comerciais", { exact: true }).click()
+  await expect(approvedNotice).toBeVisible()
   await expect(page.getByRole("button", { name: "Aprovar exceção comercial", exact: true })).toHaveCount(0)
 })

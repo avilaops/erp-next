@@ -45,7 +45,7 @@ export function DanfeDownload({ tenantId }: { tenantId: string }) {
       const filename = response.headers.get("content-disposition")?.match(/filename="(DANFE-[0-9]{44}\.pdf)"/)?.[1]
       if (!filename) throw new Error("Nome do documento inválido")
       if (controller.signal.aborted) return
-      setDownload({ url: URL.createObjectURL(new Blob([pdf], { type: "application/pdf" })), filename, xmlHash, pdfHash, environment: response.headers.get("x-nfe-environment") === "2" ? "Homologação — sem valor fiscal" : "Produção — conforme protocolo do XML" })
+      setDownload({ url: URL.createObjectURL(new Blob([pdf], { type: "application/pdf" })), filename, xmlHash, pdfHash, environment: response.headers.get("x-nfe-environment") === "2" ? "Homologação, sem valor fiscal" : "Produção: conforme protocolo do XML" })
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Não foi possível gerar o DANFE") }
     finally { setBusy(false) }
   }

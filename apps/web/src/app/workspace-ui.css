@@ -1,16 +1,44 @@
 /* Shared workspace geometry. Public pages retain their own art direction. */
+/* Scope typography to authenticated pages, including menus rendered in portals. */
+body:has(.erp-workspace) {
+  --workspace-font-title: 18px;
+  --workspace-font-body: 14px;
+  --workspace-font-auxiliary: 12px;
+  --text-xs: var(--workspace-font-auxiliary);
+  --text-xs--line-height: 18px;
+  --text-sm: var(--workspace-font-body);
+  --text-sm--line-height: 22px;
+  --text-base: var(--workspace-font-body);
+  --text-base--line-height: 22px;
+  --text-lg: var(--workspace-font-title);
+  --text-lg--line-height: 26px;
+  --text-xl: var(--workspace-font-title);
+  --text-xl--line-height: 26px;
+  --text-2xl: var(--workspace-font-title);
+  --text-2xl--line-height: 26px;
+  --text-3xl: var(--workspace-font-title);
+  --text-3xl--line-height: 26px;
+  --text-4xl: var(--workspace-font-title);
+  --text-4xl--line-height: 26px;
+  --font-weight-bold: 600;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: var(--workspace-font-body);
+  line-height: 22px;
+}
 .workspace-page-title { font-size: clamp(24px, 2.4vw, 32px); font-weight: 600; line-height: 1.25; letter-spacing: -.035em; }
 .workspace-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-block: 16px; }
 .workspace-resource-state { margin-block: 24px; padding: 24px; }
 .erp-content {
   --workspace-control-height: 44px;
   --workspace-control-radius: 8px;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: var(--workspace-font-body);
+  line-height: 22px;
 }
 
-.erp-content :where(h1) { font-size: clamp(24px, 2.4vw, 32px); line-height: 1.25; letter-spacing: -.035em; }
-.erp-content :where(h2) { line-height: 1.35; letter-spacing: -.02em; }
+.erp-content :is(h1, h2), .erp-content .workspace-page-title { font-size: var(--workspace-font-title); font-weight: 600; line-height: 26px; letter-spacing: -.01em; }
+.erp-content h3 { font-size: var(--workspace-font-body); font-weight: 600; line-height: 22px; letter-spacing: normal; }
+.erp-content :is(strong, b) { font-weight: 600; }
+.erp-content :is(small, [role=status]) { font-size: var(--workspace-font-auxiliary); line-height: 18px; }
 .erp-content :where(.form-section) { box-shadow: none; }
 .erp-content :where(.form-grid) { gap: 20px; }
 .erp-content :where(.field) { gap: 8px; font-weight: 500; }
@@ -30,6 +58,7 @@
 .erp-content :where(table) { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 .erp-content :where(thead) { background: var(--muted); color: var(--muted-foreground); }
 .erp-content :where(th) { padding: 12px 16px; font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.erp-content tbody th[scope=row] { font-size: var(--workspace-font-body); font-weight: 500; }
 .erp-content :where(td) { padding: 14px 16px; }
 .erp-content :where(tbody tr) { border-bottom: 1px solid var(--border); }
 .erp-content :where(tbody tr:last-child) { border-bottom: 0; }
@@ -62,15 +91,14 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
 .erp-content .erp-page-header { padding-bottom: 24px; margin-bottom: 28px; }
-.erp-content .erp-page-header h1 { font-size: clamp(24px, 2.4vw, 32px); }
-.erp-content .erp-page-header > p:last-child { font-size: 14px; line-height: 1.7; margin-top: 12px; }
+.erp-content .erp-page-header h1 { font-size: var(--workspace-font-title); }
+.erp-content .erp-page-header > p:last-child { font-size: var(--workspace-font-body); line-height: 22px; margin-top: 12px; }
 .erp-content .erp-page-back { margin-bottom: 12px; }
 .erp-content .form-actions { top: auto; }
 .erp-content .erp-content-note { padding: 20px 24px; margin-block: 24px; border: 1px solid var(--border); border-radius: 12px; color: var(--muted-foreground); }
-.erp-content .erp-content-note h2 { margin: 0 0 8px; color: var(--foreground); font-size: 16px; }
-.erp-content .erp-content-note p { margin: 0; font-size: 14px; line-height: 1.7; }
+.erp-content .erp-content-note h2 { margin: 0 0 8px; color: var(--foreground); font-size: var(--workspace-font-title); }
+.erp-content .erp-content-note p { margin: 0; font-size: var(--workspace-font-body); line-height: 22px; }
 @media (max-width: 639px) {
-  .erp-content :where(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=hidden]), select, textarea) { font-size: 16px; }
   .erp-content :where(th, td) { padding: 12px; }
   .erp-content .form-actions { bottom: max(12px, env(safe-area-inset-bottom)); }
 }
@@ -78,3 +106,7 @@
   .preferences-categories { display: flex; max-width: 100%; overflow-x: auto; }
   .preferences-categories > button { width: auto; flex-shrink: 0; border-bottom: 0; border-right: 1px solid var(--border); }
 }
+
+/* Records stay in rows on every viewport; overflow belongs to the list. */
+.workspace-list-scroll { position: relative; max-width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.workspace-list-scroll:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

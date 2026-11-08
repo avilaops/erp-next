@@ -1,28 +1,52 @@
+.proposal-document { width: 100%; max-width: 900px; min-width: 0; margin: 24px auto; padding: clamp(20px, 4vw, 40px); border: 1px solid var(--border); border-radius: 12px; background: white; color: #20252d; font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; box-shadow: 0 8px 30px rgb(0 0 0 / 4%); }
+.proposal-document h2, .proposal-document h3, .proposal-issuer-name { font-size: 18px; font-weight: 600; line-height: 1.35; }
+.proposal-document h3 { margin-bottom: 8px; }
+.proposal-document-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; padding-bottom: 24px; border-bottom: 2px solid #20252d; }
+.proposal-issuer { flex: 1 1 220px; }
+.proposal-issuer > p + p { margin-top: 4px; }
+.proposal-issuer > p:not(:first-child), .proposal-document-title > p:last-child, .proposal-aux, .proposal-history { color: #56616e; font-size: 12px; }
+.proposal-document-title { flex: 0 1 auto; }
+.proposal-number { margin: 8px 0 4px; font-weight: 500; }
+.proposal-parties { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; margin: 24px 0; }
+.proposal-parties > section { flex: 1 1 220px; }
+.proposal-customer-name, .proposal-item-name { font-weight: 500; }
+.proposal-dates { display: grid; gap: 8px; align-content: start; }
+.proposal-dates > div { display: flex; justify-content: space-between; gap: 24px; }
+.proposal-dates dt { color: #56616e; }
+.proposal-dates dd { font-variant-numeric: tabular-nums; }
+.proposal-items { min-width: 0; }
+.proposal-document .proposal-items-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+.proposal-product-column { width: 46%; }
+.proposal-document .proposal-items-table th { padding: 12px 8px; background: #f3f5f7; color: #20252d; font-size: 12px; font-weight: 600; border-block: 1px solid #d8dde3; }
+.proposal-document .proposal-items-table td { padding: 14px 8px; vertical-align: top; border-bottom: 1px solid #e1e5e9; }
+.proposal-document .proposal-items-table :is(th, td):first-child { padding-left: 0; }
+.proposal-document .proposal-items-table :is(th, td):last-child { padding-right: 0; }
+.proposal-document .proposal-items-table :is(th, td):not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.proposal-item-name + p, .proposal-aux + p { margin-top: 4px; }
+.proposal-total { display: flex; justify-content: flex-end; padding: 20px 0 24px; border-bottom: 1px solid #d8dde3; }
+.proposal-total p { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.proposal-conditions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
+.proposal-conditions p { white-space: pre-wrap; }
+.proposal-notes { grid-column: 1 / -1; }
+.proposal-history { border-top: 1px solid #d8dde3; padding-top: 16px; margin-top: 24px; }
+@media (max-width: 540px) {
+  .proposal-product-column { width: 37%; }
+  .proposal-document .proposal-items-table :is(th, td) { padding-inline: 4px; }
+  .proposal-conditions { grid-template-columns: 1fr; }
+}
 @media print {
-  body:has([data-proposal-document]) {
-    background: white;
-    color: black;
-  }
-
-  body:has([data-proposal-document]) header.sticky,
-  body:has([data-proposal-document]) .mobile-nav-bar,
-  body:has([data-proposal-document]) .skip-link {
-    display: none !important;
-  }
-
-  [data-proposal-document] {
-    border: 0;
-    box-shadow: none;
-    padding: 0;
-    color: black;
-    background: white;
-  }
-
-  [data-proposal-document] tr {
-    break-inside: avoid;
-  }
-
-  [data-proposal-document] thead {
-    display: table-header-group;
-  }
+  @page { size: A4; margin: 16mm 14mm; }
+  body:has([data-proposal-document]) { background: white; color: black; }
+  body:has([data-proposal-document]) :is(.erp-header, .erp-sidebar, header.sticky, .mobile-nav-bar, .skip-link, [data-skip-link], [role="dialog"], [data-radix-popper-content-wrapper]) { display: none !important; }
+  body:has([data-proposal-document]) .erp-workspace-body { margin: 0 !important; min-height: 0; }
+  body:has([data-proposal-document]) .erp-content { width: 100%; max-width: none; margin: 0; padding: 0 !important; }
+  body:has([data-proposal-document]) :is(.overflow-x-auto, .overflow-y-auto, .overflow-auto) { overflow: visible !important; max-height: none !important; }
+  .proposal-document { width: 100%; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: white; }
+  .proposal-document-header, .proposal-parties, .proposal-total, .proposal-document tr { break-inside: avoid; }
+  .proposal-document h3 { break-after: avoid; }
+  .proposal-document p { orphans: 3; widows: 3; }
+  .proposal-document thead { display: table-header-group; }
+  .proposal-document .proposal-items-table th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .proposal-conditions { display: block; }
+  .proposal-conditions > section { margin-top: 20px; }
 }

@@ -1,6 +1,7 @@
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3t64 curl && rm -rf /var/lib/apt/lists/* && useradd --system --uid 10001 erp
 COPY target/release/erp-next-api /usr/local/bin/erp-next-api
+COPY deploy/fiscal/icp-brasil-roots.pem /etc/ssl/certs/erp-icp-brasil-roots.pem
 USER 10001
 ENV API_BIND_ADDRESS=0.0.0.0:8080
 EXPOSE 8080

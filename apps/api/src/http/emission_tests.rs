@@ -525,6 +525,28 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
     )
     .await;
     assert_eq!(issued.0, StatusCode::OK, "{}", issued.2);
+    let listed = call(
+        &router,
+        "GET",
+        "/api/v1/fiscal/issued-nfes",
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(listed.0, StatusCode::OK, "{}", listed.2);
+    assert_eq!(
+        listed.2["data"][0]["recipientName"],
+        draft()["recipient"]["legalName"]
+    );
+    assert_eq!(
+        listed.2["data"][0]["recipientTaxId"],
+        draft()["recipient"]["taxId"]
+    );
+    assert_eq!(listed.2["data"][0]["amount"], draft()["productsTotal"]);
+    assert!(listed.2["data"][0]["issuedAt"].as_str().is_some());
+
     assert_eq!(issued.2["status"], "authorized");
     assert_eq!(issued.2["number"], 1);
     let repeated = call(

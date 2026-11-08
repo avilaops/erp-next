@@ -1,3 +1,6 @@
+#[path = "proposal_email.rs"]
+pub mod email;
+
 use super::proposal_rules as rules;
 use crate::domains::{
     DomainChange, DomainError, authorized, catalog, command_key, db, decimal, fixed, record,
@@ -389,25 +392,47 @@ pub async fn convert(
     Path(id): Path<Uuid>,
     payload: Result<Json<ProposalConversion>, JsonRejection>,
 ) -> Result<Response, DomainError> {
+    convert_command(state, identity, headers, id, payload, false).await
+}
+
+#[utoipa::path(post,path="/api/v1/proposals/{id}/approve-order",tag="Sales",request_body=ProposalConversion,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=ProposalSnapshot),(status=403,description="Exige aprovação e gestão de propostas e pedidos"),(status=409,description="Aprovação não permitida"),(status=412,description="Versão divergente")))]
+pub async fn approve_order(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    payload: Result<Json<ProposalConversion>, JsonRejection>,
+) -> Result<Response, DomainError> {
+    convert_command(state, identity, headers, id, payload, true).await
+}
+
+async fn convert_command(
+    state: AppState,
+    identity: AuthenticatedIdentity,
+    headers: HeaderMap,
+    id: Uuid,
+    payload: Result<Json<ProposalConversion>, JsonRejection>,
+    approve: bool,
+) -> Result<Response, DomainError> {
     let key = command_key(&headers)?;
     let expected = revision(&headers)?;
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
     let rights = crate::platform::access::load_access(&mut tx, tenant, &identity.subject).await?;
+    if approve {
+        crate::platform::access::require_permission(&rights, "sales.proposals.decide")?;
+    }
     crate::platform::access::require_permission(&rights, "sales.orders.read")?;
     crate::platform::access::require_permission(&rights, "sales.orders.manage")?;
     let Json(input) =
         payload.map_err(|_| DomainError::Invalid("JSON inválido ou campos desconhecidos"))?;
     let due = super::date(&input.due_date)?;
+    let event = if approve {
+        "proposal.approved_order"
+    } else {
+        "proposal.converted"
+    };
     let request = serde_json::json!({"id":id,"revision":expected,"dueDate":input.due_date});
-    if let Some(previous) = replay(
-        &mut tx,
-        tenant,
-        &identity.subject,
-        key,
-        "proposal.converted",
-        &request,
-    )
-    .await?
+    if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, event, &request).await?
     {
         tx.commit().await.map_err(db)?;
         return Ok(response(
@@ -427,7 +452,11 @@ pub async fn convert(
             .map_err(db)?;
     rules::transition(
         &current.data.status,
-        rules::Action::Convert,
+        if approve {
+            rules::Action::ApproveConvert
+        } else {
+            rules::Action::Convert
+        },
         super::date(&current.data.valid_until)?,
         today,
         current.data.order_id.is_some(),
@@ -443,6 +472,11 @@ pub async fn convert(
             "Cliente ou produtos mudaram; revise os cadastros antes de converter",
         ));
     }
+    if approve && current.data.status != "accepted" {
+        sqlx::query("UPDATE sales_proposal_versions SET status='accepted',sent_at=COALESCE(sent_at,now()),decided_at=now(),decided_by=$4,decision_reason='Aprovação e criação de pedido' WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
+            .bind(tenant).bind(id).bind(current.data.version).bind(&identity.subject).execute(&mut *tx).await.map_err(db)?;
+        record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "sales_proposal", id, event: "proposal.accepted", details: serde_json::json!({"version":current.data.version,"revision":expected+1,"from":current.data.status,"to":"accepted","approvalAndOrder":true}) }).await?;
+    }
     let order = Uuid::now_v7();
     sqlx::query("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) SELECT $4,tenant_id,customer_id,customer_name,customer_tax_id,$5,amount_cents,'draft' FROM sales_proposal_versions WHERE tenant_id=$1 AND proposal_id=$2 AND version=$3")
         .bind(tenant).bind(id).bind(current.data.version).bind(order).bind(due).execute(&mut *tx).await.map_err(db)?;
@@ -451,7 +485,7 @@ pub async fn convert(
     sqlx::query("UPDATE sales_proposals SET order_id=$3,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).bind(order).execute(&mut *tx).await.map_err(db)?;
     record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "sales_order", id: order, event: "order.created", details: serde_json::json!({"proposalId":id,"proposalVersion":current.data.version,"revision":1}) }).await?;
-    record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "sales_proposal", id, event: "proposal.converted", details: serde_json::json!({"version":current.data.version,"revision":expected+1,"orderId":order}) }).await?;
+    record(&mut tx, tenant, &identity, &headers, DomainChange { kind: "sales_proposal", id, event, details: serde_json::json!({"version":current.data.version,"revision":expected+1,"orderId":order}) }).await?;
     let value = serde_json::to_value(load(&mut tx, tenant, id, true).await?)
         .map_err(|_| AccessError::Internal)?;
     remember(
@@ -459,7 +493,7 @@ pub async fn convert(
         tenant,
         &identity.subject,
         key,
-        "proposal.converted",
+        event,
         &request,
         &value,
     )

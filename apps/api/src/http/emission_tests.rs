@@ -469,6 +469,8 @@ async fn services_with_ibpt(
         )
         .with_certificates(Some(vault))
         .with_ibpt(ibpt)
+        .with_nfe_production_enabled(mode == "both")
+        .with_nfe_production_tenant_id(Some(Uuid::parse_str(TENANT).unwrap()))
         .with_fiscal_engine(Some(
             FiscalEngine::new(&format!("http://{engine_address}"), "synthetic-token").unwrap(),
         )),
@@ -619,6 +621,71 @@ async fn emission_persists_before_transport_replays_and_records_events_without_d
             .unwrap(),
         1
     );
+    for task in tasks {
+        task.abort();
+    }
+    cleanup(&admin, application, auth, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn production_emission_is_blocked_before_number_allocation(admin: PgPool) {
+    let (_, application, auth, role) = setup(&admin).await;
+    let (router, tasks, _calls) = services(&admin, application.clone(), "authorized").await;
+    let current = call(
+        &router,
+        "GET",
+        "/api/v1/fiscal/config",
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    let configured = call(
+        &router,
+        "PUT",
+        "/api/v1/fiscal/config",
+        "editor",
+        Some(current.1["etag"].to_str().unwrap()),
+        None,
+        json!({"environment":"production","state":"SP","municipalityCode":"3550308","stateRegistration":"110042490114","crt":1,"series":1,"nextNumber":1}),
+    )
+    .await;
+    assert_eq!(configured.0, StatusCode::OK, "{}", configured.2);
+
+    let mut production = draft();
+    production["environment"] = json!("production");
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/fiscal/nfe",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        production,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let result = call(
+        &router,
+        "POST",
+        &format!("/api/v1/fiscal/nfe/{id}/issue"),
+        "editor",
+        Some("\"1\""),
+        Some(Uuid::now_v7()),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(result.0, StatusCode::CONFLICT, "{}", result.2);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM fiscal_nfe_documents")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
+
     for task in tasks {
         task.abort();
     }

@@ -34,9 +34,12 @@ modelo 65 por lacunas de numeração; a empresa deve continuar da próxima
 numeração e manter a quebra registrada na escrituração. Somente o comando
 fiscal explícito transmite eventos autorizados. Salvar dados não emite nota.
 
-A variável antiga NFE_PRODUCTION_ENABLED é aceita como booleano para
-compatibilidade de implantação. Ela não escolhe o ambiente nem dispara
-emissão; a escolha efetiva é o perfil persistido pelo usuário.
+A variável `NFE_PRODUCTION_ENABLED` é aceita como gate explícito de implantação
+e assume `false` quando ausente. Quando `true`, `NFE_PRODUCTION_TENANT_ID`
+também é obrigatório e restringe a liberação a um único tenant autorizado.
+Essas variáveis não escolhem o ambiente nem disparam emissão; a escolha
+efetiva é o perfil persistido pelo usuário e cada comando continua exigindo
+A1, motor, perfil e readiness válidos.
 
 ## Escopo e evidências
 

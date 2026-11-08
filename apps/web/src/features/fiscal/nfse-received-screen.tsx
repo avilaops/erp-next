@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -135,7 +136,7 @@ export function NfseReceivedScreen() {
 
   return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6">
-      <div className="min-w-0"><p className="text-sm text-primary">Fiscal / NFS-e</p><h1 className="mt-2 text-3xl font-semibold">NFS-e recebidas</h1><p className="mt-2 break-words text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
+      <div className="min-w-0"><p className="text-sm text-primary">Fiscal / NFS-e</p><PageTitle className="mt-2 text-3xl font-semibold">NFS-e recebidas</PageTitle><p className="mt-2 break-words text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/fiscal">Abrir central fiscal</Link>
     </header>
     <section className="form-section space-y-3" aria-labelledby="nfse-source">

@@ -1,4 +1,5 @@
-import { ReportDetail } from "@/features/reports/reports-pages"
-export default function Page() { return <ReportDetail kind="financeiro" /> }
+import Content from "@/content/reports/financeiro.mdx"
+
+export default function Page() { return <Content /> }
 
 export const metadata = { title: "Relatório de financeiro" }

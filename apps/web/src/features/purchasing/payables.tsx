@@ -19,6 +19,7 @@ import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 type Account = Schema<"UnifiedPayable">
 type Detail = Schema<"UnifiedPayableSnapshot">
 type Listing = Schema<"UnifiedPayableList">
+type FinancialAccounts = { data: { id: string; code: string; name: string }[] }
 const situation = (account: Account) => account.status === "cancelled" ? "Cancelado" : account.status === "paid" ? "Pagamento integral declarado" : account.paidAmount === "0.00" ? "Em aberto" : "Pagamento parcial declarado"
 
 export function Payables({ id }: { id?: string }) {
@@ -32,7 +33,7 @@ function PayableList() {
     <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
       {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar encontrada.</p>}
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(account => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={account.id}><Link className={`${purchaseLink} break-words`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><p>{situation(account)}</p><p>Valor: {money(account.amount)} · Saldo: {money(account.outstandingAmount)}</p><p>Vencimento: {account.dueDate}</p></li>)}</ul>
+        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map((account: Account) => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={account.id}><Link className={`${purchaseLink} break-words`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><p>{situation(account)}</p><p>Valor: {money(account.amount)} · Saldo: {money(account.outstandingAmount)}</p><p>Vencimento: {account.dueDate}</p></li>)}</ul>
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><span>Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
       </>}
     </section>
@@ -49,10 +50,12 @@ function PayableDetail({ id }: { id: string }) {
 function PayableForm({ value, etag, reload }: { value: Detail; etag: string; reload: () => void }) {
   const command = useCommand()
   const { method, setMethod, loading: methodLoading, error: methodError } = useSuggestedPaymentMethod()
+  const financialAccounts = useResource<FinancialAccounts>("/api/erp/financial-accounts?status=active&limit=100")
   const [reference, setReference] = useState("")
   const [occurredOn, setOccurredOn] = useState("")
   const [amount, setAmount] = useState("")
   const [paymentId, setPaymentId] = useState("")
+  const [financialAccountId, setFinancialAccountId] = useState("")
   const frozen = methodLoading || command.busy || command.uncertain || command.stale
   const dirty = Boolean(reference || occurredOn || amount || paymentId)
   useEffect(() => {
@@ -74,9 +77,9 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
         if (!command.uncertain && !window.confirm(reversing ? "Registrar o estorno deste pagamento declarado? O estoque e o recebimento da compra serão preservados." : "Registrar este pagamento manual no ERP? Nenhum dinheiro será transferido.")) return
         const normalizedAmount = normalizeDecimal(amount)
         if (!reversing && normalizedAmount === null) return
-        const body = reversing ? { paymentId, reason: reference, occurredOn } : { amount: normalizedAmount, method, reference, occurredOn }
+        const body = reversing ? { paymentId, reason: reference, occurredOn } : { amount: normalizedAmount, method, reference, occurredOn, financialAccountId: financialAccountId || null }
         const response = await command.send<Detail>(`/api/erp/financial-payables/${value.data.id}/${reversing ? "reverse-payment" : "payments"}`, value.tenantId, body, etag)
-        if (response) { setReference(""); setOccurredOn(""); setAmount(""); setPaymentId(""); reload() }
+        if (response) { setReference(""); setOccurredOn(""); setAmount(""); setPaymentId(""); setFinancialAccountId(""); reload() }
       }}>
         <h3 className="font-semibold">{reversing ? "Estornar pagamento declarado" : "Registrar pagamento declarado"}</h3>
         <fieldset disabled={frozen} className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -84,7 +87,8 @@ function PayableForm({ value, etag, reload }: { value: Detail; etag: string; rel
             <label className="min-w-0 space-y-2">Valor do pagamento<Input required inputMode="decimal" placeholder="0,00" pattern={decimalPattern(2)} maxLength={15} value={amount} onChange={event => setAmount(event.target.value)} /></label>
             <label className="min-w-0 space-y-2">Meio declarado<select className={purchaseSelect} value={method} onChange={event => setMethod(event.target.value)}><option value="bank_transfer">Transferência</option><option value="cash">Dinheiro</option><option value="card">Cartão</option><option value="other">Outro</option></select></label>
           </>}
-          <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do pagamento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
+            <label className="min-w-0 space-y-2">{reversing ? "Data do estorno" : "Data do pagamento"}<Input required type="date" value={occurredOn} onChange={event => setOccurredOn(event.target.value)} /></label>
+            {!reversing && <label className="min-w-0 space-y-2 sm:col-span-2">Conta financeira (opcional)<select className={purchaseSelect} value={financialAccountId} onChange={event => setFinancialAccountId(event.target.value)}><option value="">Sem vínculo bancário</option>{financialAccounts.value?.data.map((account: FinancialAccounts["data"][number]) => <option key={account.id} value={account.id}>{account.code} · {account.name}</option>)}</select><span className="text-xs text-muted-foreground">Informar uma conta cria o lançamento correspondente no ledger.</span></label>}
           <label className="min-w-0 space-y-2">{reversing ? "Motivo do estorno" : "Referência do pagamento"}<Input required minLength={3} maxLength={200} value={reference} onChange={event => setReference(event.target.value)} /></label>
         </fieldset>
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}

@@ -11,8 +11,11 @@ pub struct AppState {
     pub auth: AuthClient,
     pub database: PgPool,
     pub invitations: Option<super::invitations::ProvisioningClient>,
+    pub mail: Option<super::mail::SmtpMailer>,
     pub danfe: Option<crate::domains::fiscal::danfe_client::DanfeClient>,
     pub fiscal_engine: Option<crate::domains::fiscal::engine_client::FiscalEngine>,
+    pub nfe_production_enabled: bool,
+    pub nfe_production_tenant_id: Option<uuid::Uuid>,
     pub certificates:
         Option<std::sync::Arc<crate::domains::fiscal::certificate_crypto::CertificateVault>>,
     pub contracts: Option<crate::domains::contracts::provider::Docuseal>,
@@ -30,8 +33,11 @@ impl AppState {
             auth,
             database,
             invitations: None,
+            mail: None,
             danfe: None,
             fiscal_engine: None,
+            nfe_production_enabled: false,
+            nfe_production_tenant_id: None,
             certificates: None,
             contracts: None,
             assistant: None,
@@ -76,6 +82,23 @@ impl AppState {
         self
     }
 
+    pub fn with_nfe_production_enabled(mut self, enabled: bool) -> Self {
+        self.nfe_production_enabled = enabled;
+        self
+    }
+
+    pub fn with_nfe_production_tenant_id(mut self, tenant: Option<uuid::Uuid>) -> Self {
+        self.nfe_production_tenant_id = tenant;
+        self
+    }
+
+    pub fn nfe_production_enabled_for(&self, tenant: uuid::Uuid) -> bool {
+        self.nfe_production_enabled
+            && self
+                .nfe_production_tenant_id
+                .is_none_or(|allowed| allowed == tenant)
+    }
+
     pub fn with_monitor(
         mut self,
         monitor: Option<crate::domains::fiscal::sefaz_client::Sefaz>,
@@ -97,6 +120,11 @@ impl AppState {
         client: Option<super::invitations::ProvisioningClient>,
     ) -> Self {
         self.invitations = client;
+        self
+    }
+
+    pub fn with_mail(mut self, mailer: Option<super::mail::SmtpMailer>) -> Self {
+        self.mail = mailer;
         self
     }
 

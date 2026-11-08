@@ -32,7 +32,17 @@ sem BYPASSRLS e sem propriedade das tabelas.
 
 O diretório de release recebe somente `compose.yaml`, imagens prontas e arquivos
 privados `api.env`, `web.env` e `.env`. `api.env` contém `DATABASE_URL`,
-`AUTH_ISSUER=https://auth.avilaops.com` e `NFE_PRODUCTION_ENABLED=false`.
+`AUTH_ISSUER=https://auth.avilaops.com`, `NFE_PRODUCTION_ENABLED=false` e
+`NFE_PRODUCTION_TENANT_ID` vazio. Se a emissão de produção for liberada para
+uma única empresa, as duas variáveis devem ser ativadas juntas e o UUID do
+tenant autorizado deve ser informado; não existe liberação global segura.
+Quando o pacote documental estiver habilitado, o mesmo `api.env` recebe
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` e `SMTP_FROM`; esses
+valores são secretos do relay e não podem ser copiados para `web.env` ou
+versionados.
+O workflow de migração também aplica `deploy/grant-commercial-contracts.sql`,
+concedendo ao papel runtime somente `SELECT`, `INSERT` e `UPDATE` na tabela de
+estado do pacote; a API não recebe permissão de exclusão desses registros.
 `web.env` contém `ERP_AUTH_CLIENT_ID`, `ERP_AUTH_CLIENT_SECRET`,
 `ERP_SESSION_SECRET` e `ERP_DEFAULT_TENANT_ID`. `.env` fixa `ERP_API_IMAGE` e
 `ERP_WEB_IMAGE` e `ERP_RELEASE_SHA`. Não versionar esses arquivos preenchidos.

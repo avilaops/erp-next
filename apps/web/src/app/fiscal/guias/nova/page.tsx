@@ -1,7 +1,7 @@
-import { TaxGuideForm } from "@/features/fiscal/fiscal-details"
+import { FiscalCapabilityUnavailable } from "@/features/fiscal/fiscal-screen"
 
 export default function Page() {
-  return <TaxGuideForm />
+  return <FiscalCapabilityUnavailable />
 }
 
 export const metadata = { title: "Nova guia fiscal" }

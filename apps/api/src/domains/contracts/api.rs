@@ -38,6 +38,10 @@ pub struct ContractDetail {
     pub can_edit: bool,
     pub can_send: bool,
     pub email_ready: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package_updated_at: Option<String>,
     pub data: Contract,
     pub files: Vec<ContractFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

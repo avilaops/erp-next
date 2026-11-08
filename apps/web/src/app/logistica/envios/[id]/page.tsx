@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { ShippingDetail } from "@/features/logistics/logistics-details";
+import { CapabilityUnavailable } from "@/features/logistics/logistics-screen";
 
 export function generateStaticParams() {
   return [{ id: "COT-1842" }];
@@ -7,7 +7,7 @@ export function generateStaticParams() {
 
 async function ResolvedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ShippingDetail id={id} />;
+  return <CapabilityUnavailable title={`Envio ${id.toUpperCase()}`} />;
 }
 
 export const metadata = { title: "Detalhes do envio" }

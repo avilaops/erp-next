@@ -90,7 +90,7 @@ test("cadastro mantém o retorno ao catálogo filtrado e distingue registro ause
   const destination = "/cadastros/produtos?q=leg&status=active&offset=25"
   await page.goto(`/cadastros/produtos/${id}/editar?` + new URLSearchParams({ returnTo: destination }))
   await expect(page.getByRole("heading", { name: "Editar produto", exact: true })).toBeVisible()
-  await expect(page.getByRole("alert")).toContainText("Produto não encontrado")
+  await expect(page.locator("main").getByRole("alert")).toContainText("Produto não encontrado")
   await expect(page.getByRole("link", { name: "Voltar ao catálogo", exact: true })).toHaveAttribute("href", destination)
   await expect(page.getByRole("link", { name: "Entrar com Ávila Ops", exact: true })).toHaveCount(0)
   await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()

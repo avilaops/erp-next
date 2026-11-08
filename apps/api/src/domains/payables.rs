@@ -61,7 +61,7 @@ async fn load_unified(
     can_edit: bool,
 ) -> Result<UnifiedPayableSnapshot, DomainError> {
     let query = format!(
-        "SELECT account.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'method',p.method,'reference',p.reference,'occurredOn',p.occurred_on::text,'reversesId',p.reverses_id) ORDER BY p.created_at,p.id) FROM payable_payments p WHERE p.tenant_id=$1 AND p.payable_id=$2),'[]'::jsonb) AS payments FROM ({ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.id=$2) account"
+        "SELECT account.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'method',p.method,'reference',p.reference,'occurredOn',p.occurred_on::text,'reversesId',p.reverses_id,'financialAccountId',p.financial_account_id) ORDER BY p.created_at,p.id) FROM payable_payments p WHERE p.tenant_id=$1 AND p.payable_id=$2),'[]'::jsonb) AS payments FROM ({ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.id=$2) account"
     );
     let row = sqlx::query(&query)
         .bind(tenant)

@@ -1,4 +1,4 @@
-import { ReportDetail } from "@/features/reports/reports-pages"
-export default function Page() { return <ReportDetail kind="servicos" /> }
+import { ServiceReportsLive } from "@/features/services/service-reports-live"
+export default function Page() { return <ServiceReportsLive /> }
 
 export const metadata = { title: "Relatórios de serviços" }

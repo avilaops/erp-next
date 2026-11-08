@@ -34,3 +34,22 @@ test("route identity is independent of listing order and detects removed URLs", 
   assert.deepEqual(validateStructure(new Map(names.map(name => [name, ""])), rules), []);
   assert.match(validateStructure(new Map([[names[0], ""]]), rules).join("\n"), /superfície de rotas mudou/);
 });
+
+test("MDX composition cannot hide a client dependency on server code", () => {
+  const files = new Map([
+    [prefix + "features/fiscal/view.tsx", '"use client"; import Content from "@/content/example.mdx"'],
+    [prefix + "content/example.mdx", 'import { secret } from "@/server/session"\n\n{secret}'],
+    [prefix + "server/session.ts", 'import "server-only"; export const secret = "fixture"'],
+  ]);
+  const errors = validateStructure(files, { ...policy, webLayers: { ...policy.webLayers, content: "composition" } });
+  assert.match(errors.join("\n"), /Cliente alcança código de servidor/);
+});
+
+test("shared workspace components cannot import domain composition", () => {
+  const files = new Map([
+    [prefix + "components/workspace/page.tsx", 'import Content from "@/content/example.mdx"'],
+    [prefix + "content/example.mdx", "## Example"],
+  ]);
+  const errors = validateStructure(files, { ...policy, webLayers: { ...policy.webLayers, content: "composition" } });
+  assert.match(errors.join("\n"), /UI básica depende de domínio/);
+});

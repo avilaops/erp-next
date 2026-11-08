@@ -54,12 +54,15 @@ async fn run() -> anyhow::Result<()> {
         )?)
         .with_subscriptions(platform::subscriptions::provider::MercadoPago::from_env()?)
         .with_fiscal_engine(domains::fiscal::engine_client::FiscalEngine::from_env()?)
+        .with_nfe_production_enabled(config.nfe_production_enabled)
+        .with_nfe_production_tenant_id(config.nfe_production_tenant_id)
         .with_monitor(domains::fiscal::sefaz_client::Sefaz::from_env()?)
         .with_certificates(domains::fiscal::certificate_crypto::CertificateVault::from_env()?)
         .with_assistant(domains::assistant::InferenceClient::from_env()?)
         .with_danfe(config.danfe)
         .with_contracts(config.contracts)
         .with_invitations(config.invitations);
+    state = state.with_mail(config.mail);
     state.catalog_media = domains::catalog_publication::MediaGateway::from_env()?;
     let fiscal_worker = domains::fiscal::incoming::worker::start(state.clone())?;
     let cte_worker = domains::fiscal::cte_distribution::worker::start(state.clone())?;

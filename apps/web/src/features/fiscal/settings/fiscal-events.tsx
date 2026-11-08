@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -30,7 +31,7 @@ export function FiscalEvents({ kind }: { kind: "correcao" | "inutilizacao" }) {
   const items = page?.items.filter(item => `${item.accessKey || ""} ${item.number || ""} ${item.series || item.request.series || ""} ${item.request.text || ""} ${item.result.reason || ""}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"))) || []
   return <main className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
     <Link href="/preferencias?categoria=notas-fiscais" className="text-primary underline">Voltar às preferências</Link>
-    <header><h1 className="text-3xl font-semibold">{kind === "correcao" ? "Consulta de correções de NF-es" : "Consulta de inutilizações de NF-es"}</h1><p className="mt-3 text-sm text-muted-foreground">Eventos registrados no ERP para a empresa ativa. Esta consulta não transmite eventos nem solicita inutilização à SEFAZ.</p></header>
+    <header><PageTitle className="text-3xl font-semibold">{kind === "correcao" ? "Consulta de correções de NF-es" : "Consulta de inutilizações de NF-es"}</PageTitle><p className="mt-3 text-sm text-muted-foreground">Eventos registrados no ERP para a empresa ativa. Esta consulta não transmite eventos nem solicita inutilização à SEFAZ.</p></header>
     <section className="form-section flex flex-wrap items-end gap-3"><label className="grid min-w-0 flex-1 gap-2 text-sm">Buscar nos eventos carregados<Input value={query} onChange={event=>setQuery(event.target.value)} /></label><Button variant="outline" disabled={loading} onClick={()=>{setLoading(true);setRequest({})}}>Atualizar consulta</Button></section>
     {loading && <p role="status">Carregando eventos…</p>}
     {error && <p role="alert" className="text-destructive">{error}</p>}

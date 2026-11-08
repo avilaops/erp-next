@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, access } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../../apps/web/package.json", import.meta.url));
 const ts = require("typescript");
+const mdxRequire = createRequire(require.resolve("@mdx-js/loader"));
+const { compileSync } = mdxRequire("@mdx-js/mdx");
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const web = "apps/web/src/";
 
@@ -47,8 +49,13 @@ export function validateStructure(files, policy) {
     const relative = name.slice(web.length);
     if (relative.includes("/") && !policy.webLayers[relative.split("/")[0]]) errors.push(`Camada sem responsabilidade registrada: ${name}`);
     if (relative.startsWith("features/") && relative.split("/").length > 2 && !policy.featureDomains[relative.split("/")[1]]) errors.push(`Domínio sem responsabilidade registrada: ${name}`);
-    if (!/\.(ts|tsx)$/.test(name) || name.endsWith(".d.ts")) continue;
-    const node = inspect(name, content);
+    if (!/\.(ts|tsx|mdx)$/.test(name) || name.endsWith(".d.ts")) continue;
+    let inspectable = content;
+    if (name.endsWith(".mdx")) {
+      try { inspectable = String(compileSync(content)); }
+      catch (error) { errors.push(`MDX inválido: ${name}: ${error.message}`); continue; }
+    }
+    const node = inspect(name, inspectable);
     nodes.set(name, node);
     if (relative.startsWith("server/") && !node.imports.includes("server-only")) errors.push(`Módulo de servidor sem server-only: ${name}`);
   }
@@ -56,7 +63,7 @@ export function validateStructure(files, policy) {
     const target = specifier.startsWith("@/") ? web + specifier.slice(2)
       : specifier.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(name), specifier)) : null;
     if (!target) return null;
-    return [target, `${target}.ts`, `${target}.tsx`, `${target}/index.ts`, `${target}/index.tsx`].find(candidate => nodes.has(candidate)) || null;
+    return [target, `${target}.ts`, `${target}.tsx`, `${target}.mdx`, `${target}/index.ts`, `${target}/index.tsx`].find(candidate => nodes.has(candidate)) || null;
   };
   const graph = new Map();
   for (const [name, node] of nodes) {
@@ -65,7 +72,7 @@ export function validateStructure(files, policy) {
     for (const target of edges) {
       const relative = name.slice(web.length), dependency = target.slice(web.length);
       if (relative.startsWith("lib/") && !dependency.startsWith("lib/")) errors.push(`lib depende de uma camada superior: ${name} -> ${target}`);
-      if (relative.startsWith("components/ui/") && /^(features|app|server)\//.test(dependency)) errors.push(`UI básica depende de domínio ou servidor: ${name} -> ${target}`);
+      if (/^components\/(ui|workspace)\//.test(relative) && /^(features|app|server|content)\//.test(dependency)) errors.push(`UI básica depende de domínio ou servidor: ${name} -> ${target}`);
       if (relative.startsWith("features/") && dependency.startsWith("app/")) errors.push(`Funcionalidade depende da rota: ${name} -> ${target}`);
       if (relative.startsWith("server/") && /^(features|components|hooks|app)\//.test(dependency)) errors.push(`Servidor depende da interface: ${name} -> ${target}`);
     }
@@ -93,10 +100,12 @@ export function validateStructure(files, policy) {
 }
 
 async function main() {
-  const names = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
+  const candidates = [...new Set(execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean))];
+  const present = await Promise.all(candidates.map(async name => { try { await access(path.join(root, name)); return name; } catch { return null; } }));
+  const names = present.filter(Boolean);
   if (process.argv.includes("--print-routes")) { console.log(JSON.stringify(routeSurface(names), null, 2)); return; }
   const policy = JSON.parse(await readFile(path.join(root, "architecture/structure.json"), "utf8"));
-  const files = new Map(await Promise.all(names.filter(name => name.startsWith(web) || name.endsWith(".rs")).map(async name => [name, /\.(ts|tsx|rs)$/.test(name) ? await readFile(path.join(root, name), "utf8") : ""])));
+  const files = new Map(await Promise.all(names.filter(name => name.startsWith(web) || name.endsWith(".rs")).map(async name => [name, /\.(ts|tsx|rs|mdx)$/.test(name) ? await readFile(path.join(root, name), "utf8") : ""])));
   const errors = validateStructure(files, policy);
   console.log(JSON.stringify({ schemaVersion: "erp-structure-check/1", sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), routeSurface: routeSurface(names), errors }, null, 2));
   if (errors.length) process.exitCode = 1;

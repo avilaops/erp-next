@@ -33,6 +33,8 @@ mod emission_tests;
 #[cfg(test)]
 mod files_tests;
 #[cfg(test)]
+mod financial_account_tests;
+#[cfg(test)]
 mod financial_settings_tests;
 #[cfg(test)]
 mod fiscal_preferences_tests;
@@ -111,7 +113,8 @@ use tower_http::{
 };
 
 use crate::domains::{
-    catalog, data_transfer, finance, fiscal, inventory, parties, payables, purchasing,
+    catalog, data_transfer, finance, financial_account_ledger, fiscal, inventory, inventory_counts,
+    logistics, logistics_checkout, logistics_dispatch, parties, payables, purchasing,
     reference_data, sales, staff, staff_payroll, warranties,
 };
 use crate::platform::{
@@ -201,6 +204,9 @@ pub fn router(state: AppState) -> Router {
         )
         .merge(crate::platform::subscriptions::routes())
         .merge(crate::domains::commissions::routes())
+        .merge(logistics::routes())
+        .merge(logistics_checkout::routes())
+        .merge(logistics_dispatch::routes())
         .merge(crate::domains::production::routes())
         .route(
             "/api/v1/financial-settings",
@@ -433,6 +439,14 @@ pub fn router(state: AppState) -> Router {
             axum::routing::post(sales::complete),
         )
         .route("/api/v1/receivables", get(finance::list))
+        .route(
+            "/api/v1/financial-account-entries",
+            get(financial_account_ledger::list).post(financial_account_ledger::create),
+        )
+        .route(
+            "/api/v1/financial-account-transfers",
+            post(financial_account_ledger::transfer),
+        )
         .route("/api/v1/receivables/{id}", get(finance::get))
         .route(
             "/api/v1/receivables/{id}/payments",
@@ -484,6 +498,22 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/stock/movements",
             get(inventory::history).post(inventory::post_movement),
+        )
+        .route(
+            "/api/v1/inventory-counts",
+            get(inventory_counts::list).post(inventory_counts::create),
+        )
+        .route(
+            "/api/v1/inventory-counts/{id}",
+            get(inventory_counts::detail),
+        )
+        .route(
+            "/api/v1/inventory-counts/{id}/lines",
+            axum::routing::post(inventory_counts::count_line),
+        )
+        .route(
+            "/api/v1/inventory-counts/{id}/approve",
+            axum::routing::post(inventory_counts::approve),
         )
         .route(
             "/api/v1/company",

@@ -2,6 +2,7 @@ import "server-only"
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
 import { cookies } from "next/headers"
+import { connection } from "next/server"
 
 export type ErpSession = { accessToken: string; tenantId: string; expiresAt: number }
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -60,6 +61,7 @@ export function identityFromCookie(value: string): IdentitySession | null {
 }
 
 export async function currentIdentitySession(): Promise<IdentitySession | null> {
+  await connection()
   const jar = await cookies()
   return identityFromCookie(jar.get(cookieName("session"))?.value || "")
 }

@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { InventoryDetail } from "@/features/inventory/details-operations-inventory";
+import { InventoryCountDetail } from "@/features/inventory/inventory-counts"
 
 async function ResolvedInventoryDetailPage({
   params,
@@ -7,7 +7,7 @@ async function ResolvedInventoryDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <InventoryDetail id={id} />;
+  return <InventoryCountDetail id={id} />
 }
 
 export const metadata = { title: "Detalhes de inventário" }

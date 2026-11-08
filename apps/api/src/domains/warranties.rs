@@ -6,7 +6,7 @@ use crate::platform::access::{load_access, require_permission};
 use crate::platform::{auth::AuthenticatedIdentity, state::AppState};
 use axum::{
     Extension, Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::Response,
     routing::{get, post},
@@ -128,6 +128,7 @@ pub fn routes() -> Router<AppState> {
             get(list_policies).post(create_policy),
         )
         .route("/api/v1/warranty-cases", get(list_cases).post(create_case))
+        .route("/api/v1/warranty-service-orders", get(list_service_orders))
         .route("/api/v1/warranty-cases/{id}", get(get_case))
         .route("/api/v1/warranty-cases/{id}/transition", post(transition))
         .route("/api/v1/warranty-cases/{id}/assignment", post(assign_case))
@@ -150,6 +151,74 @@ pub fn routes() -> Router<AppState> {
             "/api/v1/warranty-quarantines/{id}/transition",
             post(transition_quarantine),
         )
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceOrderFilter {
+    pub status: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+pub async fn list_service_orders(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Query(filter): Query<ServiceOrderFilter>,
+) -> Result<Response, DomainError> {
+    let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
+    let limit = filter.limit.unwrap_or(50).clamp(1, 100);
+    let offset = filter.offset.unwrap_or(0).clamp(0, 1_000_000);
+    if let Some(status) = filter.status.as_deref() {
+        choice(
+            status,
+            &[
+                "open",
+                "scheduled",
+                "in_repair",
+                "awaiting_parts",
+                "completed",
+                "cancelled",
+            ],
+        )?;
+    }
+    let rows = sqlx::query(
+        "SELECT so.id, so.case_id, so.status, so.diagnosis, so.scheduled_at, so.completed_at, so.labor_cents, so.revision, so.created_at, so.updated_at, wc.protocol, wc.title, wc.criticality FROM warranty_service_orders so JOIN warranty_cases wc ON wc.tenant_id=so.tenant_id AND wc.id=so.case_id WHERE so.tenant_id=$1 AND ($2::text IS NULL OR so.status=$2) ORDER BY so.updated_at DESC, so.id DESC LIMIT $3 OFFSET $4",
+    )
+    .bind(tenant)
+    .bind(filter.status)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(db)?;
+    let data: Vec<Value> = rows
+        .into_iter()
+        .map(|row| {
+            json!({
+                "id": row.get::<Uuid, _>("id"),
+                "caseId": row.get::<Uuid, _>("case_id"),
+                "protocol": row.get::<String, _>("protocol"),
+                "title": row.get::<String, _>("title"),
+                "criticality": row.get::<String, _>("criticality"),
+                "status": row.get::<String, _>("status"),
+                "diagnosis": row.get::<Option<String>, _>("diagnosis"),
+                "scheduledAt": row.get::<Option<time::OffsetDateTime>, _>("scheduled_at"),
+                "completedAt": row.get::<Option<time::OffsetDateTime>, _>("completed_at"),
+                "laborCents": row.get::<i64, _>("labor_cents"),
+                "revision": row.get::<i64, _>("revision"),
+                "createdAt": row.get::<time::OffsetDateTime, _>("created_at"),
+                "updatedAt": row.get::<time::OffsetDateTime, _>("updated_at")
+            })
+        })
+        .collect();
+    tx.commit().await.map_err(db)?;
+    Ok(response(
+        StatusCode::OK,
+        None,
+        json!({ "tenantId": tenant, "data": data, "limit": limit, "offset": offset }),
+    ))
 }
 
 fn text(value: &str, min: usize, max: usize) -> Result<String, DomainError> {

@@ -42,10 +42,12 @@ export function CompanyPicker() {
   const [platformAdministrator, setPlatformAdministrator] = useState(false)
   const [feedback, setFeedback] = useState({ message: "Carregando suas empresas…", error: false })
   const [busyCompanyId, setBusyCompanyId] = useState<string | null>(null)
+  const [requiresLogin, setRequiresLogin] = useState(false)
   const [reload, setReload] = useState(0)
   useEffect(() => {
     let active = true
     erpFetch("/api/erp/companies", { cache: "no-store" }).then(async response => {
+      if (active) setRequiresLogin(response.status === 401)
       if (!response.ok) {
         const result = await response.json().catch(() => ({})) as { title?: string }
         const message = response.status === 401
@@ -70,17 +72,20 @@ export function CompanyPicker() {
     return () => { active = false }
   }, [reload])
   function retryDirectory() {
+    setRequiresLogin(false)
     setCompanies([])
     setPlatformAdministrator(false)
     setFeedback({ message: "Carregando suas empresas…", error: false })
     setReload(value => value + 1)
   }
   async function select(company: Schema<"CompanySummary"> & { status?: string }) {
+    setRequiresLogin(false)
     const name = company.tradeName || company.legalName
     setBusyCompanyId(company.id)
     setFeedback({ message: `Acessando ${name}…`, error: false })
     try {
       const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: company.id }), signal: AbortSignal.timeout(10000) })
+      setRequiresLogin(response.status === 401)
       const result = await response.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
       if (!response.ok) throw new Error(companySelectionError(response.status, result.title))
       if (result.tenantId !== company.id) throw new Error("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
@@ -99,7 +104,7 @@ export function CompanyPicker() {
     {feedback.error && <button type="button" className="rounded-xl border px-4 py-2 text-sm" onClick={retryDirectory}>Tentar novamente</button>}
     {companies.map(company => <button aria-describedby="company-picker-feedback" disabled={busy || (!!company.status && company.status !== "active")} type="button" className="block w-full rounded-xl border px-4 py-3 text-left disabled:opacity-50" key={company.id} onClick={() => void select(company)}><span className="block font-medium">{company.tradeName || company.legalName}</span>{company.tradeName && <span className="block text-sm text-muted-foreground">{company.legalName}</span>}{busyCompanyId === company.id && <span className="block text-sm">Acessando…</span>}{company.status && company.status !== "active" && <span className="block text-sm">{company.status === "suspended" ? "Suspensa" : "Arquivada"} — acesso indisponível</span>}</button>)}
     <Link className="inline-block underline" href={"/cadastro/empresa?" + new URLSearchParams({ returnTo })}>Cadastrar nova empresa</Link>
-    <AccessLink className="ml-4 inline-block underline" />
+    {requiresLogin && <AccessLink className="ml-4 inline-block underline">Entrar novamente</AccessLink>}
   </section>
 }
 

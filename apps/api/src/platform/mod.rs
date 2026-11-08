@@ -12,6 +12,7 @@ pub mod custom_reports;
 pub mod files;
 pub mod invitations;
 pub mod label_templates;
+pub mod mail;
 pub mod onboarding;
 pub mod preferences;
 pub mod price_tables;

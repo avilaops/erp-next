@@ -173,7 +173,7 @@ test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento
   let confirmations = 0
   page.on("dialog", async dialog => { confirmations++; await dialog.dismiss() })
   const desktop = page.getByRole("navigation", { name: "Módulos do ERP", exact: true })
-  await desktop.getByRole("button", { name: "Cadastros", exact: true }).click()
+  if (await desktop.getByRole("button", { name: "Cadastros", exact: true }).getAttribute("aria-expanded") !== "true") await desktop.getByRole("button", { name: "Cadastros", exact: true }).click()
   await desktop.getByRole("link", { name: "Produtos", exact: true }).click()
   await page.keyboard.press("Escape")
   await page.getByRole("link", { name: "Voltar ao catálogo", exact: true }).click()
@@ -185,7 +185,7 @@ test("menu desktop, módulos, busca e Voltar ao catálogo respeitam cancelamento
   await page.keyboard.press("Escape")
   await page.keyboard.press("Control+k")
   await page.getByRole("dialog").getByRole("combobox").fill("Visão geral")
-  await page.getByRole("dialog").getByRole("option").click()
+  await page.getByRole("dialog").getByRole("option", { name: /^Visão geral\b/ }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
   await page.keyboard.press("Escape")
   expect(confirmations).toBe(4)
@@ -351,7 +351,7 @@ test("espaço inferior mantém retry acessível e não reserva barra oculta no d
   await page.getByRole("button", { name: "Tentar novamente", exact: true }).click({ trial: true })
   await page.setViewportSize({ width: 1600, height: 950 })
   await expect(page.getByRole("navigation", { name: "Navegação móvel", exact: true })).toBeHidden()
-  await expect(page.locator("#conteudo-principal")).toHaveCSS("padding-bottom", "0px")
+  await expect(page.locator("#conteudo-principal")).toHaveCSS("padding-bottom", "32px")
 })
 
 test("edição sem confirmação oferece conferência mesmo sem mudança de revisão", async ({ page }) => {

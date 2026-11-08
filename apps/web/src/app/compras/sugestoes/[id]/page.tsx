@@ -1,19 +1,5 @@
-import { Suspense } from "react"
-import { PurchaseSuggestionDetail } from "@/features/purchasing/details-suggestion";
-export function generateStaticParams() {
-  return [{ id: "sug-00118" }];
-}
-async function ResolvedPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <PurchaseSuggestionDetail id={id} />;
-}
+import { PurchasingCapabilityUnavailable } from "@/features/purchasing/purchasing-capability-unavailable"
 
 export const metadata = { title: "Detalhes de sugestão de compra" }
 
-export default function Page(props: Parameters<typeof ResolvedPage>[0]) {
-  return <Suspense fallback={<p role="status" className="p-6">Carregando tela…</p>}><ResolvedPage {...props} /></Suspense>
-}
+export default function Page() { return <PurchasingCapabilityUnavailable title="Detalhe de sugestão de compra" description="Detalhes de uma necessidade de reposição persistida." requirement="Esta área não possui sugestões persistidas para consulta." /> }

@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -83,7 +84,7 @@ export function UserForm({ userId }: { userId?: string }) {
   return (
     <div className="mx-auto max-w-5xl px-4 pb-28 pt-8 lg:px-6">
       <button className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" type="button" onClick={leave}><ArrowLeft className="size-4" />Usuários e acessos</button>
-      <header className="mb-8"><p className="mb-2 text-sm font-medium text-primary">Preferências / Usuários e acessos</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{userId ? "Editar usuário" : "Convidar usuário"}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{isPending ? "Configure o convite e os limites iniciais de acesso." : "Atualize os dados, comunicações e horários permitidos."}</p></header>
+      <header className="mb-8"><p className="mb-2 text-sm font-medium text-primary">Preferências / Usuários e acessos</p><PageTitle className="text-3xl font-semibold tracking-tight sm:text-4xl">{userId ? "Editar usuário" : "Convidar usuário"}</PageTitle><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">{isPending ? "Configure o convite e os limites iniciais de acesso." : "Atualize os dados, comunicações e horários permitidos."}</p></header>
 
       <form className="space-y-6" noValidate onSubmit={submit}>
         <div className="sticky top-20 z-30 flex min-h-14 items-center gap-2 rounded-2xl border border-border bg-background/95 p-2.5 shadow-lg backdrop-blur-xl">

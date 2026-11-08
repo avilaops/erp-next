@@ -1,7 +1,9 @@
 "use client";
+import { PageTitle } from "@/components/workspace/page-title"
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -19,15 +21,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { erpFetch } from "@/lib/api/client";
+import { apiErrorMessage } from "@/lib/api/error-message";
 
-function Shell({ back, eyebrow, title, description, actions, children }: { back: string; eyebrow: string; title: string; description: string; actions?: React.ReactNode; children: React.ReactNode }) {
+function Shell({ back, eyebrow, title, description, actions, demo = true, children }: { back: string; eyebrow: string; title: string; description: string; actions?: React.ReactNode; demo?: boolean; children: React.ReactNode }) {
   return <main className="mx-auto max-w-6xl px-4 pb-24 pt-8 lg:px-6">
     <Link className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" href={back}><ArrowLeft className="size-4" />Voltar</Link>
     <header className="mt-6 flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
-      <div><p className="text-sm font-medium text-primary">{eyebrow}</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1><p className="mt-3 max-w-3xl text-muted-foreground">{description}</p></div>
+      <div><p className="text-sm font-medium text-primary">{eyebrow}</p><PageTitle className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</PageTitle><p className="mt-3 max-w-3xl text-muted-foreground">{description}</p></div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </header>
-    <div className="mt-6 rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">Demonstração local. Nenhuma postagem, etiqueta, coleta, cotação ou contratação é transmitida.</div>
+    {demo && <div className="mt-6 rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">Demonstração local. Nenhuma postagem, etiqueta, coleta, cotação ou contratação é transmitida.</div>}
     {children}
   </main>;
 }
@@ -44,23 +48,49 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   return <label className="grid gap-2 text-sm font-medium">{label}{children}</label>;
 }
 
+type Posting = {
+  id: string;
+  code: string;
+  recipientName: string;
+  service: string;
+  destinationCity: string;
+  destinationState: string;
+  packageCount: number;
+  weightGrams: number;
+  declaredValueCents: number;
+  trackingCode: string | null;
+  carrier: string | null;
+  revision: number;
+  status: "prepared" | "posted" | "in_transit" | "delivered" | "cancelled";
+};
+
 export function PostingForm() {
-  const [notice, setNotice] = useState("");
-  return <Shell back="/logistica/postagens" eyebrow="Logística / Postagens" title="Nova postagem" description="Prepare volumes, serviço e destinatário antes da expedição.">
-    <form className="mt-6 grid gap-5" onSubmit={(event) => { event.preventDefault(); setNotice("Postagem demonstrativa OBJ-2482 preparada localmente."); }}>
-      <Card title="Dados da postagem"><div className="grid gap-4 sm:grid-cols-2"><FormField label="Pedido"><Input defaultValue="PV-1049" required /></FormField><FormField label="Destinatário"><Input defaultValue="Academia Sparta" required /></FormField><FormField label="Serviço"><select className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm" defaultValue="expresso"><option value="expresso">Expresso</option><option value="economico">Econômico</option></select></FormField><FormField label="Volumes"><Input min="1" defaultValue="2" type="number" required /></FormField><FormField label="Peso total (kg)"><Input min="0.1" step="0.1" defaultValue="38.5" type="number" required /></FormField><FormField label="Valor declarado"><Input defaultValue="R$ 4.890,00" required /></FormField></div></Card>
-      <div className="flex flex-wrap justify-end gap-2"><Button nativeButton={false} render={<Link href="/logistica/postagens" />} variant="outline">Cancelar</Button><Button type="submit"><Save />Preparar demonstração</Button></div>
-      {notice && <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm" role="status">{notice}</p>}
+  const router = useRouter();
+  const [tenantId, setTenantId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [uncertain, setUncertain] = useState(false);
+  const command = useRef<{ key: string; body: string } | null>(null);
+  useEffect(() => { const controller = new AbortController(); erpFetch("/api/erp/logistics/postings?limit=1", { signal: controller.signal }).then(async response => { const value = await response.json(); if (!response.ok) throw new Error(value.title || "Postagens indisponíveis"); setTenantId(value.tenantId); }).catch(cause => { if (!controller.signal.aborted) setError(apiErrorMessage(cause, "Postagens indisponíveis")); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, []);
+  return <Shell back="/logistica/postagens" eyebrow="Logística / Postagens" title="Nova postagem" description="Prepare volumes, serviço e destinatário antes da expedição." demo={false}>
+    <form className="mt-6 grid gap-5" onSubmit={async (event) => { event.preventDefault(); if (saving || !tenantId) return; const form = new FormData(event.currentTarget); const body = JSON.stringify({ recipientName: String(form.get("recipientName")), service: String(form.get("service")), destinationCity: String(form.get("destinationCity")), destinationState: String(form.get("destinationState")), packageCount: Number(form.get("packageCount")), weightGrams: Math.round(Number(form.get("weightKg")) * 1000), declaredValueCents: Math.round(Number(form.get("declaredValue")) * 100), orderId: String(form.get("orderId") || "").trim() || null, carrier: String(form.get("carrier") || "").trim() || null, trackingCode: String(form.get("trackingCode") || "").trim() || null }); const current = command.current || { key: crypto.randomUUID(), body }; if (!command.current) command.current = current; setSaving(true); setError(""); try { const response = await erpFetch("/api/erp/logistics/postings", { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "Idempotency-Key": current.key }, body: current.body }); const value = await response.json(); if (!response.ok) { if (response.status >= 500) setUncertain(true); throw new Error(value.title || "Não foi possível criar a postagem"); } if (!value.data?.id) throw new Error("Confirmação incompleta"); setUncertain(false); command.current = null; router.replace(`/logistica/postagens/${value.data.id}`); } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível confirmar a postagem")); } finally { setSaving(false); } }}>
+      <Card title="Dados da postagem"><div className="grid gap-4 sm:grid-cols-2"><FormField label="Pedido (UUID, opcional)"><Input name="orderId" /></FormField><FormField label="Destinatário"><Input name="recipientName" required /></FormField><FormField label="Serviço"><Input name="service" defaultValue="expresso" required /></FormField><FormField label="Transportadora"><Input name="carrier" /></FormField><FormField label="Rastreio"><Input name="trackingCode" /></FormField><FormField label="Cidade de destino"><Input name="destinationCity" required /></FormField><FormField label="UF de destino"><Input name="destinationState" maxLength={2} required /></FormField><FormField label="Volumes"><Input name="packageCount" min="1" type="number" required /></FormField><FormField label="Peso total (kg)"><Input name="weightKg" min="0.001" step="0.001" type="number" required /></FormField><FormField label="Valor declarado (R$)"><Input name="declaredValue" min="0" step="0.01" type="number" required /></FormField></div></Card>
+      {loading && <p role="status">Carregando empresa ativa…</p>}{error && <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="alert">{error}{uncertain && " A confirmação pode ter sido processada; repita para consultar sem duplicar."}</p>}
+      <div className="flex flex-wrap justify-end gap-2"><Button nativeButton={false} render={<Link href="/logistica/postagens" />} variant="outline">Cancelar</Button><Button disabled={saving || loading || !tenantId} type="submit"><Save />{saving ? "Salvando…" : uncertain ? "Conferir postagem" : "Criar postagem"}</Button></div>
     </form>
   </Shell>;
 }
 
 export function PostingDetail({ id }: { id: string }) {
-  const [status, setStatus] = useState("Em trânsito");
-  const events = ["Objeto preparado no centro de distribuição", "Coleta registrada localmente", "Transferência para unidade de destino"];
-  return <Shell back="/logistica/postagens" eyebrow="Logística / Postagens" title={id.toUpperCase()} description="Rastreamento e histórico operacional da postagem demonstrativa." actions={<Button disabled={status === "Entregue"} onClick={() => setStatus("Entregue")}><PackageCheck />Confirmar entrega local</Button>}>
-    <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><Card title="Linha do tempo"><ol className="space-y-4">{events.map((event, index) => <li className="flex gap-3" key={event}><span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-primary/15 text-xs text-primary">{index + 1}</span><div><strong className="text-sm">{event}</strong><p className="text-xs text-muted-foreground">{25 - index}/10/2026 · evento demonstrativo</p></div></li>)}</ol></Card><Card title="Resumo"><dl className="grid gap-4"><Field label="Pedido" value="PV-1048" /><Field label="Destinatário" value="Academia Horizonte" /><Field label="Rastreio" value="BR123•••890" /><Field label="Situação" value={status} /></dl></Card></div>
-    {status === "Entregue" && <p className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm" role="status">Entrega confirmada apenas nesta sessão.</p>}
+  const [posting, setPosting] = useState<Posting | null>(null); const [tenantId, setTenantId] = useState(""); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [saving, setSaving] = useState(false); const [checkoutId, setCheckoutId] = useState(""); const [linking, setLinking] = useState(false);
+  const load = useCallback(() => { const controller = new AbortController(); erpFetch(`/api/erp/logistics/postings/${id}`, { signal: controller.signal }).then(async response => { const value = await response.json(); if (!response.ok) throw new Error(value.title || "Postagem indisponível"); setPosting(value.data); setTenantId(value.tenantId); setError(""); }).catch(cause => { if (!controller.signal.aborted) setError(apiErrorMessage(cause, "Postagem indisponível")); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, [id]);
+  useEffect(() => { void load(); }, [load]);
+  const nextStatus = { prepared: ["posted", "Registrar postagem", <Send key="post" />], posted: ["in_transit", "Iniciar trânsito", <Truck key="transit" />], in_transit: ["delivered", "Confirmar entrega", <PackageCheck key="deliver" />] } as const;
+  async function changeStatus() { if (saving || !posting || !tenantId) return; const next = nextStatus[posting.status as keyof typeof nextStatus]; if (!next) return; setSaving(true); setError(""); try { const response = await erpFetch(`/api/erp/logistics/postings/${id}/status`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "Idempotency-Key": crypto.randomUUID(), "If-Match": `"${posting.revision}"` }, body: JSON.stringify({ status: next[0] }) }); const value = await response.json(); if (!response.ok) throw new Error(value.title || "Não foi possível atualizar a situação"); setPosting((current) => current ? { ...current, status: value.data.status, revision: value.data.revision } : current); } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível atualizar a situação")); } finally { setSaving(false); } }
+  async function linkPackages(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); if (!posting || linking || !tenantId || !checkoutId.trim()) return; setLinking(true); setError(""); try { const response = await erpFetch(`/api/erp/logistics/postings/${id}/packages`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ checkoutId: checkoutId.trim() }) }); const value = await response.json(); if (!response.ok) throw new Error(value.title || "Não foi possível vincular os volumes"); setError(`${value.data.packageIds.length} volume(s) vinculado(s) à postagem.`); } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível vincular os volumes")); } finally { setLinking(false); } }
+  return <Shell back="/logistica/postagens" eyebrow="Logística / Postagens" title={posting?.code || "Postagem"} description="Detalhes e situação operacional da postagem." demo={false} actions={<Button disabled={saving || !posting || !(posting.status in nextStatus)} onClick={changeStatus}>{posting ? nextStatus[posting.status as keyof typeof nextStatus]?.[2] : <PackageCheck />}{posting ? nextStatus[posting.status as keyof typeof nextStatus]?.[1] : "Atualizar situação"}</Button>}>
+    {loading ? <p className="mt-6" role="status">Carregando postagem…</p> : error ? <div className="mt-6 space-y-3"><p role="alert">{error}</p><Button variant="outline" onClick={load}>Tentar novamente</Button></div> : posting && <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><Card title="Dados da postagem"><dl className="grid gap-4 sm:grid-cols-2"><Field label="Destinatário" value={posting.recipientName} /><Field label="Serviço" value={posting.service} /><Field label="Transportadora" value={posting.carrier || "Não informada"} /><Field label="Destino" value={`${posting.destinationCity} / ${posting.destinationState}`} /><Field label="Volumes" value={String(posting.packageCount)} /><Field label="Peso" value={`${(posting.weightGrams / 1000).toLocaleString("pt-BR")} kg`} /><Field label="Valor declarado" value={(posting.declaredValueCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} /></dl></Card><Card title="Situação"><strong className="text-lg">{{ prepared: "Preparado", posted: "Postado", in_transit: "Em trânsito", delivered: "Entregue", cancelled: "Cancelado" }[posting.status]}</strong><p className="mt-2 text-sm text-muted-foreground">{posting.trackingCode || "Sem código de rastreio"}</p><p className="mt-3 text-xs text-muted-foreground">Revisão {posting.revision}</p></Card><Card className="lg:col-span-2" title="Vincular volumes embalados"><form className="flex flex-wrap items-end gap-3" onSubmit={linkPackages}><FormField label="UUID do checkout"><Input required value={checkoutId} onChange={(event) => setCheckoutId(event.target.value)} /></FormField><Button disabled={linking}>{linking ? "Vinculando…" : "Vincular volumes"}</Button></form><p className="mt-3 text-xs text-muted-foreground">Somente volumes com status embalado serão vinculados. A postagem não é enviada à transportadora por esta ação.</p></Card></div>}
   </Shell>;
 }
 
@@ -78,11 +108,89 @@ export function ReturnDetail({ id }: { id: string }) {
 }
 
 export function CheckoutDetail({ id }: { id: string }) {
-  const initial = [{ name: "Banco regulável", expected: 2, checked: false }, { name: "Kit anilhas 20 kg", expected: 4, checked: false }, { name: "Barra olímpica", expected: 2, checked: false }];
-  const [items, setItems] = useState(initial);
-  const [closed, setClosed] = useState(false);
-  const checked = useMemo(() => items.filter((item) => item.checked).length, [items]);
-  return <Shell back="/logistica/checkout" eyebrow="Logística / Checkout" title={id.toUpperCase()} description="Conferência item a item antes da expedição." actions={<Button disabled={checked !== items.length || closed} onClick={() => setClosed(true)}><ShieldCheck />Concluir conferência</Button>}><Card className="mt-6" title={`Itens conferidos · ${checked}/${items.length}`}><div className="space-y-3">{items.map((item, index) => <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-4" key={item.name}><input className="size-5 accent-primary" checked={item.checked} onChange={(event) => { setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { ...entry, checked: event.target.checked } : entry)); setClosed(false); }} type="checkbox" /><span className="min-w-0 flex-1 text-sm font-medium">{item.name}</span><span className="text-sm text-muted-foreground">{item.expected} un.</span></label>)}</div></Card>{closed && <p className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm" role="status">Checkout concluído localmente. Nenhuma baixa ou expedição foi realizada.</p>}</Shell>;
+  type CheckoutLine = { lineNumber: number; sku: string; name: string; expectedQuantityMicros: number; checkedQuantityMicros: number };
+  type CheckoutPackage = { id: string; packageNumber: number; weightGrams: number; lengthMm: number; widthMm: number; heightMm: number; labelCode: string | null; status: "prepared" | "labelled" | "packed" };
+  type Checkout = { id: string; orderId: string; status: "counting" | "completed" | "cancelled"; revision: number; lines: CheckoutLine[]; packages: CheckoutPackage[] };
+  const [checkout, setCheckout] = useState<Checkout | null>(null);
+  const [tenantId, setTenantId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingLine, setSavingLine] = useState<number | null>(null);
+  const [savingPackage, setSavingPackage] = useState(false);
+  const [savingPackageId, setSavingPackageId] = useState<string | null>(null);
+  const [queueingLabels, setQueueingLabels] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    const controller = new AbortController();
+    erpFetch(`/api/erp/logistics/checkouts/${id}`, { signal: controller.signal }).then(async (response) => {
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Checkout indisponível");
+      setCheckout(value.data);
+      setTenantId(value.tenantId);
+      setError("");
+    }).catch((cause) => { if (!controller.signal.aborted) setError(apiErrorMessage(cause, "Checkout indisponível")); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [id]);
+  useEffect(() => { void load(); }, [load]);
+  const checked = checkout?.lines.filter((line) => line.checkedQuantityMicros >= line.expectedQuantityMicros).length ?? 0;
+  const canComplete = Boolean(checkout && checkout.status === "counting" && checkout.lines.length > 0 && checked === checkout.lines.length);
+  async function checkLine(line: CheckoutLine, checkedQuantityMicros: number) {
+    if (!checkout || savingLine !== null || checkout.status !== "counting") return;
+    setSavingLine(line.lineNumber); setError("");
+    try {
+      const response = await erpFetch(`/api/erp/logistics/checkouts/${id}/lines/${line.lineNumber}/check`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `\"${checkout.revision}\"`, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ checkedQuantityMicros }) });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Não foi possível conferir o item");
+      setCheckout((current) => current ? { ...current, revision: value.data.revision, lines: current.lines.map((item) => item.lineNumber === line.lineNumber ? { ...item, checkedQuantityMicros: value.data.checkedQuantityMicros } : item) } : current);
+    } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível conferir o item")); } finally { setSavingLine(null); }
+  }
+  async function complete() {
+    if (!checkout || completing || !canComplete) return;
+    setCompleting(true); setError("");
+    try {
+      const response = await erpFetch(`/api/erp/logistics/checkouts/${id}/complete`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `\"${checkout.revision}\"`, "Idempotency-Key": crypto.randomUUID() }, body: "{}" });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Não foi possível concluir o checkout");
+      setCheckout((current) => current ? { ...current, status: "completed", revision: value.data.revision } : current);
+    } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível concluir o checkout")); } finally { setCompleting(false); }
+  }
+  async function addPackage(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!checkout || savingPackage || checkout.status !== "counting") return;
+    const form = new FormData(event.currentTarget);
+    setSavingPackage(true); setError("");
+    try {
+      const response = await erpFetch(`/api/erp/logistics/checkouts/${id}/packages`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `\"${checkout.revision}\"`, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ weightGrams: Math.round(Number(form.get("weightGrams"))), lengthMm: Math.round(Number(form.get("lengthMm"))), widthMm: Math.round(Number(form.get("widthMm"))), heightMm: Math.round(Number(form.get("heightMm"))), labelCode: String(form.get("labelCode") || "").trim() || null }) });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Não foi possível adicionar o volume");
+      setCheckout((current) => current ? { ...current, revision: value.data.revision, packages: [...current.packages, value.data] } : current);
+      event.currentTarget.reset();
+    } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível adicionar o volume")); } finally { setSavingPackage(false); }
+  }
+  async function changePackageStatus(item: CheckoutPackage) {
+    const nextStatus = item.status === "prepared" ? "labelled" : item.status === "labelled" ? "packed" : null;
+    if (!checkout || !nextStatus || savingPackageId || checkout.status !== "counting") return;
+    setSavingPackageId(item.id); setError("");
+    try {
+      const response = await erpFetch(`/api/erp/logistics/checkouts/${id}/packages/${item.id}/status`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `\"${checkout.revision}\"`, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ status: nextStatus }) });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Não foi possível atualizar o volume");
+      setCheckout((current) => current ? { ...current, revision: value.data.revision, packages: current.packages.map((packageItem) => packageItem.id === item.id ? { ...packageItem, status: value.data.status } : packageItem) } : current);
+    } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível atualizar o volume")); } finally { setSavingPackageId(null); }
+  }
+  async function queueLabels() {
+    if (!checkout || queueingLabels || checkout.packages.every((item) => item.status !== "labelled")) return;
+    setQueueingLabels(true); setError("");
+    try {
+      const response = await erpFetch(`/api/erp/logistics/checkouts/${id}/labels`, { method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "Idempotency-Key": crypto.randomUUID() }, body: "{}" });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.title || "Não foi possível gerar a fila de etiquetas");
+      setError(`Fila de etiquetas criada para ${value.data.jobIds.length} volume(s).`);
+    } catch (cause) { setError(apiErrorMessage(cause, "Não foi possível gerar a fila de etiquetas")); } finally { setQueueingLabels(false); }
+  }
+  return <Shell back="/logistica/checkout" eyebrow="Logística / Checkout" title={checkout ? `Pedido ${checkout.orderId}` : "Checkout"} description="Conferência item a item antes da expedição." demo={false} actions={<><Button disabled={queueingLabels || !checkout?.packages.some((item) => item.status === "labelled")} onClick={queueLabels}><Printer />{queueingLabels ? "Gerando…" : "Gerar etiquetas"}</Button><Button disabled={!canComplete || completing} onClick={complete}><ShieldCheck />{completing ? "Concluindo…" : "Concluir conferência"}</Button></>}>
+    {loading ? <p className="mt-6" role="status">Carregando checkout…</p> : error && !checkout ? <div className="mt-6 space-y-3"><p role="alert">{error}</p><Button variant="outline" onClick={load}>Tentar novamente</Button></div> : checkout && <><Card className="mt-6" title={`Itens conferidos · ${checked}/${checkout.lines.length}`}><div className="space-y-3">{checkout.lines.map((line) => { const completeLine = line.checkedQuantityMicros >= line.expectedQuantityMicros; return <label className={`flex items-center gap-3 rounded-xl border border-border p-4 ${checkout.status === "counting" ? "cursor-pointer" : ""}`} key={line.lineNumber}><input aria-label={`Conferir ${line.name}`} className="size-5 accent-primary" checked={completeLine} disabled={checkout.status !== "counting" || savingLine !== null} onChange={(event) => void checkLine(line, event.target.checked ? line.expectedQuantityMicros : 0)} type="checkbox" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{line.name}</span><span className="text-xs text-muted-foreground">{line.sku}</span></span><span className="text-sm text-muted-foreground">{line.checkedQuantityMicros / 1_000_000} / {line.expectedQuantityMicros / 1_000_000} un.</span></label>; })}</div></Card><Card className="mt-5" title={`Volumes · ${checkout.packages.length}`}><form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" onSubmit={addPackage}><FormField label="Peso (g)"><Input min="1" name="weightGrams" required type="number" /></FormField><FormField label="Comprimento (mm)"><Input min="1" name="lengthMm" required type="number" /></FormField><FormField label="Largura (mm)"><Input min="1" name="widthMm" required type="number" /></FormField><FormField label="Altura (mm)"><Input min="1" name="heightMm" required type="number" /></FormField><FormField label="Código da etiqueta"><Input name="labelCode" /></FormField><Button className="sm:col-span-2 lg:col-span-5 lg:w-fit" disabled={savingPackage || checkout.status !== "counting"} type="submit"><PackageCheck />{savingPackage ? "Adicionando…" : "Adicionar volume"}</Button></form>{checkout.packages.length > 0 && <div className="mt-5 divide-y divide-border rounded-xl border border-border">{checkout.packages.map((item) => <div className="grid gap-2 p-3 text-sm sm:grid-cols-[80px_1fr_1fr]" key={item.id}><strong>Vol. {item.packageNumber}</strong><span>{item.weightGrams} g · {item.lengthMm} × {item.widthMm} × {item.heightMm} mm</span><span className="text-muted-foreground">{item.labelCode || "Sem etiqueta"} · {item.status}</span><Button className="sm:col-span-3 sm:w-fit" disabled={savingPackageId !== null || checkout.status !== "counting" || item.status === "packed"} onClick={() => void changePackageStatus(item)} variant="outline">{savingPackageId === item.id ? "Atualizando…" : item.status === "prepared" ? "Marcar etiquetado" : item.status === "labelled" ? "Marcar embalado" : "Embalado"}</Button></div>)}</div>}</Card>{error && <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm" role="alert">{error}</p>}{checkout.status === "completed" && <p className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm" role="status">Checkout concluído. A baixa de estoque e a geração da postagem permanecem separadas deste fluxo.</p>}</>}
+  </Shell>;
 }
 
 export function LabelForm() {

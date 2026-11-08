@@ -1,4 +1,5 @@
 "use client"
+import { PageTitle } from "@/components/workspace/page-title"
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
@@ -84,7 +85,7 @@ export function FiscalPreferences({ section }: { section: "nfce" | "operation-na
   const updatePerson = (index: number, patch: Partial<AuthorizedXmlPerson>) => setDraft({ ...delivery, authorizedPeople: people.map((person, i) => i === index ? { ...person, ...patch } : person) })
   return <main className="mx-auto max-w-5xl space-y-6 px-4 pb-28 pt-8 lg:px-6">
     <Link href="/preferencias?categoria=notas-fiscais" className="text-primary underline" onClick={event => { if (dirty && !window.confirm("Descartar as alterações não salvas?")) event.preventDefault() }}>Voltar às preferências</Link>
-    <header><h1 className="text-3xl font-semibold">{title}</h1><p className="mt-3 text-sm text-muted-foreground">Configuração da empresa ativa. Preencha os dados conforme as instruções do responsável fiscal.</p></header>
+    <header><PageTitle className="text-3xl font-semibold">{title}</PageTitle><p className="mt-3 text-sm text-muted-foreground">Configuração da empresa ativa. Preencha os dados conforme as instruções do responsável fiscal.</p></header>
     {loading && <p role="status">Carregando configuração…</p>}
     {snapshot && <form className="space-y-6" onSubmit={save}>
       <fieldset disabled={!snapshot.canEdit || saving || blocked} className="min-w-0 space-y-6">

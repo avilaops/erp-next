@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { erpFetch } from "@/lib/api/client"
@@ -31,17 +31,18 @@ function OpportunityContext({ id, ...props }: SimulatorProps & { id: string }) {
 }
 function SimulatorPage({ initialLine, initialProduct, opportunity, opportunityTenant }: SimulatorProps & { opportunity?: Opportunity; opportunityTenant?: string }) {
   const [line, setLine] = useState(initialLine === "national" ? "national" : "imported")
+  const [lineLocked, setLineLocked] = useState(false)
   const table = useResource<PriceTable>(`/api/erp/commercial/tables/${line}`)
   return <main className="mx-auto min-w-0 max-w-7xl space-y-5 px-4 pb-24 pt-6">
     <PageHeader eyebrow="Vendas" title="Simulador comercial" description="Confira preços, entrada e condições antes de criar um pedido." />
     {opportunity && <section className="rounded-lg border p-4"><h2 className="font-semibold">{opportunity.title}</h2><p>{opportunity.customerName || opportunity.companyName} · {opportunity.contactName}</p><p className="whitespace-pre-wrap text-sm text-muted-foreground">{opportunity.notes}</p><Link className="text-primary underline" href={`/vendas/funil/${opportunity.id}`}>Abrir oportunidade de origem</Link></section>}
     <nav className="flex flex-wrap gap-4"><Link className="text-primary underline" href="/vendas/tabela-precos">Tabela de preços</Link>{table.value?.canManage && <><Link className="text-primary underline" href="/preferencias/comercial">Parâmetros e metas</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link></>}</nav>
-    <label className="grid max-w-sm gap-2">Linha comercial<select className={selectClass} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm("Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
-    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <p role="alert"><RequestError message={table.error} status={table.status} /></p> : table.value && (opportunityTenant && opportunityTenant !== table.value.tenantId ? <p role="alert">A empresa da sessão mudou. Reabra a oportunidade.</p> : <Simulator key={`${line}:${table.value.tenantId}:${table.value.data?.id}`} table={table.value} opportunity={opportunity} initialProduct={line === initialLine ? initialProduct : ""} />)}
+    <label className="grid max-w-sm gap-2">Linha comercial<select className={selectClass} disabled={lineLocked} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm("Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
+    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <p role="alert"><RequestError message={table.error} status={table.status} /></p> : table.value && (opportunityTenant && opportunityTenant !== table.value.tenantId ? <p role="alert">A empresa da sessão mudou. Reabra a oportunidade.</p> : <Simulator key={`${line}:${table.value.tenantId}:${table.value.data?.id}`} table={table.value} opportunity={opportunity} onLineLockChange={setLineLocked} initialProduct={line === initialLine ? initialProduct : ""} />)}
   </main>
 }
 
-function Simulator({ table, initialProduct, opportunity }: { table: PriceTable; initialProduct: string; opportunity?: Opportunity }) {
+function Simulator({ table, initialProduct, opportunity, onLineLockChange }: { table: PriceTable; initialProduct: string; opportunity?: Opportunity; onLineLockChange: (locked: boolean) => void }) {
   const router = useRouter()
   const command = useCommand()
   const [items, setItems] = useState<Selected[]>(() => table.data?.items.some(i => i.productId === initialProduct) ? [{ productId: initialProduct, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }] : [])
@@ -61,6 +62,7 @@ function Simulator({ table, initialProduct, opportunity }: { table: PriceTable; 
   const [everCalculated, setEverCalculated] = useState(false)
   const [error, setError] = useState("")
   const frozen = busy || command.busy || command.uncertain || command.stale
+  useEffect(() => { onLineLockChange(frozen) }, [frozen, onLineLockChange])
   useNavigationGuard(dirty || command.uncertain ? "Sair sem concluir esta negociação?" : null)
   function change() { setResult(null); setDirty(true); setError(""); command.reset() }
   function simulationInput(): SimulationInput {

@@ -71,6 +71,8 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   await page.getByLabel(`Cor da estrutura de ${equipment.name}`, { exact: true }).selectOption("Preto")
   await page.getByLabel(`Cor dos anilheiros de ${equipment.name}`, { exact: true }).selectOption("Preto")
   await page.getByLabel(`Tipo de anilheiro de ${equipment.name}`, { exact: true }).selectOption("Olímpico")
+  await expect(page.getByRole("region", { name: "Resultado da simulação" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Simular", exact: true }).click()
   await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
   await expect(page.getByRole("button", { name: "Conferir criação com o mesmo comando", exact: true })).toBeVisible()
   await expect(page.getByRole("combobox", { name: "Linha comercial", exact: true })).toBeDisabled()

@@ -260,7 +260,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                       Perfil ativo
                     </label>
                     <LineTaxRulesEditor value={value} index={index + 1} update={patch => profile(index, patch)} />
-                    <TaxProfileDefaultFields index={index + 1} value={value.defaults ?? {}} onChange={defaults => profile(index, { defaults })} />
+                    <TaxProfileDefaultFields index={index} value={value.defaults ?? {}} onChange={defaults => profile(index, { defaults })} />
                     <Button
                       type="button"
                       variant="outline"

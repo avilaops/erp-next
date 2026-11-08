@@ -528,6 +528,25 @@ mod tests {
             assert!(required.iter().any(|value| value == field));
         }
         assert!(doc["paths"]["/api/v1/company-account"]["get"].is_object());
+        let account = &doc["paths"]["/api/v1/company-account"]["get"];
+        let response_schema = &account["responses"]["200"]["content"]["application/json"]["schema"];
+        let schema_ref = response_schema["$ref"].as_str().unwrap();
+        let schema = doc.pointer(schema_ref.strip_prefix('#').unwrap()).unwrap();
+        let required = schema["required"].as_array().unwrap();
+        for field in [
+            "tenantId",
+            "canEdit",
+            "providerConfigured",
+            "plans",
+            "subscriptions",
+            "activeUsers",
+            "productPhotoBytes",
+        ] {
+            assert!(
+                required.iter().any(|value| value == field),
+                "missing company account field: {field}"
+            );
+        }
         for action in ["checkout", "refresh", "change-plan", "cancel"] {
             assert!(
                 doc["paths"][format!("/api/v1/company-account/{action}")]["post"]["requestBody"]

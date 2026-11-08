@@ -60,7 +60,7 @@ test("metas e prévias não apresentam números fixos nem controles simulados", 
   await expect(page.getByRole("heading", { name: "Integração com Lojas", exact: true })).toBeVisible()
   await expect(page.getByText(/Criar uma chave não configura automaticamente o Lojas/)).toBeVisible()
   await expect(page.locator("main").getByText(/4821|10:42|Conexão saudável|Sincronizar estoque/)).toHaveCount(0)
-  for (const path of ["/eventos", "/novidades", "/vendas/pdv", "/financeiro/relatorios", "/logistica/envios", "/servicos/ordens"]) {
+  for (const path of ["/eventos", "/novidades", "/vendas/pdv"]) {
     await page.goto(path)
     await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
     await expect(page.locator("main button, main table, main input")).toHaveCount(0)

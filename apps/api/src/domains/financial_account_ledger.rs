@@ -70,7 +70,7 @@ pub struct Entry {
 
 #[derive(FromRow, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct Account {
+struct LedgerAccount {
     id: Uuid,
     code: String,
     name: String,
@@ -81,7 +81,7 @@ struct Account {
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct AccountLedger {
-    account: Account,
+    account: LedgerAccount,
     credit: String,
     debit: String,
     balance: String,
@@ -116,7 +116,7 @@ async fn load(
     offset: u32,
     limit: u32,
 ) -> Result<AccountLedger, DomainError> {
-    let account = sqlx::query_as::<_, Account>("SELECT id,code,name,status,account_type FROM financial_accounts WHERE tenant_id=$1 AND id=$2")
+    let account = sqlx::query_as::<_, LedgerAccount>("SELECT id,code,name,status,account_type FROM financial_accounts WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(account_id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
     let (credit, debit): (i64, i64) = sqlx::query_as("SELECT COALESCE(SUM(amount_cents) FILTER (WHERE direction='credit'),0)::bigint, COALESCE(SUM(amount_cents) FILTER (WHERE direction='debit'),0)::bigint FROM financial_account_entries WHERE tenant_id=$1 AND account_id=$2")
         .bind(tenant).bind(account_id).fetch_one(&mut **tx).await.map_err(db)?;

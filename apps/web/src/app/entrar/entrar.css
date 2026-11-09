@@ -1,4 +1,4 @@
-.entry-page { background: radial-gradient(ellipse 80% 650px at 0 0, #edf3ff, transparent), #fff; color: #142238; }
+.entry-page { background: radial-gradient(ellipse 80% 650px at 0 0, #e4edfb, transparent), #eef3f9; color: #142238; }
 .entry-recovery { min-height: 100svh; padding: 20px; }
 .entry-recovery-content { width: min(100%, 480px); margin-inline: auto; }
 .entry-recovery-content > p { margin-block: 12px; font-size: 14px; line-height: 1.5; }

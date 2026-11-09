@@ -121,7 +121,7 @@ test("consultas fiscais mostram eventos reais e falha não aparece como lista va
   await page.goto("/preferencias/fiscal/correcoes")
   await expect(page.getByText("Nenhum evento desta categoria registrado nesta empresa.")).toBeVisible()
 })
-test("perfis da Ludus preservam códigos e salvam por empresa com revisão no celular", async ({ page }) => {
+test("perfis da empresa preservam padrões ao escolher linha comercial e salvar", async ({ page }) => {
   let saved: unknown
   await page.route("**/api/erp/registration-settings/tax-profiles", (route) => {
     if (route.request().method() === "PUT") {
@@ -129,7 +129,7 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
       expect(route.request().headers()["x-tenant-id"]).toBe(tenant)
       saved = route.request().postDataJSON()
       const profiles = (saved as { profiles: { productLine?: string; lineRules?: unknown }[] }).profiles
-      if (profiles.some(profile => Boolean(profile.productLine) !== Boolean(profile.lineRules))) {
+      if (profiles.some(profile => Boolean(profile.lineRules) && !profile.productLine)) {
         return route.fulfill({ status: 422, json: { title: "Regras da nota exigem uma linha comercial válida" } })
       }
     }
@@ -140,19 +140,28 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/cadastros/perfis-tributarios")
-  await expect(
-    page.getByRole("button", { name: "Preencher os dois perfis informados pelo contador da Ludus" })
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: /Ludus/ })).toHaveCount(0)
+  await expect(page.getByText("Nenhum perfil tributário cadastrado nesta empresa.")).toBeVisible()
+  for (const [i, name] of ["Perfil importado", "Perfil nacional"].entries()) {
+    await page.getByRole("button", { name: "Adicionar perfil tributário", exact: true }).click()
+    for (const [label, value] of [["Nome do perfil", name], ["Natureza da operação", "Venda"], ["PIS (%)", "1.6500"], ["COFINS (%)", "7.6000"], ["CST IBS/CBS", "000"], ["cClassTrib", "000001"]]) {
+      await page.getByLabel(`Perfil ${i + 1}: ${label}`, { exact: true }).fill(value)
+    }
+    await page.getByRole("combobox", { name: `Perfil ${i + 1}: CST do ICMS`, exact: true }).selectOption("00")
+    await page.getByRole("combobox", { name: `Perfil ${i + 1}: CST do IPI`, exact: true }).selectOption(i ? "53" : "50")
+    await page.getByLabel(`Perfil ${i + 1}: Enquadramento do IPI`, { exact: true }).fill("999")
+    await page.getByLabel(`Perfil ${i + 1}: IBS municipal (%)`, { exact: true }).fill("0.0000")
+    await page.getByRole("combobox", { name: `Perfil ${i + 1}: Consumidor final`, exact: true }).selectOption("true")
+    await page.getByLabel(`Perfil ${i + 1}: linha comercial`, { exact: true }).selectOption(i ? "national" : "imported")
+    await expect(page.getByLabel(`Perfil ${i + 1}: Alíquota fiscal do ICMS (%)`, { exact: true })).toHaveCount(0)
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page
-    .getByRole("button", { name: "Preencher os dois perfis informados pelo contador da Ludus" })
-    .click()
   await expect(page.getByLabel("Perfil 1: PIS (%)", { exact: true })).toHaveValue("1.6500")
   await expect(page.getByLabel("Perfil 2: COFINS (%)", { exact: true })).toHaveValue("7.6000")
   await expect(page.getByLabel("Perfil 1: CST IBS/CBS", { exact: true })).toHaveValue("000")
   await expect(page.getByLabel("Perfil 2: cClassTrib", { exact: true })).toHaveValue("000001")
-  await expect(page.getByLabel("Perfil 1: linha comercial", { exact: true })).toHaveValue("")
-  await expect(page.getByLabel("Perfil 2: linha comercial", { exact: true })).toHaveValue("")
+  await expect(page.getByLabel("Perfil 1: linha comercial", { exact: true })).toHaveValue("imported")
+  await expect(page.getByLabel("Perfil 2: linha comercial", { exact: true })).toHaveValue("national")
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do IPI", exact: true })).toHaveValue("50")
   await expect(page.getByRole("combobox", { name: "Perfil 2: CST do IPI", exact: true })).toHaveValue("53")
@@ -167,8 +176,8 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
   await expect(page.getByLabel("Perfil 2: IBS municipal (%)", { exact: true })).toHaveValue("0.0000")
   expect(saved).toMatchObject({ profiles: [
-    { defaults: { icmsCst: "00", ipiCst: "50", ibsCityRate: "0.0000", finalConsumer: true } },
-    { defaults: { icmsCst: "00", ipiCst: "53", ibsCityRate: "0.0000", finalConsumer: false } }
+    { productLine: "imported", defaults: { icmsCst: "00", ipiCst: "50", ibsCityRate: "0.0000", finalConsumer: true } },
+    { productLine: "national", defaults: { icmsCst: "00", ipiCst: "53", ibsCityRate: "0.0000", finalConsumer: false } }
   ] })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })

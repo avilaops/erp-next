@@ -11,7 +11,7 @@ const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 #[sqlx::test(migrations = "../../migrations")]
 async fn tax_profile_defaults_persist_with_exact_codes_zero_and_explicit_false(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
-    let input = json!({"profiles":[{"name":"Nacional","operationNature":"Venda","pisRate":"1.65","cofinsRate":"7.6","ibsCbsCst":"000","classCode":"000001","active":true,"defaults":{"icmsCst":"00","ipiCst":"53","ipiFrameCode":"999","ibsCityRate":"0","finalConsumer":false}}]});
+    let input = json!({"profiles":[{"name":"Nacional","productLine":"national","operationNature":"Venda","pisRate":"1.65","cofinsRate":"7.6","ibsCbsCst":"000","classCode":"000001","active":true,"defaults":{"icmsCst":"00","ipiCst":"53","ipiFrameCode":"999","ibsCityRate":"0","finalConsumer":false}}]});
     for (method, revision, body) in [("PUT", Some("\"1\""), input), ("GET", None, Value::Null)] {
         let mut request = Request::builder()
             .method(method)
@@ -33,6 +33,8 @@ async fn tax_profile_defaults_persist_with_exact_codes_zero_and_explicit_false(a
         assert_eq!(result["revision"], 2);
         let profile = &result["data"]["profiles"][0];
         assert_eq!(profile["pisRate"], "1.6500");
+        assert_eq!(profile["productLine"], "national");
+        assert!(profile.get("lineRules").is_none());
         assert_eq!(profile["defaults"]["icmsCst"], "00");
         assert_eq!(profile["defaults"]["ipiCst"], "53");
         assert_eq!(profile["defaults"]["ibsCityRate"], "0.0000");

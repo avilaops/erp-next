@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test"
 import { installFrontendFixture, tenant, record } from "./helpers/frontend-fixture"
 import { blankDraft, blankItem, blankTaxDeclaration } from "../src/features/fiscal/nfe-draft-model"
-import { ludusProfiles } from "../src/features/fiscal/settings/tax-profile-model"
+import { declaredProfiles } from "./helpers/tax-profile-fixture"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
 test("perfis atualizam ao voltar do gerenciamento sem aplicar ao rascunho e descartam falhas", async ({ page }) => {
-  let profiles = ludusProfiles()
+  let profiles = declaredProfiles()
   let fail = false
   let calls = 0
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))

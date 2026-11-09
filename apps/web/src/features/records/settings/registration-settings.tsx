@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ludusProfiles, normalizedProfile, type TaxProfile } from "@/features/fiscal/settings/tax-profile-model"
+import { normalizedProfile, type TaxProfile } from "@/features/fiscal/settings/tax-profile-model"
 import { LineTaxRulesEditor } from "@/features/fiscal/settings/line-tax-rules"
 import { TaxProfileDefaultFields } from "@/features/fiscal/settings/tax-profile-default-fields"
 export type Section = "products" | "parties" | "contact-types" | "tax-profiles"
@@ -201,16 +201,7 @@ export function RegistrationSettings({ section }: { section: Section }) {
                   da NF-e. CFOP, origem, CST dos demais tributos e alíquotas restantes devem ser revisados em
                   cada operação.
                 </p>
-                {!data.profiles?.length && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-auto min-h-11 max-w-full whitespace-normal text-left"
-                    onClick={() => setData({ ...data, profiles: ludusProfiles() })}
-                  >
-                    Preencher os dois perfis informados pelo contador da Ludus
-                  </Button>
-                )}
+                {!data.profiles?.length && <p>Nenhum perfil tributário cadastrado nesta empresa.</p>}
                 {data.profiles?.map((value, index) => (
                   <fieldset className="form-section grid gap-4 sm:grid-cols-2" key={index}>
                     <legend className="px-2 font-semibold">Perfil {index + 1}</legend>

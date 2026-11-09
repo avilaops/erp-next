@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, invoiceTotal, submission } from "../src/features/fiscal/nfe-draft-model.ts";
-import { ludusProfiles, normalizedProfile } from "../src/features/fiscal/settings/tax-profile-model.ts";
+import { normalizedProfile } from "../src/features/fiscal/settings/tax-profile-model.ts";
+import { declaredProfiles } from "./helpers/tax-profile-fixture.ts";
 
-test("Ludus presets are defaults-only profiles without incomplete commercial-line rules", () => {
-  for (const preset of ludusProfiles()) {
+test("Declared profiles are defaults-only profiles without incomplete commercial-line rules", () => {
+  for (const preset of declaredProfiles()) {
     const payload = JSON.parse(JSON.stringify(normalizedProfile(preset)));
     assert.equal(payload.productLine, undefined);
     assert.equal(payload.lineRules, undefined);
@@ -66,8 +67,8 @@ test("freight and discount retain original gross prices and round IPI per commer
   assert.throws(() => submission(draft), /desconto/);
 });
 
-test("documented Ludus defaults fill missing tax fields without inferring product or recipient data", () => {
-  const [imported, national] = ludusProfiles();
+test("declared defaults fill missing tax fields without inferring product or recipient data", () => {
+  const [imported, national] = declaredProfiles();
   const draft = blankDraft();
   const applied = applyTaxProfile(draft, imported, 2);
   assert.equal(applied.operationNature, "Venda de Mercadoria Importada");
@@ -90,7 +91,7 @@ test("additional profile defaults preserve existing classifications, explicit fa
   const draft = blankDraft();
   draft.items[0] = { ...blankItem(), icmsCst: "40", pisCst: "07", cofinsCst: "07", origin: 2, cfop: "6102" };
   draft.taxDeclaration = { ...blankTaxDeclaration(), finalConsumer: false, ipiInIcmsBase: false, ipiCst: "53", ipiFrameCode: "001", ibsCbs: { cst: "000", classCode: "000001", ibsStateRate: "0.0000", ibsCityRate: "0.0000", cbsRate: "0.0000" } };
-  const applied = applyTaxProfile(draft, ludusProfiles()[0], 3);
+  const applied = applyTaxProfile(draft, declaredProfiles()[0], 3);
   assert.equal(applied.items[0].icmsCst, "40");
   assert.equal(applied.items[0].pisCst, "07");
   assert.equal(applied.items[0].cfop, "6102");
@@ -100,5 +101,5 @@ test("additional profile defaults preserve existing classifications, explicit fa
   assert.equal(applied.taxDeclaration.ipiFrameCode, "001");
   assert.equal(applied.taxDeclaration.ibsCbs.cbsRate, "0.0000");
   draft.items[0] = { ...blankItem(), csosn: "102" };
-  assert.equal(applyTaxProfile(draft, ludusProfiles()[0], 3).items[0].icmsCst, null);
+  assert.equal(applyTaxProfile(draft, declaredProfiles()[0], 3).items[0].icmsCst, null);
 });

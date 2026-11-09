@@ -143,7 +143,7 @@ impl TaxProfile {
             .product_line
             .as_deref()
             .is_some_and(|line| !matches!(line, "imported" | "national"))
-            || self.product_line.is_some() != self.line_rules.is_some()
+            || self.line_rules.is_some() && self.product_line.is_none()
         {
             return Err(DomainError::Invalid(
                 "Regras da nota exigem uma linha comercial válida",
@@ -200,5 +200,44 @@ impl TaxProfile {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TaxProfile;
+    use serde_json::json;
+
+    fn profile() -> TaxProfile {
+        serde_json::from_value(json!({"name":"Perfil da empresa","operationNature":"Venda","pisRate":"1.65","cofinsRate":"7.6","ibsCbsCst":"000","classCode":"000001","active":true,"defaults":{"icmsCst":"00","ipiCst":"50"}})).unwrap()
+    }
+
+    #[test]
+    fn commercial_line_classifies_defaults_without_requiring_operation_rules() {
+        for line in ["imported", "national"] {
+            let mut value = profile();
+            value.product_line = Some(line.into());
+            assert!(value.validate().is_ok());
+            assert!(value.line_rules.is_none());
+            assert_eq!(value.defaults.unwrap().ipi_cst.as_deref(), Some("50"));
+        }
+    }
+
+    #[test]
+    fn commercial_line_still_rejects_unknown_classifications() {
+        let mut value = profile();
+        value.product_line = Some("invalid".into());
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn operation_rules_still_require_a_line_and_complete_valid_rates() {
+        let mut value = profile();
+        value.line_rules = Some(serde_json::from_value(json!({"cfopSameState":"5102","cfopInterstateTaxpayer":"6102","cfopInterstateNonTaxpayer":"6102","icmsCst":"00","ipiCst":"53","ipiFrameCode":"999","pisCst":"01","cofinsCst":"01","icmsRate":"18.0000","ipiRate":"0.0000","ibsStateRate":"0.1000","ibsCityRate":"0.0000","cbsRate":"0.9000","finalConsumer":false,"ipiInIcmsBase":false,"icmsOutOfContributions":false,"additionalInformation":""})).unwrap());
+        assert!(value.validate().is_err());
+        value.product_line = Some("national".into());
+        assert!(value.validate().is_ok());
+        value.line_rules.as_mut().unwrap().icms_rate = String::new();
+        assert!(value.validate().is_err());
     }
 }

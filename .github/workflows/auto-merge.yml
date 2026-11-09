@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   pull-requests: write
 
@@ -83,9 +83,11 @@ jobs:
             # GitHub still enforces the protected branch rules on this merge.
             result=$(gh api --method PUT "repos/$GH_REPO/pulls/$PR/merge" -f sha="$EXPECTED_HEAD" -f merge_method=merge)
             release_sha=$(jq -er 'select(.merged == true) | .sha | select(test("^[a-f0-9]{40}$"))' <<<"$result")
+            merged_here=true
           else
             # Recheck an already merged candidate without merging it again.
             release_sha=$(jq -er '.merge_commit_sha | select(test("^[a-f0-9]{40}$"))' <<<"$candidate")
+            merged_here=false
           fi
           tested_commit=$(gh api "repos/$GH_REPO/git/commits/$tested_merge")
           release_commit=$(gh api "repos/$GH_REPO/git/commits/$release_sha")
@@ -94,6 +96,10 @@ jobs:
             .parents[1].sha == $head and ($tested.parents | length) == 2 and
             $tested.parents[1].sha == $head
           ' <<<"$release_commit" >/dev/null
-          # Deployment and migrations are performed directly on the server.
-          # Production release remains an explicit manual fallback.
+          # Merges made with GITHUB_TOKEN do not trigger push workflows.
+          # Manual merges are covered by Production release's main push trigger.
+          if [[ "$merged_here" == true ]]; then
+            gh workflow run production-release.yml --ref main \
+              -f source_ref="$release_sha" -f automatic=true
+          fi
 

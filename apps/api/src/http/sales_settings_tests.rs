@@ -308,6 +308,41 @@ async fn sales_settings_are_explicit_authorized_isolated_and_enforced_before_res
         .0,
         StatusCode::OK
     );
+    let fiscal_draft = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO fiscal_nfe_drafts(tenant_id,id,environment,model,profile_revision,company_revision,issuer_snapshot,details,products_total_cents)
+         VALUES($1,$2,'production',55,1,1,'{}',jsonb_build_object('sourceOrderId',$3::uuid),1)",
+    )
+    .bind(Uuid::parse_str(TENANT).unwrap())
+    .bind(fiscal_draft)
+    .bind(Uuid::parse_str(order).unwrap())
+    .execute(&admin)
+    .await
+    .unwrap();
+    let blocked = call(
+        &router,
+        "POST",
+        &format!("/api/v1/orders/{order}/complete"),
+        ("editor", TENANT),
+        Some("\"2\""),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(blocked.0, StatusCode::CONFLICT, "{}", blocked.1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM receivables")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
+    sqlx::query("UPDATE fiscal_nfe_drafts SET environment='homologation' WHERE id=$1")
+        .bind(fiscal_draft)
+        .execute(&admin)
+        .await
+        .unwrap();
+
     assert_eq!(
         call(
             &router,

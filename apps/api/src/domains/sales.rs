@@ -724,6 +724,31 @@ async fn transition(
             "Transição não permitida para a situação atual do pedido",
         ));
     }
+    if matches!(action, Action::Complete) {
+        let fiscal_pending: bool = sqlx::query_scalar(
+            r#"SELECT
+                (
+                    EXISTS (SELECT 1 FROM fiscal_nfe_drafts
+                        WHERE tenant_id=$1 AND environment='production'
+                        AND details->>'sourceOrderId'=$2::uuid::text)
+                    OR EXISTS (SELECT 1 FROM fiscal_nfe_documents
+                        WHERE tenant_id=$1 AND source_order_id=$2 AND environment='production')
+                )
+                AND NOT EXISTS (SELECT 1 FROM fiscal_nfe_documents
+                    WHERE tenant_id=$1 AND source_order_id=$2
+                    AND environment='production' AND status='authorized')"#,
+        )
+        .bind(tenant)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+        if fiscal_pending {
+            return Err(DomainError::Conflict(
+                "Autorize a NF-e de produção vinculada antes de concluir o pedido",
+            ));
+        }
+    }
     if matches!(action, Action::Confirm | Action::Complete) {
         let active=sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM parties WHERE tenant_id=$1 AND id=$2 AND is_customer AND status='active')").bind(tenant).bind(current.data.customer_id).fetch_one(&mut *tx).await.map_err(db)?;
         if !active {

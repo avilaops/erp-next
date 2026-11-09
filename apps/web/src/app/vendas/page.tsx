@@ -1,9 +1,14 @@
 import { connection } from "next/server"
+import { Suspense } from "react"
 import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 import { PageHeader } from "@/components/page-header"
 import { SalesWorkspace } from "@/features/sales/sales-workspace"
 
-export default async function Page() {
+export default function Page() {
+  return <Suspense fallback={<p role="status">Carregando vendas…</p>}><SalesAccess /></Suspense>
+}
+
+async function SalesAccess() {
   await connection()
   const access = await currentWorkspaceAccess()
   return <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">

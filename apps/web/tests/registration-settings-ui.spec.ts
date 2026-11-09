@@ -121,7 +121,7 @@ test("consultas fiscais mostram eventos reais e falha não aparece como lista va
   await page.goto("/preferencias/fiscal/correcoes")
   await expect(page.getByText("Nenhum evento desta categoria registrado nesta empresa.")).toBeVisible()
 })
-test("perfis da empresa preservam padrões ao escolher linha comercial e salvar", async ({ page }) => {
+test("perfis da empresa preservam padrões ao escolher linha comercial e salvar", async ({ page }, testInfo) => {
   let saved: unknown
   await page.route("**/api/erp/registration-settings/tax-profiles", (route) => {
     if (route.request().method() === "PUT") {
@@ -175,6 +175,17 @@ test("perfis da empresa preservam padrões ao escolher linha comercial e salvar"
   await expect(page.getByRole("combobox", { name: "Perfil 2: Consumidor final", exact: true })).toHaveValue("false")
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
   await expect(page.getByLabel("Perfil 2: IBS municipal (%)", { exact: true })).toHaveValue("0.0000")
+  await expect(page.getByRole("heading", { name: "Perfil importado", exact: true })).toBeVisible()
+  const profileName = page.getByLabel("Perfil 1: Nome do perfil", { exact: true })
+  expect((await profileName.boundingBox())?.height).toBeLessThanOrEqual(40)
+  await testInfo.attach("tax-profiles-mobile", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  const pis = await page.getByLabel("Perfil 1: PIS (%)", { exact: true }).boundingBox()
+  const cofins = await page.getByLabel("Perfil 1: COFINS (%)", { exact: true }).boundingBox()
+  expect(pis?.y).toBe(cofins?.y)
+  expect(cofins!.x).toBeGreaterThan(pis!.x)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await testInfo.attach("tax-profiles-desktop", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
   expect(saved).toMatchObject({ profiles: [
     { productLine: "imported", defaults: { icmsCst: "00", ipiCst: "50", ibsCityRate: "0.0000", finalConsumer: true } },
     { productLine: "national", defaults: { icmsCst: "00", ipiCst: "53", ibsCityRate: "0.0000", finalConsumer: false } }

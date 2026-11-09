@@ -45,7 +45,7 @@ for (const viewport of [
   let sent: Record<string, unknown> | undefined
   await page.route("**/api/erp/commercial/simulate", route => {
     sent = route.request().postDataJSON()
-    return route.fulfill({ json: { tenantId: tenant, version: 6, digest: "a".repeat(64), sale, director: null } })
+    return route.fulfill({ json: { tenantId: tenant, version: 6, digest: "a".repeat(64), sale: { ...sale, maximumAtTargetDiscountBps: 1500, requiredDownPaymentCents: 10180 }, director: null } })
   })
   await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ json: { tenantId: tenant, data: { structureColors: ["Preto"], upholsteryColors: [] } } }))
   await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, data: [], total: 0 } }))
@@ -56,6 +56,11 @@ for (const viewport of [
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toContainText("R$ 226,00")
   expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
+  const commercialResult = page.getByRole("region", { name: "Resultado da simulação" })
+  await expect(commercialResult.getByText("Desconto máximo para atingir a meta")).toBeVisible()
+  await expect(commercialResult.getByText("15%", { exact: true })).toBeVisible()
+  await expect(commercialResult.getByText("Entrada necessária para este pedido")).toBeVisible()
+  await expect(commercialResult.getByText("R$ 101,80", { exact: true })).toBeVisible()
   await expect(page.getByText("Custos e lucro: gestão autorizada")).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Criar pedido com estas condições", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

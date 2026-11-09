@@ -173,6 +173,20 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         StatusCode::UNPROCESSABLE_ENTITY
     );
     let create_uri = format!("{base}/orders");
+    let manual = call(
+        &router,
+        "POST",
+        "/api/v1/orders",
+        ("reader", TENANT),
+        None,
+        Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2026-12-30","items":[{"productId":PRODUCT,"quantity":"2.000000","structureColor":"Preto"}]}),
+    ).await;
+    assert_eq!(
+        manual.0,
+        StatusCode::CONFLICT,
+        "Published items require validated pricing"
+    );
     let body = json!({"quote":input(3000),"digest":seller.1["digest"],"customerId":CUSTOMER,"dueDate":"2026-12-30","structureColor":"Preto","upholsteryColor":null});
     let mut tampered = body.clone();
     tampered["quote"]["discount"]["value"] = json!(0);
@@ -270,6 +284,33 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
             .get("director")
             .is_none()
     );
+    let manager_snapshot = call(
+        &router,
+        "GET",
+        &pricing,
+        ("editor", TENANT),
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert!(
+        manager_snapshot.1["data"]["snapshot"]
+            .get("director")
+            .is_none()
+    );
+    sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','sales.approvals.director') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let director_snapshot = call(
+        &router,
+        "GET",
+        &pricing,
+        ("editor", TENANT),
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert!(director_snapshot.1["data"]["snapshot"]["director"].is_object());
     let approve = format!("{pricing}/approve");
     assert_eq!(
         call(

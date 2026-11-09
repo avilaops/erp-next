@@ -44,7 +44,7 @@ pub(super) async fn require_catalog_pricing(
     tenant: Uuid,
     product: Uuid,
 ) -> Result<(), DomainError> {
-    let published: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM product_costs c JOIN commercial_settings s ON s.tenant_id=c.tenant_id AND s.product_line=c.product_line WHERE c.tenant_id=$1 AND c.product_id=$2 AND s.active_price_version_id IS NOT NULL)")
+    let published: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM product_costs c JOIN commercial_settings s ON s.tenant_id=c.tenant_id AND s.product_line=c.product_line WHERE c.tenant_id=$1 AND c.product_id=$2 AND s.active_price_version_id IS NOT NULL) OR EXISTS(SELECT 1 FROM price_table_items i JOIN commercial_settings s ON s.tenant_id=i.tenant_id AND s.active_price_version_id=i.version_id WHERE i.tenant_id=$1 AND i.product_id=$2)")
         .bind(tenant).bind(product).fetch_one(&mut **tx).await.map_err(db)?;
     if published {
         return Err(DomainError::Conflict(
@@ -174,7 +174,7 @@ async fn prepare(
     }
     let mut sources = Vec::with_capacity(input.items.len());
     for item in &input.items {
-        let source: SourceItem = sqlx::query_as("SELECT i.product_id,i.product_snapshot->>'sku' AS sku,i.product_snapshot->>'name' AS name,i.product_snapshot->>'unit' AS unit,p.revision AS product_revision,c.revision AS cost_revision,i.price_without_ipi_cents AS price_cents,(i.cost_snapshot->>'purchaseCostCents')::bigint AS purchase_cents,(i.cost_snapshot->>'taxCreditBps')::integer AS credit_bps,(i.cost_snapshot->>'packagingCents')::bigint AS packaging_cents FROM price_table_items i JOIN products p ON p.tenant_id=i.tenant_id AND p.id=i.product_id JOIN product_costs c ON c.tenant_id=i.tenant_id AND c.product_id=i.product_id WHERE i.tenant_id=$1 AND i.version_id=$2 AND i.product_id=$3 AND p.status='active' AND c.product_line=$4 AND c.revision=i.cost_revision AND p.revision=(i.product_snapshot->>'revision')::bigint")
+        let source: SourceItem = sqlx::query_as("SELECT i.product_id,i.product_snapshot->>'sku' AS sku,i.product_snapshot->>'name' AS name,i.product_snapshot->>'unit' AS unit,p.revision AS product_revision,i.cost_revision,i.price_without_ipi_cents AS price_cents,(i.cost_snapshot->>'purchaseCostCents')::bigint AS purchase_cents,(i.cost_snapshot->>'taxCreditBps')::integer AS credit_bps,(i.cost_snapshot->>'packagingCents')::bigint AS packaging_cents FROM price_table_items i JOIN products p ON p.tenant_id=i.tenant_id AND p.id=i.product_id JOIN price_table_versions v ON v.tenant_id=i.tenant_id AND v.id=i.version_id LEFT JOIN product_costs c ON c.tenant_id=i.tenant_id AND c.product_id=i.product_id WHERE i.tenant_id=$1 AND i.version_id=$2 AND i.product_id=$3 AND p.status='active' AND v.product_line=$4 AND p.unit=i.product_snapshot->>'unit' AND p.revision=(i.product_snapshot->>'revision')::bigint AND ((v.source_kind='calculated' AND c.product_line=$4 AND c.revision=i.cost_revision) OR (v.source_kind='legacy' AND i.cost_revision IS NULL AND i.source_snapshot->>'source'=v.source_reference->>'source'))")
             .bind(tenant).bind(input.version_id).bind(item.product_id).bind(&input.line).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::Conflict("Produto ou custo alterado, indisponível ou fora da tabela. Atualize e publique a tabela"))?;
         sources.push(source);
     }
@@ -482,7 +482,9 @@ pub async fn quote(
     };
     let can_approve = allowed(&mut tx, tenant, &identity, DIRECTOR).await?
         || (!director && allowed(&mut tx, tenant, &identity, APPROVE).await?);
-    let details = if allowed(&mut tx, tenant, &identity, POLICY).await? {
+    let details = if allowed(&mut tx, tenant, &identity, POLICY).await?
+        && allowed(&mut tx, tenant, &identity, DIRECTOR).await?
+    {
         Some(private["director"].clone())
     } else {
         None

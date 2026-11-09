@@ -384,6 +384,7 @@ async fn prepare_order(
     tenant: Uuid,
     input: &OrderInput,
     previous: Option<&OrderSnapshot>,
+    validated_pricing: bool,
 ) -> Result<PreparedOrder, DomainError> {
     let due = date(&input.due_date)?;
     if input.items.is_empty() || input.items.len() > 100 {
@@ -404,7 +405,7 @@ async fn prepare_order(
     let mut seen = std::collections::HashSet::new();
     let mut total = 0_i64;
     for item in &input.items {
-        if previous.is_none() {
+        if previous.is_none() && !validated_pricing {
             negotiation::require_catalog_pricing(tx, tenant, item.product_id).await?;
         }
         if !seen.insert(item.product_id) {
@@ -428,7 +429,7 @@ async fn prepare_order(
                 .iter()
                 .find(|line| line.product_id == item.product_id)
         });
-        if previous.is_some() && saved.is_none() {
+        if previous.is_some() && saved.is_none() && !validated_pricing {
             negotiation::require_catalog_pricing(tx, tenant, item.product_id).await?;
         }
         if saved.is_some_and(|line| line.unit != product.data.unit) {
@@ -567,7 +568,7 @@ pub async fn create(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::CREATED, rev, previous));
     }
-    let prepared = prepare_order(&mut tx, tenant, &input, None).await?;
+    let prepared = prepare_order(&mut tx, tenant, &input, None, false).await?;
     let id = Uuid::now_v7();
     sqlx::query("INSERT INTO sales_orders(id,tenant_id,customer_id,customer_name,customer_tax_id,due_date,amount_cents,status) VALUES($1,$2,$3,$4,$5,$6,$7,'draft')")
         .bind(id).bind(tenant).bind(input.customer_id).bind(&prepared.customer_name).bind(&prepared.customer_tax_id).bind(prepared.due).bind(prepared.total).execute(&mut *tx).await.map_err(db)?;
@@ -640,7 +641,7 @@ pub async fn update(
             "Somente pedidos em rascunho podem ser editados",
         ));
     }
-    let prepared = prepare_order(&mut tx, tenant, &input, Some(&current)).await?;
+    let prepared = prepare_order(&mut tx, tenant, &input, Some(&current), false).await?;
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let updated = sqlx::query("UPDATE sales_orders SET customer_id=$3,customer_name=$4,customer_tax_id=$5,due_date=$6,amount_cents=$7,revision=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status='draft' AND revision=$9")
         .bind(tenant).bind(id).bind(input.customer_id).bind(&prepared.customer_name).bind(&prepared.customer_tax_id).bind(prepared.due).bind(prepared.total).bind(next).bind(expected).execute(&mut *tx).await.map_err(db)?;

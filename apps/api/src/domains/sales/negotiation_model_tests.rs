@@ -33,7 +33,7 @@ fn fixture() -> (ApprovalRules, SimulationInput, Vec<SourceItem>) {
             name: "Equipamento".into(),
             unit: "UN".into(),
             product_revision: 1,
-            cost_revision: 1,
+            cost_revision: Some(1),
             price_cents: 1_256_323,
             purchase_cents: 530_606,
             credit_bps: 2780,
@@ -155,4 +155,16 @@ fn exceptions_and_loss_cannot_escape_approval_and_invalid_inputs_fail() {
     assert!(calculate(&p, &rules, &input, &sources).is_err());
     input.discount = Discount::Total(u64::MAX);
     assert!(calculate(&p, &rules, &input, &sources).is_err());
+}
+
+#[test]
+fn frozen_legacy_cost_does_not_require_a_current_cost_revision() {
+    let (rules, input, mut sources) = fixture();
+    let expected = calculate(&example(), &rules, &input, &sources).unwrap();
+    sources[0].cost_revision = None;
+    let actual = calculate(&example(), &rules, &input, &sources).unwrap();
+    assert_eq!(
+        serde_json::to_value(expected).unwrap(),
+        serde_json::to_value(actual).unwrap()
+    );
 }

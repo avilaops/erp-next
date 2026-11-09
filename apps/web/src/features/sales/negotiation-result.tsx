@@ -7,11 +7,16 @@ function Rows({ values }: { values: [string, string][] }) {
 }
 
 export function NegotiationResult({ sale, director }: { sale: Sale; director: Director | null }) {
+  const discountLimit = sale.maximumAtTargetDiscountBps ?? director?.maximumAtTargetDiscountBps
+  const requiredEntry = sale.requiredDownPaymentCents ?? director?.requiredDownPaymentCents
   return <div className="space-y-5">
     <section className="form-section space-y-4" aria-label="Resultado da simulação">
       <h2 className="font-semibold">Resultado comercial</h2>
       <ul className="space-y-1 text-sm">{sale.items.map(item => <li key={item.productId}>{item.quantity} un. · {item.name} · {item.sku}</li>)}</ul>
       <div><p className="text-sm text-muted-foreground">Total da venda, com IPI</p><p className="break-words text-3xl font-semibold tabular-nums">{money(sale.totalCents)}</p></div>
+      {discountLimit !== undefined && requiredEntry !== undefined && <div className="rounded-lg border p-3">
+        <Rows values={[["Desconto máximo para atingir a meta", percent(discountLimit)], ["Entrada necessária para este pedido", money(requiredEntry)]]} />
+      </div>}
       <Rows values={[[`Entrada comercial mínima (${percent(sale.minimumDownPaymentBps)})`, money(sale.minimumDownPaymentCents)], ["Entrada negociada", money(sale.downPaymentCents)]]} />
       {director && <p className="rounded-lg border p-3">{director.band === "atTarget" ? "Na meta" : director.band === "loss" ? "Com prejuízo" : "Abaixo da meta"} · Lucro líquido {money(director.netProfitCents)} ({percent(director.netProfitBps)}). Meta: {percent(director.targetBps)}.</p>}
       <p role="status">{sale.approvalReasons.length ? "Esta negociação exige aprovação antes da confirmação do pedido." : "Condições dentro da política comercial."}</p>

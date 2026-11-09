@@ -212,6 +212,7 @@ html { scroll-padding-top: 76px; }
 :root {
   color-scheme: light;
   --background: #ffffff;
+  --page-backdrop: #eef3f9;
   --foreground: #172033;
   --card: #ffffff;
   --card-foreground: #172033;
@@ -249,6 +250,7 @@ html { scroll-padding-top: 76px; }
 .dark {
   color-scheme: dark;
   --background: oklch(0.145 0 0);
+  --page-backdrop: var(--background);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -379,6 +381,7 @@ html { scroll-padding-top: 76px; }
   }
   body {
     @apply bg-background text-foreground;
+    @media screen { background-color: var(--page-backdrop); }
   }
   html {
     @apply font-sans;

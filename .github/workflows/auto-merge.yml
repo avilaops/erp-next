@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  actions: write
+  actions: read
   contents: write
   pull-requests: write
 
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  merge-and-release:
+  merge:
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -31,7 +31,7 @@ jobs:
       ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
       EXPECTED_HEAD: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - name: Merge the exact candidate approved by CI and start production release
+      - name: Merge the exact candidate approved by scoped CI
         shell: bash
         run: |
           set -euo pipefail
@@ -66,10 +66,17 @@ jobs:
           gh run download "$RUN_ID" --name "$artifact" --dir "$evidence"
           jq -e --arg repo "$GH_REPO" --arg head "$EXPECTED_HEAD" --arg tested "$tested_merge" \
             --argjson run "$RUN_ID" --argjson attempt "$ATTEMPT" '
-              .schema == "avila-mlops-ci-attestation/1" and .repository == $repo and
+              .schema == "avila-mlops-ci-attestation/2" and .repository == $repo and
               .workflow == "CI" and .event == "pull_request" and .sourceSha == $head and
               .testedSha == $tested and .runId == $run and .runAttempt == $attempt and
-              .ciGate == "passed" and (.validationJobs | length > 0 and all(.[]; . == "success"))
+              .ciGate == "passed" and
+              (.validationScope | keys == ["api", "fiscal", "web"]) and
+              (.validationJobs | keys == ["api", "changes", "fiscal", "web"]) and
+              .validationJobs.changes == "success" and
+              all(.validationScope | to_entries[];
+                (.value | type) == "boolean") and
+              (. as $e | all(["api", "fiscal", "web"][];
+                $e.validationJobs[.] == (if $e.validationScope[.] then "success" else "skipped" end)))
             ' "$evidence/ci-attestation.json" >/dev/null
 
           if jq -e '.state == "open"' <<<"$candidate" >/dev/null; then
@@ -77,7 +84,7 @@ jobs:
             result=$(gh api --method PUT "repos/$GH_REPO/pulls/$PR/merge" -f sha="$EXPECTED_HEAD" -f merge_method=merge)
             release_sha=$(jq -er 'select(.merged == true) | .sha | select(test("^[a-f0-9]{40}$"))' <<<"$result")
           else
-            # Recover a dispatch failure after a successful merge; never merge again.
+            # Recheck an already merged candidate without merging it again.
             release_sha=$(jq -er '.merge_commit_sha | select(test("^[a-f0-9]{40}$"))' <<<"$candidate")
           fi
           tested_commit=$(gh api "repos/$GH_REPO/git/commits/$tested_merge")
@@ -87,12 +94,6 @@ jobs:
             .parents[1].sha == $head and ($tested.parents | length) == 2 and
             $tested.parents[1].sha == $head
           ' <<<"$release_commit" >/dev/null
-          # Do not publish an older merged PR over a newer main release.
-          current_main=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
-          if [[ "$current_main" != "$release_sha" ]]; then
-            echo '::notice::Main has advanced; skipping release of this older merge.'
-            exit 0
-          fi
-          # A merge by GITHUB_TOKEN does not trigger a separate push workflow.
-          gh workflow run production-release.yml --ref main -f source_ref="$release_sha"
+          # Deployment and migrations are performed directly on the server.
+          # Production release remains an explicit manual fallback.
 

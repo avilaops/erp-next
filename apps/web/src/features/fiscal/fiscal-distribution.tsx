@@ -71,14 +71,14 @@ export function FiscalDistribution({ onChanged }: { onChanged?: () => void }) {
   }
 
   const wait = !!snapshot?.nextQueryAt && new Date(snapshot.nextQueryAt).getTime() > now
-  return <section className="form-section min-w-0 space-y-4" aria-labelledby="distribution-title">
+  return <section className="form-section min-w-0 space-y-2 sm:space-y-4" aria-labelledby="distribution-title">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="distribution-title" className="text-lg font-semibold">Distribuição da SEFAZ</h2><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={loading || busy} onClick={reload}>Atualizar distribuição</Button><Button disabled={loading || busy || !snapshot?.canSync || !snapshot.collectionEnabled || !snapshot.certificateReady || wait} onClick={() => void collect()}>{busy ? "Consultando SEFAZ…" : "Consultar SEFAZ"}</Button></div></div>
-    <p className="text-sm text-muted-foreground">Consulte um lote de documentos destinados ao CNPJ. O ERP conserva o cursor único e os arquivos originais. A manifestação depende de uma ação explícita em cada nota.</p>
+    <p className="text-xs text-muted-foreground">Produção · Documentos destinados ao CNPJ da empresa ativa</p>
     {loading && <p role="status" className="text-sm">Carregando distribuição…</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {notice && <p role="status" className="text-sm">{notice}</p>}
     {snapshot && <>
-      <dl className="grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Último NSU</dt><dd>{snapshot.lastNsu}</dd></div><div><dt className="text-muted-foreground">Maior NSU informado</dt><dd>{snapshot.maxNsu}</dd></div><div><dt className="text-muted-foreground">Último retorno</dt><dd>{snapshot.lastStatus || "Nenhuma consulta concluída"}</dd></div></dl>
+      <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 sm:gap-3"><div><dt className="text-muted-foreground">Último NSU</dt><dd className="break-all font-mono text-xs">{snapshot.lastNsu}</dd></div><div><dt className="text-muted-foreground">Maior NSU informado</dt><dd className="break-all font-mono text-xs">{snapshot.maxNsu}</dd></div><div className="col-span-full sm:col-span-1"><dt className="text-muted-foreground">Último retorno</dt><dd>{snapshot.lastStatus || "Nenhuma consulta concluída"}</dd></div></dl>
       {!snapshot.collectionEnabled && <p className="text-sm">A coleta na SEFAZ está desativada neste ambiente.</p>}
       {!snapshot.certificateReady && <p className="text-sm">Cadastre um certificado A1 vigente nas configurações fiscais para consultar.</p>}
       {wait && <p className="text-sm">Próxima consulta a partir de {new Date(snapshot.nextQueryAt!).toLocaleString("pt-BR")}.</p>}

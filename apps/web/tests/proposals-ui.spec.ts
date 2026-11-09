@@ -61,6 +61,27 @@ test("logo da empresa aparece na proposta e na impressão sem aceitar outra empr
   await expect(image).toHaveCount(0)
 })
 
+test("foto do equipamento aparece no rascunho, no documento e na impressão", async ({ page }) => {
+  const photo = await page.evaluate(() => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 32
+    return canvas.toDataURL("image/png")
+  })
+  await page.route(`**/api/erp/proposals/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: detail() }))
+  await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ json: { tenantId: tenant, data: { id: product, hasPhoto: true, photoDataUrl: photo } } }))
+
+  await page.goto(`/vendas/propostas/${record}/editar`)
+  const editorItem = page.getByRole("region", { name: `Item da proposta: ${item.name}` })
+  await editorItem.scrollIntoViewIfNeeded()
+  await expect(editorItem.getByRole("img", { name: `Foto de ${item.name}` })).toHaveAttribute("src", photo)
+
+  await page.goto(`/vendas/propostas/${record}`)
+  const image = page.locator("[data-proposal-document]").getByRole("img", { name: `Foto de ${item.name}` })
+  await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(32)
+  await page.emulateMedia({ media: "print" })
+  await expect(image).toBeVisible()
+})
+
 for (const width of [320, 390, 768, 1280]) test(`sugestões sobrepostas não deslocam o formulário em ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 })
   await page.route(/\/api\/erp\/proposals(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
@@ -99,7 +120,14 @@ for (const width of [320, 390, 768, 1280]) test(`sugestões sobrepostas não des
   await expect(firstProduct).toBeVisible()
   await firstProduct.click()
   await expect(panel).toHaveCount(0)
-  await expect(page.getByLabel("Quantidade de Produto de teste 0", { exact: true })).toBeVisible()
+  const quantity = page.getByLabel("Quantidade de Produto de teste 0", { exact: true })
+  const price = page.getByLabel("Preço unitário de Produto de teste 0", { exact: true })
+  await expect(quantity).toBeVisible()
+  const priceBox = await price.boundingBox()
+  const quantityBox = await quantity.boundingBox()
+  expect(priceBox!.y).toBe(quantityBox!.y)
+  expect(quantityBox!.x).toBeGreaterThan(priceBox!.x + priceBox!.width)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
 })
 
 test("oportunidade pesquisa cliente sem abrir lista antes da busca", async ({ page }, info) => {

@@ -179,15 +179,33 @@ html { scroll-padding-top: 76px; }
 }
 @media (max-width: 1199px) { .erp-header { gap: 12px; padding: 0 16px; } .erp-search-trigger kbd { display: none; } }
 @media (max-width: 699px) {
-  .erp-header { height: 60px; gap: 8px; padding: 0 12px; }
+  .erp-header { height: 52px; gap: 6px; padding: 0 10px; }
+  .erp-navigation-drawer[data-side=left] { width: min(400px, 100%); }
+  .erp-navigation-drawer .erp-panel-heading { min-height: 52px; padding: 4px 12px; }
+  .erp-navigation-drawer .erp-menu-icon { width: 44px; height: 44px; }
+  .erp-drawer-scroll { padding-top: 8px; }
+  .erp-drawer-scroll .erp-home-links { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 8px; margin-bottom: 10px; }
+  .erp-drawer-scroll .erp-module-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; border: 0; overflow: visible; }
+  .erp-drawer-scroll .erp-module-list > li { min-width: 0; border: 1px solid var(--border); border-radius: 8px; }
+  .erp-drawer-scroll :is(.erp-module-button, .erp-option) { min-height: 44px; padding: 6px 8px; gap: 6px; }
+  .erp-drawer-scroll .erp-module-list .erp-module-button { height: 100%; }
+  .erp-drawer-scroll .erp-module-copy { min-width: 0; overflow-wrap: anywhere; }
+  .erp-drawer-scroll .erp-module-list .erp-module-chevron { display: none; }
+  .erp-drawer-scroll .erp-module-groups { gap: 10px; }
+  .erp-drawer-scroll .erp-module-groups ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .erp-drawer-scroll .erp-module-groups li { min-width: 0; }
+  .erp-drawer-scroll .erp-option { height: 100%; line-height: 1.3; overflow-wrap: anywhere; }
+  .erp-drawer-scroll .erp-module-groups > section + section { padding-top: 10px; }
+  .erp-drawer-scroll .erp-index-entry { margin-top: 8px; padding-top: 6px; }
   .erp-header-brand, .erp-header .erp-secondary-action, .erp-company-link span, .erp-header-notifications { display: none; }
   .erp-company-link { padding: 0 8px; margin-left: 0; border: 0; }
   .erp-company-link span { display: block; max-width: 96px; }
+  .erp-company-link small { display: none; }
   .erp-company-link strong { font-size: 12px; }
-  .erp-search-trigger { width: 40px; min-width: 40px; height: 44px; padding: 0; justify-content: center; margin-left: auto; border: 0; background: transparent; }
+  .erp-search-trigger { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin-left: auto; border: 0; background: transparent; }
   .erp-search-trigger > span { display: none; }
   .erp-global-actions { margin-left: 0; gap: 0; }
-  .erp-header .icon-action { width: 36px; height: 44px; }
+  .erp-header .icon-action { width: 44px; height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .erp-navigation-drawer { transition: none; animation: none; } }
 

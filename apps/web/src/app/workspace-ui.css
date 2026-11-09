@@ -99,7 +99,21 @@ body:has(.erp-workspace) {
 .erp-content .erp-content-note h2 { margin: 0 0 8px; color: var(--foreground); font-size: var(--workspace-font-title); }
 .erp-content .erp-content-note p { margin: 0; font-size: var(--workspace-font-body); line-height: 22px; }
 @media (max-width: 639px) {
-  .erp-content :where(th, td) { padding: 12px; }
+  .erp-workspace .erp-content { padding: 12px 12px max(24px, env(safe-area-inset-bottom)); }
+  .erp-content .form-section { padding: 12px; }
+  .erp-content .erp-page-header { padding-bottom: 12px; margin-bottom: 16px; }
+  .erp-content .erp-page-header > p:last-child { margin-top: 6px; }
+  .erp-content .erp-page-back { margin-bottom: 8px; }
+  .erp-content :where(.form-grid) { gap: 12px; }
+  .erp-content :where(.field) { gap: 4px; }
+  .erp-content :where(th, td) { padding: 8px 10px; }
+  .erp-content textarea.erp-commercial-text { min-height: 64px; padding: 8px; }
+  .erp-content .workspace-pagination { gap: 8px; padding-block: 8px; }
+  .erp-content .workspace-resource-state { margin-block: 12px; padding: 16px; }
+  /* Keep native iOS date controls inside their grid cell. */
+  .erp-content input[type=date] { min-width: 0; max-width: 100%; }
+  .erp-content input[type=date]::-webkit-date-and-time-value { min-width: 0; text-align: start; }
+  .erp-content :is(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=hidden]), select, textarea) { font-size: 16px; }
   .erp-content .form-actions { bottom: max(12px, env(safe-area-inset-bottom)); }
 }
 @media (max-width: 767px) {

@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: erp-auto-merge-main
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   merge:

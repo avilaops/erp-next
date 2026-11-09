@@ -181,7 +181,7 @@ test("menu acompanha a categoria de preferências selecionada pela URL", async (
   await page.keyboard.press("Escape")
 })
 
-test("tipografia interna mantém escala 18/14/12 no desktop e celular", async ({ page }, info) => {
+test("tipografia interna preserva a escala e evita zoom automático nos campos móveis", async ({ page }, info) => {
   await page.route("**/api/erp/staff**", route => route.fulfill({ json: {
     tenantId: "11111111-1111-4111-8111-111111111111", canEdit: false, total: 1,
     data: [{ id: "22222222-2222-4222-8222-222222222222", revision: 1, code: "EQ-001", name: "Maria da Silva", jobTitle: "Vendedor", isEmployee: true, isSeller: true, email: null, phone: null, status: "active" }],
@@ -194,14 +194,14 @@ test("tipografia interna mantém escala 18/14/12 no desktop e celular", async ({
     await expect(page.locator("#preference-category-title")).toHaveCSS("font-size", "18px")
     await expect(page.locator("#preference-options a").first()).toHaveCSS("font-size", "14px")
     await expect(page.locator("#preference-options .text-xs").first()).toHaveCSS("font-size", "12px")
-    await expect(main.getByRole("searchbox")).toHaveCSS("font-size", "14px")
+    await expect(main.getByRole("searchbox")).toHaveCSS("font-size", width === 390 ? "16px" : "14px")
     await expect(main).toHaveCSS("font-family", /geist/i)
     await page.screenshot({ path: info.outputPath(`typography-preferences-${width}.png`), fullPage: true })
     await page.goto("/cadastros/funcionarios")
     await expect(main.getByRole("heading", { name: "Funcionários", exact: true })).toHaveCount(0)
     await expect(main.getByRole("heading", { name: "Equipe cadastrada", exact: true })).toHaveCSS("font-size", "18px")
     await expect(main.getByRole("link", { name: "Maria da Silva", exact: true })).toHaveCSS("font-size", "14px")
-    await expect(main.getByRole("textbox")).toHaveCSS("font-size", "14px")
+    await expect(main.getByRole("textbox")).toHaveCSS("font-size", width === 390 ? "16px" : "14px")
     await page.screenshot({ path: info.outputPath(`typography-staff-${width}.png`), fullPage: true })
     await page.goto("/cadastros/funcionarios/novo")
     await expect(main.getByRole("heading", { name: "Novo cadastro", exact: true })).toHaveCSS("font-size", "18px")

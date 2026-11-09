@@ -23,10 +23,10 @@ export function DemonstrationPreview({ children }: { children: ReactNode }) {
   // records must never look like operations or data of the active company.
   const directory = ["/cadastros", "/servicos", "/logistica", "/relatorios"].includes(pathname)
   const title = ({ "/cadastros": "Cadastros", "/servicos": "Serviços", "/logistica": "Logística", "/relatorios": "Relatórios" } as Record<string, string>)[pathname]
-  return <section className="mx-auto w-full min-w-0 max-w-5xl space-y-5 px-4 py-8 lg:px-6">
+  return <section className="mx-auto w-full min-w-0 max-w-5xl space-y-3 px-4 py-4 sm:space-y-5 sm:py-8 lg:px-6">
     <Link className="inline-block text-primary underline" href="/">Voltar à visão geral</Link>
     <h1 className="text-3xl font-semibold">{directory ? title : "Funcionalidade indisponível"}</h1>
     <p className="text-muted-foreground">{directory ? "Acesse os registros e operações da empresa." : "Esta funcionalidade ainda não está disponível. Consulte os registros da empresa nas operações abaixo."}</p>
-    <nav aria-label="Operações disponíveis" className="grid gap-3 sm:grid-cols-2">{destinations.map(([label, href]) => <Link className="min-w-0 rounded-xl border bg-card p-4 font-medium text-primary hover:bg-accent" href={href} key={href}>{label}</Link>)}</nav>
+    <nav aria-label="Operações disponíveis" className="grid grid-cols-2 gap-2 sm:gap-3">{destinations.map(([label, href]) => <Link className="flex min-h-11 min-w-0 items-center break-words rounded-lg border bg-card px-3 py-2 sm:p-4 font-medium text-primary hover:bg-accent" href={href} key={href}>{label}</Link>)}</nav>
   </section>
 }

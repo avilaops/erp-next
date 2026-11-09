@@ -31,6 +31,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   devIndicators: false,
   experimental: {
+    cpus: process.env.ERP_BUILD_CPUS ? Math.max(1, Math.min(4, Number.parseInt(process.env.ERP_BUILD_CPUS, 10) || 2)) : undefined,
     // Avoid stale persistent task references crashing the local dev server.
     turbopackFileSystemCacheForDev: false,
   },

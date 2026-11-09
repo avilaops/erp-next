@@ -12,7 +12,7 @@ import type { Simulation } from "./simulator-model"
 
 type Pricing = { tenantId: string; canApprove: boolean; data: { snapshot: Simulation; needsApproval: boolean; approved: boolean } | null }
 
-export function OrderPricing({ id, onSaved }: { id: string; onSaved: () => void }) {
+export function OrderPricing({ id, onSaved, showDirector = false }: { id: string; onSaved: () => void; showDirector?: boolean }) {
   const resource = useResource<Pricing>(`/api/erp/orders/${id}/pricing`)
   const command = useCommand()
   const [reason, setReason] = useState("")
@@ -26,7 +26,7 @@ export function OrderPricing({ id, onSaved }: { id: string; onSaved: () => void 
   return <section className="space-y-4" aria-label="Condições comerciais preservadas">
     <h2 className="font-semibold">Condições comerciais · tabela v{data.snapshot.version}</h2>
     <p className="text-sm text-muted-foreground">Este pedido preserva a simulação e não permite editar seus itens. Para negociar outras condições, cancele o rascunho e <Link className="text-primary underline" href="/vendas/simulador">refaça a simulação</Link>.</p>
-    <SimulationResult value={data.snapshot} imported={data.snapshot.line === "imported"} />
+    <SimulationResult value={showDirector ? data.snapshot : { ...data.snapshot, director: undefined }} imported={data.snapshot.line === "imported"} />
     {data.needsApproval && <p role="status" className="font-medium">{data.approved ? "Exceção comercial aprovada pela gestão." : "Aguardando aprovação da gestão antes da confirmação."}</p>}
     {notice && <p role="status">{notice}</p>}
     {value.canApprove && data.needsApproval && !data.approved && <form className="space-y-3" onSubmit={async event => {

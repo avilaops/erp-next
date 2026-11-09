@@ -1,0 +1,16 @@
+{
+  "manufacturer": "DHZ Fitness",
+  "catalog": "HammerForce Pro",
+  "sourceFilename": "00000294-Brochure- HammerForce Pro(2).pdf",
+  "sourceDocumentSha256": "2d3f5694eb33bd03bf95d4ca6a9cde4158afa3d3ef9750a87fbce03e60b62cae",
+  "pdfPageOneBased": 51,
+  "printedPage": 101,
+  "embeddedImageXref": 805,
+  "width": 1245,
+  "height": 1759,
+  "asset": "dhz-hammerforce-pro-original-colors.jpeg",
+  "assetBytes": 466947,
+  "assetSha256": "b352211bae13cfe9e0590f97d83918e8b7cb5bf21017f5b1bbd6ea06c647a7b7",
+  "extraction": "PyMuPDF Document.extract_image(805); original embedded JPEG bytes retained without conversion, regeneration or recoloring.",
+  "display": "CSS background viewports select original manufacturer swatch pixels. Unknown names and generic Black/Preto receive no photo mapping. Graphite Black aliases the manufacturer's Matte Graphite Black."
+}

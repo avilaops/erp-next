@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { PageHeader } from "@/components/page-header"
+import { DataTable } from "@/components/workspace/data-table"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -12,11 +14,11 @@ type Preview = { tenantId: string; line: string; revision: number; digest: strin
 type Current = { tenantId: string; line: string; data: { version: number; publishedAt: string; items: Item[] } | null }
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 
-export function PriceTables() {
-  const [line, setLine] = useState<"imported" | "national">("imported")
+export function PriceTables({ initialLine = "imported" }: { initialLine?: "imported" | "national" }) {
+  const [line, setLine] = useState<"imported" | "national">(initialLine)
   const [locked, setLocked] = useState(false)
-  return <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-6">
-
+  return <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-6 [--workspace-control-height:2.25rem]">
+    <PageHeader eyebrow="Vendas / Tabelas de preços" title="Nova tabela de preços" description="Escolha a linha, confira os preços calculados e publique uma nova versão." />
     <div className="flex flex-wrap gap-3"><Link href="/vendas/simulador" className="text-primary underline">Simular negociação</Link><Link href="/preferencias/comercial" className="text-primary underline">Parâmetros comerciais</Link><Link href="/preferencias/despesas-fixas" className="text-primary underline">Despesas fixas</Link></div>
     <label className="grid max-w-xs gap-1">Linha comercial<select disabled={locked} className="min-h-10 rounded-lg border bg-background px-2" value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
     <Publication key={line} line={line} onLocked={setLocked} />
@@ -62,6 +64,6 @@ function Publication({ line, onLocked }: { line: "imported" | "national"; onLock
 }
 
 function Prices({ items }: { items: Item[] }) {
-  return <ul className="space-y-2">{items.map(item => <li key={item.productId} className="rounded-lg border p-3"><strong>{item.sku} · {item.name}</strong><div>Sem IPI: {money(item.priceWithoutIpiCents)} · Com IPI: {money(item.priceWithIpiCents)}</div></li>)}</ul>
+  return <div className="min-w-0 overflow-x-auto rounded-lg border"><DataTable aria-label="Produtos da tabela de preços"><thead><tr><th>Equipamento</th><th className="text-right">Sem IPI</th><th className="text-right">IPI</th><th className="text-right">Com IPI</th></tr></thead><tbody>{items.map(item => <tr key={item.productId}><td><span className="font-medium">{item.name}</span><div className="text-xs text-muted-foreground">{item.sku}</div></td><td className="whitespace-nowrap text-right tabular-nums">{money(item.priceWithoutIpiCents)}</td><td className="text-right">{(item.ipiBps / 100).toLocaleString("pt-BR")}%</td><td className="whitespace-nowrap text-right font-semibold tabular-nums">{money(item.priceWithIpiCents)}</td></tr>)}</tbody></DataTable></div>
 }
 

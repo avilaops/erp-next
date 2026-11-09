@@ -1,12 +1,14 @@
 "use client"
 
+import { DataTable } from "@/components/workspace/data-table"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { PageHeader } from "@/components/page-header"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -39,25 +41,39 @@ export function Proposals({ id, create = false, edit = false }: { id?: string; c
 }
 
 function ProposalList() {
+  const statusId = useId()
   const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, status: query.status, offset: String(query.offset), limit: "25" })
   const result = useResource<Listing>(`/api/erp/proposals?${params}`)
   return <>
-    <section className="form-section min-w-0 space-y-3 sm:space-y-5">
-      {result.value?.canEdit && <Link className={linkClass} href="/vendas/propostas/novo">Nova proposta</Link>}
-      <form className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
-        <label className="min-w-0 flex-1 space-y-2">Cliente ou número<SearchInput onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
-        <label className="grid gap-2">Situação<select name="status" className="min-h-10 rounded-lg border bg-background px-3"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <Button type="submit">Pesquisar propostas</Button>
+    <div className="mb-4 flex flex-wrap justify-end gap-3">
+      {result.value?.canEdit && <Link className={buttonVariants({ size: "sm" })} href="/vendas/propostas/novo">Nova proposta</Link>}
+    </div>
+    <section className="min-w-0 space-y-3 text-sm" aria-label="Propostas comerciais">
+      <form role="search" aria-label="Pesquisar propostas" className="grid min-w-0 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">Cliente ou número<SearchInput className="h-9 text-sm" onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium" htmlFor={statusId}>Situação<select id={statusId} aria-label="Situação" name="status" className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm font-normal"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <Button type="submit" className="h-9">Pesquisar propostas</Button>
       </form>
-      {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} proposta(s)</p>
-        {!result.value?.data.length && <p>Nenhuma proposta encontrada para estes filtros.</p>}
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.id}>
-          <Link className={linkClass} href={`/vendas/propostas/${item.id}`}>Proposta {item.number} · {item.customerName}</Link>
-          <p>{labels[item.expired ? "expired" : item.status]} · versão {item.version}</p><p>{money(item.amount)} · validade {item.validUntil}</p>
-        </li>)}</ul>
-        <div className="flex justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: value.offset - 25 }))}>Anterior</Button><Button variant="outline" disabled={query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
+      {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" size="sm" onClick={result.reload}>Tentar novamente</Button></div> : <>
+        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} proposta(s)</p>
+        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de propostas" tabIndex={0}>
+          <DataTable>
+            <caption className="sr-only">Propostas comerciais</caption>
+            <thead className="bg-muted/50"><tr>
+              <th scope="col" className="p-3">Proposta</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Versão</th><th scope="col" className="p-3">Validade</th><th scope="col" className="p-3 text-right">Valor</th>
+            </tr></thead>
+            <tbody>{result.value.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
+              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/propostas/${item.id}`}>Proposta {item.number}</Link></td>
+              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link></td>
+              <td className="whitespace-nowrap p-3">{labels[item.expired ? "expired" : item.status] || item.status}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{item.version}</td>
+              <td className="whitespace-nowrap p-3">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{money(item.amount)}</td>
+            </tr>)}</tbody>
+          </DataTable>
+        </div> : <p>Nenhuma proposta encontrada para estes filtros.</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: value.offset - 25 }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" size="sm" disabled={query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
       </>}
     </section>
   </>

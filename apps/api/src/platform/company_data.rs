@@ -203,10 +203,10 @@ impl CompanyData {
         }
         let value = serde_json::to_value(&self).expect("company data serializes");
         for (field, value) in value.as_object().expect("company data is an object") {
-            if let Some(text) = value.as_str() {
-                if field != "logoDataUrl" {
-                    check(text.len() <= 300, field, "Máximo de 300 bytes por campo");
-                }
+            if let Some(text) = value.as_str()
+                && field != "logoDataUrl"
+            {
+                check(text.len() <= 300, field, "Máximo de 300 bytes por campo");
             }
         }
         if errors.is_empty() {

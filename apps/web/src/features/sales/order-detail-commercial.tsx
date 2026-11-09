@@ -65,13 +65,18 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
   const amount = (value: number | undefined) => value === undefined ? undefined : money(value)
   const version = quote?.version ?? legacy?.version
   const hasComposition = Boolean(sale || legacy)
+  const itemColumns = hasComposition
+    ? ["Quantidade", "Tabela sem IPI", "Desconto", "IPI unitário", "Unitário com IPI", "Total"]
+    : ["Quantidade", "Unitário", "Total"]
   return <div className="min-w-0 space-y-5 text-sm" aria-label="Condições e composição do pedido">
     {!loaded && <p role="status" className="text-xs text-muted-foreground">Consultando dados comerciais e cadastro do cliente…</p>}
     {loaded?.failures.length ? <p role="status" className="text-xs text-muted-foreground">Não foi possível consultar: {loaded.failures.join(", ")}.</p> : null}
     <section className="min-w-0 space-y-2" aria-label="Itens do pedido">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Equipamentos <span className="text-xs font-normal text-muted-foreground">({order.items.length})</span></h2>{version !== undefined && <span className="rounded-md border bg-muted/40 px-2 py-1 text-xs">Tabela v{version}</span>}</div>
       <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Tabela de itens" tabIndex={0}>
-        <DataTable><caption className="sr-only">Itens do pedido</caption><thead className="bg-muted/50"><tr>{(hasComposition ? ["Produto e acabamento", "Quantidade", "Tabela sem IPI", "Desconto", "IPI unitário", "Unitário com IPI", "Total"] : ["Produto e acabamento", "Quantidade", "Unitário", "Total"]).map((label, index) => <th scope="col" className={`p-3 ${index ? "text-right" : ""}`} key={label}>{label}</th>)}</tr></thead>
+        <DataTable className="w-full table-fixed text-left text-sm sm:table-auto print:table-auto">
+          <caption className="sr-only">Itens do pedido</caption>
+          <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Produto e acabamento</th>{itemColumns.map(label => <th scope="col" className="hidden p-3 text-right sm:table-cell print:table-cell" key={label}>{label}</th>)}</tr></thead>
           <tbody>{order.items.map(item => {
             const negotiated = sale?.items.find(line => line.productId === item.productId)
             const preserved = legacy && order.items.length === 1 && legacy.input.productId === item.productId ? legacy : undefined
@@ -79,14 +84,17 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
             const itemDiscount = negotiated ? negotiated.tableUnitCents * negotiated.quantity - negotiated.netCents : preserved?.sale.discountCents
             const ipiUnit = negotiated && negotiated.quantity > 0 ? negotiated.ipiCents / negotiated.quantity : preserved ? preserved.sale.unitWithIpiCents - preserved.sale.unitWithoutIpiCents : undefined
             const withIpi = negotiated && negotiated.quantity > 0 ? negotiated.totalCents / negotiated.quantity : preserved?.sale.unitWithIpiCents
+            const prices = hasComposition
+              ? [amount(tableUnit), amount(itemDiscount), amount(ipiUnit), amount(withIpi) ?? `Não informado · Registrado: ${commercialMoney(item.unitPrice)}`]
+              : [commercialMoney(item.unitPrice)]
+            const values = [`${commercialQuantity(item.quantity)} ${item.unit}`, ...prices, commercialMoney(item.amount)]
             return <tr className="border-t hover:bg-muted/20" key={item.productId}>
-              <td className="min-w-40 p-3"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={order.tenantId} decorative /><div className="min-w-0"><strong className="break-words font-medium">{item.name}</strong><p className="text-xs text-muted-foreground">{item.sku}</p><p className="break-words text-xs text-muted-foreground">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p></div></div></td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialQuantity(item.quantity)} {item.unit}</td>
-              {hasComposition ? <><td className="whitespace-nowrap p-3 text-right tabular-nums">{amount(tableUnit) || "Não informado"}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{amount(itemDiscount) || "Não informado"}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{amount(ipiUnit) || "Não informado"}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{amount(withIpi) || "Não informado"}{withIpi === undefined && <span className="block text-xs text-muted-foreground">Registrado: {commercialMoney(item.unitPrice)}</span>}</td></> : <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(item.unitPrice)}</td>}
-              <td className="whitespace-nowrap p-3 text-right font-medium tabular-nums">{commercialMoney(item.amount)}</td>
+              <td className="min-w-0 p-2 sm:min-w-40 sm:p-3"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={order.tenantId} decorative /><div className="min-w-0"><strong className="break-words font-medium">{item.name}</strong><p className="text-xs text-muted-foreground">{item.sku}</p><p className="break-words text-xs text-muted-foreground">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p></div></div>
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs sm:hidden print:hidden">
+                  {itemColumns.map((label, index) => <div className="min-w-0" key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words tabular-nums">{values[index] ?? "Não informado"}</dd></div>)}
+                </dl>
+              </td>
+              {itemColumns.map((label, index) => <td className="hidden p-3 text-right tabular-nums sm:table-cell print:table-cell" key={label}>{values[index] ?? "Não informado"}</td>)}
             </tr>
           })}</tbody>
         </DataTable>

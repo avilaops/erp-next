@@ -1,5 +1,6 @@
 import { DataTable } from "@/components/workspace/data-table"
 import Image from "next/image"
+import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import type { Schema } from "@/lib/api/types"
 import { commercialMoney, commercialQuantity } from "./order-presentation"
 
@@ -33,7 +34,10 @@ export function ProposalDocument({ snapshot, issuer, issuerName }: { snapshot: S
       <caption className="sr-only">Itens da proposta</caption><colgroup><col className="proposal-product-column" /><col /><col /><col /></colgroup>
       <thead><tr><th scope="col">Produto</th><th scope="col">Quantidade</th><th scope="col">Unitário</th><th scope="col">Total</th></tr></thead>
       <tbody>{items.map(item => <tr key={item.productId}>
-        <td><p className="proposal-item-name">{item.name}</p><p className="proposal-aux">{item.sku}</p>{(item.structureColor || item.plateHolderColor || item.plateHolderType || item.upholsteryColor) && <p className="proposal-aux">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p>}</td>
+        <td><div className="flex flex-col gap-2 sm:flex-row">
+          <ProductThumbnail key={`${snapshot.tenantId}:${item.productId}`} id={item.productId} name={item.name} tenantId={snapshot.tenantId} eager />
+          <div className="min-w-0"><p className="proposal-item-name">{item.name}</p><p className="proposal-aux">{item.sku}</p>{(item.structureColor || item.plateHolderColor || item.plateHolderType || item.upholsteryColor) && <p className="proposal-aux">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p>}</div>
+        </div></td>
         <td>{commercialQuantity(item.quantity)} {item.unit}</td><td>{commercialMoney(item.unitPrice)}</td><td>{commercialMoney(item.amount)}</td>
       </tr>)}</tbody>
     </DataTable></section>

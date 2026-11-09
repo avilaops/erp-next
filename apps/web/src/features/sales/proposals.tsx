@@ -1,12 +1,14 @@
 "use client"
+
 import { DataTable } from "@/components/workspace/data-table"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
+import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { PageHeader } from "@/components/page-header"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -23,13 +25,13 @@ type Listing = Schema<"ProposalList">
 type Selected = Choice & { quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const labels: Record<string, string> = { draft: "Rascunho", sent: "Enviada", accepted: "Aceita", rejected: "Rejeitada", cancelled: "Cancelada", expired: "Expirada", superseded: "Substituída" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
-const textareaClass = "min-h-24 w-full rounded-lg border border-input bg-background p-3"
+const textareaClass = "erp-commercial-text w-full rounded-lg border border-input bg-background p-3"
 const money = commercialMoney
 const proposalTrail = [{ label: "Vendas", href: "/vendas" }, { label: "Propostas", href: "/vendas/propostas" }]
 
 function CommercialText({ label, ...props }: ComponentProps<"textarea"> & { label: string }) {
   const id = useId()
-  return <div className="grid gap-2"><label htmlFor={id}>{label}</label><textarea id={id} className={textareaClass} {...props} /></div>
+  return <div className="grid min-w-0 gap-1 sm:gap-2"><label htmlFor={id}>{label}</label><textarea id={id} rows={2} className={textareaClass} {...props} /></div>
 }
 
 export function Proposals({ id, create = false, edit = false }: { id?: string; create?: boolean; edit?: boolean }) {
@@ -39,25 +41,39 @@ export function Proposals({ id, create = false, edit = false }: { id?: string; c
 }
 
 function ProposalList() {
+  const statusId = useId()
   const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
   const params = new URLSearchParams({ q: query.q, status: query.status, offset: String(query.offset), limit: "25" })
   const result = useResource<Listing>(`/api/erp/proposals?${params}`)
   return <>
-    <section className="form-section min-w-0 space-y-5">
-      {result.value?.canEdit && <Link className={linkClass} href="/vendas/propostas/novo">Nova proposta</Link>}
-      <form className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
-        <label className="min-w-0 flex-1 space-y-2">Cliente ou número<SearchInput onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
-        <label className="grid gap-2">Situação<select name="status" className="min-h-10 rounded-lg border bg-background px-3"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <Button type="submit">Pesquisar propostas</Button>
+    <div className="mb-4 flex flex-wrap justify-end gap-3">
+      {result.value?.canEdit && <Link className={buttonVariants({ size: "sm" })} href="/vendas/propostas/novo">Nova proposta</Link>}
+    </div>
+    <section className="min-w-0 space-y-3 text-sm" aria-label="Propostas comerciais">
+      <form role="search" aria-label="Pesquisar propostas" className="grid min-w-0 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium">Cliente ou número<SearchInput className="h-9 text-sm" onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
+        <label className="grid min-w-0 gap-1.5 text-xs font-medium" htmlFor={statusId}>Situação<select id={statusId} aria-label="Situação" name="status" className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm font-normal"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <Button type="submit" className="h-9">Pesquisar propostas</Button>
       </form>
-      {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} proposta(s)</p>
-        {!result.value?.data.length && <p>Nenhuma proposta encontrada para estes filtros.</p>}
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map(item => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={item.id}>
-          <Link className={linkClass} href={`/vendas/propostas/${item.id}`}>Proposta {item.number} · {item.customerName}</Link>
-          <p>{labels[item.expired ? "expired" : item.status]} · versão {item.version}</p><p>{money(item.amount)} · validade {item.validUntil}</p>
-        </li>)}</ul>
-        <div className="flex justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: value.offset - 25 }))}>Anterior</Button><Button variant="outline" disabled={query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
+      {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" size="sm" onClick={result.reload}>Tentar novamente</Button></div> : <>
+        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} proposta(s)</p>
+        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de propostas" tabIndex={0}>
+          <DataTable>
+            <caption className="sr-only">Propostas comerciais</caption>
+            <thead className="bg-muted/50"><tr>
+              <th scope="col" className="p-3">Proposta</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Versão</th><th scope="col" className="p-3">Validade</th><th scope="col" className="p-3 text-right">Valor</th>
+            </tr></thead>
+            <tbody>{result.value.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
+              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/propostas/${item.id}`}>Proposta {item.number}</Link></td>
+              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link></td>
+              <td className="whitespace-nowrap p-3">{labels[item.expired ? "expired" : item.status] || item.status}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{item.version}</td>
+              <td className="whitespace-nowrap p-3">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{money(item.amount)}</td>
+            </tr>)}</tbody>
+          </DataTable>
+        </div> : <p>Nenhuma proposta encontrada para estes filtros.</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: value.offset - 25 }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" size="sm" disabled={query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
       </>}
     </section>
   </>
@@ -92,38 +108,43 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
       const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const product = await response.json()
       if (!response.ok || product.tenantId !== tenantId) throw new Error("Não foi possível atualizar as opções de acabamento. As escolhas registradas foram preservadas.")
-      return { id: item.productId, structureColors: product.data.structureColors || [], upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [] }
+      return { id: item.productId, structureColors: product.data.structureColors || [], upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [], hasPhoto: product.data.hasPhoto }
     })).then(products => { if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) }))) })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar produtos") })
     return () => controller.abort()
   }, [initial, tenantId])
   function changeItem(id: string, patch: Partial<Selected>) { setItems(previous => previous.map(item => item.id === id ? { ...item, ...patch } : item)); setDirty(true) }
   return <><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, ...(initial ? [{ label: `Proposta ${initial.data.number}`, href: `/vendas/propostas/${initial.data.id}` }, { label: "Editar" }] : [{ label: "Nova proposta" }])]} title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina o escopo e as condições comerciais. O rascunho fica salvo na empresa ativa." />
-    <section className="form-section min-w-0 space-y-5">
+    <section className="form-section min-w-0 space-y-3 sm:space-y-5">
       <Link className={linkClass} href={initial ? `/vendas/propostas/${initial.data.id}` : "/vendas/propostas"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações desta proposta?")) event.preventDefault() }}>Voltar às propostas</Link>
-      <div className="grid items-start gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
+      <div className="grid items-start gap-2 sm:gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
         if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade do item existente."); return }
         const saved = initial?.items.find(item => item.productId === value.id)
         setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), basePrice: commercialMoneyInput(saved?.unitPrice || value.basePrice || ""), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
       }} /></div>
-      <form className="space-y-5" onSubmit={async event => {
+      <form className="space-y-3 sm:space-y-5" onSubmit={async event => {
         event.preventDefault(); setError("")
         if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeCommercialMoney(item.basePrice || ""))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
         const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: item.plateHolderColor || null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
         if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
       }}>
-        <fieldset disabled={frozen} className="min-w-0 space-y-4" onChange={() => setDirty(true)}>
+        <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4" onChange={() => setDirty(true)}>
           <label className="grid gap-2">Validade da proposta<Input type="date" required value={validUntil} onChange={event => setValidUntil(event.target.value)} /></label>
           <CommercialText label="Condições de pagamento" required maxLength={2000} value={paymentTerms} onChange={event => setPaymentTerms(event.target.value)} />
           <CommercialText label="Condições de entrega" required maxLength={2000} value={deliveryTerms} onChange={event => setDeliveryTerms(event.target.value)} />
           <CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} />
-          {items.map(item => <section className="min-w-0 space-y-3 rounded-xl border p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
-            <h2 className="break-words font-medium">{item.name} · {item.sku}</h2>
-            <label className="grid gap-2">Preço unitário de {item.name}<span className="flex items-center gap-2"><span aria-hidden="true">R$</span><Input aria-label={`Preço unitário de ${item.name}`} className="min-w-0" readOnly value={item.basePrice || ""} /></span></label>
-            <p className="text-sm text-muted-foreground">Preço unitário somente para consulta nesta proposta.</p>
-            <label className="grid gap-2">Quantidade de {item.name}<Input inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
+          {items.map(item => <section className="min-w-0 space-y-2 rounded-xl border p-2 sm:space-y-3 sm:p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
+            <div className="flex min-w-0 items-center gap-3">
+              <ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} />
+              <h2 className="min-w-0 break-words font-medium">{item.name} · {item.sku}</h2>
+            </div>
+            <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-end gap-2 sm:gap-3">
+              <label className="grid min-w-0 gap-1">Preço unitário (R$)<Input aria-label={`Preço unitário de ${item.name}`} readOnly value={item.basePrice || ""} /></label>
+              <label className="grid min-w-0 gap-1">Quantidade<Input aria-label={`Quantidade de ${item.name}`} inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
+            </div>
+            <p className="text-xs text-muted-foreground">Preço unitário somente para consulta nesta proposta.</p>
             <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={value => changeItem(item.id, { plateHolderColor: value })} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{item.upholsteryConfigurable !== false && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
-            <Button type="button" variant="outline" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>
+            <Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>
           </section>)}
         </fieldset>
         {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}

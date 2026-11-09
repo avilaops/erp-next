@@ -33,7 +33,7 @@ export function ProductCategory({ value, onChange, disabled = false, all = false
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [])
-  return <label className="space-y-2">Categoria
+  return <label className="min-w-0 space-y-1 sm:space-y-2">Categoria
     <select name="category_id" className="block h-10 w-full max-w-full rounded-lg border bg-background px-3" value={value} disabled={disabled || loading || !!error} onChange={event => onChange(event.target.value)}>
       <option value="">{all ? "Todas as categorias" : "Sem categoria"}</option>
       {value && !categories.some(category => category.id === value) && <option value={value}>Categoria atual ({value})</option>}

@@ -33,7 +33,13 @@ test("consulta NSU repete o comando após resposta perdida e respeita o interval
     completed = true
     return route.fulfill({ headers: { ETag: '"3"' }, json: { ...status(), status: "completed", runId: purchase } })
   })
+  await page.setViewportSize({ width: 320, height: 720 })
   await page.goto("/fiscal/monitor")
+  const from = await page.getByLabel("Emissão de (UTC)", { exact: true }).boundingBox()
+  const to = await page.getByLabel("Emissão até (UTC)", { exact: true }).boundingBox()
+  expect(from!.y).toBe(to!.y)
+  expect(to!.x + to!.width).toBeLessThanOrEqual(320)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   await page.getByText("Distribuição em homologação, sem valor fiscal", { exact: true }).click()
   await page.getByRole("button", { name: "Consultar notas agora", exact: true }).click()
   await page.getByRole("button", { name: "Conferir consulta anterior", exact: true }).click()

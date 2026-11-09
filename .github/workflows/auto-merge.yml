@@ -40,11 +40,11 @@ jobs:
 
           candidate=$(gh api "repos/$GH_REPO/pulls/$PR")
           if ! jq -e --arg repo "$GH_REPO" --arg head "$EXPECTED_HEAD" '
-            .draft == false and .base.ref == "main" and
+            .base.ref == "main" and
             .head.repo.full_name == $repo and .head.sha == $head and
             ((.state == "open" and .mergeable == true) or (.state == "closed" and .merged == true))
           ' <<<"$candidate" >/dev/null; then
-            echo '::notice::PR is a draft, has changed, or is not an eligible merge candidate.'
+            echo '::notice::PR has changed or is not an eligible merge candidate.'
             exit 0
           fi
 
@@ -80,14 +80,15 @@ jobs:
             ' "$evidence/ci-attestation.json" >/dev/null
 
           if jq -e '.state == "open"' <<<"$candidate" >/dev/null; then
+            if jq -e '.draft' <<<"$candidate" >/dev/null; then
+              gh pr ready "$PR"
+            fi
             # GitHub still enforces the protected branch rules on this merge.
             result=$(gh api --method PUT "repos/$GH_REPO/pulls/$PR/merge" -f sha="$EXPECTED_HEAD" -f merge_method=merge)
             release_sha=$(jq -er 'select(.merged == true) | .sha | select(test("^[a-f0-9]{40}$"))' <<<"$result")
-            merged_here=true
           else
             # Recheck an already merged candidate without merging it again.
             release_sha=$(jq -er '.merge_commit_sha | select(test("^[a-f0-9]{40}$"))' <<<"$candidate")
-            merged_here=false
           fi
           tested_commit=$(gh api "repos/$GH_REPO/git/commits/$tested_merge")
           release_commit=$(gh api "repos/$GH_REPO/git/commits/$release_sha")
@@ -97,9 +98,28 @@ jobs:
             $tested.parents[1].sha == $head
           ' <<<"$release_commit" >/dev/null
           # Merges made with GITHUB_TOKEN do not trigger push workflows.
-          # Manual merges are covered by Production release's main push trigger.
-          if [[ "$merged_here" == true ]]; then
+          # An explicit retry can also recover a failed dispatch for the current main.
+          if [[ "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" == "$release_sha" ]]; then
             gh workflow run production-release.yml --ref main \
               -f source_ref="$release_sha" -f automatic=true
           fi
 
+
+          branch=$(jq -er '.head.ref' <<<"$candidate")
+          default_branch=$(gh api "repos/$GH_REPO" --jq .default_branch)
+          if [[ "$branch" == main || "$branch" == "$default_branch" ]]; then
+            exit 0
+          fi
+          # Preserve branches still used as the source or base of another PR.
+          open_prs=$(gh api --paginate --slurp "repos/$GH_REPO/pulls?state=open&per_page=100")
+          if jq -e --arg branch "$branch" --arg repo "$GH_REPO" '
+            any(.[][]; .base.ref == $branch or (.head.ref == $branch and .head.repo.full_name == $repo))
+          ' <<<"$open_prs" >/dev/null; then
+            exit 0
+          fi
+          git init --quiet "$evidence/repo"
+          gh auth setup-git
+          ref="refs/heads/$branch"
+          if ! git -C "$evidence/repo" push --force-with-lease="$ref:$EXPECTED_HEAD" "https://github.com/$GH_REPO.git" ":$ref"; then
+            echo '::notice::Branch already removed, updated since merge, or protected.'
+          fi

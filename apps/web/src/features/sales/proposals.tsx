@@ -1,5 +1,7 @@
 "use client"
 
+import { DataTable } from "@/components/workspace/data-table"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"

@@ -102,7 +102,7 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
       {!hasComposition && <p className="text-xs text-muted-foreground">IPI e descontos não informados neste pedido.</p>}
     </section>
     <section className="space-y-3 border-t pt-4" aria-label="Cliente do pedido"><h2 className="font-semibold">Cliente</h2><Fields values={[
-      ["Razão social", order.data.customerName], ["CPF / CNPJ", order.data.customerTaxId.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")], ["Inscrição estadual", undefined],
+      ["Razão social", order.data.customerName], ["CPF / CNPJ", order.data.customerTaxId?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")], ["Inscrição estadual", undefined],
       ["Nome fantasia", customer?.tradeName], ["Contato", contact?.name], ["Telefone", contact?.phone || customer?.phone], ["E-mail", contact?.email || customer?.email],
       ["Endereço cadastral", address ? [address.street, address.number, address.complement, address.district, `${address.city}/${address.state}`, address.postalCode].filter(Boolean).join(" · ") : undefined]
     ]} /></section>

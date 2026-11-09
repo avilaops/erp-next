@@ -12,6 +12,36 @@ test.beforeEach(async ({ context, page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa de teste" }, permissions: ["sales.proposals.read", "sales.proposals.manage"] } }))
 })
 
+for (const width of [390, 1280]) test(`lista de propostas usa tabela e preserva filtros e paginação em ${width}px`, async ({ page }, testInfo) => {
+  const requests: URLSearchParams[] = []
+  await page.route(/\/api\/erp\/proposals\?/, route => {
+    const params = new URL(route.request().url()).searchParams
+    requests.push(params)
+    return route.fulfill({ json: { tenantId: tenant, canEdit: width === 1280, total: 26, data: [{ ...summary, expired: params.get("offset") === "25" }] } })
+  })
+  await page.setViewportSize({ width, height: 844 })
+  await page.goto("/vendas/propostas")
+  const table = page.getByRole("table", { name: "Propostas comerciais", exact: true })
+  await expect(table).toBeVisible()
+  await expect(table.getByRole("columnheader")).toHaveText(["Proposta", "Cliente", "Situação", "Versão", "Validade", "Valor"])
+  const row = table.getByRole("row").nth(1)
+  await expect(row.getByRole("cell")).toHaveText(["Proposta 1", summary.customerName, "Rascunho", "1", "01/01/2100", "R$ 49,98"])
+  await expect(row.getByRole("link", { name: "Proposta 1", exact: true })).toHaveAttribute("href", `/vendas/propostas/${record}`)
+  await expect(page.getByRole("link", { name: "Nova proposta", exact: true })).toHaveCount(width === 1280 ? 1 : 0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await testInfo.attach(`proposals-table-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.getByRole("button", { name: "Próxima", exact: true }).click()
+  await expect(row.getByRole("cell", { name: "Expirada", exact: true })).toBeVisible()
+  expect(requests.at(-1)?.get("offset")).toBe("25")
+  await expect(page.getByRole("button", { name: "Próxima", exact: true })).toBeDisabled()
+  await page.getByLabel("Situação", { exact: true }).selectOption("draft")
+  await page.getByLabel("Cliente ou número", { exact: true }).fill("Cliente")
+  await page.getByRole("button", { name: "Pesquisar propostas", exact: true }).click()
+  await expect.poll(() => Object.fromEntries(requests.at(-1) || [])).toMatchObject({ q: "Cliente", status: "draft", offset: "0", limit: "25" })
+  await expect(row.getByRole("cell", { name: "Rascunho", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Anterior", exact: true })).toBeDisabled()
+})
+
 test("logo da empresa aparece na proposta e na impressão sem aceitar outra empresa", async ({ page }) => {
   const logo = await page.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 16; return canvas.toDataURL("image/png") })
   let issuerTenant = tenant
@@ -72,12 +102,28 @@ for (const width of [320, 390, 768, 1280]) test(`sugestões sobrepostas não des
   await expect(page.getByLabel("Quantidade de Produto de teste 0", { exact: true })).toBeVisible()
 })
 
+test("oportunidade pesquisa cliente sem abrir lista antes da busca", async ({ page }, info) => {
+  await page.route(/\/api\/erp\/opportunities\?/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [] } }))
+  await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, total: 1, data: [{ id: customer, legalName: "Cliente da oportunidade" }] } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/vendas/funil/nova")
+  await expect(page.getByLabel("Buscar cliente", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Selecionar Cliente da oportunidade", exact: true })).toHaveCount(0)
+  await page.getByLabel("Buscar cliente", { exact: true }).fill("Cliente")
+  await page.getByRole("button", { name: "Selecionar Cliente da oportunidade", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Cliente selecionado: Cliente da oportunidade" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Selecionar Cliente da oportunidade", exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath("opportunity-compact-mobile.png"), fullPage: true })
+})
+
 test("central de vendas consulta dados reais e preserva pedidos quando propostas não são autorizadas", async ({ page }) => {
   await page.route(/\/api\/erp\/proposals\?limit=5$/, route => route.fulfill({ status: 403, json: { title: "Sem permissão para consultar propostas" } }))
   await page.route(/\/api\/erp\/orders\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ id: record, customerName: "Cliente do pedido real", amount: "200.00", status: "draft" }] } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/vendas")
   await expect(page.getByRole("alert").filter({ hasText: "Sem permissão" })).toBeVisible()
+  await expect(page.getByRole("table", { name: "Pedidos recentes", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Cliente do pedido real" })).toBeVisible()
   await expect(page.getByText("1 pedido(s) cadastrado(s)")).toBeVisible()
   await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveCount(0)

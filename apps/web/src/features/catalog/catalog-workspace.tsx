@@ -22,6 +22,8 @@ import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQu
 
 import { ProductPhoto } from "./product-photo"
 import { CatalogProfile } from "./catalog-profile"
+import { CatalogColorPhotos } from "./catalog-color-photos"
+import { catalogPaletteFor } from "./catalog-color-photo-model"
 import { ProductCategory } from "./product-category"
 import { ProductThumbnail } from "./product-thumbnail"
 import { useResource } from "@/hooks/use-operation"
@@ -219,7 +221,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
         </form>}
         {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.plateHolderTypes?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Acabamentos disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Tipo de anilheiro", snapshot.data.plateHolderTypes], ["Braços", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label}><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
+        {view && <details open={!!(snapshot.data.structureColors?.length || snapshot.data.upholsteryColors?.length || snapshot.data.plateHolderTypes?.length)} className="space-y-3 rounded-xl border p-4"><summary className="font-semibold">Acabamentos disponíveis</summary>{([["Estrutura", snapshot.data.structureColors], ["Tipo de anilheiro", snapshot.data.plateHolderTypes], ["Braços", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label} className="space-y-2"><p className="text-sm text-muted-foreground">{label}</p>{colors?.length ? label === "Tipo de anilheiro" ? <ul className="mt-2 flex flex-wrap gap-2">{colors.map(color => <li key={color} className="max-w-full break-words rounded-full border px-3 py-1 text-sm">{color}</li>)}</ul> : <CatalogColorPhotos label={label} options={colors} palette={catalogPaletteFor(snapshot.data.structureColors)} readOnly /> : <p className="mt-1 text-sm">Sem opções cadastradas</p>}</div>)}</details>}
       </>}
     </section>
   </div>

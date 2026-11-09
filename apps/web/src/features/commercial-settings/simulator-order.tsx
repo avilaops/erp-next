@@ -1,4 +1,5 @@
 "use client"
+import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -37,7 +38,7 @@ export function SimulationOrder({ value, equipment, line, onLocked }: {
     }}>
       <fieldset disabled={frozen} className="space-y-4">
         <label className="grid gap-2">Vencimento<Input required type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} /></label>
-        <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label="Cor da estrutura" options={equipment.structureColors} value={structure} onChange={setStructure} /><ColorChoice label="Cor do estofado" options={equipment.upholsteryColors} value={upholstery} onChange={setUpholstery} /></div>
+        <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label="Cor da estrutura" options={equipment.structureColors} value={structure} onChange={setStructure} /><ColorChoice palette={catalogPaletteFor(equipment.structureColors)} label={catalogPaletteFor(equipment.structureColors) ? "Cor dos braços" : "Cor do estofado"} options={equipment.upholsteryColors} value={upholstery} onChange={setUpholstery} /></div>
       </fieldset>
       {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
       {command.stale && <p>Refaça a simulação antes de criar outro pedido.</p>}

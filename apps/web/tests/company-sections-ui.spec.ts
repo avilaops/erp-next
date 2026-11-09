@@ -74,7 +74,7 @@ test("menus omitem os subtítulos redundantes e preservam os destinos", async ({
   await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
   await expect(navigation.getByRole("heading", { name: "Operação", exact: true })).toHaveCount(0)
   await expect(navigation.getByRole("link", { name: "Produtos", exact: true })).toHaveAttribute("href", "/cadastros/produtos")
-  await page.getByRole("button", { name: "Voltar aos módulos", exact: true }).click()
+  await navigation.getByRole("button", { name: "Cadastros", exact: true }).click()
   await navigation.getByRole("button", { name: "Meu Negócio", exact: true }).click()
   await expect(navigation.getByRole("heading", { name: "Dashboards", exact: true })).toHaveCount(0)
   await expect(navigation.getByRole("link", { name: "Dashboard geral", exact: true })).toHaveAttribute("href", "/dashboards")

@@ -69,7 +69,7 @@ pub struct SourceItem {
     pub name: String,
     pub unit: String,
     pub product_revision: i64,
-    pub cost_revision: i64,
+    pub cost_revision: Option<i64>,
     pub price_cents: i64,
     pub purchase_cents: i64,
     pub credit_bps: i32,

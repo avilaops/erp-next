@@ -328,7 +328,7 @@ export function NfeDraftEditor({ id, sourceOrderId, initialModel = 55 }: { id?: 
           <p className="text-sm text-muted-foreground">Salvar guarda o rascunho. Transmitir à SEFAZ exige uma ação separada após a gravação.</p>
           <div className="flex flex-wrap gap-3">
             {canEdit && <Button type="submit" disabled={loading || saving || blocked || fiscalLocked || !profileReady || !!id && (!etag || uncertain) || !uncertain && !dirty}>{saving ? "Confirmando gravação…" : uncertain && !id ? "Confirmar mesma solicitação" : "Salvar rascunho"}</Button>}
-            {!id && <Button type="button" disabled>Transmitir {draft.model === 65 ? "NFC-e" : "NF-e"} à SEFAZ em {draft.environment === "production" ? "produção" : "homologação"}</Button>}
+            {!id && <Button className="h-auto min-h-11 max-w-full whitespace-normal text-center" type="button" disabled>Transmitir {draft.model === 65 ? "NFC-e" : "NF-e"} à SEFAZ em {draft.environment === "production" ? "produção" : "homologação"}</Button>}
             <Button type="button" variant="outline" disabled={saving || loading} onClick={refresh}>Recarregar dados do servidor</Button>
           </div>
           {!id && <p className="text-sm text-muted-foreground">Salve o rascunho para habilitar a transmissão à SEFAZ.</p>}

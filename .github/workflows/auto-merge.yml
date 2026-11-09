@@ -102,6 +102,9 @@ jobs:
           if [[ "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" == "$release_sha" ]]; then
             gh workflow run production-release.yml --ref main \
               -f source_ref="$release_sha" -f automatic=true
+            # Bot merges also suppress the branch updater's main push trigger.
+            gh workflow run update-pr-branches.yml --ref main ||
+              echo '::warning::Could not dispatch the branch updater.'
           fi
 
 

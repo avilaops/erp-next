@@ -20,7 +20,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Update internal, ready PRs and surface merge conflicts
+      - name: Update internal PRs and surface merge conflicts
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -77,13 +77,17 @@ jobs:
                 });
 
             for (const pullRequest of pullRequests) {
-              if (pullRequest.draft || pullRequest.base.ref !== 'main' || pullRequest.head.repo?.full_name !== `${owner}/${repo}`) continue;
+              if (pullRequest.base.ref !== 'main' || pullRequest.head.repo?.full_name !== `${owner}/${repo}`) continue;
               const pr = await github.rest.pulls.get({ owner, repo, pull_number: pullRequest.number });
               if (pr.data.mergeable_state === 'dirty') {
                 await markConflict(pr.data);
                 continue;
               }
-              if (pr.data.mergeable_state !== 'behind') {
+              if (pr.data.mergeable !== true) continue;
+              const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${pr.data.base.sha}...${pr.data.head.sha}`, per_page: 1,
+              });
+              if (comparison.data.behind_by === 0) {
                 await clearConflict(pr.data);
                 continue;
               }

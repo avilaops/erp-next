@@ -132,35 +132,32 @@ export function ReceivedMonitor() {
     } finally { operation.current = false; activeDownload.current = null; setBusy("") }
   }
 
-  return <div className="mx-auto max-w-6xl space-y-6 px-4 pb-24 pt-8 lg:px-6">
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-6">
-      <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><PageTitle className="mt-2 text-3xl font-semibold">Monitor de notas fiscais</PageTitle><p className="mt-2 text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
+  return <div className="mx-auto max-w-6xl space-y-3 px-4 pb-8 pt-8 sm:space-y-6 sm:pb-24 lg:px-6">
+    <header className="flex flex-wrap items-start justify-between gap-2 border-b pb-3 sm:gap-4 sm:pb-6">
+      <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><PageTitle className="mt-1 text-3xl font-semibold">Monitor de notas fiscais</PageTitle><p className="mt-1 break-words text-sm text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link>
     </header>
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Distribuição em produção</h2>
-      <FiscalDistribution onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />
-    </div>
+    <FiscalDistribution onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />
     {result?.canImport && <details className="min-w-0 space-y-4">
       <summary className="cursor-pointer font-medium">Distribuição em homologação, sem valor fiscal</summary>
       <DistributionActions key={result.tenantId} tenantId={result.tenantId} onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />
     </details>}
-    <section className="form-section space-y-4" aria-labelledby="import-title">
+    <section className="form-section space-y-2 sm:space-y-4" aria-labelledby="import-title">
       <h2 id="import-title" className="flex items-center gap-2 text-lg font-semibold"><Upload className="size-5 text-primary" />Importar NF-e recebida</h2>
-      <p className="text-sm text-muted-foreground">Escolha o XML completo, com protocolo de autorização, destinado ao CNPJ desta empresa. O arquivo original fica armazenado para consulta e download.</p>
+      <p className="text-sm text-muted-foreground">Selecione o XML completo da NF-e, com protocolo de autorização e destinado à empresa ativa.</p>
       <form className="flex flex-wrap items-end gap-3" onSubmit={importXml}>
-        <label className="min-w-0 flex-1 space-y-2 text-sm">XML da NF-e<input ref={fileInput} type="file" accept=".xml,application/xml,text/xml" className="block w-full rounded-xl border p-3" disabled={loading || !!busy || !result?.canImport} onChange={event => { setFile(event.target.files?.[0] || null); setNotice(""); setError("") }} /></label>
+        <label className="min-w-0 flex-1 space-y-2 text-sm">XML da NF-e<input ref={fileInput} type="file" accept=".xml,application/xml,text/xml" className="block min-h-11 w-full min-w-0 rounded-lg border p-2" disabled={loading || !!busy || !result?.canImport} onChange={event => { setFile(event.target.files?.[0] || null); setNotice(""); setError("") }} /></label>
         <Button type="submit" disabled={!file || loading || !!busy || !result?.canImport}>{busy === "import" ? "Importando XML…" : "Importar XML"}</Button>
       </form>
-      <p className="text-xs text-muted-foreground">A importação confere a estrutura e a coerência do protocolo declarado. Não comprova a assinatura digital nem a situação atual na SEFAZ. Compras, estoque e financeiro não são alterados por esta ação.</p>
+      <details className="text-sm text-muted-foreground"><summary className="flex min-h-11 cursor-pointer items-center">Sobre a importação</summary><p>A importação confere a estrutura e a coerência do protocolo declarado. Não comprova a assinatura digital nem a situação atual na SEFAZ. Compras, estoque e financeiro não são alterados por esta ação. O XML fica disponível para consulta e download.</p></details>
     </section>
-    <section className="form-section space-y-4" aria-labelledby="notes-title">
+    <section className="form-section space-y-2 sm:space-y-4" aria-labelledby="notes-title">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="notes-title" className="text-lg font-semibold">Notas armazenadas{result ? ` (${result.total})` : ""}</h2><Button variant="outline" disabled={loading || !!busy} onClick={() => { setLoading(true); setRefresh(value => value + 1) }}><RefreshCw className="size-4" />Atualizar</Button></div>
-      <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px_170px_auto]" onSubmit={event => { event.preventDefault(); setLoading(true); setQuery({ ...filters, offset: 0 }) }}>
-        <label className="space-y-2 text-sm">Buscar fornecedor, CNPJ, nota ou chave<Input value={filters.q} maxLength={200} onChange={event => setFilters({ ...filters, q: event.target.value })} /></label>
-        <label className="space-y-2 text-sm">Emissão de (UTC)<Input type="date" value={filters.from} onChange={event => setFilters({ ...filters, from: event.target.value })} /></label>
-        <label className="space-y-2 text-sm">Emissão até (UTC)<Input type="date" value={filters.to} min={filters.from || undefined} onChange={event => setFilters({ ...filters, to: event.target.value })} /></label>
-        <Button className="self-end" type="submit" disabled={loading || !!busy}>Filtrar</Button>
+      <form className="grid min-w-0 grid-cols-2 items-end sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,170px)_minmax(0,170px)_auto] lg:gap-3" onSubmit={event => { event.preventDefault(); setLoading(true); setQuery({ ...filters, offset: 0 }) }}>
+        <label className="col-span-full min-w-0 space-y-1 text-sm lg:col-span-1">Buscar fornecedor, CNPJ, nota ou chave<Input value={filters.q} maxLength={200} onChange={event => setFilters({ ...filters, q: event.target.value })} /></label>
+        <label className="min-w-0 space-y-1 text-sm">Emissão de (UTC)<Input type="date" value={filters.from} onChange={event => setFilters({ ...filters, from: event.target.value })} /></label>
+        <label className="min-w-0 space-y-1 text-sm">Emissão até (UTC)<Input type="date" value={filters.to} min={filters.from || undefined} onChange={event => setFilters({ ...filters, to: event.target.value })} /></label>
+        <Button className="col-span-full justify-self-end sm:col-span-1" type="submit" disabled={loading || !!busy}>Filtrar</Button>
       </form>
       {result && result.data.length > 0 && <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3">
         <span className="text-sm">{selected.length} selecionada(s) · até {maximumBatch} por lote</span>
@@ -168,7 +165,7 @@ export function ReceivedMonitor() {
         <Button variant="ghost" disabled={loading || !!busy || !selected.length} onClick={() => setSelected([])}>Limpar seleção</Button>
         {busy.startsWith("Gerando DANFE") && <><span role="status" className="text-sm">{busy}</span><Button variant="outline" onClick={() => activeDownload.current?.abort()}>Cancelar lote</Button></>}
       </div>}
-      {loading ? <p role="status">Carregando notas da empresa…</p> : result && !result.data.length ? <div className="py-10 text-center"><FileText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">Nenhuma nota encontrada</p><p className="mt-1 text-sm text-muted-foreground">Importe um XML recebido ou ajuste os filtros da consulta.</p></div> : result && <div className="space-y-3">{result.data.map(note => <article className="rounded-xl border p-4" key={note.id}>
+      {loading ? <p role="status">Carregando notas da empresa…</p> : result && !result.data.length ? <div className="py-4 text-center sm:py-10"><FileText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">Nenhuma nota encontrada</p><p className="mt-1 text-sm text-muted-foreground">Importe um XML recebido ou ajuste os filtros da consulta.</p></div> : result && <div className="space-y-3">{result.data.map(note => <article className="rounded-xl border p-4" key={note.id}>
         <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(note.id)} disabled={loading || !!busy || !selected.includes(note.id) && selected.length >= maximumBatch} onChange={event => setSelected(values => event.target.checked ? [...values, note.id] : values.filter(id => id !== note.id))} />Selecionar NF-e {note.number} para o lote</label>
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold"><Link href={`/fiscal/monitor/${note.id}`} className="text-primary underline">NF-e {note.number} · Série {note.series}</Link></h3><p className="mt-1 text-sm">{note.issuerName} · {note.issuerDocument}</p><p className="mt-1 text-xs text-muted-foreground">Emissão: {date(note.issuedAt)} · {note.itemCount} item(ns) · {note.environment === 2 ? "Homologação, sem valor fiscal" : "Ambiente de produção declarado no XML"}</p></div><strong>{money.format(note.totalCents / 100)}</strong></div>
         <p className="mt-3 break-all text-xs text-muted-foreground">Chave: {note.accessKey}</p>

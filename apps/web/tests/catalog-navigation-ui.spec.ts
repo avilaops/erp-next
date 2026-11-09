@@ -82,13 +82,17 @@ test("ações finais do catálogo ficam acima da navegação compacta", async ({
   }
 })
 
-test("catálogo mantém a lista em linhas com rolagem interna em telas estreitas", async ({ page }) => {
+test("catálogo mantém produto e dados essenciais visíveis em telas estreitas", async ({ page }) => {
   await page.goto("/cadastros/produtos")
   for (const width of [390, 915, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     const table = page.getByRole("table", { name: "Catálogo de produtos" })
     await expect(table).toBeVisible()
     await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
+    if (width === 390) {
+      await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toContainText(/R\$/)
+      expect(await page.getByRole("region", { name: "Lista de produtos" }).evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })

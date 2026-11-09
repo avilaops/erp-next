@@ -232,3 +232,23 @@ test("formulário por seção cabe no celular e no desktop nos dois temas", asyn
     }
   }
 })
+
+test("dashboard mostra quatro indicadores em duas colunas a 320 px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 })
+  await page.route("**/api/erp/dashboard?**", route => route.fulfill({ json: {
+    tenantId: tenant, startDate: "2026-05-09", endDate: "2026-11-09",
+    sales: { orders: 3 }, receivables: "1234567.89", purchasePayables: "0.00", products: 157,
+    salesSeries: [{ month: "2026-11", orders: 3, amount: "201626.11" }],
+  } }))
+  await page.goto("/dashboards")
+  const indicators = page.getByRole("region", { name: "Indicadores do dashboard" })
+  await expect(indicators.getByText("R$ 1.234.567,89", { exact: true })).toBeVisible()
+  const [first, second] = await indicators.locator(":scope > div").evaluateAll(cards => cards.map(card => ({ x: card.getBoundingClientRect().x, y: card.getBoundingClientRect().y })))
+  expect(first.y).toBe(second.y)
+  expect(second.x).toBeGreaterThan(first.x)
+  await expect(page.getByText("Pedidos: 09/05/2026 a 09/11/2026.", { exact: false })).toBeVisible()
+  const table = page.getByRole("table", { name: /Pedidos não cancelados/ })
+  await expect(table.getByRole("cell", { name: "R$ 201.626,11", exact: true })).toBeVisible()
+  expect(await table.evaluate(element => element.parentElement!.scrollWidth <= element.parentElement!.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+})

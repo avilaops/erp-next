@@ -2,8 +2,12 @@ name: ERP verification inventory
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    paths:
+      - 'verification/**'
+      - 'scripts/verification/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/verification.yml'
   workflow_dispatch:
 
 permissions:

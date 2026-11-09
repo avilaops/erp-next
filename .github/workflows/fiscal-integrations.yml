@@ -2,8 +2,14 @@ name: Fiscal integrations
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    paths:
+      - 'scripts/fiscal/**'
+      - 'integrations/**'
+      - 'apps/fiscal-engine/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/fiscal-integrations.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

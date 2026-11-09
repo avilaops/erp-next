@@ -1,37 +1,54 @@
 # ERP Next em produção
 
-Imagens são construídas somente pelo GitHub CI, pelo workflow
-`production-release.yml`, com `source_ref` fixado no commit completo,
-depois das verificações de cada componente. PRs não reempacotam imagens.
-A implantação exige o resultado completo da execução aprovado.
-Os artefatos `erp-api-<sha>` e `erp-web-<sha>` contêm imagens Docker por SHA.
-O artefato `erp-fiscal-<sha>` contém o motor fiscal, após os testes próprios.
-O artefato `erp-fiscal-mcp-<sha>` contém o MCP Python com schemas fixados e
-DANFE Simplificado Tipo 2. O job também testa o container sem root, com
-filesystem somente leitura, usando XML sintético e sem comunicação com SEFAZ.
+## CI e publicação
 
-Antes da primeira publicação desta versão, instale o dispatcher atualizado
-`production-deploy.sh` pelo acesso administrativo autorizado. O workflow envia
-imagens e Compose; ele não substitui esse dispatcher automaticamente. O pacote
-atual exige as quatro imagens. Confira também as migrations incrementais e os
-grants das tabelas novas antes de trocar a API; não repita a importação do legado.
+O workflow `CI` valida PRs pelo escopo alterado: lint e testes de modelo da web,
+formatação e testes Rust com PostgreSQL para API/migrations e testes npm do motor
+fiscal. O check obrigatório continua sendo `gate`; skips só são aceitos quando o
+planejador exclui explicitamente o componente, e o artefato registra esse escopo.
+Mudanças em infraestrutura desconhecida executam os três componentes. Não há
+segunda execução de CI no push para `main`.
 
-O workflow de release tem timeout de 20 minutos para API e 15 para web.
-Falhas não autorizam build no servidor ou a retirada de testes.
-Os navegadores usam Chrome do runner.
+`CI full regression` conserva arquitetura, contratos, baseline, builds e browsers
+para execução manual ou semanal (segunda-feira, 04:23 UTC). O auto merge verifica
+a evidência do PR e não inicia publicação. Deploy e migrations seguem o procedimento
+direto no servidor; `Production release` permanece disponível apenas manualmente.
 
-O workflow `production-migrate.yml`, com `release_run` apontando para uma
-execução já aprovada, executa migrations/bootstrap e importação **no runner GitHub**,
-conectado ao PostgreSQL por túnel SSH restrito a `172.17.0.1:5432`, sujeito a
-autenticação SCRAM em vez das regras trust de loopback. A chave do
-túnel não permite sessão ou execução de comandos. Os segredos são configurados
-no GitHub: `ERP_MIGRATION_DATABASE_URL`, `ERP_DB_TUNNEL_KEY`,
-`ERP_DB_KNOWN_HOSTS`, `ERP_DB_SSH_HOST`, `ERP_BOOTSTRAP_SUB` e
-`ERP_BOOTSTRAP_TENANT` e `ERP_LEGACY_DATABASE_URL`. Nunca executar o comando
-`migrate` no servidor. O importador recusa um destino que já contém os schemas
-legados; não repetir o fluxo após a importação concluída.
-Antes de usar a imagem, confere que a revisão de origem possui os mesmos fontes
-Rust, lockfile e migrations da revisão que está fazendo o provisionamento.
+## Publicação direta
+
+O fluxo operacional é compilar na máquina de desenvolvimento, testar o trecho
+alterado e enviar o pacote pronto por SSH. O servidor aplica a versão e as
+migrações pendentes diretamente, sem aguardar o workflow completo. Não compilar
+no servidor de aplicações: ele compartilha memória com outros serviços.
+
+No Windows, a API Linux pode ser gerada localmente com `cargo-zigbuild` e Zig:
+`cargo zigbuild --target x86_64-unknown-linux-gnu.2.36 --locked -p erp-next-api`.
+Reutilize o cache de `target`; limite `CARGO_BUILD_JOBS=1` em máquinas com pouca
+memória. Para a web, use `ERP_BUILD_CPUS=2` e `pnpm --filter web build`. A variável
+limita os workers do build sem mudar o layout ou a configuração da aplicação.
+
+Identifique o commit e os hashes dos pacotes. Preserve as dependências Linux das
+imagens de runtime e substitua somente o executável da API ou o build da web
+quando as dependências não mudarem. Uma mudança de dependências exige imagem
+compatível reconstruída e validada. Registre quais componentes foram atualizados.
+
+Antes das migrações, preserve um backup do schema e confira os arquivos/checksums
+contra `_sqlx_migrations`. Execute somente `erp-next-api migrate`, usando as
+migrações da mesma revisão da API. O SQLx aplica apenas as pendentes. Bootstrap e
+importação do legado são operações de provisionamento e não fazem parte de uma
+publicação normal. Não os repita.
+
+Crie um diretório de release separado, copie a configuração privada da versão
+ativa e altere somente as imagens dos componentes atualizados e a revisão.
+Valide o Compose antes de iniciar. Preserve a versão anterior para rollback.
+Após a troca, confira a API, o domínio público, a revisão publicada e os serviços
+fiscais. Se a API for recriada, recrie os quatro serviços juntos, como descrito
+abaixo, porque compartilham seu namespace de rede.
+
+O workflow manual `production-release.yml` continua disponível como alternativa
+para empacotamento completo no runner. Ele não é disparado por push nem por auto
+merge. O antigo fluxo `production-migrate.yml` permanece apenas para as operações
+manuais de provisionamento já existentes; não é necessário para publicar.
 
 O bootstrap cria uma empresa com cadastro fiscal pendente e associa a identidade
 real confirmada de `nicolas@avilaops.com` ao papel de administrador. O banco é

@@ -224,13 +224,13 @@ test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", as
   await expect(menu.getByRole("heading", { name: "Menu do ERP", exact: true })).toBeVisible()
   const mobileDestinations: string[] = []
   for (const category of desktopMenus) {
-    const module = menu.getByRole("button", { name: category.label, exact: true })
-    await module.click()
-    await expect(module).toHaveAttribute("aria-expanded", "true")
-    const branch = await module.getAttribute("aria-controls")
+    const moduleButton = menu.getByRole("button", { name: category.label, exact: true })
+    await moduleButton.click()
+    await expect(moduleButton).toHaveAttribute("aria-expanded", "true")
+    const branch = await moduleButton.getAttribute("aria-controls")
     mobileDestinations.push(...await menu.locator(`#${branch} a[href]`).evaluateAll(links => links.map(link => link.getAttribute("href")!)))
-    await module.click()
-    await expect(module).toBeFocused()
+    await moduleButton.click()
+    await expect(moduleButton).toBeFocused()
   }
   expect(mobileDestinations.sort()).toEqual(destinations.sort())
   await page.keyboard.press("Escape")

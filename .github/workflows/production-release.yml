@@ -1,11 +1,18 @@
 name: Production release
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       source_ref:
         description: Exact source commit to validate and package
         required: true
         type: string
+      automatic:
+        description: Skip deployment when main has moved past this release
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   actions: read
@@ -217,27 +224,48 @@ jobs:
     env:
       SOURCE_SHA: ${{ inputs.source_ref || github.sha }}
     steps:
+      - name: Check that the automatic release is still current
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTOMATIC: ${{ github.event_name == 'push' || inputs.automatic }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$AUTOMATIC" == true ]] &&
+             [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$SOURCE_SHA" ]]; then
+            echo '::notice::Skipping deployment because main has advanced.'
+            echo 'deploy=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.current.outputs.deploy == 'true'
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
       - uses: actions/download-artifact@v4
+        if: steps.current.outputs.deploy == 'true'
         with:
           name: erp-api-${{ inputs.source_ref || github.sha }}
           path: bundle
       - uses: actions/download-artifact@v4
+        if: steps.current.outputs.deploy == 'true'
         with:
           name: erp-web-${{ inputs.source_ref || github.sha }}
           path: bundle
       - uses: actions/download-artifact@v4
+        if: steps.current.outputs.deploy == 'true'
         with:
           name: erp-fiscal-${{ inputs.source_ref || github.sha }}
           path: bundle
       - uses: actions/download-artifact@v4
+        if: steps.current.outputs.deploy == 'true'
         with:
           name: erp-fiscal-mcp-${{ inputs.source_ref || github.sha }}
           path: bundle
       - name: Send immutable release to applications
+        if: steps.current.outputs.deploy == 'true'
         env:
           DEPLOY_HOST: ${{ secrets.ERP_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.ERP_DEPLOY_USER }}

@@ -79,7 +79,7 @@ pub async fn create(
             upholstery_color: input.upholstery_color,
         }],
     };
-    let mut order = super::prepare_order(&mut tx, tenant, &order_input, None).await?;
+    let mut order = super::prepare_order(&mut tx, tenant, &order_input, None, true).await?;
     order.total = prepared.quote.sale.invoice_total_cents;
     order.lines[0].price = prepared.quote.sale.unit_with_ipi_cents;
     order.lines[0].amount = order.total;
@@ -144,7 +144,10 @@ pub async fn get(
     let (revision, status) = order.ok_or(DomainError::NotFound)?;
     let row: Option<(Value,bool,Option<String>)> = sqlx::query_as("SELECT snapshot,needs_approval,approved_by FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
-    let director = pricing::sees_costs(&mut tx, tenant, &identity.subject).await?;
+    let can_approve = pricing::sees_costs(&mut tx, tenant, &identity.subject).await?;
+    let rights = crate::platform::access::load_access(&mut tx, tenant, &identity.subject).await?;
+    let director = can_approve
+        && crate::platform::access::require_permission(&rights, "sales.approvals.director").is_ok();
     let data = row.map(|(mut snapshot, needs_approval, approved_by)| {
         if !director {
             snapshot
@@ -158,7 +161,7 @@ pub async fn get(
     Ok(response(
         StatusCode::OK,
         Some(revision),
-        json!({"tenantId":tenant,"canApprove":director && status=="draft","data":data}),
+        json!({"tenantId":tenant,"canApprove":can_approve && status=="draft","data":data}),
     ))
 }
 

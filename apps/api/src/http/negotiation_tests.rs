@@ -176,7 +176,32 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     )
     .await;
     assert_eq!(denied.0, StatusCode::FORBIDDEN);
+    let hidden = call(
+        &router,
+        "GET",
+        &format!("/api/v1/commercial/orders/{order}"),
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert!(
+        hidden.1["director"].is_null(),
+        "Company management alone must not reveal director financials"
+    );
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','sales.approvals.director')").execute(&admin).await.unwrap();
+    let visible = call(
+        &router,
+        "GET",
+        &format!("/api/v1/commercial/orders/{order}"),
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert!(visible.1["director"].is_object());
     let decision_key = Uuid::now_v7();
     let decision = json!({"approved":true,"reason":"Condições conferidas pela diretoria"});
     let approved = call(
@@ -367,5 +392,163 @@ async fn opportunity_is_versioned_idempotent_and_isolated_before_customer_regist
         .0,
         StatusCode::FORBIDDEN
     );
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn legacy_frozen_costs_work_without_current_costs_and_calculated_costs_stay_fresh(
+    admin: PgPool,
+) {
+    let (router, app, server, role) = setup(&admin).await;
+    let tenant = Uuid::parse_str(TENANT).unwrap();
+    sqlx::query("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code IN ('sales.orders.read','sales.orders.manage') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let policy = json!(crate::platform::commercial_settings_model::tests::example());
+    sqlx::query("INSERT INTO commercial_settings(tenant_id,product_line,parameters,revision) VALUES($1,'imported',$2,1)").bind(tenant).bind(&policy).execute(&admin).await.unwrap();
+    let saved = call(&router,"PUT","/api/v1/commercial/approval-settings","editor",Some("\"1\""),None,json!({"belowTarget":true,"freight":false,"directorAutoApproval":false,"managerLimit":"target"})).await;
+    assert_eq!(saved.0, StatusCode::OK, "{}", saved.1);
+    for legacy in [true, false] {
+        let product = Uuid::now_v7();
+        let version = Uuid::now_v7();
+        let sku = product.to_string().to_uppercase();
+        sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status) VALUES($1,$2,$3,'Frozen','UN',100,'active')").bind(product).bind(tenant).bind(&sku).execute(&admin).await.unwrap();
+        sqlx::query("INSERT INTO price_table_versions(id,tenant_id,product_line,version,settings_revision,policy_snapshot,calculator_version,digest,published_by,source_kind,source_reference) VALUES($1,$2,'imported',$3,1,$4,'test',$5,'33333333-3333-4333-8333-333333333333',$6,$7)")
+            .bind(version).bind(tenant).bind(if legacy {6_i64} else {7_i64}).bind(&policy).bind(if legacy {"b".repeat(64)} else {"c".repeat(64)}).bind(if legacy {"legacy"} else {"calculated"}).bind(if legacy {json!({"source":"legacy.example.test","version":6,"historicalVersionId":version})} else {json!({})}).execute(&admin).await.unwrap();
+        let snapshot = json!({"source":"legacy.example.test","version":6,"product_id":190,"advisory_cost":5306.06,"tax_credit":0.27800090,"packaging":0});
+        let insert = "INSERT INTO price_table_items(tenant_id,version_id,product_id,product_snapshot,cost_revision,cost_snapshot,price_without_ipi_cents,ipi_bps,price_with_ipi_cents,source_snapshot) VALUES($1,$2,$3,$4,$5,$6,1256323,1300,1419645,$7)";
+        let product_snapshot = json!({"sku":sku,"name":"Frozen","unit":"UN","revision":1});
+        let cost = json!({"purchaseCostCents":530606,"taxCreditBps":2780,"packagingCents":0});
+        // Neither a calculated NULL revision nor an incomplete legacy cost is accepted.
+        let rejected = sqlx::query(insert)
+            .bind(tenant)
+            .bind(version)
+            .bind(product)
+            .bind(&product_snapshot)
+            .bind(None::<i64>)
+            .bind(json!({}))
+            .bind(&snapshot)
+            .execute(&admin)
+            .await;
+        assert!(rejected.is_err());
+        if legacy {
+            let mut foreign_snapshot = snapshot.clone();
+            foreign_snapshot["source"] = json!("different.example.test");
+            assert!(
+                sqlx::query(insert)
+                    .bind(tenant)
+                    .bind(version)
+                    .bind(product)
+                    .bind(&product_snapshot)
+                    .bind(None::<i64>)
+                    .bind(&cost)
+                    .bind(&foreign_snapshot)
+                    .execute(&admin)
+                    .await
+                    .is_err()
+            );
+        }
+        sqlx::query(insert)
+            .bind(tenant)
+            .bind(version)
+            .bind(product)
+            .bind(&product_snapshot)
+            .bind(if legacy { None } else { Some(1_i64) })
+            .bind(&cost)
+            .bind(&snapshot)
+            .execute(&admin)
+            .await
+            .unwrap();
+        if !legacy {
+            sqlx::query("INSERT INTO product_costs(tenant_id,product_id,product_line,purchase_cost_cents,tax_credit_bps,packaging_cents,revision) VALUES($1,$2,'imported',530606,2780,0,1)").bind(tenant).bind(product).execute(&admin).await.unwrap();
+        }
+        sqlx::query("UPDATE commercial_settings SET active_price_version_id=$2 WHERE tenant_id=$1 AND product_line='imported'").bind(tenant).bind(version).execute(&admin).await.unwrap();
+        let mut input = json!({"line":"imported","versionId":version,"destinationState":"SP","taxpayer":false,"discount":{"kind":"percent","value":0},"freightCents":0,"items":[{"productId":product,"quantity":1}]});
+        let quote = call(
+            &router,
+            "POST",
+            "/api/v1/commercial/simulate",
+            "editor",
+            None,
+            None,
+            input.clone(),
+        )
+        .await;
+        assert_eq!(quote.0, StatusCode::OK, "{}", quote.1);
+        let mut isolated = app.begin().await.unwrap();
+        sqlx::query(
+            "SELECT set_config('app.tenant_id','22222222-2222-4222-8222-222222222222',true)",
+        )
+        .execute(&mut *isolated)
+        .await
+        .unwrap();
+        let visible: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM price_table_items WHERE version_id=$1")
+                .bind(version)
+                .fetch_one(&mut *isolated)
+                .await
+                .unwrap();
+        assert_eq!(
+            visible, 0,
+            "A different tenant must never see a frozen snapshot"
+        );
+        isolated.rollback().await.unwrap();
+        input["versionId"] = json!(Uuid::now_v7());
+        assert_ne!(
+            call(
+                &router,
+                "POST",
+                "/api/v1/commercial/simulate",
+                "editor",
+                None,
+                None,
+                input.clone()
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        input["versionId"] = json!(version);
+        if !legacy {
+            sqlx::query("UPDATE product_costs SET revision=2 WHERE tenant_id=$1 AND product_id=$2")
+                .bind(tenant)
+                .bind(product)
+                .execute(&admin)
+                .await
+                .unwrap();
+            assert_eq!(
+                call(
+                    &router,
+                    "POST",
+                    "/api/v1/commercial/simulate",
+                    "editor",
+                    None,
+                    None,
+                    input.clone()
+                )
+                .await
+                .0,
+                StatusCode::CONFLICT
+            );
+        }
+        sqlx::query("UPDATE products SET revision=2 WHERE tenant_id=$1 AND id=$2")
+            .bind(tenant)
+            .bind(product)
+            .execute(&admin)
+            .await
+            .unwrap();
+        assert_eq!(
+            call(
+                &router,
+                "POST",
+                "/api/v1/commercial/simulate",
+                "editor",
+                None,
+                None,
+                input
+            )
+            .await
+            .0,
+            StatusCode::CONFLICT
+        );
+    }
     cleanup(&admin, app, server, &role).await;
 }

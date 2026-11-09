@@ -238,16 +238,17 @@ function OrderDetail({ id }: { id: string }) {
     if (response) { setNotice("Operação confirmada no servidor."); result.reload() }
   }
   return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: value ? orderNumber(value.data.number) : "Detalhe" }]} back={{ href: "/vendas/pedidos", label: "Voltar aos pedidos" }} title="Pedido de venda" description="Concluir registra saída de estoque e conta a receber. Não emite NF-e nem comprova entrega física." />
-    <section className="min-w-0 space-y-4" aria-label="Detalhes do pedido">
+    <section className="min-w-0 space-y-3 sm:space-y-4" aria-label="Detalhes do pedido">
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-4 border-b pb-4">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b pb-3 sm:gap-4 sm:pb-4">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h2 className="font-semibold">{orderNumber(value.data.number)}</h2><span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">{labels[value.data.status]}</span></div><p className="mt-1 break-words">{value.data.customerName}</p></div>
           <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">Total do pedido</dt><dd className="font-semibold tabular-nums">{commercialMoney(value.data.amount)}</dd></div><div><dt className="text-xs text-muted-foreground">Vencimento</dt><dd className="tabular-nums">{value.data.dueDate.split("-").reverse().join("/")}</dd></div></dl>
         </div>
         <div className="flex flex-wrap items-center gap-3" aria-label="Documentos do pedido">
-          {value.canEdit && value.data.status !== "cancelled" && <Link className={buttonVariants({ variant: "outline" })} href={`/vendas/pedidos/${id}/contratos`}>Enviar pedido e contrato</Link>}
-          <Link className={linkClass} href={`/vendas/pedidos/${id}/contratos`}>Contratos do pedido</Link>
+          <Link className={buttonVariants({ variant: "outline" })} href={`/vendas/pedidos/${id}/contratos`}>
+            {value.canEdit && value.data.status !== "cancelled" ? "Enviar pedido e contrato" : "Contratos do pedido"}
+          </Link>
         </div>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={linkClass} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={linkClass} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
@@ -262,13 +263,19 @@ function OrderDetail({ id }: { id: string }) {
         <section className="min-w-0 space-y-2" aria-label="Itens do pedido">
           <h2 className="font-semibold">Itens do pedido <span className="text-xs font-normal text-muted-foreground">({value.items.length})</span></h2>
           <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Tabela de itens" tabIndex={0}>
-            <DataTable className="w-full text-left text-sm"><caption className="sr-only">Itens do pedido</caption>
-              <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Produto e acabamento</th><th scope="col" className="p-3 text-right">Quantidade</th><th scope="col" className="p-3 text-right">Unitário</th><th scope="col" className="p-3 text-right">Total</th></tr></thead>
+            <DataTable className="w-full table-fixed text-left text-sm sm:table-auto"><caption className="sr-only">Itens do pedido</caption>
+              <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Produto e acabamento</th><th scope="col" className="hidden p-3 text-right sm:table-cell">Quantidade</th><th scope="col" className="hidden p-3 text-right sm:table-cell">Unitário</th><th scope="col" className="hidden p-3 text-right sm:table-cell">Total</th></tr></thead>
               <tbody>{value.items.map(item => <tr className="border-t" key={item.productId}>
-                <td className="min-w-56 p-3"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><div className="min-w-0"><strong className="break-words font-medium">{item.name}</strong><p className="text-xs text-muted-foreground">{item.sku}</p><p className="break-words text-xs text-muted-foreground">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p></div></div></td>
-                <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialQuantity(item.quantity)} {item.unit}</td>
-                <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(item.unitPrice)}</td>
-                <td className="whitespace-nowrap p-3 text-right font-medium tabular-nums">{commercialMoney(item.amount)}</td>
+                <td className="min-w-0 p-2 sm:min-w-56 sm:p-3"><div className="flex min-w-0 items-center gap-2 sm:gap-3"><ProductThumbnail id={item.productId} name={item.name} tenantId={value.tenantId} decorative /><div className="min-w-0"><strong className="break-words font-medium">{item.name}</strong><p className="text-xs text-muted-foreground">{item.sku}</p><p className="break-words text-xs text-muted-foreground">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p></div></div>
+                  <dl className="mt-2 grid grid-cols-3 gap-2 text-xs sm:hidden">
+                    <div className="min-w-0"><dt className="text-muted-foreground">Quantidade</dt><dd className="break-words tabular-nums">{commercialQuantity(item.quantity)} {item.unit}</dd></div>
+                    <div className="min-w-0"><dt className="text-muted-foreground">Unitário</dt><dd className="break-words tabular-nums">{commercialMoney(item.unitPrice)}</dd></div>
+                    <div className="min-w-0"><dt className="text-muted-foreground">Total</dt><dd className="break-words font-medium tabular-nums">{commercialMoney(item.amount)}</dd></div>
+                  </dl>
+                </td>
+                <td className="hidden whitespace-nowrap p-3 sm:table-cell text-right tabular-nums">{commercialQuantity(item.quantity)} {item.unit}</td>
+                <td className="hidden whitespace-nowrap p-3 sm:table-cell text-right tabular-nums">{commercialMoney(item.unitPrice)}</td>
+                <td className="hidden whitespace-nowrap p-3 sm:table-cell text-right font-medium tabular-nums">{commercialMoney(item.amount)}</td>
               </tr>)}</tbody>
             </DataTable>
           </div>

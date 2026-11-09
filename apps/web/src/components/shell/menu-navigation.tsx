@@ -6,6 +6,7 @@ import { ArrowLeft, BarChart3, Boxes, BriefcaseBusiness, ChevronRight, History, 
 import { GuardedLink as Link } from "./navigation-guard"
 import { CategoryButton } from "./category-button"
 import { desktopMenus, moduleLinks, navigationDestinations } from "./navigation-catalog"
+import { isDemonstrationRoute } from "@/lib/demonstration-routes"
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -55,7 +56,7 @@ function Options({ index, pathname, onNavigate }: { index: number; pathname: str
     {menus[index].columns.map(group => <section key={group.title || group.items[0]?.href}>
       {group.title && <h3>{group.title}</h3>}
       <ul>{group.items.map(item => <li key={item.href}>
-        <Link href={item.href} onNavigate={onNavigate} className="erp-option" aria-current={item.href === active ? "page" : undefined}>{item.label}</Link>
+        <Link href={item.href} onNavigate={onNavigate} className="erp-option" aria-current={item.href === active ? "page" : undefined}><span className="min-w-0">{item.label}{isDemonstrationRoute(item.href.split("?")[0]) && <small className="block text-xs text-muted-foreground">Indisponível</small>}</span></Link>
       </li>)}</ul>
     </section>)}
   </div>

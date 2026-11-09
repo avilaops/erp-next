@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyTaxProfile, blankDraft, blankItem, blankTaxDeclaration, invoiceTotal, submission } from "../src/features/fiscal/nfe-draft-model.ts";
-import { ludusProfiles } from "../src/features/fiscal/settings/tax-profile-model.ts";
+import { ludusProfiles, normalizedProfile } from "../src/features/fiscal/settings/tax-profile-model.ts";
+
+test("Ludus presets are defaults-only profiles without incomplete commercial-line rules", () => {
+  for (const preset of ludusProfiles()) {
+    const payload = JSON.parse(JSON.stringify(normalizedProfile(preset)));
+    assert.equal(payload.productLine, undefined);
+    assert.equal(payload.lineRules, undefined);
+    assert.ok(payload.defaults);
+  }
+});
 
 test("draft tax fields remain optional for historical drafts and decisions start blank", () => {
   const draft = blankDraft();

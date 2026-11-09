@@ -13,6 +13,99 @@ const digest = (value: string | Buffer) => createHash("sha256").update(value).di
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("nova nota mostra a transmissão e salvar abre a nota sem transmitir", async ({ page }) => {
+  let saved = draft, creates = 0, issues = 0
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "fiscal.nfe.issue"] } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, environment: "homologation", profileConfigured: true, certificateVerified: true, canTransmit: true, productionEnabled: false, blockers: [] } }))
+  const snapshot = () => ({ tenantId: tenant, canEdit: true, data: { id: record, revision: 1, input: saved, issuer: { legalName: "Empresa teste" } } })
+  await page.route("**/api/erp/fiscal/nfe", route => {
+    creates++; saved = route.request().postDataJSON()
+    return route.fulfill({ headers: { ETag: '"1"' }, json: snapshot() })
+  })
+  await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: snapshot() }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => route.fulfill({ status: 404, json: { title: "Sem emissão" } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/issue`, route => { issues++; return route.fulfill({ status: 500, json: {} }) })
+  await page.goto("/fiscal/notas-saida/nova")
+  await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Transmitir NF-e à SEFAZ em homologação", exact: true })).toBeDisabled()
+  await expect(page.getByText("Salve o rascunho para habilitar a transmissão à SEFAZ.", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "1. Dados da nota", exact: true }).click()
+  await page.getByLabel("Natureza da operação", { exact: true }).fill("Venda")
+  await page.getByLabel("Referência da instrução fiscal", { exact: true }).fill("Instrução de teste")
+  await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+  for (const [label, value] of [["CPF/CNPJ", "11222333000181"], ["Nome ou razão social", "Cliente de teste"], ["Código IBGE do município", "3549805"], ["CEP", "15035000"], ["Logradouro", "Rua Teste"], ["Número", "1"], ["Bairro", "Centro"]]) await page.getByLabel(label, { exact: true }).fill(value)
+  await page.getByLabel("UF do destinatário", { exact: true }).selectOption("SP")
+  await page.getByRole("button", { name: "3. Produtos", exact: true }).click()
+  for (const [label, value] of [["Descrição do produto", "Produto"], ["Código do produto", "P1"], ["Unidade", "UN"], ["Preço unitário", "100"]]) await page.getByLabel(label, { exact: true }).fill(value)
+  await page.getByRole("button", { name: "4. Tributação", exact: true }).click()
+  for (const [label, value] of [["NCM", "95069100"], ["CFOP", "5102"], ["CSOSN", "102"], ["CST do PIS", "07"], ["CST da COFINS", "07"]]) await page.getByLabel(label, { exact: true }).fill(value)
+  await page.getByLabel("Origem da mercadoria", { exact: true }).selectOption("0")
+  await page.getByRole("button", { name: "5. Pagamento", exact: true }).click()
+  await page.getByRole("button", { name: "Adicionar forma de pagamento", exact: true }).click()
+  await page.getByLabel("Forma de pagamento 1", { exact: true }).selectOption("17")
+  await page.getByLabel("Valor do pagamento 1", { exact: true }).fill("100")
+  await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/fiscal/notas-saida/${record}$`))
+  await expect(page.getByRole("button", { name: "Transmitir NF-e à SEFAZ em homologação", exact: true })).toBeEnabled()
+  expect(creates).toBe(1)
+  expect(issues).toBe(0)
+})
+
+for (const environment of ["homologation", "production"]) {
+  test(`transmissão mantém os pré-requisitos fiscais em ${environment}`, async ({ page }) => {
+    await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.issue"] } }))
+    await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, environment: "homologation", profileConfigured: true, certificateVerified: environment === "production", canTransmit: environment === "production", productionEnabled: false, blockers: environment === "production" ? [] : ["a1_certificate_missing_expired_or_unavailable", "production_emission_disabled"] } }))
+    await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: { id: record, revision: 1, input: { ...draft, environment }, issuer: { legalName: "Empresa teste" } } } }))
+    await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => route.fulfill({ status: 404, json: { title: "Sem emissão" } }))
+    await page.goto(`/fiscal/notas-saida/${record}`)
+    await expect(page.getByRole("button", { name: /Transmitir NF-e à SEFAZ em/ })).toBeDisabled()
+    await expect(page.getByRole("heading", { name: "Pendências para emitir", exact: true })).toBeVisible()
+  })
+}
+
+test("homologação permite transmitir após salvar com produção bloqueada", async ({ page }) => {
+  let current = draft, revision = 1, issues = 0
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "fiscal.nfe.issue"] } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, environment: "production", profileConfigured: true, certificateVerified: true, canTransmit: false, productionEnabled: false, blockers: ["production_emission_disabled"] } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}`, route => {
+    if (route.request().method() === "PUT") { current = route.request().postDataJSON(); revision++ }
+    return route.fulfill({ headers: { ETag: `"${revision}"` }, json: { tenantId: tenant, canEdit: true, data: { id: record, revision, input: current, issuer: { legalName: "Empresa teste" } } } })
+  })
+  await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => route.fulfill({ status: 404, json: { title: "Sem emissão" } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/issue`, route => {
+    issues++
+    expect(route.request().headers()["if-match"]).toBe('"2"')
+    return route.fulfill({ headers: { ETag: '"3"' }, json: { tenantId: tenant, id: record, status: "rejected", revision: 3 } })
+  })
+  await page.goto(`/fiscal/notas-saida/${record}`)
+  const transmit = page.getByRole("button", { name: "Transmitir NF-e à SEFAZ em homologação", exact: true })
+  await expect(transmit).toBeEnabled()
+  await expect(page.getByText("Pendências para emitir", { exact: true })).toHaveCount(0)
+  await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+  await page.getByLabel("Nome ou razão social", { exact: true }).fill("Cliente revisado")
+  await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()
+  await expect(transmit).toBeDisabled()
+  await page.getByRole("button", { name: "Salvar rascunho", exact: true }).click()
+  await expect(transmit).toBeEnabled()
+  expect(issues).toBe(0)
+  page.once("dialog", dialog => dialog.dismiss())
+  await transmit.click()
+  expect(issues).toBe(0)
+  page.once("dialog", dialog => dialog.accept())
+  await transmit.click()
+  await expect.poll(() => issues).toBe(1)
+})
+
+test("transmissão explica a falta de permissão", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, environment: "homologation", profileConfigured: true, certificateVerified: true, canTransmit: true, blockers: [] } }))
+  await page.goto("/fiscal/notas-saida/nova")
+  await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()
+  await expect(page.getByText("Você não tem permissão para transmitir notas à SEFAZ (fiscal.nfe.issue).", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Transmitir NF-e à SEFAZ em homologação", exact: true })).toBeDisabled()
+})
+
 test("NFC-e usa o fluxo fiscal persistente de modelo 65", async ({ page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
   await page.route("**/api/erp/fiscal/nfe?*", route => route.fulfill({ json: { tenantId: tenant, data: [], nextCursor: null } }))
@@ -87,7 +180,7 @@ test("emissão conserva comando em resposta incerta e eventos usam a revisão fi
   await page.getByRole("button", { name: "5. Pagamento", exact: true }).click()
   await expect(page.getByRole("combobox", { name: "Forma de pagamento 1", exact: true })).toHaveValue("17")
   await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()
-  await page.getByRole("button", { name: "Emitir NF-e em homologação", exact: true }).click()
+  await page.getByRole("button", { name: "Transmitir NF-e à SEFAZ em homologação", exact: true }).click()
   await page.getByRole("button", { name: "5. Pagamento", exact: true }).click()
   await expect(page.getByRole("combobox", { name: "Forma de pagamento 1", exact: true })).toBeDisabled()
   await page.getByRole("button", { name: "6. Revisão e emissão", exact: true }).click()

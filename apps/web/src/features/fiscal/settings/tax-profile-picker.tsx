@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { erpFetch } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
@@ -18,25 +18,51 @@ export function TaxProfilePicker({
     [notice, setNotice] = useState(""),
     [reload, setReload] = useState(0)
   const [loaded, setLoaded] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [scenario, setScenario] = useState<FiscalScenario | "">("")
+  const chosen = profiles.find(profile => profile.name === selected)
+  const refresh = useCallback(() => {
+    setLoading(true)
+    setError("")
+    setNotice("")
+    setScenario("")
+    setReload(value => value + 1)
+  }, [])
+  useEffect(() => {
+    const returned = () => { if (document.visibilityState === "visible") refresh() }
+    window.addEventListener("focus", returned)
+    document.addEventListener("visibilitychange", returned)
+    return () => {
+      window.removeEventListener("focus", returned)
+      document.removeEventListener("visibilitychange", returned)
+    }
+  }, [refresh])
   useEffect(() => {
     const controller = new AbortController()
     erpFetch("/api/erp/registration-settings/tax-profiles", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const value = await response.json()
         if (!response.ok) throw Error(value.title || "Não foi possível carregar os perfis tributários")
-        if (value.tenantId !== tenant) throw Error("A empresa da sessão mudou. Reabra a nota")
+        if (value.tenantId !== tenant || !Array.isArray(value.data?.profiles)) throw Error("A empresa da sessão mudou. Reabra a nota")
         if (!controller.signal.aborted) {
           setLoaded(true)
-          setProfiles(value.data.profiles.filter((v: TaxProfile) => v.active))
+          const available = value.data.profiles.filter((v: TaxProfile) => v.active)
+          setProfiles(available)
           setRevision(value.revision)
-          setSelected("")
+          setSelected(previous => available.some((profile: TaxProfile) => profile.name === previous) ? previous : "")
           setError("")
         }
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(reason.message)
+        if (!controller.signal.aborted) {
+          setProfiles([])
+          setSelected("")
+          setRevision(0)
+          setScenario("")
+          setError(reason instanceof Error ? reason.message : "Não foi possível carregar os perfis tributários")
+        }
       })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [tenant, reload])
   return (
@@ -46,32 +72,34 @@ export function TaxProfilePicker({
         Selecione e aplique o perfil. Revise CFOP, origem, CST e as demais alíquotas de cada operação antes de
         salvar.
       </p>
-      {loaded && !profiles.length && <p className="text-sm text-muted-foreground">Nenhum perfil tributário ativo cadastrado. Cadastre um perfil ou informe os tributos nesta etapa.</p>}
+      {loaded && !loading && !error && !profiles.length && <p className="text-sm text-muted-foreground">Nenhum perfil tributário ativo cadastrado. Cadastre um perfil ou informe os tributos nesta etapa.</p>}
       <label className="grid gap-2 text-sm">
         Perfil cadastrado
         <select
           className="min-h-11 w-full min-w-0 max-w-full rounded-lg border bg-background px-3"
           value={selected}
+          disabled={loading}
           onChange={(event) => {
             setSelected(event.target.value)
+            setScenario("")
             setNotice("")
           }}
         >
-          <option value="">Selecione um perfil</option>
-          {profiles.map((profile, index) => (
-            <option key={profile.name} value={index}>
+          <option value="">{loading ? "Carregando perfis…" : "Selecione um perfil"}</option>
+          {profiles.map((profile) => (
+            <option key={profile.name} value={profile.name}>
               {profile.name}
             </option>
           ))}
         </select>
       </label>
-      {profiles[Number(selected)]?.lineRules && selected !== "" && <label className="grid gap-2 text-sm">Cenário da operação<select className="min-h-10 rounded-lg border bg-background px-3" value={scenario} onChange={e => setScenario(e.target.value as FiscalScenario)}><option value="">Confira origem, destino e contribuinte</option><option value="sameState">Dentro do estado</option><option value="interstateTaxpayer">Contribuinte de outro estado</option><option value="interstateNonTaxpayer">Não contribuinte de outro estado</option></select></label>}
+      {chosen?.lineRules && selected !== "" && <label className="grid gap-2 text-sm">Cenário da operação<select className="min-h-10 rounded-lg border bg-background px-3" value={scenario} onChange={e => setScenario(e.target.value as FiscalScenario)}><option value="">Confira origem, destino e contribuinte</option><option value="sameState">Dentro do estado</option><option value="interstateTaxpayer">Contribuinte de outro estado</option><option value="interstateNonTaxpayer">Não contribuinte de outro estado</option></select></label>}
       <Button
         type="button"
         variant="outline"
-        disabled={selected === "" || Boolean(profiles[Number(selected)]?.lineRules && !scenario)}
+        disabled={loading || !chosen || Boolean(chosen.lineRules && !scenario)}
         onClick={() => {
-          const profile = profiles[Number(selected)]
+          const profile = chosen
           if (
             profile &&
             window.confirm(
@@ -96,13 +124,8 @@ export function TaxProfilePicker({
       <Button
         type="button"
         variant="outline"
-        onClick={() => {
-          setProfiles([])
-          setSelected("")
-          setNotice("")
-          setError("")
-          setReload((v) => v + 1)
-        }}
+        disabled={loading}
+        onClick={refresh}
       >
         Atualizar perfis
       </Button>

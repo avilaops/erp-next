@@ -3,12 +3,13 @@
 import { useEffect, useId, useState } from "react"
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
+import { municipalityMatchesAddress } from "@/lib/municipality-code"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RegistryLookup } from "@/features/records/registry-lookup"
 
-export type PartyAddress = Schema<"PartyAddress">
+export type PartyAddress = Schema<"PartyAddress"> & { municipalityCode?: string | null }
 export type PartyContact = Schema<"PartyContact">
 const blankAddress: PartyAddress = {
   label: "",
@@ -77,6 +78,7 @@ export function PartyComplements({
               <p>
                 {item.city}/{item.state} · CEP {item.postalCode}
               </p>
+              {item.municipalityCode && <p>Código IBGE: {item.municipalityCode}</p>}
               {item.complement && <p>{item.complement}</p>}
             </div>
           ))}
@@ -114,6 +116,7 @@ export function PartyComplements({
                 ["postalCode", "CEP", 12],
                 ["state", "UF", 2],
                 ["city", "Cidade", 200],
+                ["municipalityCode", "Código IBGE", 7],
                 ["street", "Rua", 200],
                 ["number", "Número", 40],
                 ["district", "Bairro", 200],
@@ -125,12 +128,12 @@ export function PartyComplements({
                 <Input
                   aria-label={`Endereço ${index + 1}: ${label}`}
                   maxLength={max}
-                  required={field !== "complement"}
+                  required={field !== "complement" && field !== "municipalityCode"}
                   value={item[field] || ""}
                   onChange={(event) =>
                     onAddresses(
                       addresses.map((value, position) =>
-                        position === index ? { ...value, [field]: event.target.value } : value
+                        position === index ? { ...value, [field]: event.target.value, ...(["state", "city", "postalCode"].includes(field) ? { municipalityCode: null } : {}) } : value
                       )
                     )
                   }
@@ -154,6 +157,10 @@ export function PartyComplements({
                           updated[field] = fields[field]
                           count++
                         }
+                      }
+                      if (!updated.municipalityCode?.trim() && municipalityMatchesAddress(fields, updated)) {
+                        updated.municipalityCode = fields.municipalityCode
+                        count++
                       }
                       return updated
                     })

@@ -38,6 +38,88 @@ async function products(page: Page, cfop: string) {
   await page.getByLabel("Origem da mercadoria", { exact: true }).selectOption("0")
 }
 
+test("operation natures refresh after returning to the draft without losing its fields", async ({ page, context }) => {
+  await fixture(page, context)
+  const first = { id: "11111111-1111-4111-8111-111111111111", code: "001", name: "Venda importada", active: true, direction: "outgoing", model: 55, purpose: 1, internalCfop: "5101", interstateCfop: "6101", foreignCfop: "" }
+  const second = { ...first, id: "22222222-2222-4222-8222-222222222222", code: "002", name: "Venda nacional" }
+  let items: typeof first[] = []
+  let revision = 1
+  await page.route("**/api/erp/fiscal/settings/operation-natures", route => route.fulfill({ json: { tenantId: tenant, revision, data: { items } } }))
+  await page.goto("/fiscal/notas-saida/nova")
+  const select = page.getByRole("combobox", { name: "Natureza cadastrada", exact: true })
+  await expect(select.locator("option")).toHaveCount(1)
+  await page.getByLabel("Série", { exact: true }).fill("7")
+  await page.getByLabel("Natureza da operação", { exact: true }).fill("Texto preservado")
+  items = [first, second, { ...first, id: "inactive", active: false }, { ...first, id: "incoming", direction: "incoming" }, { ...first, id: "nfce", model: 65 }, { ...first, id: "return", purpose: 4 }]
+  revision = 3
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+  await expect(select.locator("option")).toHaveCount(3)
+  await expect(page.getByLabel("Série", { exact: true })).toHaveValue("7")
+  await expect(page.getByLabel("Natureza da operação", { exact: true })).toHaveValue("Texto preservado")
+  await select.selectOption(first.id)
+  await page.getByRole("button", { name: "Aplicar natureza", exact: true }).click()
+  await expect(page.getByLabel("Natureza da operação", { exact: true })).toHaveValue(first.name)
+  await expect(page.getByLabel("Referência da instrução fiscal", { exact: true })).toHaveValue("001 · revisão 3")
+  items = [second]
+  revision = 4
+  await page.getByRole("button", { name: "Atualizar naturezas", exact: true }).click()
+  await expect(select.locator("option")).toHaveCount(2)
+  await expect(select).toHaveValue("")
+  await expect(page.getByRole("button", { name: "Aplicar natureza", exact: true })).toBeDisabled()
+  await expect(page.getByLabel("Natureza da operação", { exact: true })).toHaveValue(first.name)
+})
+
+test("operation nature reload failures can be retried and foreign company results stay blocked", async ({ page, context }) => {
+  await fixture(page, context)
+  let fail = true
+  let responseTenant = tenant
+  const nature = { id: record, code: "001", name: "Venda", active: true, direction: "outgoing", model: 55, purpose: 1 }
+  await page.route("**/api/erp/fiscal/settings/operation-natures", route => fail
+    ? route.fulfill({ status: 503, json: { title: "Consulta de naturezas indisponível" } })
+    : route.fulfill({ json: { tenantId: responseTenant, revision: 3, data: { items: [nature] } } }))
+  await page.goto("/fiscal/notas-saida/nova")
+  await expect(page.getByText("Consulta de naturezas indisponível", { exact: true })).toBeVisible()
+  fail = false
+  await page.getByRole("button", { name: "Atualizar naturezas", exact: true }).click()
+  const select = page.getByRole("combobox", { name: "Natureza cadastrada", exact: true })
+  await expect(select.locator("option")).toHaveCount(2)
+  await select.selectOption(record)
+  responseTenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  await page.getByRole("button", { name: "Atualizar naturezas", exact: true }).click()
+  await expect(page.getByText("Reabra o rascunho para conferir a empresa", { exact: true })).toBeVisible()
+  await expect(select.locator("option")).toHaveCount(1)
+  await expect(page.getByRole("button", { name: "Aplicar natureza", exact: true })).toBeDisabled()
+})
+
+test("new NF-e defaults departure to the current Brasilia time and preserves manual edits", async ({ page, context }) => {
+  await fixture(page, context)
+  await page.clock.setFixedTime(new Date("2026-11-09T01:30:00.000Z"))
+  await page.goto("/fiscal/notas-saida/nova")
+  const departure = page.getByLabel("Data e hora de saída", { exact: true })
+  await expect(departure).toHaveValue("2026-11-08T22:30")
+  await expect(page.getByLabel("Data e hora de emissão", { exact: true })).toHaveValue("2026-11-08T22:30")
+  await departure.fill("2026-11-10T09:45")
+  await page.getByLabel("Série", { exact: true }).fill("7")
+  await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+  await page.clock.setFixedTime(new Date("2026-11-10T15:00:00.000Z"))
+  await page.getByRole("button", { name: "1. Dados da nota", exact: true }).click()
+  await expect(departure).toHaveValue("2026-11-10T09:45")
+  await departure.fill("")
+  await page.getByLabel("Série", { exact: true }).fill("8")
+  await expect(departure).toHaveValue("")
+})
+
+for (const departureAt of [null, "2026-11-10T09:45:00-03:00"]) {
+  test(`existing NF-e preserves saved departure ${departureAt ?? "blank"}`, async ({ page, context }) => {
+    await fixture(page, context)
+    const input = { environment: "homologation", model: 55, purpose: 1, operationNature: "Venda sintética", taxRuleReference: "Instrução sintética", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [], productsTotal: "0.00", issuedAt: "2026-11-08T10:00:00-03:00", departureAt }
+    await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: true, data: { id: record, revision: 1, input, issuer: { legalName: "Empresa sintética", profile: { state: "SP", environment: "homologation", crt: 1, series: 1 } } } } }))
+    await page.goto(`/fiscal/notas-saida/${record}`)
+    await page.getByRole("button", { name: "1. Dados da nota", exact: true }).click()
+    await expect(page.getByLabel("Data e hora de saída", { exact: true })).toHaveValue(departureAt ? "2026-11-10T09:45" : "")
+  })
+}
+
 test("export modes expose the correct recipient and preserve declared unit conversion without inventing tax rates", async ({ page, context }) => {
   const state = await fixture(page, context)
   await page.goto("/fiscal/notas-saida/nova")

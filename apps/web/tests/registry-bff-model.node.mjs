@@ -24,6 +24,26 @@ const request = tenantId => new Request("http://fixture.local/api/erp/registry-l
   body: JSON.stringify({ kind: "cep", value: "01001000", context: "company" }),
 });
 
+test("company logo fits the bounded company body without increasing other resources", async () => {
+  const forward = await proxyFor(tenant);
+  const previous = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => { calls.push({ url, options }); return Response.json({ tenantId: tenant }); };
+  const update = size => new Request("http://fixture.local/api/erp/company", {
+    method: "PUT", headers: { origin: "http://fixture.local", "content-type": "application/json", "x-tenant-id": tenant, "if-match": '"3"' },
+    body: JSON.stringify({ logoDataUrl: "data:image/png;base64," + "A".repeat(size) }),
+  });
+  try {
+    assert.equal((await forward(update(349000), "/company")).status, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.headers.get("if-match"), '"3"');
+    assert.equal(calls[0].options.headers.get("x-tenant-id"), tenant);
+    assert.equal((await forward(update(400000), "/company")).status, 413);
+    assert.equal((await forward(update(70000), "/parties")).status, 413);
+    assert.equal(calls.length, 1);
+  } finally { globalThis.fetch = previous; }
+});
+
 test("registry lookups reject missing or foreign tenant before contacting upstream", async () => {
   const forward = await proxyFor(tenant);
   const previous = globalThis.fetch;

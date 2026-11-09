@@ -18,6 +18,18 @@ fn normalize_id(raw: &str) -> String {
         .collect()
 }
 
+fn municipality_code(value: Option<&Value>, state: Option<&String>) -> Option<String> {
+    let value = value?;
+    let code = match value {
+        Value::String(value) => value.trim().to_owned(),
+        Value::Number(value) => value.as_u64()?.to_string(),
+        _ => return None,
+    };
+    let prefix = crate::domains::fiscal::model::state_code(state?)?;
+    (code.len() == 7 && code.bytes().all(|byte| byte.is_ascii_digit()) && code.starts_with(prefix))
+        .then_some(code)
+}
+
 pub fn parse(
     source: &str,
     kind: LookupKind,
@@ -133,6 +145,20 @@ pub fn parse(
     }
     if cep && (!fields.contains_key("state") || !fields.contains_key("city")) {
         return None;
+    }
+    // Only project documented IBGE identifiers, never provider-local city IDs
+    // or a code guessed from the municipality's name. Older providers may omit it.
+    let raw_municipality = if via && cep {
+        record.get("ibge")
+    } else if ws && !cep {
+        record.get("cidade").and_then(|city| city.get("ibge_id"))
+    } else if source == "BrasilAPI" && !cep {
+        record.get("codigo_municipio_ibge")
+    } else {
+        None
+    };
+    if let Some(code) = municipality_code(raw_municipality, fields.get("state")) {
+        fields.insert("municipalityCode".into(), code);
     }
     let generic = cep && (!fields.contains_key("street") || !fields.contains_key("district"));
     let mut registrations = vec![];

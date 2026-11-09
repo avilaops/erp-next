@@ -128,6 +128,10 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
       expect(route.request().headers()["if-match"]).toBe('"1"')
       expect(route.request().headers()["x-tenant-id"]).toBe(tenant)
       saved = route.request().postDataJSON()
+      const profiles = (saved as { profiles: { productLine?: string; lineRules?: unknown }[] }).profiles
+      if (profiles.some(profile => Boolean(profile.productLine) !== Boolean(profile.lineRules))) {
+        return route.fulfill({ status: 422, json: { title: "Regras da nota exigem uma linha comercial válida" } })
+      }
     }
     return route.fulfill({
       headers: { ETag: saved ? '"2"' : '"1"' },
@@ -147,6 +151,8 @@ test("perfis da Ludus preservam códigos e salvam por empresa com revisão no ce
   await expect(page.getByLabel("Perfil 2: COFINS (%)", { exact: true })).toHaveValue("7.6000")
   await expect(page.getByLabel("Perfil 1: CST IBS/CBS", { exact: true })).toHaveValue("000")
   await expect(page.getByLabel("Perfil 2: cClassTrib", { exact: true })).toHaveValue("000001")
+  await expect(page.getByLabel("Perfil 1: linha comercial", { exact: true })).toHaveValue("")
+  await expect(page.getByLabel("Perfil 2: linha comercial", { exact: true })).toHaveValue("")
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do ICMS", exact: true })).toHaveValue("00")
   await expect(page.getByRole("combobox", { name: "Perfil 1: CST do IPI", exact: true })).toHaveValue("50")
   await expect(page.getByRole("combobox", { name: "Perfil 2: CST do IPI", exact: true })).toHaveValue("53")

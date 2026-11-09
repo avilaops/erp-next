@@ -36,6 +36,35 @@ test.beforeEach(async ({ context }) => {
   })
 })
 
+test("marca salva e remove a logo da empresa sem alterar os dados cadastrais", async ({ page }) => {
+  await page.goto("/preferencias/empresa/dados?secao=marca")
+  await expect(page.getByRole("heading", { name: "Logo da empresa", exact: true })).toBeVisible()
+  await page.getByLabel("Selecionar logo da empresa", { exact: true }).setInputFiles({ name: "logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") })
+  await expect(page.getByRole("alert").filter({ hasText: "Escolha PNG, JPG ou WebP" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Salvar alterações", exact: true })).toBeDisabled()
+  expect(writes).toHaveLength(0)
+  const png = await page.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 16; return canvas.toDataURL("image/png").split(",")[1] })
+  await page.getByLabel("Selecionar logo da empresa", { exact: true }).setInputFiles({
+    name: "logo.png", mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  })
+  await expect(page.getByRole("img", { name: "Logo da empresa", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Salvar alterações", exact: true }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  expect(writes[0].data).toMatchObject({ legalName: "Empresa de teste", taxId: "12345678000195", logoDataUrl: expect.stringMatching(/^data:image\/png;base64,/) })
+  await page.reload()
+  await expect(page.getByRole("img", { name: "Logo da empresa", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Remover logo", exact: true }).click()
+  await page.getByRole("button", { name: "Salvar alterações", exact: true }).click()
+  await expect.poll(() => writes.length).toBe(2)
+  expect(writes[1].data).toMatchObject({ logoDataUrl: "" })
+  await page.reload()
+  await expect(page.getByRole("img", { name: "Logo da empresa", exact: true })).toHaveCount(0)
+  snapshot.canEdit = false
+  await page.reload()
+  await expect(page.getByLabel("Selecionar logo da empresa", { exact: true })).toBeDisabled()
+})
+
 test("menus omitem os subtítulos redundantes e preservam os destinos", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/preferencias/empresa/dados")

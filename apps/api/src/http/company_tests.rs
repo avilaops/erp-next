@@ -196,6 +196,61 @@ pub(super) async fn cleanup(
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn company_logo_persists_survives_omission_and_can_be_removed(admin: PgPool) {
+    use base64::Engine;
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::new_rgba8(8, 8)
+        .write_to(&mut bytes, image::ImageFormat::Png)
+        .unwrap();
+    let logo = format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes.into_inner())
+    );
+    let (router, application, server, role) = setup(&admin).await;
+    let mut data = company();
+    data["logoDataUrl"] = json!(logo);
+    let (status, _, saved) = call(&router, "PUT", TENANT, "editor", Some("\"0\""), data).await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["data"]["logoDataUrl"], logo);
+    let (_, _, reread) = call(&router, "GET", TENANT, "reader", None, Value::Null).await;
+    assert_eq!(reread["data"]["logoDataUrl"], logo);
+    let (status, _, saved) = call(&router, "PUT", TENANT, "editor", Some("\"1\""), company()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(saved["data"]["logoDataUrl"], logo);
+    let stored: Value =
+        sqlx::query_scalar("SELECT details FROM company_profiles WHERE tenant_id = $1::uuid")
+            .bind(TENANT)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(stored["logoDataUrl"], logo);
+    let mut invalid = company();
+    invalid["logoDataUrl"] = json!("https://example.test/logo.png");
+    let (status, _, errors) = call(&router, "PUT", TENANT, "editor", Some("\"2\""), invalid).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        errors["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|error| error["field"] == "logoDataUrl")
+    );
+    let mut clear = company();
+    clear["logoDataUrl"] = json!("");
+    let (status, headers, saved) =
+        call(&router, "PUT", TENANT, "editor", Some("\"2\""), clear).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["etag"], "\"3\"");
+    assert_eq!(saved["data"]["logoDataUrl"], "");
+    let audits: i64 = sqlx::query_scalar("SELECT count(*) FROM audit_log")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert_eq!(audits, 3);
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn partner_data_survives_an_older_company_client(admin: PgPool) {
     let (router, application, server, role) = setup(&admin).await;
     let mut data = company();

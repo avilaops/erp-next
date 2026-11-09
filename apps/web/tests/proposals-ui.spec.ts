@@ -12,6 +12,25 @@ test.beforeEach(async ({ context, page }) => {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa de teste" }, permissions: ["sales.proposals.read", "sales.proposals.manage"] } }))
 })
 
+test("logo da empresa aparece na proposta e na impressão sem aceitar outra empresa", async ({ page }) => {
+  const logo = await page.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 16; return canvas.toDataURL("image/png") })
+  let issuerTenant = tenant
+  await page.route(`**/api/erp/proposals/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: detail() }))
+  await page.route("**/api/erp/company", route => route.fulfill({ json: { tenantId: issuerTenant, data: { legalName: "Empresa de teste", logoDataUrl: logo } } }))
+  await page.goto(`/vendas/propostas/${record}`)
+  const image = page.locator("[data-proposal-document]").getByRole("img", { name: "Logo da empresa", exact: true })
+  await expect(image).toHaveAttribute("src", logo)
+  await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(32)
+  await expect(page.locator(".proposal-issuer-name")).toHaveCSS("font-size", "18px")
+  const bounds = await image.boundingBox()
+  expect(bounds!.width / bounds!.height).toBeCloseTo(2)
+  await page.emulateMedia({ media: "print" })
+  await expect(image).toBeVisible()
+  issuerTenant = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  await page.reload()
+  await expect(image).toHaveCount(0)
+})
+
 for (const width of [320, 390, 768, 1280]) test(`sugestões sobrepostas não deslocam o formulário em ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 })
   await page.route(/\/api\/erp\/proposals(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))

@@ -17,7 +17,7 @@ async function sha256(bytes: BufferSource) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("")
 }
 
-export function EmissionActions({ id, tenantId, draftRevision, environment, model = 55, canIssue, canCancel, canCorrect, dirty, onLocked, onDocument }: { id: string; tenantId: string; draftRevision: number; environment: "homologation" | "production"; model?: 55 | 65; canIssue: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void; onDocument?: (document: { number: number; series: number } | null) => void }) {
+export function EmissionActions({ id, tenantId, draftRevision, environment, model = 55, canIssue, canTransmit, canCancel, canCorrect, dirty, onLocked, onDocument }: { id: string; tenantId: string; draftRevision: number; environment: "homologation" | "production"; model?: 55 | 65; canIssue: boolean; canTransmit: boolean; canCancel: boolean; canCorrect: boolean; dirty: boolean; onLocked: (locked: boolean) => void; onDocument?: (document: { number: number; series: number } | null) => void }) {
   const resource = useResource<Emission>(`/api/erp/fiscal/nfe/${id}/emission`)
   const events = useResource<FiscalEvents>(`/api/erp/fiscal/nfe/${id}/events`)
   const command = useCommand()
@@ -33,7 +33,7 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
   const cancellationLabel = documentModel === 65 ? "Cancelamento da NFC-e" : "Cancelamento da NF-e"
   const environmentLabel = (document?.environment || environment) === "production" ? "produção" : "homologação"
   const selectedEvent = event === "cancel" && canCancel ? "cancel" : canCorrect ? "correction" : "cancel"
-  const allowed = (action: string) => action === "cancel" ? canCancel : action === "correction" ? canCorrect : ["issue", "consult"].includes(action) && canIssue
+  const allowed = (action: string) => action === "cancel" ? canCancel : action === "correction" ? canCorrect : action === "issue" ? canIssue && canTransmit : action === "consult" && canIssue
   useEffect(() => { onDocument?.(document ? { number: document.number, series: document.series } : null) }, [document, onDocument])
   useEffect(() => { onLocked(Boolean(document?.accessKey || command.busy || command.uncertain)) }, [document?.accessKey, command.busy, command.uncertain, onLocked])
   useEffect(() => () => { if (danfe) URL.revokeObjectURL(danfe.url) }, [danfe])
@@ -89,7 +89,7 @@ export function EmissionActions({ id, tenantId, draftRevision, environment, mode
     {command.error && <p role="alert">{command.error}</p>}
     {dirty && <p>Salve as alterações do rascunho para habilitar os comandos fiscais.</p>}
     {command.uncertain ? <Button className="min-h-11" disabled={command.busy || !allowed(pendingAction)} onClick={() => void act(pendingAction)}>Conferir mesma operação fiscal</Button> : <div className="flex flex-wrap gap-3">
-      {canIssue && (!document || ["preparing", "prepared", "unknown"].includes(document.status)) && <Button disabled={dirty || command.busy || resource.loading || mismatched || command.stale} onClick={() => void act("issue")}>Emitir {documentLabel} em {environmentLabel}</Button>}
+      {(!document || ["preparing", "prepared", "unknown"].includes(document.status)) && <Button disabled={!canIssue || !canTransmit || dirty || command.busy || resource.loading || mismatched || command.stale || !document && resource.status !== 404} onClick={() => void act("issue")}>Transmitir {documentLabel} à SEFAZ em {environmentLabel}</Button>}
       {canIssue && document?.accessKey && <Button variant="outline" disabled={dirty || command.busy || command.stale || mismatched} onClick={() => void act("consult")}>Consultar situação na SEFAZ</Button>}
       {document?.accessKey && <Button variant="outline" onClick={() => void download()}>Baixar XML da emissão</Button>}
       {document?.status === "authorized" && document.accessKey && <Button variant="outline" disabled={danfeBusy} onClick={() => void generateDanfe()}>{danfeBusy ? "Gerando DANFE…" : `Gerar DANFE ${documentLabel}`}</Button>}

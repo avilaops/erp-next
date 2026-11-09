@@ -1,9 +1,9 @@
 "use client"
-import { DataTable } from "@/components/workspace/data-table"
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
+import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { PageHeader } from "@/components/page-header"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import { Button } from "@/components/ui/button"
@@ -92,7 +92,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
       const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const product = await response.json()
       if (!response.ok || product.tenantId !== tenantId) throw new Error("Não foi possível atualizar as opções de acabamento. As escolhas registradas foram preservadas.")
-      return { id: item.productId, structureColors: product.data.structureColors || [], upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [] }
+      return { id: item.productId, structureColors: product.data.structureColors || [], upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [], hasPhoto: product.data.hasPhoto }
     })).then(products => { if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) }))) })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar produtos") })
     return () => controller.abort()
@@ -118,7 +118,10 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
           <CommercialText label="Condições de entrega" required maxLength={2000} value={deliveryTerms} onChange={event => setDeliveryTerms(event.target.value)} />
           <CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} />
           {items.map(item => <section className="min-w-0 space-y-3 rounded-xl border p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
-            <h2 className="break-words font-medium">{item.name} · {item.sku}</h2>
+            <div className="flex min-w-0 items-center gap-3">
+              <ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} />
+              <h2 className="min-w-0 break-words font-medium">{item.name} · {item.sku}</h2>
+            </div>
             <label className="grid gap-2">Preço unitário de {item.name}<span className="flex items-center gap-2"><span aria-hidden="true">R$</span><Input aria-label={`Preço unitário de ${item.name}`} className="min-w-0" readOnly value={item.basePrice || ""} /></span></label>
             <p className="text-sm text-muted-foreground">Preço unitário somente para consulta nesta proposta.</p>
             <label className="grid gap-2">Quantidade de {item.name}<Input inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>

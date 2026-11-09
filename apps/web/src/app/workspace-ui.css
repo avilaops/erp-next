@@ -107,6 +107,7 @@ body:has(.erp-workspace) {
   .erp-content :where(.form-grid) { gap: 12px; }
   .erp-content :where(.field) { gap: 4px; }
   .erp-content :where(th, td) { padding: 8px 10px; }
+  .erp-content textarea.erp-commercial-text { min-height: 64px; padding: 8px; }
   .erp-content .workspace-pagination { gap: 8px; padding-block: 8px; }
   .erp-content .workspace-resource-state { margin-block: 12px; padding: 16px; }
   /* Keep native iOS date controls inside their grid cell. */

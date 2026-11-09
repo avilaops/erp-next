@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { brazilianStates, companyFields, type CompanyData } from "./company-types";
 import { companySections, type CompanySection } from "./company-sections";
 import { RegistryLookup } from "@/features/records/registry-lookup";
+import { CompanyLogo } from "./company-logo";
 import { AutomaticCnpj, fillCompanyFields } from "@/features/records/automatic-cnpj";
 
 const segments = ["Comércio", "E-commerce", "Serviços", "Indústria"];
@@ -24,6 +25,8 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
     : [{ id: 0, state: "", value: "" }];
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [logo, setLogo] = useState(initial.logoDataUrl || "");
+  const [logoBusy, setLogoBusy] = useState(false);
   const [stateRegistrations, setStateRegistrations] = useState(initialRegistrations);
   const [selectedSegments, setSelectedSegments] = useState<string[]>(initial.segments);
   const formRef = useRef<HTMLFormElement>(null);
@@ -76,7 +79,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canEdit || saving || conflict) return;
+    if (!canEdit || saving || conflict || logoBusy) return;
     const invalidField = event.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input:invalid, select:invalid, textarea:invalid");
     if (invalidField) {
       const invalidSection = invalidField.closest<HTMLElement>("[data-company-section]")?.dataset.companySection as CompanySection;
@@ -95,7 +98,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
     }
     const form = new FormData(event.currentTarget);
     const fields = Object.fromEntries(companyFields.map((field) => [field, String(form.get(field) || "")]));
-    const success = await onSave({ ...initial, ...fields, segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
+    const success = await onSave({ ...initial, ...fields, ...(initial.logoDataUrl !== undefined || logo ? { logoDataUrl: logo } : {}), segments: selectedSegments, substituteRegistrations: stateRegistrations.filter((registration) => registration.state || registration.value).map(({ state, value }) => ({ state, value })) } as CompanyData);
     if (success) { setDirty(false); setSaved(true); }
   }
 
@@ -115,6 +118,7 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
   }
 
   function resetLocalState() {
+    setLogo(initial.logoDataUrl || "");
     setStateRegistrations(initialRegistrations);
     setSelectedSegments(initial.segments);
     setDirty(false);
@@ -129,7 +133,12 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
           onClick={() => openSection(key as CompanySection)}>{value.label}</button>)}
       </nav>
       <div className="min-w-0 space-y-6">
-      <fieldset className="min-w-0 space-y-6" disabled={!canEdit || saving}>
+      <fieldset className="min-w-0 space-y-6" disabled={!canEdit || saving || conflict}>
+
+      <section className="form-section" data-company-section="marca" hidden={section !== "marca"} aria-labelledby="marca-title">
+        <SectionTitle eyebrow="Marca" id="marca-title" title="Logo da empresa" />
+        <CompanyLogo value={logo} disabled={!canEdit || saving || conflict} onBusy={setLogoBusy} onChange={value => { setLogo(value); markDirty(); }} />
+      </section>
 
       <section className="form-section" data-company-section="identificacao" hidden={section !== "identificacao"} aria-labelledby="identificacao-title">
         <SectionTitle
@@ -387,8 +396,8 @@ export function CompanyDataForm({ initial, canEdit, saving, conflict, onSave, te
         <span className="mr-auto basis-full text-sm text-muted-foreground sm:basis-auto" role="status" aria-live="polite">
           {saved ? "Alterações salvas no servidor" : dirty ? "Alterações não salvas" : "Nenhuma alteração pendente"}
         </span>
-        <Button variant="outline" type="reset" onClick={resetLocalState}>Cancelar</Button>
-        <Button type="submit" disabled={!dirty || conflict}>{saving ? "Salvando…" : "Salvar alterações"}</Button>
+        <Button variant="outline" type="reset" disabled={logoBusy} onClick={resetLocalState}>Cancelar</Button>
+        <Button type="submit" disabled={!dirty || conflict || logoBusy}>{saving ? "Salvando…" : "Salvar alterações"}</Button>
       </div>
 
       <aside className="flex gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">

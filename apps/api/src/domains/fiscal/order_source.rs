@@ -212,6 +212,7 @@ pub async fn get(
     };
     if let Some(address) = address {
         recipient.state.clone_from(&address.state);
+        recipient.municipality_code = address.municipality_code.clone().unwrap_or_default();
         recipient.postal_code.clone_from(&address.postal_code);
         recipient.street.clone_from(&address.street);
         recipient.number.clone_from(&address.number);

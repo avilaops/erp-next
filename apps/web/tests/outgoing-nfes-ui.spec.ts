@@ -1,7 +1,78 @@
 import { expect, test } from "@playwright/test"
 import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
+
+for (const scenario of ["saved", "legacy", "wrong-city", "wrong-state", "expired", "tenant-switch", "manual-code", "manual-address"] as const) {
+ test(`IBGE do destinatário: ${scenario}`, async ({ page }) => {
+  let lookupCount = 0
+  let releaseLookup: (() => void) | undefined
+  const held = new Promise<void>(resolve => { releaseLookup = resolve })
+  const manual = scenario.startsWith("manual-")
+  let switched = false
+  await page.route("**/api/erp/me", r => r.fulfill({ json: { tenant: { id: switched ? "other-tenant" : tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read"] } }))
+  await page.route("**/api/erp/parties?*", r => r.fulfill({ json: { tenantId: tenant, data: [{ id: "22222222-2222-4222-8222-222222222222", taxId: "11222333000181", legalName: "Cliente IBGE" }] } }))
+  await page.route("**/api/erp/parties/22222222-2222-4222-8222-222222222222", r => r.fulfill({ json: { tenantId: tenant, data: { taxId: "11222333000181", legalName: "Cliente IBGE", addresses: [{ primary: true, state: "SP", city: "São Paulo", postalCode: "01001-000", street: "Praça da Sé", number: "1", district: "Sé", ...(scenario === "saved" ? { municipalityCode: "3550308" } : {}) }] } } }))
+  await page.route("**/api/erp/registry-lookups", async r => {
+   lookupCount++
+   expect(r.request().postDataJSON()).toEqual({ kind: "cep", context: "party", value: "01001000" })
+   expect(r.request().headers()["x-tenant-id"]).toBe(tenant)
+   if (manual) await held
+   if (scenario === "tenant-switch") switched = true
+   await r.fulfill({ json: { tenantId: tenant, kind: "cep", value: "01001000", status: "found", expiresAt: scenario === "expired" ? "2020-01-01T00:00:00Z" : "2099-01-01T00:00:00Z", data: { fields: { state: scenario === "wrong-state" ? "RJ" : "SP", city: scenario === "wrong-city" ? "Santos" : "São Paulo", municipalityCode: "3550308" } } } })
+  })
+  await page.route("**/api/erp/fiscal/settings/operation-natures", r => r.fulfill({ json: { tenantId: tenant, revision: 1, data: { items: [] } } }))
+  await page.route("**/api/erp/registration-settings/tax-profiles", r => r.fulfill({ json: { tenantId: tenant, revision: 1, data: { profiles: [] } } }))
+  await page.goto("/fiscal/notas-saida/nova")
+  await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+  await page.getByLabel("Buscar cliente cadastrado", { exact: true }).fill("Cliente")
+  await page.getByRole("button", { name: "Buscar cliente", exact: true }).click()
+  await page.getByRole("button", { name: "Usar Cliente IBGE · 11222333000181", exact: true }).click()
+  const code = page.getByLabel("Código IBGE do município", { exact: true })
+  if (manual) {
+   await expect.poll(() => lookupCount).toBe(1)
+   if (scenario === "manual-code") await code.fill("3548500")
+   else await page.getByLabel("Município", { exact: true }).fill("Santos")
+   releaseLookup!()
+  }
+  if (scenario === "saved" || scenario === "legacy") await expect(code).toHaveValue("3550308")
+  else {
+   await expect.poll(() => lookupCount).toBeGreaterThan(0)
+   await page.waitForTimeout(600)
+   await expect(code).toHaveValue(scenario === "manual-code" ? "3548500" : "")
+  }
+  await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Cliente IBGE")
+  await expect(page.getByLabel("CEP", { exact: true })).toHaveValue("01001000")
+  await expect(page.getByLabel("Logradouro", { exact: true })).toHaveValue("Praça da Sé")
+  if (scenario === "saved") expect(lookupCount).toBe(0)
+ })
+}
 const id = "22222222-2222-4222-8222-222222222222"
 const pending = "33333333-3333-4333-8333-333333333333"
+
+test("IBGE do destinatário: pedido legado consulta CEP e preserva edição manual posterior", async ({ page }) => {
+ let calls = 0
+ let release: (() => void) | undefined
+ const held = new Promise<void>(resolve => { release = resolve })
+ await page.route("**/api/erp/me", r => r.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read"] } }))
+ await page.route(`**/api/erp/fiscal/order-preparations/${id}`, r => r.fulfill({ json: { tenantId: tenant, orderId: id, orderRevision: 1, recipient: { legalName: "Cliente do pedido", taxId: "11222333000181", state: "SP", cityName: "São Paulo", postalCode: "01001000", municipalityCode: "", street: "Praça da Sé", number: "1", district: "Sé" }, items: [], productsTotal: "0.00", blockers: [] } }))
+ await page.route("**/api/erp/registry-lookups", async r => {
+  calls++
+  if (calls > 1) await held
+  await r.fulfill({ json: { tenantId: tenant, kind: "cep", value: "01001000", status: "found", expiresAt: "2099-01-01T00:00:00Z", data: { fields: { state: "SP", city: "São Paulo", municipalityCode: "3550308" } } } })
+ })
+ await page.goto(`/fiscal/notas-saida/nova?pedido=${id}`)
+ await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+ await expect(page.getByLabel("Buscar cliente cadastrado", { exact: true })).toHaveCount(0)
+ const code = page.getByLabel("Código IBGE do município", { exact: true })
+ await expect(code).toHaveValue("3550308")
+ await code.fill("")
+ await expect.poll(() => calls).toBe(2)
+ await code.fill("3548500")
+ release!()
+ await page.waitForTimeout(500)
+ await expect(code).toHaveValue("3548500")
+ await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Cliente do pedido")
+ await expect(page.getByLabel("CEP", { exact: true })).toHaveValue("01001000")
+})
 test.beforeEach(async ({ context, page }) => {
  await installFrontendFixture(context)
  await page.route("**/api/erp/me", r => r.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "fiscal.nfe.cancel", "fiscal.nfe.correction"] } }))

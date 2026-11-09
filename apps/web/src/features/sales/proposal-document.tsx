@@ -1,8 +1,9 @@
 import { DataTable } from "@/components/workspace/data-table"
+import Image from "next/image"
 import type { Schema } from "@/lib/api/types"
 import { commercialMoney, commercialQuantity } from "./order-presentation"
 
-export type ProposalIssuer = { legalName: string; tradeName?: string | null; taxId?: string | null; email?: string | null; phone?: string | null }
+export type ProposalIssuer = { legalName: string; tradeName?: string | null; taxId?: string | null; email?: string | null; phone?: string | null; logoDataUrl?: string | null }
 const labels: Record<string, string> = { draft: "Rascunho", sent: "Enviada", accepted: "Aceita", rejected: "Rejeitada", cancelled: "Cancelada", expired: "Expirada", superseded: "Substituída" }
 function date(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
@@ -16,6 +17,7 @@ export function ProposalDocument({ snapshot, issuer, issuerName }: { snapshot: S
   return <article data-proposal-document className="proposal-document" aria-label={`Proposta comercial ${data.number}`}>
     <header className="proposal-document-header">
       <div className="proposal-issuer">
+        {issuer?.logoDataUrl && /^data:image\/(png|jpeg|webp);base64,/.test(issuer.logoDataUrl) && <Image unoptimized className="proposal-company-logo" src={issuer.logoDataUrl} alt="Logo da empresa" width={1024} height={1024} />}
         {name && <p className="proposal-issuer-name">{name}</p>}
         {issuer?.tradeName && issuer.tradeName !== name && <p>{issuer.tradeName}</p>}
         {issuer?.taxId && <p>CPF/CNPJ: {issuer.taxId}</p>}

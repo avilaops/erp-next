@@ -45,6 +45,11 @@ privados `api.env`, `web.env` e `.env`. `api.env` contém `DATABASE_URL`,
 `NFE_PRODUCTION_TENANT_ID` vazio. Se a emissão de produção for liberada para
 uma única empresa, as duas variáveis devem ser ativadas juntas e o UUID do
 tenant autorizado deve ser informado; não existe liberação global segura.
+Nos releases `compose.json` que usam `network_mode: service:api`, uma recriação
+da API exige recriar também `web`, `fiscal-engine` e `fiscal-mcp`, para que todos
+usem a rede da nova API. Recrie os quatro serviços juntos. Depois confira o
+`/api/health` público, a prontidão da API e a resposta do `/mcp`; o estado
+`healthy` de um container antigo não confirma o acesso pela rede atual.
 Quando o pacote documental estiver habilitado, o mesmo `api.env` recebe
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` e `SMTP_FROM`; esses
 valores são secretos do relay e não podem ser copiados para `web.env` ou

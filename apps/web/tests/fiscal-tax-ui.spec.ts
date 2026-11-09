@@ -1,8 +1,46 @@
 import { expect, test } from "@playwright/test"
 import { installFrontendFixture, tenant, record } from "./helpers/frontend-fixture"
 import { blankDraft, blankItem, blankTaxDeclaration } from "../src/features/fiscal/nfe-draft-model"
+import { ludusProfiles } from "../src/features/fiscal/settings/tax-profile-model"
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
+
+test("perfis atualizam ao voltar do gerenciamento sem aplicar ao rascunho e descartam falhas", async ({ page }) => {
+  let profiles = ludusProfiles()
+  let fail = false
+  let calls = 0
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage"] } }))
+  await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, profileConfigured: true, canTransmit: false, blockers: [] } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}/emission`, route => route.fulfill({ status: 404, json: { title: "Sem emissão" } }))
+  await page.route(`**/api/erp/fiscal/nfe/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: true, data: { id: record, revision: 1, status: "draft", input: { ...blankDraft(), operationNature: "Natureza preservada" }, issuer: { legalName: "Empresa teste", profile: { crt: 3 } } } } }))
+  await page.route("**/api/erp/registration-settings/tax-profiles", route => {
+    calls++
+    return fail ? route.fulfill({ status: 503, json: { title: "Consulta de perfis indisponível" } }) : route.fulfill({ json: { tenantId: tenant, revision: calls, data: { profiles } } })
+  })
+  await page.goto(`/fiscal/notas-saida/${record}`)
+  await page.getByRole("button", { name: "4. Tributação", exact: true }).click()
+  const picker = page.getByRole("region", { name: "Perfil tributário", exact: true })
+  const select = picker.getByLabel("Perfil cadastrado")
+  await select.selectOption({ label: profiles[0].name })
+  profiles = [profiles[1], profiles[0], { ...profiles[0], name: "Perfil novo", active: false }]
+  const before = calls
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+  await expect.poll(() => calls).toBeGreaterThan(before)
+  await expect(select).toHaveValue(profiles[1].name)
+  await expect(select.locator("option")).toHaveCount(3)
+  await expect(picker.getByRole("status")).toHaveCount(0)
+  fail = true
+  await picker.getByRole("button", { name: "Atualizar perfis", exact: true }).click()
+  await expect(picker.getByRole("alert")).toHaveText("Consulta de perfis indisponível")
+  await expect(select.locator("option")).toHaveCount(1)
+  await expect(picker.getByRole("button", { name: "Aplicar perfil à nota", exact: true })).toBeDisabled()
+  fail = false
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+  await expect(select.locator("option")).toHaveCount(3)
+  await expect(picker.getByRole("alert")).toHaveCount(0)
+  await page.getByRole("button", { name: "1. Dados da nota", exact: true }).click()
+  await expect(page.getByLabel("Natureza da operação", { exact: true })).toHaveValue("Natureza preservada")
+})
 
 test("frete, desconto e alíquotas do destino persistem sem alterar o preço bruto", async ({ page }) => {
   const draft = {

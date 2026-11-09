@@ -13,7 +13,7 @@ const settingsGroups = [
     { title: "Dados cadastrais", description: "Razão social, nome fantasia e CPF ou CNPJ", icon: Building2, href: "/preferencias/empresa/dados?secao=identificacao", section: "identificacao" },
     { title: "Endereço", description: "Endereço fiscal e localização principal", icon: Landmark, href: "/preferencias/empresa/dados?secao=endereco", section: "endereco" },
     { title: "Contatos", description: "E-mails, telefones e responsáveis", icon: Users, href: "/preferencias/empresa/dados?secao=contato", section: "contato" },
-    { title: "Marca", description: "Configuração de logotipo e identidade ainda indisponível nesta tela", icon: BadgeCheck, href: null },
+    { title: "Marca", description: "Logo da empresa nas propostas e no PDF", icon: BadgeCheck, href: "/preferencias/empresa/dados?secao=marca", section: "marca" },
   ] },
   { title: "Fiscal", description: "Dados tributários e credenciais necessárias para a operação fiscal.", items: [
     { title: "Configuração tributária", description: "Regime tributário, CNAE, inscrições e SUFRAMA", icon: ReceiptText, href: "/preferencias/empresa/dados?secao=fiscal", section: "fiscal" },

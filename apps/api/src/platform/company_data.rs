@@ -35,6 +35,10 @@ pub struct CompanyData {
     pub email: String,
     pub billing_email: String,
     pub website: String,
+    /// Embedded PNG, JPEG or WebP, at most 256 KiB and 1024 pixels per side.
+    /// Omit to preserve the saved logo; an empty string removes it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo_data_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partner_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,6 +181,11 @@ impl CompanyData {
             "Informe um endereço HTTP ou HTTPS",
         );
         check(
+            self.logo_data_url.as_deref().is_none_or(valid_logo),
+            "logoDataUrl",
+            "Use uma imagem PNG, JPEG ou WebP de até 256 KB e 1024 pixels por lado",
+        );
+        check(
             self.substitute_registrations.len() <= 27,
             "substituteRegistrations",
             "Máximo de 27 inscrições",
@@ -194,7 +203,9 @@ impl CompanyData {
         }
         let value = serde_json::to_value(&self).expect("company data serializes");
         for (field, value) in value.as_object().expect("company data is an object") {
-            if let Some(text) = value.as_str() {
+            if let Some(text) = value.as_str()
+                && field != "logoDataUrl"
+            {
                 check(text.len() <= 300, field, "Máximo de 300 bytes por campo");
             }
         }
@@ -204,6 +215,49 @@ impl CompanyData {
             Err(errors)
         }
     }
+}
+
+fn valid_logo(value: &str) -> bool {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    use image::{ImageDecoder, ImageFormat, ImageReader};
+
+    if value.is_empty() {
+        return true;
+    }
+    let Some((prefix, encoded)) = value.split_once(',') else {
+        return false;
+    };
+    let format = match prefix {
+        "data:image/png;base64" => ImageFormat::Png,
+        "data:image/jpeg;base64" => ImageFormat::Jpeg,
+        "data:image/webp;base64" => ImageFormat::WebP,
+        _ => return false,
+    };
+    const MAX_BYTES: usize = 256 * 1024;
+    if encoded.len() > MAX_BYTES.div_ceil(3) * 4 {
+        return false;
+    }
+    let Ok(bytes) = STANDARD.decode(encoded) else {
+        return false;
+    };
+    if bytes.len() > MAX_BYTES || image::guess_format(&bytes).ok() != Some(format) {
+        return false;
+    }
+    let mut reader = ImageReader::with_format(std::io::Cursor::new(bytes), format);
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(1024);
+    limits.max_image_height = Some(1024);
+    limits.max_alloc = Some(8 * 1024 * 1024);
+    reader.limits(limits);
+    let Ok(decoder) = reader.into_decoder() else {
+        return false;
+    };
+    let (width, height) = decoder.dimensions();
+    width > 0
+        && height > 0
+        && width <= 1024
+        && height <= 1024
+        && image::DynamicImage::from_decoder(decoder).is_ok()
 }
 
 pub(crate) fn valid_document(value: &str, person: &str) -> bool {
@@ -251,6 +305,78 @@ pub(crate) fn valid_document(value: &str, person: &str) -> bool {
 mod tests {
     use super::*;
 
+    fn logo_url(format: image::ImageFormat, width: u32, height: u32) -> String {
+        use base64::Engine;
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(width, height)
+            .write_to(&mut bytes, format)
+            .unwrap();
+        let mime = match format {
+            image::ImageFormat::Png => "png",
+            image::ImageFormat::WebP => "webp",
+            image::ImageFormat::Jpeg => "jpeg",
+            _ => unreachable!(),
+        };
+        format!(
+            "data:image/{mime};base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(bytes.into_inner())
+        )
+    }
+
+    #[test]
+    fn logo_accepts_decodable_raster_images_and_explicit_removal() {
+        for logo in [
+            logo_url(image::ImageFormat::Png, 1024, 1024),
+            logo_url(image::ImageFormat::WebP, 8, 8),
+            logo_url(image::ImageFormat::Jpeg, 8, 8),
+            String::new(),
+        ] {
+            let mut data: CompanyData =
+                serde_json::from_value(serde_json::json!({"logoDataUrl": logo}))
+                    .expect("logo is an optional company field");
+            let errors = data.validate().unwrap_err();
+            assert!(
+                !errors.iter().any(|error| error.field == "logoDataUrl"),
+                "{errors:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn logo_rejects_external_svg_corrupt_spoofed_and_oversized_images() {
+        use base64::Engine;
+        let png = logo_url(image::ImageFormat::Png, 8, 8);
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(png.split_once(',').unwrap().1)
+            .unwrap();
+        let mut oversized = bytes.clone();
+        oversized.resize(256 * 1024 + 1, 0);
+        for logo in [
+            "https://example.test/logo.png".to_owned(),
+            "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=".to_owned(),
+            "data:image/png;base64,bm90LWFuLWltYWdl".to_owned(),
+            png.replace("image/png", "image/jpeg"),
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(&bytes[..bytes.len() / 2])
+            ),
+            logo_url(image::ImageFormat::Png, 1025, 1),
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(oversized)
+            ),
+        ] {
+            let mut data: CompanyData =
+                serde_json::from_value(serde_json::json!({"logoDataUrl": logo})).unwrap();
+            assert!(
+                data.validate()
+                    .unwrap_err()
+                    .iter()
+                    .any(|error| error.field == "logoDataUrl")
+            );
+        }
+    }
+
     #[test]
     fn document_validation_checks_type_and_check_digits() {
         assert!(valid_document("04252011000110", "juridica"));
@@ -282,6 +408,7 @@ mod tests {
         let old: CompanyData =
             serde_json::from_value(serde_json::json!({"contactName":"Contato"})).unwrap();
         assert!(old.partner_name.is_none());
+        assert!(old.logo_data_url.is_none());
         let new: CompanyData = serde_json::from_value(serde_json::json!({"partnerName":"Sócia", "partnerMobile":"11999999999", "contactName":"Contato"})).unwrap();
         assert_eq!(new.partner_name.as_deref(), Some("Sócia"));
         assert_eq!(new.contact_name, "Contato");

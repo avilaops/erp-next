@@ -9,6 +9,8 @@ pub struct PartyAddress {
     pub postal_code: String,
     pub state: String,
     pub city: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub municipality_code: Option<String>,
     pub street: String,
     pub number: String,
     pub district: String,
@@ -76,6 +78,17 @@ pub fn validate(
             }
             item.postal_code.retain(|c| c.is_ascii_digit());
             item.state = item.state.trim().to_ascii_uppercase();
+            optional(&mut item.municipality_code, 7)?;
+            if item.municipality_code.as_ref().is_some_and(|code| {
+                code.len() != 7
+                    || !code.bytes().all(|byte| byte.is_ascii_digit())
+                    || !super::fiscal::model::state_code(&item.state)
+                        .is_some_and(|prefix| code.starts_with(prefix))
+            }) {
+                return Err(DomainError::Invalid(
+                    "Código IBGE deve ter 7 dígitos e corresponder à UF do endereço",
+                ));
+            }
             if item.postal_code.len() != 8
                 || ![
                     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -128,6 +141,33 @@ mod tests {
     }
     fn contact() -> Value {
         json!({"name":" Maria ","email":"maria@example.test","primary":true})
+    }
+    #[test]
+    fn municipality_code_is_optional_normalized_and_matches_the_address_state() {
+        for code in [Value::Null, json!(""), json!("  "), json!(" 3550308 ")] {
+            let mut value = address();
+            value["municipalityCode"] = code.clone();
+            let mut items = Some(
+                serde_json::from_value::<Vec<PartyAddress>>(json!([value]))
+                    .expect("municipality code is supported"),
+            );
+            validate(&mut items, &mut None).unwrap();
+            let saved = serde_json::to_value(&items.unwrap()[0]).unwrap();
+            assert_eq!(
+                saved.get("municipalityCode").and_then(Value::as_str),
+                if code == json!(" 3550308 ") {
+                    Some("3550308")
+                } else {
+                    None
+                }
+            );
+        }
+        assert!(checked(json!([address()]), json!([])).is_ok());
+        for code in ["3304557", "355030", "35503088", "35A0308", "３５５０３０８"] {
+            let mut value = address();
+            value["municipalityCode"] = json!(code);
+            assert!(checked(json!([value]), json!([])).is_err(), "{code}");
+        }
     }
     fn checked(addresses: Value, contacts: Value) -> Result<(), DomainError> {
         let mut addresses = Some(serde_json::from_value::<Vec<PartyAddress>>(addresses).unwrap());

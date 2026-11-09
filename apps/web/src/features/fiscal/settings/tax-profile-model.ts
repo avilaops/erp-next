@@ -25,6 +25,8 @@ export function normalizedProfile(profile: TaxProfile): TaxProfile {
   function rate(value: string) { const result = normalizeDecimal(value, 4); if (!result) throw Error("Alíquota inválida. Use até quatro casas decimais."); return result }
   return { ...profile, pisRate: rate(profile.pisRate), cofinsRate: rate(profile.cofinsRate), ...(profile.lineRules ? { lineRules: { ...profile.lineRules, icmsRate: rate(profile.lineRules.icmsRate), ipiRate: rate(profile.lineRules.ipiRate), ibsStateRate: rate(profile.lineRules.ibsStateRate), ibsCityRate: rate(profile.lineRules.ibsCityRate), cbsRate: rate(profile.lineRules.cbsRate) } } : {}) }
 }
+// These presets declare defaults only. A commercial line requires complete,
+// accountant-declared lineRules; the profile name does not supply those rules.
 export const ludusProfiles = (): TaxProfile[] => [
   {
     name: "Venda de mercadorias importadas",
@@ -34,7 +36,6 @@ export const ludusProfiles = (): TaxProfile[] => [
     ibsCbsCst: "000",
     classCode: "000001",
     active: true,
-    productLine: "imported",
     defaults: {
       icmsCst: "00",
       pisCst: "01",
@@ -55,7 +56,6 @@ export const ludusProfiles = (): TaxProfile[] => [
     ibsCbsCst: "000",
     classCode: "000001",
     active: true,
-    productLine: "national",
     defaults: {
       icmsCst: "00",
       pisCst: "01",

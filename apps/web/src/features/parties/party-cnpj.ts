@@ -1,9 +1,11 @@
 import type { Schema } from "@/lib/api/types"
+import { municipalityMatchesAddress } from "../../lib/municipality-code.ts"
+import type { PartyAddress } from "./party-complements"
 
-export type PartyDraft = Schema<"PartyInput"> & { addresses: NonNullable<Schema<"PartyInput">["addresses"]>; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
+export type PartyDraft = Omit<Schema<"PartyInput">, "addresses"> & { addresses: PartyAddress[]; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
 const contactFields = ["legalName", "tradeName", "email", "phone"] as const
 type ContactField = typeof contactFields[number]
-export type PartyCnpjProvenance = { fields: Partial<Record<ContactField, string>>; address: Schema<"PartyAddress"> | null }
+export type PartyCnpjProvenance = { fields: Partial<Record<ContactField, string>>; address: PartyAddress | null }
 export const emptyCnpjProvenance = (): PartyCnpjProvenance => ({ fields: {}, address: null })
 
 export function fillPartyCnpj(current: PartyDraft, fields: Record<string, string>, previous: PartyCnpjProvenance) {
@@ -21,11 +23,12 @@ export function fillPartyCnpj(current: PartyDraft, fields: Record<string, string
   }
   const placeholder = draft.addresses.length === 1 && !draft.addresses[0].primary && ["label", "postalCode", "state", "city", "street", "number", "district", "complement"].every(field => !draft.addresses[0][field as keyof Schema<"PartyAddress">])
   if ((!draft.addresses.length || placeholder) && ["postalCode", "state", "city", "street", "number", "district"].some(field => fields[field]?.trim())) {
-    const address: Schema<"PartyAddress"> = {
+    const address: PartyAddress = {
       label: "Endereço cadastral", postalCode: fields.postalCode || "", state: fields.state || "",
       city: value("city", 200), street: value("street", 200), number: value("number", 40),
       district: fields.district || "", complement: fields.complement || null, primary: false,
     }
+    if (municipalityMatchesAddress(fields, address)) address.municipalityCode = fields.municipalityCode
     draft.addresses = [address]
     provenance.address = address
     count++

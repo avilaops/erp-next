@@ -1,5 +1,5 @@
 use super::{model::*, parse};
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn input(kind: LookupKind, value: &str) -> LookupInput {
     LookupInput {
@@ -8,6 +8,86 @@ fn input(kind: LookupKind, value: &str) -> LookupInput {
         context: LookupContext::Party,
         state: None,
     }
+}
+
+#[test]
+fn municipality_codes_come_from_provider_ibge_fields_as_strings_or_integers() {
+    for code in [json!("3550308"), json!(3550308)] {
+        let via = json!({"cep":"01001-000","uf":"SP","localidade":"São Paulo","ibge":code});
+        let (data, _) = parse::parse("ViaCEP", LookupKind::Cep, "01001000", None, &via).unwrap();
+        assert_eq!(
+            data.fields.get("municipalityCode").map(String::as_str),
+            Some("3550308")
+        );
+        let brasil = json!({"cnpj":"04252011000110","razao_social":"Empresa","uf":"SP","municipio":"São Paulo","codigo_municipio":7107,"codigo_municipio_ibge":code});
+        let (data, _) = parse::parse(
+            "BrasilAPI",
+            LookupKind::Cnpj,
+            "04252011000110",
+            None,
+            &brasil,
+        )
+        .unwrap();
+        assert_eq!(
+            data.fields.get("municipalityCode").map(String::as_str),
+            Some("3550308")
+        );
+        let ws = json!({"razao_social":"Empresa","estabelecimento":{"cnpj":"04252011000110","estado":{"sigla":"SP"},"cidade":{"nome":"São Paulo","id":123,"ibge_id":code}}});
+        let (data, _) =
+            parse::parse("CNPJ.ws", LookupKind::Cnpj, "04252011000110", None, &ws).unwrap();
+        assert_eq!(
+            data.fields.get("municipalityCode").map(String::as_str),
+            Some("3550308")
+        );
+    }
+}
+
+#[test]
+fn missing_invalid_or_wrong_state_ibge_never_breaks_address_or_invents_a_code() {
+    for code in [
+        Value::Null,
+        json!(""),
+        json!("3304557"),
+        json!("355030"),
+        json!("35503088"),
+        json!("35A0308"),
+        json!(3550308.5),
+        json!({"id":3550308}),
+    ] {
+        let via = json!({"cep":"01001-000","uf":"SP","localidade":"São Paulo","ibge":code});
+        let (data, _) = parse::parse("ViaCEP", LookupKind::Cep, "01001000", None, &via).unwrap();
+        assert!(!data.fields.contains_key("municipalityCode"), "{code}");
+        assert_eq!(data.fields["city"], "São Paulo");
+        let brasil = json!({"cnpj":"04252011000110","razao_social":"Empresa","uf":"SP","municipio":"São Paulo","codigo_municipio":7107,"codigo_municipio_ibge":code});
+        let (data, _) = parse::parse(
+            "BrasilAPI",
+            LookupKind::Cnpj,
+            "04252011000110",
+            None,
+            &brasil,
+        )
+        .unwrap();
+        assert!(!data.fields.contains_key("municipalityCode"), "{code}");
+        let ws = json!({"razao_social":"Empresa","estabelecimento":{"cnpj":"04252011000110","estado":{"sigla":"SP"},"cidade":{"nome":"São Paulo","id":3550308,"ibge_id":code}}});
+        let (data, _) =
+            parse::parse("CNPJ.ws", LookupKind::Cnpj, "04252011000110", None, &ws).unwrap();
+        assert!(!data.fields.contains_key("municipalityCode"), "{code}");
+    }
+    let brasil_cep = json!({"cep":"01001000","state":"SP","city":"São Paulo","ibge":"3550308"});
+    let (data, _) =
+        parse::parse("BrasilAPI", LookupKind::Cep, "01001000", None, &brasil_cep).unwrap();
+    assert!(!data.fields.contains_key("municipalityCode"));
+    let no_state =
+        json!({"cnpj":"04252011000110","razao_social":"Empresa","codigo_municipio_ibge":3550308});
+    let (data, _) = parse::parse(
+        "BrasilAPI",
+        LookupKind::Cnpj,
+        "04252011000110",
+        None,
+        &no_state,
+    )
+    .unwrap();
+    assert!(!data.fields.contains_key("municipalityCode"));
 }
 
 #[test]

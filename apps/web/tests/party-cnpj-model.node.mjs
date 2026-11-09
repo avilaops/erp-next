@@ -5,6 +5,11 @@ import { clearPartyCnpj, emptyCnpjProvenance, fillPartyCnpj } from "../src/featu
 const blank = () => ({ personType: "juridica", legalName: "", tradeName: null, taxId: "04252011000110", email: null, phone: null, isCustomer: true, isSupplier: false, status: "active", addresses: [], contacts: [] })
 const fields = { legalName: "Empresa da fonte", tradeName: "Fantasia", email: "contato@example.test", phone: "1133334444", postalCode: "01001000", state: "SP", city: "São Paulo", street: "Rua cadastral", number: "120", district: "Centro", complement: "Sala 2", taxRegime: "simples", taxpayerStatus: "exempt", isSupplier: "true" }
 
+test("CNPJ address retains valid IBGE and ignores an inconsistent UF prefix", () => {
+ assert.equal(fillPartyCnpj(blank(), { ...fields, municipalityCode: "3550308" }, emptyCnpjProvenance()).draft.addresses[0].municipalityCode, "3550308")
+ assert.equal(fillPartyCnpj(blank(), { ...fields, municipalityCode: "3304557" }, emptyCnpjProvenance()).draft.addresses[0].municipalityCode, undefined)
+})
+
 test("available company contacts and address fill an empty party without fiscal or relationship inference", () => {
   const original = blank()
   const { draft, provenance, count } = fillPartyCnpj(original, fields, emptyCnpjProvenance())

@@ -373,6 +373,11 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         StatusCode::OK
     );
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code IN ('fiscal.nfe.read','catalog.products.read','catalog.parties.read') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    sqlx::query("UPDATE parties SET addresses=$3 WHERE tenant_id=$1 AND id=(SELECT customer_id FROM sales_orders WHERE tenant_id=$1 AND id=$2)")
+        .bind(Uuid::parse_str(TENANT).unwrap())
+        .bind(Uuid::parse_str(id).unwrap())
+        .bind(json!([{"label":"Entrega","postalCode":"01001000","state":"SP","city":"São Paulo","municipalityCode":"3550308","street":"Praça da Sé","number":"1","district":"Sé","primary":true}]))
+        .execute(&admin).await.unwrap();
     let fiscal = call(
         &router,
         "GET",
@@ -384,6 +389,7 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
     )
     .await;
     assert_eq!(fiscal.0, StatusCode::OK, "{}", fiscal.1);
+    assert_eq!(fiscal.1["recipient"]["municipalityCode"], "3550308");
     let expected_net = seller.1["sale"]["netSaleCents"].as_i64().unwrap();
     assert_eq!(
         crate::domains::fixed(fiscal.1["productsTotal"].as_str().unwrap(), 2).unwrap(),

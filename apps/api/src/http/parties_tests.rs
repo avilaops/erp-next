@@ -502,7 +502,7 @@ async fn party_complements_roundtrip_preserve_omitted_fields_and_remove_explicit
     let (router, application, server, role) = setup(&admin).await;
     permissions(&admin).await;
     let mut body = input();
-    body["addresses"] = json!([{"label":"Entrega","postalCode":"01001-000","state":"SP","city":"São Paulo","street":"Praça","number":"1","district":"Centro","complement":"Sala 2","primary":true}]);
+    body["addresses"] = json!([{"label":"Entrega","postalCode":"01001-000","state":"SP","city":"São Paulo","municipalityCode":" 3550308 ","street":"Praça","number":"1","district":"Centro","complement":"Sala 2","primary":true}]);
     body["contacts"] = json!([{"name":" Maria ","role":"Compras","email":"maria@example.test","phone":null,"primary":true}]);
     let key = Uuid::now_v7();
     let (status, _, created) = call(
@@ -518,6 +518,10 @@ async fn party_complements_roundtrip_preserve_omitted_fields_and_remove_explicit
     .await;
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(created["data"]["addresses"][0]["postalCode"], "01001000");
+    assert_eq!(
+        created["data"]["addresses"][0]["municipalityCode"],
+        "3550308"
+    );
     assert_eq!(created["data"]["contacts"][0]["name"], "Maria");
     let uri = format!(
         "/api/v1/parties/{}",

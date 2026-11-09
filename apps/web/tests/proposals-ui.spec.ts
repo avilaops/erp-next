@@ -90,7 +90,14 @@ for (const width of [320, 390, 768, 1280]) test(`sugestões sobrepostas não des
   await expect(firstProduct).toBeVisible()
   await firstProduct.click()
   await expect(panel).toHaveCount(0)
-  await expect(page.getByLabel("Quantidade de Produto de teste 0", { exact: true })).toBeVisible()
+  const quantity = page.getByLabel("Quantidade de Produto de teste 0", { exact: true })
+  const price = page.getByLabel("Preço unitário de Produto de teste 0", { exact: true })
+  await expect(quantity).toBeVisible()
+  const priceBox = await price.boundingBox()
+  const quantityBox = await quantity.boundingBox()
+  expect(priceBox!.y).toBe(quantityBox!.y)
+  expect(quantityBox!.x).toBeGreaterThan(priceBox!.x + priceBox!.width)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
 })
 
 test("central de vendas consulta dados reais e preserva pedidos quando propostas não são autorizadas", async ({ page }) => {

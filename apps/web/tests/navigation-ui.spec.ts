@@ -20,9 +20,7 @@ async function preferenceMenu(page: Page) {
   const drawer = page.getByRole("dialog")
   await expect(drawer).toHaveCSS("opacity", "1")
   await drawer.getByRole("button", { name: "Preferências", exact: true }).click()
-  // The module heading receives focus again in the menu's next animation frame.
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-  await expect(drawer.getByRole("heading", { name: "Preferências", exact: true })).toBeFocused()
+  await expect(drawer.getByRole("button", { name: "Preferências", exact: true })).toHaveAttribute("aria-expanded", "true")
   return drawer
 }
 
@@ -122,13 +120,13 @@ test("navegação responsiva preserva espaço, rota ativa e foco em pedidos", as
       await expect(drawer).toHaveCSS("opacity", "1")
       await page.screenshot({ animations: "disabled", path: info.outputPath(`mobile-modules-${width}.png`) })
       await drawer.getByRole("button", { name: "Vendas", exact: true }).click()
-      await expect(drawer.getByRole("heading", { name: "Vendas", exact: true })).toBeFocused()
+      await expect(drawer.getByRole("button", { name: "Vendas", exact: true })).toHaveAttribute("aria-expanded", "true")
       await expect(drawer.getByRole("link", { name: "Pedidos de venda", exact: true })).toHaveAttribute("aria-current", "page")
       for (let step = 0; step < 18; step++) {
         await page.keyboard.press("Tab")
         await expect.poll(() => drawer.evaluate(element => element.contains(document.activeElement))).toBe(true)
       }
-      await drawer.getByRole("button", { name: "Voltar aos módulos" }).focus()
+      await drawer.getByRole("button", { name: "Vendas", exact: true }).focus()
       await page.screenshot({ animations: "disabled", path: info.outputPath(`mobile-sales-${width}.png`) })
       await page.keyboard.press("Escape")
       await expect(drawer).toBeHidden()
@@ -172,7 +170,7 @@ test("menu acompanha a categoria de preferências selecionada pela URL", async (
   await expect(page.getByRole("navigation", { name: "Módulos do ERP", exact: true })).toHaveCount(0)
   const navigation = await preferenceMenu(page)
   await expect(navigation.getByRole("link", { name: "Suprimentos", exact: true })).toHaveAttribute("aria-current", "page")
-  await expect(navigation.getByRole("heading", { name: "Preferências", exact: true })).toBeFocused()
+  await expect(navigation.getByRole("button", { name: "Preferências", exact: true })).toBeFocused()
   await navigation.getByRole("link", { name: "Notas Fiscais", exact: true }).click()
   await expect(navigation).toBeHidden()
   await expect(page.locator("#preference-category-title")).toHaveText("Notas Fiscais")
@@ -226,10 +224,13 @@ test("menu móvel oferece os destinos do desktop e devolve o foco ao fechar", as
   await expect(menu.getByRole("heading", { name: "Menu do ERP", exact: true })).toBeVisible()
   const mobileDestinations: string[] = []
   for (const category of desktopMenus) {
-    await menu.getByRole("button", { name: category.label, exact: true }).click()
-    mobileDestinations.push(...await menu.locator("a[href]").evaluateAll(links => links.map(link => link.getAttribute("href")!)))
-    await menu.getByRole("button", { name: "Voltar aos módulos" }).click()
-    await expect(menu.getByRole("button", { name: category.label, exact: true })).toBeFocused()
+    const moduleButton = menu.getByRole("button", { name: category.label, exact: true })
+    await moduleButton.click()
+    await expect(moduleButton).toHaveAttribute("aria-expanded", "true")
+    const branch = await moduleButton.getAttribute("aria-controls")
+    mobileDestinations.push(...await menu.locator(`#${branch} a[href]`).evaluateAll(links => links.map(link => link.getAttribute("href")!)))
+    await moduleButton.click()
+    await expect(moduleButton).toBeFocused()
   }
   expect(mobileDestinations.sort()).toEqual(destinations.sort())
   await page.keyboard.press("Escape")
@@ -501,4 +502,21 @@ test("cabeçalho sem preferências duplicadas, lista compacta e criação com ca
   await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Novo produto")
   await breadcrumb.getByRole("link", { name: "Cadastros", exact: true }).click()
   await expect(page).toHaveURL(origin + "/cadastros")
+})
+
+test("busca rápida do menu móvel encontra destinos sem acentos e registra a página anterior", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 })
+  await page.goto("/vendas/pedidos")
+  const trigger = page.getByRole("button", { name: "Abrir menu", exact: true })
+  await trigger.click()
+  const drawer = page.getByRole("dialog")
+  const search = drawer.getByRole("searchbox", { name: "Pesquisar no menu" })
+  await search.fill("funcionarios")
+  await drawer.locator('a[href="/cadastros/funcionarios"]').click()
+  await expect(page).toHaveURL(origin + "/cadastros/funcionarios")
+  await expect(drawer).toBeHidden()
+  await trigger.click()
+  await expect(search).toHaveValue("")
+  await drawer.getByText("Recentes", { exact: true }).click()
+  await expect(drawer.locator('a[href="/vendas/pedidos"]')).toBeVisible()
 })

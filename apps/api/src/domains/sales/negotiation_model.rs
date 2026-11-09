@@ -109,6 +109,10 @@ pub struct SaleQuote {
     pub ipi_cents: i64,
     pub total_cents: i64,
     pub free_discount_bps: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maximum_at_target_discount_bps: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required_down_payment_cents: Option<i64>,
     pub minimum_down_payment_bps: u32,
     pub minimum_down_payment_cents: i64,
     pub down_payment_cents: i64,
@@ -350,6 +354,8 @@ pub fn calculate(
             .map(|min| ((table - min).max(0) * 10_000 / table).min(10_000) as u32)
             .unwrap_or(0)
     };
+    let maximum_at_target_discount_bps = discount_limit(p.net_margin_bps);
+    let required_down_payment_cents = cents(required_entry)?;
     Ok((
         SaleQuote {
             calculator_version: CALCULATOR.into(),
@@ -362,6 +368,8 @@ pub fn calculate(
             ipi_cents: cents(total_ipi)?,
             total_cents: cents(total)?,
             free_discount_bps: p.free_discount_bps,
+            maximum_at_target_discount_bps: Some(maximum_at_target_discount_bps),
+            required_down_payment_cents: Some(required_down_payment_cents),
             minimum_down_payment_bps: p.minimum_down_payment_bps,
             minimum_down_payment_cents: cents(minimum_entry)?,
             down_payment_cents: cents(entry)?,
@@ -384,7 +392,7 @@ pub fn calculate(
             supplier_payment_cents: cents(supplier)?,
             target_profit_cents: cents(target)?,
             down_payment_commission_cents: cents(required_entry - supplier - target)?,
-            required_down_payment_cents: cents(required_entry)?,
+            required_down_payment_cents,
             required_down_payment_bps: (required_entry * 10_000 / total)
                 .try_into()
                 .map_err(|_| DomainError::Invalid("Entrada necessária fora do limite"))?,
@@ -392,7 +400,7 @@ pub fn calculate(
                 minimum_target * i128::from(10_000 + p.ipi_bps),
                 10_000,
             ))?,
-            maximum_at_target_discount_bps: discount_limit(p.net_margin_bps),
+            maximum_at_target_discount_bps,
             maximum_no_loss_discount_bps: discount_limit(0),
             requires_director: profit < 0
                 || (matches!(rules.manager_limit, ManagerLimit::Target) && band != "atTarget"),

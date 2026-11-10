@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -168,7 +169,7 @@ export function ProductionWorkspace({ id }: { id?: string }) {
           <p className="mt-2 break-words">{job.quantity} {job.unit} · {job.sku}</p><p>{job.stageName} · {statusLabel(job.status)}</p>
           <p className="mt-1 break-all text-xs text-muted-foreground">Pedido {job.orderId}</p>
         </li>)}</ul> : <p>Nenhuma ordem registrada. Envie um pedido confirmado ou concluído para começar.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={locked || !offset} onClick={() => { setLoading(true); setOffset(value => value - 25) }}>Anterior</Button><span>Página {offset / 25 + 1}</span><Button variant="outline" disabled={locked || offset + 25 >= list.total} onClick={() => { setLoading(true); setOffset(value => value + 25) }}>Próxima</Button></div>
+        <Pagination offset={offset} pageSize={25} total={list.total} loading={locked} onOffsetChange={offset => { setLoading(true); setOffset(offset) }} />
       </>}
     </section>
 

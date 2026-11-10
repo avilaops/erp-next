@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
 
 import type { Schema } from "@/lib/api/types"
@@ -82,7 +83,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
             <td className="hidden lg:table-cell">{staff.status === "active" ? "Ativo" : "Desligado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhum cadastro encontrado.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
+        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
       </>}
     </section>
   </>

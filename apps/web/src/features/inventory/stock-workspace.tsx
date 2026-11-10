@@ -116,7 +116,7 @@ export function StockWorkspace() {
     } finally { pending.current = false; setSaving(false) }
   }
 
-  return <div className="mx-auto w-full min-w-0 max-w-[1600px] pb-24 pt-3 sm:px-6 sm:pt-6">
+  return <div className="workspace-page-frame">
 
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Saldos por produto</h2><Link className="text-primary underline" href="/cadastros/produtos">Consultar catálogo</Link></div>

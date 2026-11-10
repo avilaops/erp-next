@@ -98,7 +98,7 @@ function formatCurrency(cents: number) {
 
 function Shell({ title, description, back, children }: { title: string; description: string; back?: string; children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-[1500px] px-4 pb-24 pt-8 lg:px-6">
+    <div className="workspace-page-frame">
       {back && <Link className="mb-5 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" href={back}><ArrowLeft className="size-4" />Voltar</Link>}
       <PageHeader eyebrow="Serviços" title={title} description={description} />
       {children}

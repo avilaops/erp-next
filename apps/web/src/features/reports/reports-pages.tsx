@@ -43,7 +43,7 @@ export function ReportsHub() {
     return "Consultar fonte"
   }
   return (
-    <div className="mx-auto max-w-[1500px] px-4 pb-24 pt-8 lg:px-6">
+    <div className="workspace-page-frame">
       <PageHeader eyebrow="Relatórios" title="Todos os relatórios" description="Indicadores disponíveis para a empresa ativa. Cada cartão usa uma fonte operacional autorizada." />
       <section className="mt-7 rounded-2xl border border-primary/20 bg-primary/5 p-5">
         <Link className="flex items-start gap-4" href="/relatorios/executivo">

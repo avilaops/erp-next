@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
 
 import Link from "next/link"
@@ -72,7 +73,7 @@ function ProposalList() {
             </tr>)}</tbody>
           </DataTable>
         </div> : <p>Nenhuma proposta encontrada para estes filtros.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: value.offset - 25 }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" size="sm" disabled={query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
+        <Pagination offset={query.offset} pageSize={25} total={result.value?.total || 0} onOffsetChange={offset => setQuery(value => ({ ...value, offset }))} />
       </>}
     </section>
   </>

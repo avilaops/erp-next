@@ -1,4 +1,5 @@
 "use client"
+import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
 
 import { erpFetch } from "@/lib/api/client"
@@ -156,7 +157,7 @@ function OrderList() {
       </div>
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
-        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de pedidos" tabIndex={0}>
+        {result.value?.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de pedidos" tabIndex={0}>
           <DataTable className="table-fixed text-left text-sm sm:table-auto">
             <caption className="sr-only">Pedidos de venda</caption>
             <thead className="bg-muted/50"><tr><th scope="col" className="hidden p-3 sm:table-cell">Pedido</th><th scope="col" className="w-[60%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="hidden p-3 lg:table-cell">Vencimento</th><th scope="col" className="w-[40%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
@@ -169,7 +170,7 @@ function OrderList() {
             </tr>)}</tbody>
           </DataTable>
         </div> : <p>{query.q ? "Nenhum pedido encontrado para esta pesquisa." : "Nenhum pedido cadastrado."}</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => setQuery(value => ({ ...value, offset: Math.max(0, value.offset - 25) }))}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={query.offset >= 100000 || query.offset + 25 >= (result.value?.total || 0)} onClick={() => setQuery(value => ({ ...value, offset: value.offset + 25 }))}>Próxima</Button></div>
+        <Pagination offset={query.offset} pageSize={25} total={result.value?.total || 0} maxOffset={100000} onOffsetChange={offset => setQuery(value => ({ ...value, offset }))} />
       </>}
     </section>
   </>

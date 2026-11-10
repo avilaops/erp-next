@@ -1,4 +1,5 @@
 "use client"
+import { Pagination } from "@/components/workspace/pagination"
 import { PageTitle } from "@/components/workspace/page-title"
 
 import { erpFetch } from "@/lib/api/client"
@@ -171,7 +172,7 @@ export function ReceivedMonitor() {
         <p className="mt-3 break-all text-xs text-muted-foreground">Chave: {note.accessKey}</p>
         <div className="mt-4 flex flex-wrap gap-2">{(["xml", "danfe"] as const).map(format => <Button key={format} variant="outline" disabled={!!busy} onClick={() => void download(note, format)}><Download className="size-4" />{busy === `${note.id}-${format}` ? "Preparando…" : format === "xml" ? "Baixar XML" : "Baixar DANFE"}</Button>)}<details className="w-full text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Integridade e recebimento</summary><p className="break-all">SHA-256 do XML: {note.xmlSha256}</p><p className="mt-1">Importado em {date(note.createdAt)}. A situação atual na SEFAZ não foi consultada.</p></details></div>
       </article>)}</div>}
-      {result && <div className="flex items-center justify-between gap-2"><Button variant="outline" disabled={loading || !!busy || !query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: Math.max(0, query.offset - 25) }) }}>Anterior</Button><span className="text-sm">Página {Math.floor(query.offset / 25) + 1}</span><Button variant="outline" disabled={loading || !!busy || query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>}
+      {result && <Pagination offset={query.offset} pageSize={25} total={result.total} loading={loading || !!busy} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />}
     </section>
     {error && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{error}</p>}
     {notice && <p role="status" className="rounded-xl border border-primary/30 p-4 text-sm">{notice}</p>}

@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
 
 import type { Schema } from "@/lib/api/types"
@@ -129,7 +130,7 @@ export function StockWorkspace() {
       <Link className="inline-flex min-h-11 w-fit items-center font-medium text-primary underline underline-offset-4" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar produto</Link>
       {loading ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>
         <p className="text-sm text-muted-foreground">{stocks.total} produto(s) · {stocks.canEdit ? "Consulta e movimentação" : "Somente consulta"}</p>
-        {stocks.data.length ? <div className="min-w-0 rounded-lg border"><DataTable aria-label="Saldos por produto" className="table-fixed [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
+        {stocks.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de saldos" tabIndex={0}><DataTable aria-label="Saldos por produto" className="table-fixed [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
           <thead><tr><th scope="col" className="w-[54%] lg:w-[46%]">Produto</th><th scope="col" className="w-[46%] text-right lg:w-[18%]">Saldo</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Reservado</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Disponível</th></tr></thead>
           <tbody>{stocks.data.map(stock => <tr key={stock.productId} className={selected?.productId === stock.productId ? "bg-primary/5" : undefined}>
             <th scope="row" className="text-left align-top"><button type="button" className="min-h-11 w-full rounded-sm text-left font-normal outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [overflow-wrap:anywhere]" disabled={saving || uncertain} aria-pressed={selected?.productId === stock.productId} onClick={() => choose(stock)}>
@@ -140,7 +141,7 @@ export function StockWorkspace() {
             <td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.reserved)}</td><td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.available)}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhum produto encontrado. Cadastre um produto para movimentar o estoque.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= stocks.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
+        <Pagination offset={query.offset} pageSize={25} total={stocks.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
       </>}
     </section>
 

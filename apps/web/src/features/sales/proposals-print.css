@@ -24,15 +24,24 @@
 .proposal-document .proposal-items-table :is(th, td):last-child { padding-right: 0; }
 .proposal-document .proposal-items-table :is(th, td):not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 .proposal-item-name + p, .proposal-aux + p { margin-top: 4px; }
+.proposal-mobile-pricing { display: none; }
 .proposal-total { display: flex; justify-content: flex-end; padding: 20px 0 24px; border-bottom: 1px solid #d8dde3; }
 .proposal-total p { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .proposal-conditions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
 .proposal-conditions p { white-space: pre-wrap; }
 .proposal-notes { grid-column: 1 / -1; }
 .proposal-history { border-top: 1px solid #d8dde3; padding-top: 16px; margin-top: 24px; }
-@media (max-width: 540px) {
-  .proposal-product-column { width: 37%; }
+@media screen and (max-width: 639px) {
+  .proposal-document { margin-block: 16px; padding: 12px; font-size: 13px; }
+  .proposal-document-header { gap: 16px; padding-bottom: 16px; }
+  .proposal-parties { gap: 16px; margin-block: 16px; }
+  .proposal-product-column { width: calc(100% - 7.5rem); }
+  .proposal-quantity-column, .proposal-unit-price-column { display: none; }
+  .proposal-mobile-pricing { display: grid; gap: 2px; }
+  .proposal-product-identity > span, .proposal-product-identity img { width: 40px; height: 40px; }
+  .proposal-document .proposal-items-table { font-size: 13px; }
   .proposal-document .proposal-items-table :is(th, td) { padding-inline: 4px; }
+  .proposal-document .proposal-items-table td:last-child { white-space: nowrap; }
   .proposal-conditions { grid-template-columns: 1fr; }
 }
 @media print {

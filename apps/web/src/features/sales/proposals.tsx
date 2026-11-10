@@ -57,18 +57,18 @@ function ProposalList() {
       </form>
       {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" size="sm" onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} proposta(s)</p>
-        {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de propostas" tabIndex={0}>
-          <DataTable>
+        {result.value?.data.length ? <div className="max-w-full rounded-lg border" role="region" aria-label="Lista de propostas" tabIndex={0}>
+          <DataTable className="table-fixed sm:table-auto">
             <caption className="sr-only">Propostas comerciais</caption>
             <thead className="bg-muted/50"><tr>
-              <th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Versão</th><th scope="col" className="p-3">Validade</th><th scope="col" className="p-3 text-right">Valor</th>
+              <th scope="col" className="p-2 sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="hidden p-3 text-right sm:table-cell">Versão</th><th scope="col" className="hidden p-3 sm:table-cell">Validade</th><th scope="col" className="w-32 p-2 text-right sm:w-auto sm:p-3">Valor</th>
             </tr></thead>
             <tbody>{result.value.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
-              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link></td>
-              <td className="whitespace-nowrap p-3">{labels[item.expired ? "expired" : item.status] || item.status}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{item.version}</td>
-              <td className="whitespace-nowrap p-3">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{money(item.amount)}</td>
+              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere]`} title={item.customerName} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link><div className="mt-1 space-y-0.5 text-xs text-muted-foreground sm:hidden"><p className="flex flex-wrap gap-x-2"><span>{labels[item.expired ? "expired" : item.status] || item.status}</span><span>v{item.version}</span></p><p>Validade: <span>{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informada"}</span></p></div></td>
+              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{labels[item.expired ? "expired" : item.status] || item.status}</td>
+              <td className="hidden whitespace-nowrap p-3 text-right tabular-nums sm:table-cell">{item.version}</td>
+              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
+              <td className="p-2 text-right align-top tabular-nums [overflow-wrap:anywhere] sm:whitespace-nowrap sm:p-3">{money(item.amount)}</td>
             </tr>)}</tbody>
           </DataTable>
         </div> : <p>Nenhuma proposta encontrada para estes filtros.</p>}
@@ -128,23 +128,32 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
         if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
       }}>
         <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4" onChange={() => setDirty(true)}>
-          <label className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">Validade da proposta<Input type="date" className="block max-w-full appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" required value={validUntil} onChange={event => setValidUntil(event.target.value)} /></label>
-          <CommercialText label="Condições de pagamento" required maxLength={2000} value={paymentTerms} onChange={event => setPaymentTerms(event.target.value)} />
-          <CommercialText label="Condições de entrega" required maxLength={2000} value={deliveryTerms} onChange={event => setDeliveryTerms(event.target.value)} />
-          <CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} />
-          {items.map(item => <section className="min-w-0 space-y-2 rounded-xl border p-2 sm:space-y-3 sm:p-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
-            <div className="flex min-w-0 items-center gap-3">
+          <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Produtos</h2><span className="text-xs text-muted-foreground">{items.length} item(ns)</span></div>
+          {!items.length && <p className="text-sm text-muted-foreground">Busque um produto para incluí-lo na proposta.</p>}
+          {items.map(item => <section className="min-w-0 space-y-2 border-b py-3 sm:space-y-3 sm:py-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
+            <div className="flex min-w-0 items-start gap-2 sm:gap-3">
               <ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} />
-              <h2 className="min-w-0 break-words font-medium">{item.name} · {item.sku}</h2>
+              <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-medium [overflow-wrap:anywhere]">{item.name}</h3><p className="break-words text-xs text-muted-foreground">{item.sku}</p></div>
+              <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs" aria-label={`Remover ${item.name}`} onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover</Button>
             </div>
             <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-end gap-2 sm:gap-3">
-              <label className="grid min-w-0 gap-1">Preço unitário (R$)<Input aria-label={`Preço unitário de ${item.name}`} readOnly value={item.basePrice || ""} /></label>
-              <label className="grid min-w-0 gap-1">Quantidade<Input aria-label={`Quantidade de ${item.name}`} inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
+              <label className="grid min-w-0 gap-1 text-xs">Unitário (R$)<Input className="h-9" aria-label={`Preço unitário de ${item.name}`} title="Preço unitário somente para consulta nesta proposta." readOnly value={item.basePrice || ""} /></label>
+              <label className="grid min-w-0 gap-1 text-xs">Quantidade<Input className="h-9" aria-label={`Quantidade de ${item.name}`} inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
             </div>
-            <p className="text-xs text-muted-foreground">Preço unitário somente para consulta nesta proposta.</p>
-            <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} />{(item.plateHolderTypes?.length || item.plateHolderColors?.length || item.plateHolderType || item.plateHolderColor) ? <ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={value => changeItem(item.id, { plateHolderColor: value })} /> : null}<ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{item.upholsteryConfigurable !== false && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
-            <Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button>
+            {(item.structureColors?.length || item.upholsteryColors?.length && item.upholsteryConfigurable !== false || item.plateHolderTypes?.length || item.plateHolderColors?.length || item.structureColor || item.upholsteryColor || item.plateHolderColor || item.plateHolderType) ? <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
+              <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType, item.plateHolderColor].filter(Boolean).join(" · ") || "Escolher opções"}</span></summary>
+              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={value => changeItem(item.id, { plateHolderColor: value })} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
+            </details> : null}
           </section>)}
+          <details className="min-w-0 border-y py-2" onInvalidCapture={event => { event.currentTarget.open = true }}>
+            <summary className="cursor-pointer py-1 text-sm font-medium">Condições comerciais<span className="ml-2 text-xs font-normal text-muted-foreground">Validade, pagamento e entrega</span></summary>
+            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 sm:col-span-2">Validade da proposta<Input type="date" className="block max-w-full appearance-none sm:max-w-64 [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" required value={validUntil} onChange={event => setValidUntil(event.target.value)} /></label>
+              <CommercialText label="Condições de pagamento" required maxLength={2000} value={paymentTerms} onChange={event => setPaymentTerms(event.target.value)} />
+              <CommercialText label="Condições de entrega" required maxLength={2000} value={deliveryTerms} onChange={event => setDeliveryTerms(event.target.value)} />
+              <div className="min-w-0 sm:col-span-2"><CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} /></div>
+            </div>
+          </details>
         </fieldset>
         {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
         {command.stale && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Recarregar e descartar as alterações locais?")) { command.reset(); reload() } }}>Recarregar proposta</Button>}
@@ -182,7 +191,7 @@ function ProposalDetail({ id }: { id: string }) {
       {notice && <p role="status" className="print:hidden">{notice}</p>}
       {result.loading ? <p role="status">Carregando proposta…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button onClick={result.reload}>Tentar novamente</Button></div> : value && <>
         <div className="flex justify-end print:hidden"><Button variant="outline" onClick={() => window.print()}>Imprimir / salvar PDF</Button></div>
-        <label className="grid gap-2 print:hidden">Histórico de versões<select className="min-h-10 rounded-lg border bg-background px-3" value={version} disabled={frozen} onChange={event => { setVersion(event.target.value); setAction("") }}><option value="">Versão atual</option>{value.versions.map(item => <option key={item.version} value={String(item.version)}>Versão {item.version} · {labels[item.status]} · {money(item.amount)}</option>)}</select></label>
+        <label className="grid min-w-0 gap-2 print:hidden">Histórico de versões<select className="min-h-10 w-full min-w-0 rounded-lg border bg-background px-3" value={version} disabled={frozen} onChange={event => { setVersion(event.target.value); setAction("") }}><option value="">Versão atual</option>{value.versions.map(item => <option key={item.version} value={String(item.version)}>Versão {item.version} · {labels[item.status]} · {money(item.amount)}</option>)}</select></label>
         <ProposalDocument snapshot={value} issuer={issuer.value?.tenantId === value.tenantId ? issuer.value.data : undefined} issuerName={sameTenant ? access.value?.tenant.legalName : undefined} />
         {value.data.decisionReason && <p className="whitespace-pre-wrap print:hidden">Motivo registrado: {value.data.decisionReason}</p>}
         {value.data.orderId && <Link className={`${linkClass} print:hidden`} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido gerado</Link>}
@@ -200,8 +209,8 @@ function ProposalDetail({ id }: { id: string }) {
           {action && <form className="space-y-3 rounded-xl border p-4" onSubmit={event => { event.preventDefault(); void confirm() }}>
             <p>{action === "send" ? "Confirme que esta versão já foi enviada ao cliente. O conteúdo ficará bloqueado; este botão não envia mensagens." : action === "accept" ? "Registre o aceite recebido do cliente. Este registro interno não equivale a uma assinatura digital." : action === "revise" ? "Uma nova versão em rascunho será criada, preservando o conteúdo anterior." : action === "convert" ? "Será criado um pedido em rascunho com os preços acordados. A reserva e a cobrança seguem o fluxo do pedido." : "Informe o motivo desta decisão."}</p>
             {["reject", "cancel"].includes(action) && <CommercialText label="Motivo" required maxLength={2000} disabled={frozen} value={reason} onChange={event => setReason(event.target.value)} />}
-            {action === "convert" && <label className="grid gap-2">Vencimento do pedido<Input type="date" required disabled={frozen} value={dueDate} onChange={event => setDueDate(event.target.value)} /></label>}
-            <div className="flex gap-3"><Button type="submit" disabled={command.busy || command.stale}>{command.uncertain ? "Repetir confirmação" : "Confirmar operação"}</Button><Button type="button" variant="outline" disabled={frozen} onClick={() => setAction("")}>Voltar</Button></div>
+            {action === "convert" && <label className="grid min-w-0 gap-2">Vencimento do pedido<Input type="date" className="block max-w-full appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" required disabled={frozen} value={dueDate} onChange={event => setDueDate(event.target.value)} /></label>}
+            <div className="flex flex-wrap gap-3"><Button type="submit" disabled={command.busy || command.stale}>{command.uncertain ? "Repetir confirmação" : "Confirmar operação"}</Button><Button type="button" variant="outline" disabled={frozen} onClick={() => setAction("")}>Voltar</Button></div>
           </form>}
         </div>
       </>}

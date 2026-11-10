@@ -35,7 +35,7 @@ export function CatalogColorPhotos({ label, options, value, onChange, disabled, 
           }} /></span>
           <span className="break-words">{option}</span>
         </>
-        const cardClass = "flex w-24 flex-col items-center gap-1 rounded-md border p-2 text-center text-xs"
+        const cardClass = "flex w-[4.5rem] flex-col items-center gap-1 rounded-md border p-1 text-center text-xs"
         return readOnly ? <div key={option} className={cardClass}>{content}</div> : <button key={option} type="button" disabled={disabled || !onChange} aria-pressed={value === option} onClick={() => onChange?.(option)} title={option}
           className={`${cardClass} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 ${value === option ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary"}`}>{content}</button>
       })}

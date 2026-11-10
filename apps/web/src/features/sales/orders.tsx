@@ -13,6 +13,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
+import { PageTitle } from "@/components/workspace/page-title"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,7 @@ export function ColorChoice({ label, options = [], value, onChange, catalog, pal
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao consultar opções.") }
     finally { setLoading(false) }
   }
+  if (!choices.length && !value) return null
   return <div className="grid min-w-0 gap-2 text-sm">
     <label htmlFor={id}>{label}</label>
     <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={choices.length > 0} disabled={loading || !choices.length && !value} onChange={event => onChange(event.target.value)}>
@@ -127,10 +129,10 @@ function OrderList() {
   const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
   if (query.q) params.set("q", query.q)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
-  return <><div className="mb-4 flex flex-wrap justify-end gap-3">{result.value?.canEdit && <>
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><PageTitle>Pedidos de venda</PageTitle><div className="flex flex-wrap gap-2">{result.value?.canEdit && <>
     <Link className={buttonVariants({ variant: "outline" })} href="/vendas/simulador">Simular pedido</Link>
     <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>
-  </>}</div>
+  </>}</div></div>
     <section className="min-w-0 space-y-3" aria-label="Pedidos de venda">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
@@ -147,15 +149,15 @@ function OrderList() {
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
         <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
         {result.value?.data.length ? <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Lista de pedidos" tabIndex={0}>
-          <DataTable className="w-full text-left text-sm">
+          <DataTable className="table-fixed text-left text-sm sm:table-auto">
             <caption className="sr-only">Pedidos de venda</caption>
-            <thead className="bg-muted/50"><tr><th scope="col" className="p-3">Pedido</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3">Vencimento</th><th scope="col" className="p-3 text-right">Valor</th></tr></thead>
+            <thead className="bg-muted/50"><tr><th scope="col" className="hidden p-3 sm:table-cell">Pedido</th><th scope="col" className="w-[60%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="hidden p-3 lg:table-cell">Vencimento</th><th scope="col" className="w-[40%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
             <tbody>{result.value.data.map(order => <tr className="border-t hover:bg-muted/30" key={order.id}>
-              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
-              <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="block text-xs text-muted-foreground">{order.customerTaxId}</span></td>
-              <td className="whitespace-nowrap p-3">{labels[order.status] || order.status}</td>
-              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "Não informado"}</td>
-              <td className="whitespace-nowrap p-3 text-right tabular-nums">{commercialMoney(order.amount)}</td>
+              <td className="hidden whitespace-nowrap p-3 sm:table-cell"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
+              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="hidden text-xs text-muted-foreground sm:block">{order.customerTaxId}</span><div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground sm:hidden"><Link className="underline underline-offset-2" href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link><span>{labels[order.status] || order.status}</span></div><p className="mt-1 text-xs text-muted-foreground lg:hidden">Vence {order.dueDate ? order.dueDate.split("-").reverse().join("/") : "—"}</p></td>
+              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{labels[order.status] || order.status}</td>
+              <td className="hidden whitespace-nowrap p-3 lg:table-cell">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "Não informado"}</td>
+              <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{commercialMoney(order.amount)}</td>
             </tr>)}</tbody>
           </DataTable>
         </div> : <p>{query.q ? "Nenhum pedido encontrado para esta pesquisa." : "Nenhum pedido cadastrado."}</p>}
@@ -222,9 +224,9 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
-            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-2 rounded-xl border p-2 sm:space-y-3 sm:p-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "Não informado"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
-              <div className="grid gap-4 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />{item.upholsteryConfigurable !== false && <ColorChoice palette={catalogPaletteFor(item.structureColors)} label={`${catalogPaletteFor(item.structureColors) ? "Cor dos braços" : "Cor do estofado"} de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}</div>
-              <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p>
+            {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-2 border-b py-3 sm:space-y-3 sm:py-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "Não informado"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
+              <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}><summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType, item.plateHolderColor].filter(Boolean).join(" · ") || "Escolher opções"}</span></summary><div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderColor: color } : value)); setDirty(true) }} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice palette={catalogPaletteFor(item.structureColors)} label={`${catalogPaletteFor(item.structureColors) ? "Cor dos braços" : "Cor do estofado"} de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}</div>
+              <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p></details>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
           {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
@@ -249,7 +251,7 @@ function OrderDetail({ id }: { id: string }) {
     const response = await command.send<Detail>(`/api/erp/orders/${id}/${action}`, value.tenantId, {}, result.etag)
     if (response) { setNotice("Operação confirmada no servidor."); result.reload() }
   }
-  return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: value ? orderNumber(value.data.number) : "Detalhe" }]} back={{ href: "/vendas/pedidos", label: "Voltar aos pedidos" }} title={value ? orderNumber(value.data.number) : "Pedido de venda"} actions={value ? <Button variant="outline" className="h-9 px-3" onClick={() => window.print()}>Salvar PDF</Button> : undefined} />
+  return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: value ? orderNumber(value.data.number) : "Detalhe" }]} title={value ? orderNumber(value.data.number) : "Pedido de venda"} />
     <section className="min-w-0 space-y-4" aria-label="Detalhes do pedido">
       {notice && <p role="status">{notice}</p>}
       {result.loading ? <p role="status">Carregando pedido…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
@@ -258,21 +260,24 @@ function OrderDetail({ id }: { id: string }) {
           <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">Total do pedido</dt><dd className="font-semibold tabular-nums">{commercialMoney(value.data.amount)}</dd></div><div><dt className="text-xs text-muted-foreground">Vencimento</dt><dd className="tabular-nums">{value.data.dueDate.split("-").reverse().join("/")}</dd></div></dl>
         </div>
         {["completed", "cancelled"].includes(value.data.status) && <p className="rounded-lg border bg-muted/35 px-3 py-2 text-sm">Pedido {value.data.status === "completed" ? "concluído" : "cancelado"}: os dados comerciais estão disponíveis para consulta.</p>}
-        <div className="flex flex-wrap items-center gap-3 print:hidden" aria-label="Documentos do pedido">
-          <span className="text-xs font-medium text-muted-foreground">Documentos</span>
+        <div className="space-y-2 print:hidden" role="group" aria-label="Documentos do pedido">
+          <p className="text-xs font-medium text-muted-foreground">Documentos</p>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>button]:w-full sm:[&>button]:w-auto">
+          <Button variant="outline" className="h-9 px-3" onClick={() => window.print()}>Salvar PDF</Button>
           <OrderEmail id={id} number={value.data.number} tenantId={value.tenantId} etag={result.etag} onReload={result.reload} />
-          <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/vendas/pedidos/${id}/contratos`}>Pedido e contratos</Link>
+          <Link className={buttonVariants({ variant: "outline", className: "col-span-2 h-9 px-3" })} href={`/vendas/pedidos/${id}/contratos`}>Pedido e contratos</Link>
+          </div>
         </div>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
-        {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
         {!value.canEdit && <p>Somente consulta.</p>}
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}
-        {command.uncertain ? <Button disabled={command.busy} onClick={() => act(pendingAction)}>Repetir confirmação do pedido</Button> : value.canEdit && <div className="flex flex-wrap items-center gap-2 border-y py-3 print:hidden"><span className="mr-1 text-xs font-medium text-muted-foreground">Ações do pedido</span>
-          {value.data.status === "draft" && <Button className="h-9 px-3" disabled={command.busy || command.stale || !result.etag} onClick={() => act("confirm")}>Confirmar e reservar estoque</Button>}
+        {command.uncertain ? <Button disabled={command.busy} onClick={() => act(pendingAction)}>Repetir confirmação do pedido</Button> : value.canEdit && ["draft", "confirmed"].includes(value.data.status) && <div className="space-y-2 border-y py-3 print:hidden"><p className="text-xs font-medium text-muted-foreground">Ações do pedido</p><div className="flex flex-wrap gap-2 [&>button:first-child]:basis-full sm:[&>button:first-child]:basis-auto">
+          {value.data.status === "draft" && <Button className="h-auto min-h-11 max-w-full whitespace-normal px-3" disabled={command.busy || command.stale || !result.etag} onClick={() => act("confirm")}>Confirmar e reservar estoque</Button>}
           {value.data.status === "confirmed" && <Button className="h-auto max-w-full whitespace-normal" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Registrar saída de estoque e gerar a conta a receber deste pedido?")) void act("complete") }}>Concluir e gerar conta a receber</Button>}
-          {["draft", "confirmed"].includes(value.data.status) && <Button variant="outline" className="h-9 px-3" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Cancelar o pedido e liberar sua reserva, se houver?")) void act("cancel") }}>Cancelar pedido</Button>}
-        </div>}
+          {value.data.status === "draft" && !value.pricingOrigin && !command.busy && !command.stale && <Link className={buttonVariants({ variant: "outline", className: "h-9 flex-1 px-3 sm:flex-none" })} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
+          <Button variant="outline" className="h-9 flex-1 px-3 sm:flex-none" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Cancelar o pedido e liberar sua reserva, se houver?")) void act("cancel") }}>Cancelar pedido</Button>
+        </div></div>}
         <OrderDetailCommercial order={value} permissions={access.value?.tenant.id === value.tenantId ? access.value.permissions : []} />
         <div className="divide-y border-y">
           <details className="py-3"><summary className="cursor-pointer text-sm font-medium">Negociação e condições comerciais</summary><div className="space-y-4 pt-3"><OrderNegotiation id={id} onDecision={result.reload} showDirector={access.value?.tenant.id === value.tenantId && ["sales.approvals.director", "platform.company.manage"].every(permission => access.value?.permissions.includes(permission))} />{value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}{value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} showDirector={access.value?.tenant.id === value.tenantId && ["sales.approvals.director", "platform.company.manage"].every(permission => access.value?.permissions.includes(permission))} />}</div></details>

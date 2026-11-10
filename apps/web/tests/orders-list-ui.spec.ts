@@ -7,6 +7,22 @@ const order = { id: record, number: "17", customerName: "Cliente da pesquisa", c
 
 test.beforeEach(async ({ context }) => { await installFrontendFixture(context) })
 
+test("lista de pedidos mantém identificação e valor visíveis sem rolagem lateral no celular", async ({ page }, info) => {
+  await page.route(/\/api\/erp\/orders\?/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 1, data: [{ ...order, customerName: "COLISEU EQUIPAMENTOS PARA MUSCULACAO LTDA" }] } }))
+  await page.goto("/vendas/pedidos")
+  const region = page.getByRole("region", { name: "Lista de pedidos", exact: true })
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(region).toBeVisible()
+    expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+    const amount = region.getByText("R$ 199.128,86", { exact: true })
+    await expect(amount).toBeInViewport()
+    if (width < 640) await expect(region.getByRole("columnheader")).toHaveText(["Cliente", "Valor"])
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: info.outputPath("orders-list-responsive-390.png"), fullPage: true })
+})
+
 test("apresentação comercial preserva precisão e remove somente zeros decimais desnecessários", () => {
   expect(orderNumber("1")).toBe("PV-000001")
   expect(orderNumber("1000000")).toBe("PV-1000000")

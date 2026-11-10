@@ -31,14 +31,14 @@ export function ProposalDocument({ snapshot, issuer, issuerName }: { snapshot: S
       <dl className="proposal-dates">{data.createdAt && <div><dt>Emissão</dt><dd>{date(data.createdAt)}</dd></div>}<div><dt>Validade</dt><dd>{date(data.validUntil)}</dd></div></dl>
     </div>
     <section className="proposal-items" aria-label="Itens da proposta"><DataTable className="proposal-items-table">
-      <caption className="sr-only">Itens da proposta</caption><colgroup><col className="proposal-product-column" /><col /><col /><col /></colgroup>
-      <thead><tr><th scope="col">Produto</th><th scope="col">Quantidade</th><th scope="col">Unitário</th><th scope="col">Total</th></tr></thead>
+      <caption className="sr-only">Itens da proposta</caption><colgroup><col className="proposal-product-column" /><col className="proposal-quantity-column" /><col className="proposal-unit-price-column" /><col /></colgroup>
+      <thead><tr><th scope="col">Produto</th><th scope="col" className="proposal-quantity-column">Quantidade</th><th scope="col" className="proposal-unit-price-column">Unitário</th><th scope="col">Total</th></tr></thead>
       <tbody>{items.map(item => <tr key={item.productId}>
-        <td><div className="flex flex-col gap-2 sm:flex-row">
+        <td><div className="proposal-product-identity flex flex-col gap-2 sm:flex-row">
           <ProductThumbnail key={`${snapshot.tenantId}:${item.productId}`} id={item.productId} name={item.name} tenantId={snapshot.tenantId} eager />
-          <div className="min-w-0"><p className="proposal-item-name">{item.name}</p><p className="proposal-aux">{item.sku}</p>{(item.structureColor || item.plateHolderColor || item.plateHolderType || item.upholsteryColor) && <p className="proposal-aux">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p>}</div>
+          <div className="min-w-0"><p className="proposal-item-name">{item.name}</p><p className="proposal-aux">{item.sku}</p><p className="proposal-mobile-pricing proposal-aux"><span>Qtd. {commercialQuantity(item.quantity)} {item.unit}</span><span>Unit. {commercialMoney(item.unitPrice)}</span></p>{(item.structureColor || item.plateHolderColor || item.plateHolderType || item.upholsteryColor) && <p className="proposal-aux">{[item.structureColor && `Estrutura: ${item.structureColor}`, item.plateHolderColor && `Anilheiros: ${item.plateHolderColor}`, item.plateHolderType && `Tipo de anilheiro: ${item.plateHolderType}`, item.upholsteryColor && `Estofado: ${item.upholsteryColor}`].filter(Boolean).join(" · ")}</p>}</div>
         </div></td>
-        <td>{commercialQuantity(item.quantity)} {item.unit}</td><td>{commercialMoney(item.unitPrice)}</td><td>{commercialMoney(item.amount)}</td>
+        <td className="proposal-quantity-column">{commercialQuantity(item.quantity)} {item.unit}</td><td className="proposal-unit-price-column">{commercialMoney(item.unitPrice)}</td><td>{commercialMoney(item.amount)}</td>
       </tr>)}</tbody>
     </DataTable></section>
     <div className="proposal-total"><p>Total: {commercialMoney(data.amount)}</p></div>

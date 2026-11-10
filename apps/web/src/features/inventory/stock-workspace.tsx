@@ -9,7 +9,9 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
+import { DataTable } from "@/components/workspace/data-table"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
+import { commercialQuantity } from "@/features/sales/order-presentation"
 
 type Stock = Schema<"Stock">
 type Movement = Schema<"Movement">
@@ -103,7 +105,7 @@ export function StockWorkspace() {
         throw new Error(value.title || "Lançamento recusado")
       }
       setUncertain(false); command.current = null; setDraft({ ...blank }); setReversal(null)
-      setNotice(`Movimento confirmado. Saldo após o lançamento: ${value.balanceAfter} ${selected.unit}.`)
+      setNotice(`Movimento confirmado. Saldo após o lançamento: ${commercialQuantity(value.balanceAfter)} ${selected.unit}.`)
       setSelected({ ...selected, quantity: value.balanceAfter }); setHistoryOffset(0)
       setHistoryLoading(true); setLoading(true); setRefresh(value => value + 1)
     } catch (error) {
@@ -113,7 +115,7 @@ export function StockWorkspace() {
     } finally { pending.current = false; setSaving(false) }
   }
 
-  return <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">
+  return <div className="mx-auto w-full min-w-0 max-w-[1600px] pb-24 pt-3 sm:px-6 sm:pt-6">
 
     <section className="form-section min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Saldos por produto</h2><Link className="text-primary underline" href="/cadastros/produtos">Consultar catálogo</Link></div>
@@ -127,14 +129,18 @@ export function StockWorkspace() {
       <Link className="inline-flex min-h-11 w-fit items-center font-medium text-primary underline underline-offset-4" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar produto</Link>
       {loading ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>
         <p className="text-sm text-muted-foreground">{stocks.total} produto(s) · {stocks.canEdit ? "Consulta e movimentação" : "Somente consulta"}</p>
-        {stocks.data.length ? <ul className="grid gap-3 sm:grid-cols-2">{stocks.data.map(stock => <li className="min-w-0" key={stock.productId}>
-          <button className="h-full w-full rounded-xl border p-4 text-left hover:border-primary disabled:opacity-60" disabled={saving || uncertain} aria-pressed={selected?.productId === stock.productId} onClick={() => choose(stock)}>
-            <strong className="block break-words">{stock.name}</strong><span className="block break-all text-sm text-muted-foreground">SKU {stock.sku} · {stock.status === "active" ? "Ativo" : "Arquivado"}</span>
-            <span className="mt-2 block break-all font-medium">Saldo: {stock.quantity} {stock.unit}</span>
-            <span className="mt-1 block break-all text-sm">Reservado: {stock.reserved} · Disponível: {stock.available}</span>
-          </button>
-        </li>)}</ul> : <p>Nenhum produto encontrado. Cadastre um produto para movimentar o estoque.</p>}
-        <div className="flex items-center justify-between gap-2"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= stocks.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
+        {stocks.data.length ? <div className="min-w-0 rounded-lg border"><DataTable aria-label="Saldos por produto" className="table-fixed [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
+          <thead><tr><th scope="col" className="w-[54%] lg:w-[46%]">Produto</th><th scope="col" className="w-[46%] text-right lg:w-[18%]">Saldo</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Reservado</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Disponível</th></tr></thead>
+          <tbody>{stocks.data.map(stock => <tr key={stock.productId} className={selected?.productId === stock.productId ? "bg-primary/5" : undefined}>
+            <th scope="row" className="text-left align-top"><button type="button" className="min-h-11 w-full rounded-sm text-left font-normal outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [overflow-wrap:anywhere]" disabled={saving || uncertain} aria-pressed={selected?.productId === stock.productId} onClick={() => choose(stock)}>
+              <strong className="block font-medium">{stock.name}</strong><span className="mt-1 block text-xs text-muted-foreground">SKU {stock.sku} · {stock.status === "active" ? "Ativo" : "Arquivado"}</span>
+              <span className="mt-1 block text-xs font-medium text-primary underline underline-offset-4">Ver movimentos</span>
+            </button></th>
+            <td className="text-right align-top tabular-nums [overflow-wrap:anywhere]"><span className="font-medium">{commercialQuantity(stock.quantity)} {stock.unit}</span><dl className="mt-2 space-y-1 text-xs lg:hidden"><div><dt className="text-muted-foreground">Reservado</dt><dd>{commercialQuantity(stock.reserved)}</dd></div><div><dt className="text-muted-foreground">Disponível</dt><dd>{commercialQuantity(stock.available)}</dd></div></dl></td>
+            <td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.reserved)}</td><td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.available)}</td>
+          </tr>)}</tbody>
+        </DataTable></div> : <p>Nenhum produto encontrado. Cadastre um produto para movimentar o estoque.</p>}
+        <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= stocks.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
       </>}
     </section>
 
@@ -156,16 +162,16 @@ export function StockWorkspace() {
           <div className="flex flex-wrap gap-3"><Button type="submit" disabled={saving || selected.status !== "active"}>{saving ? "Confirmando…" : uncertain ? "Repetir confirmação" : reversal ? "Confirmar estorno" : "Confirmar lançamento"}</Button>{reversal && !uncertain && <Button type="button" variant="outline" disabled={saving} onClick={() => { setReversal(null); setDraft({ ...blank }); setWriteError("") }}>Cancelar estorno</Button>}</div>
         </form>}
         <h3 className="font-medium">Histórico registrado</h3>
-        {history.data.length ? <ul className="space-y-3">{history.data.map(movement => <li key={movement.id} className="min-w-0 space-y-2 rounded-xl border p-4">
-          <p className="break-words font-medium">{movement.reversesId ? "Estorno · " : ""}{movement.direction === "receipt" ? "Entrada" : "Saída"} de {movement.quantity} {selected.unit}</p>
+        {history.data.length ? <ul className="divide-y border-y">{history.data.map(movement => <li key={movement.id} className="min-w-0 space-y-2 py-3">
+          <p className="break-words font-medium">{movement.reversesId ? "Estorno · " : ""}{movement.direction === "receipt" ? "Entrada" : "Saída"} de {commercialQuantity(movement.quantity)} {selected.unit}</p>
           <p className="break-words text-sm">{movement.reason}</p>
-          <p className="break-all text-sm text-muted-foreground">Saldo após: {movement.balanceAfter} · Registro: {movement.occurredAt}</p>
+          <p className="break-words text-sm text-muted-foreground">Saldo após: {commercialQuantity(movement.balanceAfter)} · Registro: {new Date(movement.occurredAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
           <p className="break-all text-xs text-muted-foreground">ID: {movement.id}{movement.reversesId && ` · Estorna: ${movement.reversesId}`}</p>
           {movement.sourceOrderId && <p className="break-all text-sm text-muted-foreground">Pedido de origem: {movement.sourceOrderId}. Devolução ainda não disponível.</p>}
           {history.canEdit && !movement.reversesId && !movement.sourceOrderId && <Button variant="outline" disabled={saving || uncertain || selected.status !== "active" || Boolean(reversal)} onClick={() => {
             if (dirty && !window.confirm("Substituir o lançamento em edição por um estorno?")) return
             setReversal(movement); setDraft({ direction: movement.direction === "receipt" ? "issue" : "receipt", quantity: movement.quantity, reason: "" }); setWriteError(""); setNotice("")
-          }}>Preparar estorno de {movement.quantity}</Button>}
+          }}>Preparar estorno de {commercialQuantity(movement.quantity)}</Button>}
         </li>)}</ul> : <p>Nenhum movimento registrado para este produto.</p>}
         <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="outline" disabled={!historyOffset || saving || uncertain} onClick={() => { setHistoryLoading(true); setHistoryOffset(value => value - 25) }}>Movimentos anteriores</Button><span className="text-sm">{history.total} registro(s)</span><Button variant="outline" disabled={historyOffset + 25 >= history.total || saving || uncertain} onClick={() => { setHistoryLoading(true); setHistoryOffset(value => value + 25) }}>Próximos movimentos</Button></div>
       </>}

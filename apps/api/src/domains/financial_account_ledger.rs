@@ -21,6 +21,25 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+/// Generic financial commands must not change an open register behind its cash
+/// reconciliation. Call only inside authorized(write=true): its tenant mutex
+/// serializes this check with POS opening, closing and register movements.
+pub(super) async fn require_unmanaged_cash_account(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    account: Uuid,
+) -> Result<(), DomainError> {
+    let managed: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pos_sessions WHERE tenant_id=$1 AND cash_account_id=$2 AND status='open')",
+    ).bind(tenant).bind(account).fetch_one(&mut **tx).await.map_err(db)?;
+    if managed {
+        return Err(DomainError::Conflict(
+            "Conta vinculada a caixa PDV aberto; registre suprimento ou sangria pela sessão do PDV, ou feche o caixa antes de outro lançamento",
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct EntryInput {
@@ -239,6 +258,7 @@ pub async fn create(
     if active.as_deref() != Some("active") {
         return Err(DomainError::Conflict("A conta financeira está arquivada"));
     }
+    require_unmanaged_cash_account(&mut tx, tenant, input.account_id).await?;
     if let Some(category_id) = input.category_id {
         let expected = if input.direction == "credit" {
             "income"
@@ -347,6 +367,8 @@ pub async fn transfer(
             "As duas contas da transferência devem estar ativas",
         ));
     }
+    require_unmanaged_cash_account(&mut tx, tenant, input.source_account_id).await?;
+    require_unmanaged_cash_account(&mut tx, tenant, input.target_account_id).await?;
     let transfer_id = Uuid::now_v7();
     let source_entry_id = Uuid::now_v7();
     let target_entry_id = Uuid::now_v7();

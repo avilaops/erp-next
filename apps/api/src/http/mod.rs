@@ -63,9 +63,13 @@ pub(crate) mod openapi;
 #[cfg(test)]
 mod operations_tests;
 #[cfg(test)]
+mod order_email_tests;
+#[cfg(test)]
 mod outgoing_import_tests;
 #[cfg(test)]
 mod parties_tests;
+#[cfg(test)]
+mod pos_tests;
 #[cfg(test)]
 mod preferences_tests;
 #[cfg(test)]
@@ -120,8 +124,8 @@ use tower_http::{
 
 use crate::domains::{
     catalog, data_transfer, finance, financial_account_ledger, fiscal, inventory, inventory_counts,
-    logistics, logistics_checkout, logistics_dispatch, parties, payables, price_lists, purchasing,
-    reference_data, sales, staff, staff_payroll, warranties,
+    logistics, logistics_checkout, logistics_dispatch, parties, payables, pos, price_lists,
+    purchasing, reference_data, sales, staff, staff_payroll, warranties,
 };
 use crate::platform::{
     access, access_management, auth, company, invitations, onboarding, service_auth,
@@ -380,6 +384,10 @@ pub fn router(state: AppState) -> Router {
         .merge(reference_data::routes())
         .route("/api/v1/orders", get(sales::list).post(sales::create))
         .route(
+            "/api/v1/orders/{id}/email",
+            get(sales::order_email::get).post(sales::order_email::send),
+        )
+        .route(
             "/api/v1/opportunities",
             get(sales::opportunities::list).post(sales::opportunities::create),
         )
@@ -516,6 +524,16 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/products/{id}",
             get(catalog::get).put(catalog::update),
         )
+        .route("/api/v1/pos/products", get(pos::products))
+        .route("/api/v1/pos/sessions", get(pos::sessions).post(pos::open))
+        .route("/api/v1/pos/sessions/current", get(pos::current))
+        .route("/api/v1/pos/sessions/{id}", get(pos::get_session))
+        .route("/api/v1/pos/sessions/{id}/movements", post(pos::movement))
+        .route("/api/v1/pos/sessions/{id}/sales", post(pos::checkout))
+        .route("/api/v1/pos/sessions/{id}/close", post(pos::close))
+        .route("/api/v1/pos/sales", get(pos::sales_list))
+        .route("/api/v1/pos/sales/{id}", get(pos::get_sale))
+        .route("/api/v1/pos/sales/{id}/cancel", post(pos::cancel))
         .route("/api/v1/stock", get(inventory::balances))
         .route(
             "/api/v1/stock/movements",

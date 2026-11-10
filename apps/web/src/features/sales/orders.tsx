@@ -50,14 +50,14 @@ export function ColorChoice({ label, options = [], value, onChange, catalog, pal
       if (!response.ok || product.tenantId !== catalog.tenantId) throw new Error("Não foi possível atualizar as opções deste produto.")
       const colors = product.data[catalog.field] || []
       setRefreshed(colors)
-      if (!colors.length) setError("Ainda não há opções cadastradas. Salve as cores no produto e atualize novamente.")
+      if (!colors.length) setError("Ainda não há opções cadastradas. Salve o acabamento no produto e atualize novamente.")
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao consultar opções.") }
     finally { setLoading(false) }
   }
   return <div className="grid min-w-0 gap-2 text-sm">
     <label htmlFor={id}>{label}</label>
     <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={choices.length > 0} disabled={loading || !choices.length && !value} onChange={event => onChange(event.target.value)}>
-      <option value="">{choices.length ? "Escolha uma cor" : "Sem opções cadastradas"}</option>
+      <option value="">{choices.length ? (catalog?.field === "plateHolderTypes" ? "Escolha um tipo" : "Escolha uma cor") : "Sem opções cadastradas"}</option>
       {value && !choices.includes(value) && <option value={value}>{value} · seleção registrada</option>}
       {choices.map(color => <option key={color} value={color}>{color}</option>)}
     </select>

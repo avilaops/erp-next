@@ -307,7 +307,7 @@ fn reply(status: StatusCode, value: Value) -> Response {
     response(status, rev, value)
 }
 
-#[utoipa::path(post,path="/api/v1/pos/sessions",tag="Sales",params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=OpenInput,responses((status=201,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_open_session",post,path="/api/v1/pos/sessions",tag="Sales",params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),request_body=OpenInput,responses((status=201,body=Value)),security(("bearerAuth"=[])))]
 pub async fn open(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -366,7 +366,7 @@ pub async fn open(
     Ok(reply(StatusCode::CREATED, value))
 }
 
-#[utoipa::path(get,path="/api/v1/pos/sessions",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_list_sessions",get,path="/api/v1/pos/sessions",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn sessions(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -399,7 +399,7 @@ pub async fn sessions(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"total":total,"offset":offset,"limit":limit}),
     ))
 }
-#[utoipa::path(get,path="/api/v1/pos/sessions/current",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_current_session",get,path="/api/v1/pos/sessions/current",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn current(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -422,7 +422,7 @@ pub async fn current(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data}),
     ))
 }
-#[utoipa::path(get,path="/api/v1/pos/sessions/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_get_session",get,path="/api/v1/pos/sessions/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn get_session(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -449,10 +449,10 @@ async fn entry(
     transfer: Option<Uuid>,
 ) -> Result<Uuid, DomainError> {
     let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,transfer_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,CURRENT_DATE,$7,$8)").bind(id).bind(tenant).bind(account).bind(transfer).bind(direction).bind(amount).bind(format!("PDV {reference}")).bind(reference.to_string()).execute(&mut **tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,transfer_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date,$7,$8)").bind(id).bind(tenant).bind(account).bind(transfer).bind(direction).bind(amount).bind(format!("PDV {reference}")).bind(reference.to_string()).execute(&mut **tx).await.map_err(db)?;
     Ok(id)
 }
-#[utoipa::path(post,path="/api/v1/pos/sessions/{id}/movements",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=MovementInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_create_movement",post,path="/api/v1/pos/sessions/{id}/movements",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=MovementInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn movement(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -545,7 +545,7 @@ pub async fn movement(
     }
     let movement = Uuid::now_v7();
     let transfer = Uuid::now_v7();
-    sqlx::query("INSERT INTO financial_account_transfers(id,tenant_id,source_account_id,target_account_id,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,CURRENT_DATE,$6,$7)").bind(transfer).bind(tenant).bind(source).bind(target).bind(amount).bind(&reason).bind(movement.to_string()).execute(&mut *tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO financial_account_transfers(id,tenant_id,source_account_id,target_account_id,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date,$6,$7)").bind(transfer).bind(tenant).bind(source).bind(target).bind(amount).bind(&reason).bind(movement.to_string()).execute(&mut *tx).await.map_err(db)?;
     entry(
         &mut tx,
         tenant,
@@ -602,7 +602,7 @@ fn payment_values(input: &PaymentInput) -> Result<(i64, i64), DomainError> {
     }
     Ok((amount, tendered))
 }
-#[utoipa::path(post,path="/api/v1/pos/sessions/{id}/sales",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CheckoutInput,responses((status=201,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_checkout",post,path="/api/v1/pos/sessions/{id}/sales",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CheckoutInput,responses((status=201,body=Value)),security(("bearerAuth"=[])))]
 pub async fn checkout(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -797,7 +797,7 @@ pub async fn checkout(
     Ok(reply(StatusCode::CREATED, value))
 }
 
-#[utoipa::path(post,path="/api/v1/pos/sessions/{id}/close",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CloseInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_close_session",post,path="/api/v1/pos/sessions/{id}/close",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CloseInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn close(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -856,7 +856,7 @@ pub async fn close(
     tx.commit().await.map_err(db)?;
     Ok(reply(StatusCode::OK, value))
 }
-#[utoipa::path(post,path="/api/v1/pos/sales/{id}/cancel",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CancelInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_cancel_sale",post,path="/api/v1/pos/sales/{id}/cancel",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=CancelInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn cancel(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -989,7 +989,7 @@ pub async fn cancel(
     tx.commit().await.map_err(db)?;
     Ok(reply(StatusCode::OK, value))
 }
-#[utoipa::path(get,path="/api/v1/pos/sales",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_list_sales",get,path="/api/v1/pos/sales",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn sales_list(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -1017,7 +1017,7 @@ pub async fn sales_list(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"total":total,"offset":offset,"limit":limit}),
     ))
 }
-#[utoipa::path(get,path="/api/v1/pos/sales/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_get_sale",get,path="/api/v1/pos/sales/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn get_sale(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -1043,7 +1043,7 @@ pub async fn get_sale(
     ))
 }
 
-#[utoipa::path(get,path="/api/v1/pos/products",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
+#[utoipa::path(operation_id="pos_list_products",get,path="/api/v1/pos/products",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn products(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

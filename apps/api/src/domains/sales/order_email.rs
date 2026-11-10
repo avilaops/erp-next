@@ -45,7 +45,7 @@ pub struct OrderEmailReceipt {
 const DELIVERY: &str =
     "SELECT id,status,recipient,created_at::text AS created_at FROM sales_order_email_deliveries";
 
-#[utoipa::path(get,path="/api/v1/orders/{id}/email",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=OrderEmailStatus),(status=403,description="Sem permissão")))]
+#[utoipa::path(get,path="/api/v1/orders/{id}/email",operation_id="get_order_email_status",tag="Sales",security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=OrderEmailStatus),(status=403,description="Sem permissão")))]
 pub async fn get(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
@@ -214,7 +214,7 @@ async fn receipt(
     })
 }
 
-#[utoipa::path(post,path="/api/v1/orders/{id}/email",tag="Sales",request_body=OrderEmailInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=OrderEmailReceipt),(status=503,description="E-mail não configurado"),(status=412,description="Versão divergente")))]
+#[utoipa::path(post,path="/api/v1/orders/{id}/email",operation_id="send_order_email",tag="Sales",request_body=OrderEmailInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("If-Match"=String,Header),("Idempotency-Key"=Uuid,Header)),responses((status=200,body=OrderEmailReceipt),(status=503,description="E-mail não configurado"),(status=412,description="Versão divergente")))]
 pub async fn send(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,

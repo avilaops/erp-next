@@ -103,6 +103,49 @@ async fn pos_checkout_refund_close_are_atomic_idempotent_and_tenant_isolated(adm
     );
     let session = first.1["data"]["id"].as_str().unwrap();
     let uri = format!("/api/v1/pos/sessions/{session}");
+    // Ordinary finance rights never permit bypassing the active POS session.
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999',code FROM permissions WHERE code LIKE 'finance.account_entries.%' OR code LIKE 'finance.account_transfers.%' ON CONFLICT DO NOTHING;").execute(&admin).await.unwrap();
+    for direction in ["credit", "debit"] {
+        let blocked=call(&router,"POST","/api/v1/financial-account-entries","editor",TENANT,Some(Uuid::now_v7()),None,json!({"accountId":CASH,"direction":direction,"amount":"1.00","occurredOn":"2026-11-09","description":"Tentativa fora do caixa"})).await;
+        assert_eq!(blocked.0, StatusCode::CONFLICT, "{}", blocked.1);
+    }
+    for (source, target) in [(CASH, BANK), (BANK, CASH)] {
+        let blocked=call(&router,"POST","/api/v1/financial-account-transfers","editor",TENANT,Some(Uuid::now_v7()),None,json!({"sourceAccountId":source,"targetAccountId":target,"amount":"1.00","occurredOn":"2026-11-09","description":"Tentativa fora do caixa"})).await;
+        assert_eq!(blocked.0, StatusCode::CONFLICT, "{}", blocked.1);
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM financial_account_entries WHERE tenant_id=$1"
+        )
+        .bind(Uuid::parse_str(TENANT).unwrap())
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        2
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM financial_account_transfers WHERE tenant_id=$1"
+        )
+        .bind(Uuid::parse_str(TENANT).unwrap())
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        0
+    );
+    let unchanged = call(
+        &router,
+        "GET",
+        &uri,
+        "reader",
+        TENANT,
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(unchanged.1["data"]["revision"], 1);
+    assert_eq!(unchanged.1["data"]["totals"]["expectedCash"], "100.00");
     let duplicate = call(
         &router,
         "POST",
@@ -303,6 +346,8 @@ async fn pos_checkout_refund_close_are_atomic_idempotent_and_tenant_isolated(adm
         2
     );
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT sum(CASE WHEN direction='credit' THEN amount_cents ELSE -amount_cents END)::bigint FROM financial_account_entries WHERE tenant_id=$1 AND account_id=$2").bind(Uuid::parse_str(TENANT).unwrap()).bind(Uuid::parse_str(CASH).unwrap()).fetch_one(&admin).await.unwrap(),12000);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM financial_account_entries WHERE tenant_id=$1 AND description LIKE 'PDV %' AND occurred_on<>(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date").bind(Uuid::parse_str(TENANT).unwrap()).fetch_one(&admin).await.unwrap(),0);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM financial_account_transfers WHERE tenant_id=$1 AND occurred_on<>(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date").bind(Uuid::parse_str(TENANT).unwrap()).fetch_one(&admin).await.unwrap(),0);
     assert_eq!(
         call(
             &router,
@@ -335,6 +380,8 @@ async fn pos_checkout_refund_close_are_atomic_idempotent_and_tenant_isolated(adm
     let history=call(&router,"GET","/api/v1/pos/sessions?status=closed&offset=0&limit=10&startDate=2000-01-01&endDate=2100-01-01","reader",TENANT,None,None,Value::Null).await;
     assert_eq!(history.0, StatusCode::OK);
     assert_eq!(history.1["total"], 1);
+    let after_close=call(&router,"POST","/api/v1/financial-account-entries","editor",TENANT,Some(Uuid::now_v7()),None,json!({"accountId":CASH,"direction":"credit","amount":"1.00","occurredOn":"2026-11-09","description":"Após fechamento do caixa"})).await;
+    assert_eq!(after_close.0, StatusCode::CREATED, "{}", after_close.1);
     let mut tx = application.begin().await.unwrap();
     sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
         .bind(OTHER)

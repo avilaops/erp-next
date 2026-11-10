@@ -176,6 +176,12 @@ pub(super) async fn pay(
         .outstanding
         .checked_sub(amount)
         .ok_or(AccessError::Internal)?;
+    if let Some(account_id) = input.financial_account_id {
+        super::financial_account_ledger::require_unmanaged_cash_account(
+            &mut tx, tenant, account_id,
+        )
+        .await?;
+    }
     let paid = remaining == 0;
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
@@ -274,6 +280,12 @@ pub(super) async fn reverse(
         return Err(DomainError::Invalid(
             "Estorno não pode anteceder o lançamento original",
         ));
+    }
+    if let Some(account_id) = original.financial_account_id {
+        super::financial_account_ledger::require_unmanaged_cash_account(
+            &mut tx, tenant, account_id,
+        )
+        .await?;
     }
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;

@@ -13,6 +13,8 @@ const OTHER: &str = "22222222-2222-4222-8222-222222222222";
 const CASH: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01";
 const BANK: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02";
 const PRODUCT: &str = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03";
+// This test fixture keeps HTTP identity, revision and command headers explicit at each assertion.
+#[allow(clippy::too_many_arguments)]
 async fn call(
     router: &Router,
     method: &str,

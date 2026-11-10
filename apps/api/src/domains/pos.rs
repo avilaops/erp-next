@@ -276,17 +276,27 @@ async fn detail(
     data["recentLimit"] = json!(50);
     Ok(data)
 }
+struct CompletedCommand<'a> {
+    key: Uuid,
+    scope: &'static str,
+    id: Uuid,
+    request: &'a Value,
+}
+
 async fn finish(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
     identity: &AuthenticatedIdentity,
     headers: &HeaderMap,
-    key: Uuid,
-    scope: &'static str,
-    id: Uuid,
-    request: &Value,
+    command: CompletedCommand<'_>,
     result: &Value,
 ) -> Result<(), DomainError> {
+    let CompletedCommand {
+        key,
+        scope,
+        id,
+        request,
+    } = command;
     record(
         tx,
         tenant,
@@ -359,7 +369,17 @@ pub async fn open(
     sqlx::query("INSERT INTO pos_sessions(tenant_id,id,register,cash_account_id,opening_cents,opened_by) VALUES($1,$2,$3,$4,$5,$6)").bind(tenant).bind(id).bind(register).bind(input.cash_account_id).bind(amount).bind(&identity.subject).execute(&mut *tx).await.map_err(db)?;
     let value = json!({"tenantId":tenant,"canEdit":true,"data":detail(&mut tx,tenant,id).await?});
     finish(
-        &mut tx, tenant, &identity, &headers, key, "pos.open", id, &request, &value,
+        &mut tx,
+        tenant,
+        &identity,
+        &headers,
+        CompletedCommand {
+            key,
+            scope: "pos.open",
+            id,
+            request: &request,
+        },
+        &value,
     )
     .await?;
     tx.commit().await.map_err(db)?;
@@ -574,10 +594,12 @@ pub async fn movement(
         tenant,
         &identity,
         &headers,
-        key,
-        "pos.movement",
-        id,
-        &request,
+        CompletedCommand {
+            key,
+            scope: "pos.movement",
+            id,
+            request: &request,
+        },
         &value,
     )
     .await?;
@@ -786,10 +808,12 @@ pub async fn checkout(
         tenant,
         &identity,
         &headers,
-        key,
-        "pos.checkout",
-        sale_id,
-        &request,
+        CompletedCommand {
+            key,
+            scope: "pos.checkout",
+            id: sale_id,
+            request: &request,
+        },
         &value,
     )
     .await?;
@@ -846,10 +870,12 @@ pub async fn close(
         tenant,
         &identity,
         &headers,
-        key,
-        "pos.close",
-        id,
-        &request,
+        CompletedCommand {
+            key,
+            scope: "pos.close",
+            id,
+            request: &request,
+        },
         &value,
     )
     .await?;
@@ -979,10 +1005,12 @@ pub async fn cancel(
         tenant,
         &identity,
         &headers,
-        key,
-        "pos.cancel",
-        id,
-        &request,
+        CompletedCommand {
+            key,
+            scope: "pos.cancel",
+            id,
+            request: &request,
+        },
         &value,
     )
     .await?;

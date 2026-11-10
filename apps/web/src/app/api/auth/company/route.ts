@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const { tenantId } = payload && typeof payload === "object" ? payload as { tenantId?: unknown } : {}
     if (typeof tenantId !== "string" || !uuidPattern.test(tenantId)) return Response.json({ title: "Empresa inválida" }, { status: 400, headers: output })
     const access = await fetch(`${config.api}/api/v1/company-selection`, { method: "POST", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${session.accessToken}`, "X-Tenant-Id": tenantId } })
-    if (!access.ok) return Response.json({ title: "Não foi possível selecionar esta empresa" }, { status: [401, 403].includes(access.status) ? access.status : 503, headers: output })
+    if (access.status !== 204) return Response.json({ title: "Não foi possível selecionar esta empresa" }, { status: [401, 403].includes(access.status) ? access.status : 503, headers: output })
     const remaining = Math.floor((session.expiresAt - Date.now()) / 1000)
     if (remaining <= 0) return Response.json({ title: "Entre novamente" }, { status: 401, headers: output })
     const jar = await cookies()

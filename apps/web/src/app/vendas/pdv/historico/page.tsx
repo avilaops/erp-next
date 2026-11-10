@@ -1,4 +1,5 @@
-import { SalesCapabilityUnavailable } from "@/features/sales/sales-capability-unavailable"
-export default function Page() { return <SalesCapabilityUnavailable title="Histórico do PDV" description="Consulta dos fechamentos persistidos do caixa do PDV." backHref="/vendas/pdv" /> }
+import { Suspense } from "react"
+import { PosAccess } from "@/features/pos/pos-access"
+export default function Page() { return <Suspense fallback={<p role="status">Carregando histórico…</p>}><PosAccess view="history" /></Suspense> }
 
 export const metadata = { title: "Histórico do PDV" }

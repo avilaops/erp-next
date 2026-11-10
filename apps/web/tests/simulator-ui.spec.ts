@@ -93,6 +93,7 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   await page.getByLabel("Buscar cliente", { exact: true }).fill("Cliente")
   await page.getByRole("button", { name: "Selecionar Cliente de teste", exact: true }).click()
   await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2026-12-30")
+  await page.locator("summary").filter({ hasText: `Acabamentos de ${equipment.name}` }).click()
   await page.getByLabel(`Cor da estrutura de ${equipment.name}`, { exact: true }).selectOption("Preto")
   await page.getByLabel(`Cor dos anilheiros de ${equipment.name}`, { exact: true }).selectOption("Preto")
   await page.getByLabel(`Tipo de anilheiro de ${equipment.name}`, { exact: true }).selectOption("Olímpico")

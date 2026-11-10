@@ -35,9 +35,6 @@ export const demonstrationRoutes = [
   "/vendas/anuncios/[id]",
   "/vendas/anuncios/[id]/editar",
   "/vendas/loja-virtual",
-  "/vendas/pdv",
-  "/vendas/pdv/fechamento",
-  "/vendas/pdv/historico",
 ] as const
 
 const operationalOverrides = ["/estoque/lancamentos/novo","/preferencias/integracoes/lojas"]

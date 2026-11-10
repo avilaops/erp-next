@@ -7,7 +7,7 @@ use utoipa::{
 use super::health;
 use crate::domains::{
     assistant, catalog, catalog_publication, commissions, contracts, dashboard, finance,
-    financial_account_ledger, fiscal, inventory, legacy, parties, payables, price_lists,
+    financial_account_ledger, fiscal, inventory, legacy, parties, payables, pos, price_lists,
     production, purchasing, reference_data, registry_lookup, returns, sales, staff, staff_payroll,
 };
 use crate::platform::{
@@ -17,7 +17,7 @@ use crate::platform::{
 #[derive(OpenApi)]
 #[openapi(
     info(title = "Ávila ERP API", version = "0.1.0", description = "Contrato gerado dos recursos implementados. Sem dados demonstrativos."),
-    paths(price_lists::list, price_lists::create, price_lists::get, price_lists::update, crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
+    paths(pos::open,pos::sessions,pos::current,pos::get_session,pos::movement,pos::checkout,pos::close,pos::cancel,pos::sales_list,pos::get_sale,pos::products,price_lists::list, price_lists::create, price_lists::get, price_lists::update, crate::platform::commercial_settings::get, crate::platform::commercial_settings::put, crate::platform::commercial_settings::preview, payables::list_all,payables::get_all,payables::pay_all,payables::reverse_all,staff_payroll::salaries,staff_payroll::get,staff_payroll::list,staff_payroll::propose,staff_payroll::review,staff_payroll::generate,crate::domains::registration_settings::get,crate::domains::registration_settings::put,purchasing::list,purchasing::get,purchasing::create,purchasing::update,purchasing::confirm,purchasing::cancel,purchasing::close,purchasing::receipts,purchasing::receive,purchasing::get_receipt,payables::list,payables::get,payables::pay,payables::reverse,staff::list, staff::get, staff::create, staff::update, onboarding::list, onboarding::create, health::live, health::ready, health::api_health, access::current_access, access::list_users,
         onboarding::select_company,
         crate::platform::preferences::get, crate::platform::preferences::put, crate::platform::audit::list,
         crate::platform::custom_fields::list, crate::platform::custom_fields::create, crate::platform::custom_fields::update,
@@ -74,6 +74,7 @@ use crate::platform::{
         sales::proposals::update,
         sales::proposals::approve_order,
         sales::proposals::email::get, sales::proposals::email::send,
+        sales::order_email::get, sales::order_email::send,
         finance::list, finance::get, finance::pay, finance::reverse,
         financial_account_ledger::list, financial_account_ledger::create,
         financial_account_ledger::transfer,
@@ -398,7 +399,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 231);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 242);
         for (path, method) in [
             ("/api/v1/fiscal/outgoing-imports", "get"),
             ("/api/v1/fiscal/outgoing-imports/import", "post"),
@@ -408,6 +409,8 @@ mod tests {
             ("/api/v1/proposals/{id}/approve-order", "post"),
             ("/api/v1/proposals/{id}/email", "get"),
             ("/api/v1/proposals/{id}/email", "post"),
+            ("/api/v1/orders/{id}/email", "get"),
+            ("/api/v1/orders/{id}/email", "post"),
         ] {
             assert!(doc["paths"][path][method].is_object(), "{method} {path}");
         }

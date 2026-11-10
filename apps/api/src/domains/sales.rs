@@ -23,12 +23,69 @@ pub mod negotiation_model;
 #[cfg(test)]
 mod negotiation_model_tests;
 pub mod opportunities;
+pub mod order_email;
 pub mod pricing;
 mod pricing_model;
 pub mod pricing_orders;
 mod proposal_rules;
 pub mod proposals;
 pub mod settings;
+
+/// POS uses exactly the active published calculator and never accepts a price override.
+pub(super) async fn pos_price(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    product: Uuid,
+    quantity: i64,
+    destination: &str,
+    taxpayer: bool,
+) -> Result<(i64, i64, serde_json::Value), DomainError> {
+    let published: Option<(Uuid, String)> = sqlx::query_as("SELECT s.active_price_version_id,s.product_line FROM commercial_settings s JOIN price_table_items i ON i.tenant_id=s.tenant_id AND i.version_id=s.active_price_version_id WHERE s.tenant_id=$1 AND i.product_id=$2")
+        .bind(tenant).bind(product).fetch_optional(&mut **tx).await.map_err(db)?;
+    if let Some((version_id, line)) = published {
+        if quantity % 1_000_000 != 0 {
+            return Err(DomainError::Invalid(
+                "Tabela publicada exige quantidade inteira",
+            ));
+        }
+        let input = pricing_model::QuoteInput {
+            version_id,
+            product_id: product,
+            quantity: u32::try_from(quantity / 1_000_000)
+                .map_err(|_| DomainError::Invalid("Quantidade fora do limite"))?,
+            destination: destination.into(),
+            taxpayer,
+            discount: pricing_model::Discount::Percent(0),
+            freight_cents: 0,
+        };
+        let prepared = pricing::prepare(tx, tenant, &line, &input).await?;
+        if prepared.quote.sale.needs_approval {
+            return Err(DomainError::Conflict(
+                "Política comercial exige aprovação; conclua a negociação no fluxo comercial",
+            ));
+        }
+        let price = prepared.quote.sale.unit_with_ipi_cents;
+        let amount = prepared.quote.sale.invoice_total_cents;
+        return Ok((
+            price,
+            amount,
+            pricing::redact(prepared, &input, false, tenant),
+        ));
+    }
+    negotiation::require_catalog_pricing(tx, tenant, product).await?;
+    let price: i64 = sqlx::query_scalar(
+        "SELECT price_cents FROM products WHERE tenant_id=$1 AND id=$2 AND status='active'",
+    )
+    .bind(tenant)
+    .bind(product)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::NotFound)?;
+    let amount = i64::try_from((i128::from(price) * i128::from(quantity) + 500_000) / 1_000_000)
+        .map_err(|_| DomainError::Invalid("Total fora do limite"))?;
+    Ok((price, amount, serde_json::json!({"source":"catalog"})))
+}
 
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]

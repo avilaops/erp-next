@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
 
 import type { Schema } from "@/lib/api/types"
@@ -78,7 +79,7 @@ export function PartyList() {
             <td className="hidden whitespace-nowrap lg:table-cell">{party.taxId}</td><td className="hidden lg:table-cell">{relationship(party)}</td><td className="align-top [overflow-wrap:anywhere]">{party.email && <p>{party.email}</p>}{party.phone && <p className="mt-1 text-xs text-muted-foreground">{party.phone}</p>}{!party.email && !party.phone && "Não informado"}</td><td className="hidden lg:table-cell">{party.status === "active" ? "Ativo" : "Arquivado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhuma pessoa encontrada.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
+        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
       </>}
     </section>
   </>

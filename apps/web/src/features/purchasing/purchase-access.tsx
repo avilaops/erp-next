@@ -18,7 +18,7 @@ async function AuthorizedPurchase({ view, params }: Props) {
   await connection()
   const access = await currentWorkspaceAccess()
   const id = params ? (await params).id : undefined
-  return <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">
+  return <div className="workspace-page-frame">
     {!access.session ? <><PageHeader eyebrow={view === "payables" ? "Financeiro" : "Compras"} title={view === "payables" ? "Contas a pagar" : "Compras"} description="Operações da empresa ativa." /><WorkspaceAccessNotice state={access.state} /></> : view === "overview" ? <>
       <PageHeader eyebrow="Compras" title="Compras e recebimentos" description="Do pedido ao recebimento dos produtos e à obrigação financeira." />
       <section className="form-section space-y-4"><Link className={`${purchaseLink} block`} href="/compras/pedidos">Pedidos de compra</Link><Link className={`${purchaseLink} block`} href="/compras/recebimentos">Recebimentos de compras</Link><Link className={`${purchaseLink} block`} href="/financeiro/contas-pagar">Contas a pagar</Link><p className="text-sm text-muted-foreground">A entrada física é registrada no recebimento. O pagamento é declarado no financeiro, sem transferência bancária.</p></section>

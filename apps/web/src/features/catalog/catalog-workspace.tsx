@@ -1,4 +1,5 @@
 "use client"
+import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
 
 import { erpFetch } from "@/lib/api/client"
@@ -101,7 +102,7 @@ function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: nu
             </tr>)}</tbody>
           </DataTable></div>
         </> : <p>Nenhum produto encontrado.</p>}
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => navigate({ ...query, offset: Math.max(0, offset - pageSize) })}>Anterior</Button><span className="text-center text-sm"><span>Página {Math.floor(offset / pageSize) + 1}</span> · {pageSize} por página</span><Button variant="outline" disabled={offset >= catalogMaxOffset || offset + pageSize >= result.total} onClick={() => navigate({ ...query, offset: offset + pageSize })}>Próxima</Button></div>
+        <Pagination offset={offset} pageSize={pageSize} total={result.total} maxOffset={catalogMaxOffset} showPageSize onOffsetChange={offset => navigate({ ...query, offset })} />
         {offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
       </>}
     </section>

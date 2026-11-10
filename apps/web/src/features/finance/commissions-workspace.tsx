@@ -1,5 +1,6 @@
 "use client"
 
+import { Pagination } from "@/components/workspace/pagination"
 import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { orderNumber } from "@/features/sales/order-presentation"
 import { useState } from "react"
@@ -38,7 +39,7 @@ export function CommissionsWorkspace() {
       {result.loading ? <p role="status">Carregando comissões…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" onClick={result.reload}>Consultar comissões novamente</Button></div> : result.value && <>
         <div className="grid min-w-0 gap-3 sm:grid-cols-2"><div className="rounded-xl border p-4"><p>Saldo em aberto</p><p className="text-xl font-semibold">{money(result.value.totals.openAmount)}</p></div><div className="rounded-xl border p-4"><p>Pagamentos declarados</p><p className="text-xl font-semibold">{money(result.value.totals.paidAmount)}</p></div></div>
         {!result.value.data.length ? <p>Nenhum vendedor cadastrado. Cadastre a equipe antes de configurar comissões.</p> : <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value.data.map(seller => <li key={seller.sellerStaffId} className="min-w-0 space-y-2 rounded-xl border p-4"><h2 className="break-words font-medium">{seller.sellerName}</h2><p>Em aberto: {money(seller.openAmount)}</p><p>Pago declarado: {money(seller.paidAmount)}</p><Button variant="outline" className="h-auto max-w-full whitespace-normal" onClick={() => setSelected(seller.sellerStaffId)}>Consultar comissões de {seller.sellerName}</Button></li>)}</ul>}
-        <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= result.value.total} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <Pagination offset={offset} pageSize={25} total={result.value.total} onOffsetChange={setOffset} />
       </>}
     </section>
     {selected && <SellerCommissions key={`${result.value?.tenantId}:${selected}`} id={selected} onSaved={result.reload} />}

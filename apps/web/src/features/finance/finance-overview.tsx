@@ -26,7 +26,7 @@ function Card({ href, title, description, muted = false }: { href: string; title
 }
 
 export function FinanceOverview() {
-  return <main className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-24 pt-8 lg:px-6">
+  return <main className="workspace-page-frame space-y-8">
     <PageHeader eyebrow="Financeiro" title="Financeiro" description="Operações financeiras da empresa ativa, com estados confirmados pelo servidor." />
     <section className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 text-sm text-muted-foreground">
       Recebimentos e pagamentos registrados no ERP são declarações manuais. Eles não transferem dinheiro nem comprovam liquidação bancária. Saldos de bancos e caixas só serão exibidos quando houver lançamentos vinculados a uma conta financeira.

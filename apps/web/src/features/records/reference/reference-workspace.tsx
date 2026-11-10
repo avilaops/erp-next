@@ -1,4 +1,5 @@
 "use client"
+import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
 
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -55,7 +56,7 @@ function List({ kind }: { kind: ReferenceKind }) {
             <tbody className="divide-y divide-border">{result.value.data.map(item => <tr className="hover:bg-muted/20" key={item.id}><td className="max-w-40 break-all px-4 py-3 font-mono text-xs">{item.code}</td><th scope="row" className="max-w-80 break-words px-4 py-3 font-medium"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link></th>{kind === "depositos" && <td className="max-w-60 break-words px-4 py-3">{item.location || "Não informada"}</td>}<td className="px-4 py-3">{statusLabel(item.status)}</td><td className="px-4 py-3">{result.value?.canEdit && <Link className="inline-flex min-h-11 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td></tr>)}</tbody>
           </DataTable></div>
         </>}
-        <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4" aria-label="Paginação dos cadastros"><Button variant="outline" className="min-h-11" disabled={!query.offset} onClick={() => setQuery({ ...query, offset: Math.max(0, query.offset - 25) })}>Anterior</Button><span className="text-sm text-muted-foreground">Página {Math.floor(query.offset / 25) + 1} de {Math.max(1, Math.ceil(total / 25))}</span><Button variant="outline" className="min-h-11" disabled={query.offset + 25 >= total} onClick={() => setQuery({ ...query, offset: query.offset + 25 })}>Próxima</Button></nav>
+        <Pagination offset={query.offset} pageSize={25} total={total} onOffsetChange={offset => setQuery(value => ({ ...value, offset }))} />
       </>}
     </section>
   </>

@@ -76,7 +76,7 @@ function Shell({
   children: React.ReactNode
 }) {
   return (
-    <div className="mx-auto max-w-[1450px] px-4 pb-24 pt-8 lg:px-6">
+    <div className="workspace-page-frame">
       {back && <Link className="mb-5 inline-flex text-sm text-muted-foreground hover:text-foreground" href={back}>← Fiscal</Link>}
       <PageHeader eyebrow="Fiscal" title={title} description={description} />
       <div className="mt-7">{children}</div>

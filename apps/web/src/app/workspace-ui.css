@@ -25,6 +25,8 @@ body:has(.erp-workspace) {
   font-size: var(--workspace-font-body);
   line-height: 22px;
 }
+.workspace-page-frame { width: 100%; min-width: 0; max-width: 1600px; margin-inline: auto; padding: 24px 16px 96px; }
+@media (min-width: 640px) { .workspace-page-frame { padding-inline: 24px; } }
 .workspace-page-title { font-size: clamp(24px, 2.4vw, 32px); font-weight: 600; line-height: 1.25; letter-spacing: -.035em; }
 .workspace-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-block: 16px; }
 .workspace-resource-state { margin-block: 24px; padding: 24px; }

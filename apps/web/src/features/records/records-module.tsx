@@ -32,7 +32,7 @@ const recordModules: RecordModule[] = [
 
 export function RecordsOverview() {
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-24 pt-8 lg:px-6">
+    <div className="workspace-page-frame">
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Áreas de cadastros">
         {recordModules.map(({ href, title, description, icon: Icon }) => (

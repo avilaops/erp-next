@@ -161,9 +161,6 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
             item.upholstery_color
                 .as_ref()
                 .map(|v| format!("Estofado: {v}")),
-            item.plate_holder_color
-                .as_ref()
-                .map(|v| format!("Anilheiros: {v}")),
             item.plate_holder_type
                 .as_ref()
                 .map(|v| format!("Tipo: {v}")),
@@ -436,7 +433,6 @@ mod tests {
             "17.99",
             "44.98",
             "Azul &amp; preto",
-            "Anilheiros: Branco",
             "Tipo: Redondo",
             "Reservado",
         ] {
@@ -444,6 +440,8 @@ mod tests {
         }
         assert!(!html.contains("<script>"));
         assert!(!html.contains("<b>"));
+        assert!(!html.contains("Anilheiros:"));
+        assert!(!html.contains("Branco"));
     }
 
     #[test]

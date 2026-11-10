@@ -6,7 +6,7 @@ const version = "55555555-5555-4555-8555-555555555555"
 const name = "HammerForce Pro · Desenvolvimento de ombros articulado"
 const structureColors = ["Piano Black", "Titanium Grey", "Matte Graphite Black"]
 
-for (const width of [390, 1280]) test(`navegação conserva negociação e acabamentos em ${width}px`, async ({ context, page }) => {
+for (const width of [320, 390, 768, 1280]) test(`navegação conserva negociação e acabamentos em ${width}px`, async ({ context, page }) => {
   await page.setViewportSize({ width, height: 900 })
   await installFrontendFixture(context)
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["sales.orders.read", "sales.orders.manage"] } }))
@@ -32,6 +32,8 @@ for (const width of [390, 1280]) test(`navegação conserva negociação e acaba
   await finishes.focus()
   await page.keyboard.press("Enter")
   await page.getByLabel(`Cor da estrutura de ${name}`, { exact: true }).selectOption("Titanium Grey")
+  await expect(page.getByLabel(`Cor dos anilheiros de ${name}`, { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel(`Tipo de anilheiro de ${name}`, { exact: true }).getByRole("option")).toHaveText(["Não se aplica", "Standard", "Olímpico"])
   const photos = page.getByRole("group", { name: `Cor dos braços de ${name}: fotos do catálogo DHZ`, exact: true })
   await expect(photos.getByRole("button", { name: "Vermelho", exact: true })).toBeVisible()
   await photos.getByRole("button", { name: "Vermelho", exact: true }).click()

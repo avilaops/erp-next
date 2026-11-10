@@ -17,6 +17,7 @@ import { RecordCompany } from "@/components/record-company"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
+import "@/features/records/compact-form.css"
 
 type StaffProfile = { cpf?: string | null; rg?: string | null; birthDate?: string | null; admissionDate?: string | null; documentIssuedOn?: string | null; pis?: string | null; ctps?: string | null; address?: string | null; emergencyPhone?: string | null; photo?: string | null }
 type StaffInput = Omit<Schema<"StaffInput">, "profile"> & { profile?: StaffProfile | null }
@@ -59,26 +60,26 @@ export function StaffList({ kind }: { kind: StaffKind }) {
 
   return <>
 
-    <section className="form-section min-w-0 space-y-5">
+    <section className="compact-records form-section min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Equipe cadastrada</h2>{result?.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/novo`}>Novo cadastro</Link>}</div>
-      <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_auto]" onSubmit={event => {
+      <form className="grid min-w-0 grid-cols-[minmax(0,1fr)_7rem_auto] items-end gap-2" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
         setQuery({ q: String(form.get("q") || ""), role: "", status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome, código ou cargo<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: "", status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Nome, código ou cargo" /></label>
-        <label className="min-w-0 space-y-2">Situação<select aria-label="Filtrar por situação" name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
-        <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
+        <label className="col-span-2 min-w-0 space-y-1 lg:col-span-1">Buscar nome, código ou cargo<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: "", status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Nome, código ou cargo" /></label>
+        <Button className="h-9 px-3 lg:order-3" type="submit" disabled={loading}>Buscar</Button>
+        <label className="col-span-3 min-w-0 space-y-1 lg:col-span-1 lg:order-2">Situação<select aria-label="Filtrar por situação" name="status" className={`${selectClass} max-w-44`}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
       </form>
       {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de funcionários" tabIndex={0}><DataTable aria-label="Funcionários" className="min-w-[600px]">
-          <thead><tr><th scope="col">Código</th><th scope="col">Nome</th><th scope="col">Cargo</th><th scope="col">Contato</th><th scope="col">Situação</th></tr></thead>
+        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de funcionários" tabIndex={0}><DataTable aria-label="Funcionários" className="table-fixed lg:table-auto">
+          <thead><tr><th scope="col" className="hidden lg:table-cell">Código</th><th scope="col" className="w-[55%] lg:w-auto">Nome</th><th scope="col" className="hidden lg:table-cell">Cargo</th><th scope="col">Contato</th><th scope="col" className="hidden lg:table-cell">Situação</th></tr></thead>
           <tbody>{result.data.map(staff => <tr key={staff.id}>
-            <td className="whitespace-nowrap text-muted-foreground">{staff.code}</td>
-            <th scope="row" className="font-medium"><Link className={linkClass} href={`/cadastros/funcionarios/${staff.id}`}>{staff.name}</Link></th>
-            <td>{staff.jobTitle || (staff.isSeller ? "Vendedor" : "Não informado")}</td>
-            <td>{staff.email || staff.phone || "Não informado"}</td>
-            <td>{staff.status === "active" ? "Ativo" : "Desligado"}</td>
+            <td className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{staff.code}</td>
+            <th scope="row" className="align-top font-medium"><Link className={`${linkClass} line-clamp-2 [overflow-wrap:anywhere] lg:line-clamp-none`} title={staff.name} href={`/cadastros/funcionarios/${staff.id}`}>{staff.name}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground lg:hidden"><p className="[overflow-wrap:anywhere]">{staff.code}</p><p>{staff.jobTitle || (staff.isSeller ? "Vendedor" : "Não informado")}</p><p>{staff.status === "active" ? "Ativo" : "Desligado"}</p></div></th>
+            <td className="hidden lg:table-cell">{staff.jobTitle || (staff.isSeller ? "Vendedor" : "Não informado")}</td>
+            <td className="align-top [overflow-wrap:anywhere]">{staff.email && <p>{staff.email}</p>}{staff.phone && <p className="mt-1 text-xs text-muted-foreground">{staff.phone}</p>}{!staff.email && !staff.phone && "Não informado"}</td>
+            <td className="hidden lg:table-cell">{staff.status === "active" ? "Ativo" : "Desligado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhum cadastro encontrado.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
@@ -168,9 +169,9 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
       { label: "Funcionários", href: "/cadastros/funcionarios" },
       ...(id ? [{ label: snapshot?.data?.name || "Funcionário", href: `/cadastros/funcionarios/${id}` }] : []),
       ...(!view ? [{ label: id ? "Editar funcionário" : "Novo funcionário" }] : []),
-    ]} title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e cargo da equipe. A conta de acesso é gerenciada em Usuários e permissões." />
+    ]} title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e cargo da equipe." />
     <Link className={linkClass} href={`/cadastros/${kind}`} onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
-    <section className="form-section mt-5 min-w-0 space-y-5">
+    <section className="compact-records form-section mt-2 min-w-0 space-y-3">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar funcionários.</p>}
@@ -178,21 +179,23 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view && snapshot.data ? <>
           {draft.profile?.photo && <Image src={draft.profile.photo} alt={`Foto de ${draft.name}`} width={96} height={96} unoptimized className="size-24 rounded-full object-cover" />}
-          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Situação", draft.status === "active" ? "Ativo" : "Desligado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
-          <dl className="grid gap-4 sm:grid-cols-2">{([ ["cpf", "CPF"], ["rg", "RG"], ["birthDate", "Nascimento"], ["admissionDate", "Admissão"], ["documentIssuedOn", "Emissão do documento"], ["pis", "PIS/PASEP"], ["ctps", "CTPS"], ["address", "Endereço"], ["emergencyPhone", "Contato de emergência"] ] as const).map(([key,label]) => <div key={key} className="min-w-0"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="break-words font-medium">{draft.profile?.[key] || "Não informado"}</dd></div>)}</dl>
+          <dl className="grid min-w-0 grid-cols-2 gap-2">{[["Código", draft.code], ["Cargo", draft.jobTitle || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Situação", draft.status === "active" ? "Ativo" : "Desligado"]].map(([label, value]) => <div className={`min-w-0 ${label === "E-mail" ? "col-span-2" : ""}`} key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-medium [overflow-wrap:anywhere]">{value}</dd></div>)}</dl>
+          <dl className="grid grid-cols-2 gap-2">{([ ["cpf", "CPF"], ["rg", "RG"], ["birthDate", "Nascimento"], ["admissionDate", "Admissão"], ["documentIssuedOn", "Emissão do documento"], ["pis", "PIS/PASEP"], ["ctps", "CTPS"], ["address", "Endereço"], ["emergencyPhone", "Contato de emergência"] ] as const).map(([key,label]) => <div key={key} className={`min-w-0 ${key === "address" ? "col-span-2" : ""}`}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-medium [overflow-wrap:anywhere]">{draft.profile?.[key] || "Não informado"}</dd></div>)}</dl>
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/${id}/editar`}>Editar cadastro</Link>}
-        </> : <form className="space-y-5" onSubmit={save}>
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
-            <label className="min-w-0 space-y-2">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Desligado</option></select></label>
-            {([ ["name", "Nome", 200], ["jobTitle", "Cargo", 120], ["code", "Código", 40], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "name" || field === "code"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "name" || field === "code" ? "" : null))} /></label>)}
+        </> : <form className="space-y-3" onSubmit={save}>
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 grid-cols-2 gap-2">
+            {([ ["name", "Nome", 200], ["code", "Código", 40], ["jobTitle", "Cargo", 120], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className={`min-w-0 space-y-1 ${field === "name" || field === "email" ? "col-span-2" : ""}`} key={field}>{label}<Input required={field === "name" || field === "code"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "name" || field === "code" ? "" : null))} /></label>)}
+            <label className="min-w-0 space-y-1">Situação<select aria-label="Situação do cadastro" className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Desligado</option></select></label>
           </fieldset>
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 border-t pt-5 sm:grid-cols-2">
-            <legend className="px-1 font-semibold">Dados pessoais e documentos</legend>
-            {([ ["cpf", "CPF", 14], ["rg", "RG", 40], ["birthDate", "Data de nascimento", 10], ["admissionDate", "Data de admissão", 10], ["documentIssuedOn", "Emissão do documento", 10], ["pis", "PIS/PASEP", 40], ["ctps", "CTPS", 40], ["address", "Endereço completo", 500], ["emergencyPhone", "Telefone de emergência", 40] ] as const).map(([key,label,max]) => <label key={key} className="min-w-0 space-y-2 text-sm">{label}<Input type={key.endsWith("Date") || key === "documentIssuedOn" ? "date" : "text"} maxLength={max} value={draft.profile?.[key] || ""} onChange={e => change("profile", { ...draft.profile, [key]: e.target.value || null })} /></label>)}
-            <label className="space-y-2 text-sm">Foto do funcionário<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {const file=e.target.files?.[0]; if(!file)return; if(file.size>200_000 || !["image/png","image/jpeg","image/webp"].includes(file.type)){setError("Selecione PNG, JPEG ou WebP de até 200 KB.");return} const reader=new FileReader();reader.onload=()=>change("profile",{...draft.profile,photo:String(reader.result)});reader.onerror=()=>setError("Não foi possível ler a foto.");reader.readAsDataURL(file)}} />{draft.profile?.photo && <div className="flex items-center gap-3"><Image src={draft.profile.photo} alt="Prévia da foto" width={72} height={72} unoptimized className="size-18 rounded-full object-cover" /><Button type="button" variant="outline" onClick={()=>change("profile",{...draft.profile,photo:null})}>Remover foto</Button></div>}</label>
-          </fieldset>
+          <details className="min-w-0 border-y py-2" open={Object.values(snapshot.data?.profile || {}).some(Boolean)} onInvalidCapture={event => { event.currentTarget.open = true }}>
+            <summary className="cursor-pointer text-sm font-medium">Dados pessoais e documentos<span className="ml-2 text-xs font-normal text-muted-foreground">Opcional</span></summary>
+            <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="mt-2 grid min-w-0 grid-cols-2 items-end gap-2">
+              {([ ["cpf", "CPF", 14], ["rg", "RG", 40], ["birthDate", "Data de nascimento", 10], ["admissionDate", "Data de admissão", 10], ["documentIssuedOn", "Emissão do documento", 10], ["pis", "PIS/PASEP", 40], ["ctps", "CTPS", 40], ["address", "Endereço completo", 500], ["emergencyPhone", "Telefone de emergência", 40] ] as const).map(([key,label,max]) => <label key={key} className={`min-w-0 space-y-1 ${key === "address" || key === "emergencyPhone" ? "col-span-2" : ""}`}>{label}<Input type={key.endsWith("Date") || key === "documentIssuedOn" ? "date" : "text"} maxLength={max} value={draft.profile?.[key] || ""} onChange={e => change("profile", { ...draft.profile, [key]: e.target.value || null })} /></label>)}
+              <label className="col-span-2 min-w-0 space-y-1">Foto do funcionário<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {const file=e.target.files?.[0]; if(!file)return; if(file.size>200_000 || !["image/png","image/jpeg","image/webp"].includes(file.type)){setError("Selecione PNG, JPEG ou WebP de até 200 KB.");return} const reader=new FileReader();reader.onload=()=>change("profile",{...draft.profile,photo:String(reader.result)});reader.onerror=()=>setError("Não foi possível ler a foto.");reader.readAsDataURL(file)}} />{draft.profile?.photo && <div className="flex items-center gap-3"><Image src={draft.profile.photo} alt="Prévia da foto" width={72} height={72} unoptimized className="size-18 rounded-full object-cover" /><Button type="button" variant="outline" onClick={()=>change("profile",{...draft.profile,photo:null})}>Remover foto</Button></div>}</label>
+            </fieldset>
+          </details>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro cadastro.</p>}
-          <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar cadastro"}</Button>
+          <Button type="submit" className="h-9 px-3" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar cadastro"}</Button>
         </form>}
       </>}
     </section>

@@ -29,7 +29,7 @@ body:has(.erp-workspace) {
 .workspace-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-block: 16px; }
 .workspace-resource-state { margin-block: 24px; padding: 24px; }
 .erp-content {
-  --workspace-control-height: 44px;
+  --workspace-control-height: 36px;
   --workspace-control-radius: 8px;
   font-size: var(--workspace-font-body);
   line-height: 22px;
@@ -51,8 +51,9 @@ body:has(.erp-workspace) {
   box-shadow: none;
   font-size: 14px;
 }
-.erp-content :where(textarea) { min-height: 104px; padding: 12px; }
-.erp-content [data-slot=button][data-size=default] { min-height: var(--workspace-control-height); font-size: 14px; }
+.erp-content :where(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=hidden]), select) { height: var(--workspace-control-height); }
+.erp-content :where(textarea) { min-height: 64px; padding: 8px; }
+.erp-content [data-slot=button][data-size=default] { height: auto; min-height: var(--workspace-control-height); padding-block: 6px; font-size: 14px; }
 .erp-content :where(input, select, textarea):disabled { cursor: not-allowed; background-color: var(--muted); color: var(--muted-foreground); }
 .erp-content :where(input, select, textarea)[aria-invalid=true] { border-color: var(--destructive); }
 .erp-content :where(table) { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -90,7 +91,7 @@ body:has(.erp-workspace) {
   color: var(--primary);
   box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
-.erp-content .erp-page-header { padding-bottom: 24px; margin-bottom: 28px; }
+.erp-content .erp-page-header { padding-bottom: 16px; margin-bottom: 20px; }
 .erp-content .erp-page-header h1 { font-size: var(--workspace-font-title); }
 .erp-content .erp-page-header > p:last-child { font-size: var(--workspace-font-body); line-height: 22px; margin-top: 12px; }
 .erp-content .erp-page-back { margin-bottom: 12px; }

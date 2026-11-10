@@ -203,7 +203,7 @@ for (const width of [390, 1280]) test(`central de vendas mantém clientes e valo
   await page.screenshot({ path: info.outputPath(`sales-overview-${width}.png`), fullPage: true })
 })
 
-test("criação exige condições explícitas e envia cliente e produtos reais com chave idempotente", async ({ page }) => {
+for (const width of [320, 390]) test(`criação compacta exige condições explícitas e preserva dados e chave idempotente em ${width}px`, async ({ page }) => {
   let saved: Record<string, unknown> | undefined
   await page.route(/\/api\/erp\/proposals(?:\?.*)?$/, route => {
     if (route.request().method() === "POST") {
@@ -217,10 +217,26 @@ test("criação exige condições explícitas e envia cliente e produtos reais c
   await page.route(`**/api/erp/proposals/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: detail() }))
   await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, total: 1, data: [{ id: customer, legalName: summary.customerName }] } }))
   await page.route(/\/api\/erp\/products\?/, route => route.fulfill({ json: { tenantId: tenant, total: 1, data: [{ id: product, name: item.name, sku: item.sku, basePrice: "19.99", unit: "UN", structureColors: [], upholsteryColors: [], hasPhoto: false }] } }))
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width, height: 844 })
   await page.goto("/vendas/propostas/novo")
   await page.locator("summary").filter({ hasText: "Condições comerciais" }).click()
   for (const label of ["Validade da proposta", "Condições de pagamento", "Condições de entrega", "Observações"]) await expect(page.getByLabel(label, { exact: true })).toHaveValue("")
+  for (const label of ["Validade da proposta", "Condições de pagamento", "Condições de entrega"]) await expect(page.getByLabel(label, { exact: true })).toHaveAttribute("required", "")
+  const paymentBounds = await page.getByLabel("Condições de pagamento", { exact: true }).boundingBox()
+  const deliveryBounds = await page.getByLabel("Condições de entrega", { exact: true }).boundingBox()
+  expect(paymentBounds!.y).toBe(deliveryBounds!.y)
+  expect(deliveryBounds!.x).toBeGreaterThan(paymentBounds!.x + paymentBounds!.width)
+  expect((await page.getByLabel("Observações", { exact: true }).boundingBox())!.height).toBeLessThanOrEqual(60)
+  const terms = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: "Condições comerciais" }) })
+  expect((await terms.boundingBox())!.height).toBeLessThanOrEqual(360)
+  for (const label of ["cliente", "produto"]) {
+    const lookup = page.getByRole("region", { name: `Seleção de ${label}`, exact: true })
+    const inputBounds = await lookup.getByLabel(`Buscar ${label}`, { exact: true }).boundingBox()
+    const buttonBounds = await lookup.getByRole("button", { name: `Pesquisar ${label}`, exact: true }).boundingBox()
+    expect(inputBounds!.height).toBeLessThanOrEqual(36)
+    expect(buttonBounds!.height).toBeLessThanOrEqual(36)
+    expect(inputBounds!.y).toBe(buttonBounds!.y)
+  }
   await expect(page.getByRole("heading", { name: "Prévia de interface" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: /^Selecionar / })).toHaveCount(0)
   await page.getByLabel("Buscar cliente", { exact: true }).fill("Cliente")
@@ -254,7 +270,7 @@ test("acabamentos ficam recolhidos e preservam escolhas registradas e preço bra
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["sales.proposals.read", "sales.proposals.manage", "sales.proposals.negotiate"] } }))
   await page.route(`**/api/erp/proposals/${record}`, route => {
     if (route.request().method() === "PUT") saved = route.request().postDataJSON()
-    return route.fulfill({ headers: { ETag: '\"1\"' }, json: { ...detail(), items: [{ ...item, unitPrice: "22468.09", structureColor: "Preto", upholsteryColor: "Azul registrado" }] } })
+    return route.fulfill({ headers: { ETag: '\"1\"' }, json: { ...detail(), items: [{ ...item, unitPrice: "22468.09", structureColor: "Preto", upholsteryColor: "Azul registrado", plateHolderColor: "Cor antiga" }] } })
   })
   await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: true, data: catalog } }))
   await page.setViewportSize({ width: 390, height: 844 })
@@ -265,7 +281,10 @@ test("acabamentos ficam recolhidos e preservam escolhas registradas e preço bra
   await finishes.locator("summary").click()
   await expect(page.getByLabel(`Estrutura de ${item.name}`, { exact: true })).toHaveValue("Preto")
   await expect(page.getByLabel(`Estofado de ${item.name}`, { exact: true })).toHaveValue("Azul registrado")
-  await expect(page.getByLabel(`Tipo de anilheiro de ${item.name}`, { exact: true })).toHaveCount(0)
+  const plateHolder = page.getByLabel(`Tipo de anilheiro de ${item.name}`, { exact: true })
+  await expect(plateHolder.getByRole("option")).toHaveText(["Não se aplica", "Standard", "Olímpico"])
+  await expect(plateHolder).toHaveValue("")
+  await plateHolder.selectOption("Standard")
   await page.locator("summary").filter({ hasText: "Condições comerciais" }).click()
   const validity = page.getByLabel("Validade da proposta", { exact: true })
   await expect(validity).toBeVisible()
@@ -283,7 +302,7 @@ test("acabamentos ficam recolhidos e preservam escolhas registradas e preço bra
   expect(saved).toBeUndefined()
   await page.screenshot({ path: info.outputPath("proposal-options-and-brl.png"), fullPage: true })
   await page.getByRole("button", { name: "Salvar proposta", exact: true }).click()
-  await expect.poll(() => saved).toMatchObject({ paymentTerms: "Condição preservada", items: [{ unitPrice: "22468.09", structureColor: "Cinza", upholsteryColor: "Azul registrado", plateHolderType: null, plateHolderColor: null }] })
+  await expect.poll(() => saved).toMatchObject({ paymentTerms: "Condição preservada", items: [{ unitPrice: "22468.09", structureColor: "Cinza", upholsteryColor: "Azul registrado", plateHolderType: "Standard", plateHolderColor: null }] })
 })
 
 test("salvar expande condições obrigatórias recolhidas e mantém os produtos acima delas", async ({ page }) => {

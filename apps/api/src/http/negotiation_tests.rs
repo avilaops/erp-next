@@ -50,7 +50,7 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code IN ('sales.orders.read','sales.orders.manage','catalog.products.read','catalog.products.manage') ON CONFLICT DO NOTHING; INSERT INTO role_permissions(role_id,permission_code) VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','sales.orders.read'),('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','sales.orders.manage') ON CONFLICT DO NOTHING;").execute(&admin).await.unwrap();
     let product = Uuid::now_v7();
     let customer = Uuid::now_v7();
-    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status) VALUES($1,$2,'LD-TEST','Equipamento','UN',100,'active')").bind(product).bind(Uuid::parse_str(TENANT).unwrap()).execute(&admin).await.unwrap();
+    sqlx::query("INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status,plate_holder_colors) VALUES($1,$2,'LD-TEST','Equipamento','UN',100,'active',ARRAY['Azul legado'])").bind(product).bind(Uuid::parse_str(TENANT).unwrap()).execute(&admin).await.unwrap();
     sqlx::query("INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES($1,$2,'fisica','Cliente','52998224725',true,false,'active')").bind(customer).bind(Uuid::parse_str(TENANT).unwrap()).execute(&admin).await.unwrap();
     let settings = json!(crate::platform::commercial_settings_model::tests::example());
     let saved = call(
@@ -103,7 +103,7 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     assert_eq!(table.0, StatusCode::OK);
     assert!(!table.1.to_string().contains("purchaseCost"));
     assert!(!table.1.to_string().contains("netMargin"));
-    let mut simulation = json!({"line":"imported","versionId":published.1["id"],"destinationState":"SP","taxpayer":false,"discount":{"kind":"percent","value":2500},"freightCents":10000,"downPaymentCents":0,"items":[{"productId":product,"quantity":3,"structureColor":null,"upholsteryColor":null}]});
+    let mut simulation = json!({"line":"imported","versionId":published.1["id"],"destinationState":"SP","taxpayer":false,"discount":{"kind":"percent","value":2500},"freightCents":10000,"downPaymentCents":0,"items":[{"productId":product,"quantity":3,"structureColor":null,"upholsteryColor":null,"plateHolderColor":null,"plateHolderType":"standard"}]});
     let quote = call(
         &router,
         "POST",
@@ -116,6 +116,7 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     .await;
     assert_eq!(quote.0, StatusCode::OK, "{}", quote.1);
     assert!(quote.1["director"].is_null());
+    assert_eq!(quote.1["sale"]["items"][0]["plateHolderType"], "Standard");
     let conversion = json!({"simulation":simulation,"digest":quote.1["digest"],"customerId":customer,"dueDate":"2027-01-30"});
     let key = Uuid::now_v7();
     let created = call(
@@ -130,6 +131,19 @@ async fn negotiation_preserves_snapshot_hides_costs_and_enforces_revision_author
     .await;
     assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
     assert_eq!(created.1["approvalStatus"], "pending");
+    let ordinary = call(
+        &router,
+        "GET",
+        &format!("/api/v1/orders/{}", created.1["id"].as_str().unwrap()),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(ordinary.0, StatusCode::OK, "{}", ordinary.1);
+    assert_eq!(ordinary.1["items"][0]["plateHolderType"], "Standard");
+    assert!(ordinary.1["items"][0]["plateHolderColor"].is_null());
     let repeated = call(
         &router,
         "POST",

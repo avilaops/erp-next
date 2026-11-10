@@ -135,6 +135,39 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
         .0,
         StatusCode::UNPROCESSABLE_ENTITY
     );
+    sqlx::query(
+        "UPDATE products SET plate_holder_types=ARRAY[]::text[] WHERE tenant_id=$1 AND id=$2",
+    )
+    .bind(Uuid::parse_str(TENANT).unwrap())
+    .bind(Uuid::parse_str(PRODUCT).unwrap())
+    .execute(&admin)
+    .await
+    .unwrap();
+    let independent_holder = json!({"productId":PRODUCT,"quantity":"1.000000","structureColor":"Piano Black","upholsteryColor":null,"plateHolderColor":null,"plateHolderType":"Standard"});
+    for (path, body) in [
+        (
+            "/api/v1/orders",
+            json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[independent_holder.clone()]}),
+        ),
+        (
+            "/api/v1/proposals",
+            json!({"customerId":CUSTOMER,"validUntil":"2100-01-01","paymentTerms":"À vista","deliveryTerms":"Retirada","notes":"","items":[independent_holder]}),
+        ),
+    ] {
+        let result = call(
+            &router,
+            "POST",
+            path,
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            body,
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::CREATED, "{path}: {}", result.1);
+        assert_eq!(result.1["items"][0]["plateHolderType"], "Standard");
+        assert!(result.1["items"][0]["plateHolderColor"].is_null());
+    }
     let created = call(
         &router,
         "POST",
@@ -197,7 +230,7 @@ async fn component_colors_are_independent_and_survive_proposal_conversion(admin:
     assert_eq!(order.1["items"][0]["plateHolderType"], "Olímpico");
     assert_eq!(order.1["items"][0]["unitPrice"], "19.99");
     let edited = call(&router, "PUT", &format!("/api/v1/orders/{order_id}"), "editor", Some(1), Some(Uuid::now_v7()),
-        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3.000000","armColor":"Azul"}]})).await;
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"3.000000","armColor":"Azul","plateHolderType":"Olímpico"}]})).await;
     assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
     assert_eq!(edited.1["items"][0]["plateHolderColor"], "Azul");
     assert_eq!(edited.1["items"][0]["plateHolderType"], "Olímpico");

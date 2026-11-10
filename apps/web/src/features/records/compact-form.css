@@ -1,0 +1,5 @@
+.erp-content .compact-records { --workspace-control-height: 36px; }
+.erp-content .compact-records input:not([type=checkbox], [type=radio], [type=file]), .erp-content .compact-records select { display: block; height: 36px; min-height: 36px; padding-block: 4px; }
+.erp-content .compact-records label { font-size: 12px; line-height: 18px; }
+.erp-content .compact-records textarea { min-height: 56px; padding: 8px; }
+.erp-content .compact-records input[type=date] { min-width: 0; max-width: 100%; }

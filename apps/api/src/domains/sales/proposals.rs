@@ -703,7 +703,7 @@ async fn save_draft(
             product.data.structure_colors.as_deref().unwrap_or_default(),
             saved.and_then(|line| line.structure_color.as_deref()),
         )?;
-        let plate_holder_color = super::select_color(
+        let plate_holder_color = super::select_optional_color(
             item.plate_holder_color.as_deref(),
             product
                 .data
@@ -712,13 +712,8 @@ async fn save_draft(
                 .unwrap_or_default(),
             saved.and_then(|line| line.plate_holder_color.as_deref()),
         )?;
-        let plate_holder_type = super::select_color(
+        let plate_holder_type = super::select_plate_holder_type(
             item.plate_holder_type.as_deref(),
-            product
-                .data
-                .plate_holder_types
-                .as_deref()
-                .unwrap_or_default(),
             saved.and_then(|line| line.plate_holder_type.as_deref()),
         )?;
         let upholstery_color = super::select_color(

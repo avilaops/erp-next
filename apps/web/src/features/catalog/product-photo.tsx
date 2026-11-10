@@ -4,15 +4,15 @@ import Image from "next/image"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
-export function ProductPhoto({ value, disabled, readOnly = false, onChange, onBusy }: { value?: string; disabled?: boolean; readOnly?: boolean; onChange?: (value: string) => void; onBusy?: (value: boolean) => void }) {
+export function ProductPhoto({ value, disabled, readOnly = false, compact = false, onChange, onBusy }: { value?: string; disabled?: boolean; readOnly?: boolean; compact?: boolean; onChange?: (value: string) => void; onBusy?: (value: boolean) => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  return <section className="min-w-0 space-y-3 rounded-xl border p-4" aria-label="Foto do produto">
+  return <section className="min-w-0 space-y-2 rounded-lg border p-3" aria-label="Foto do produto">
     <h2 className="font-semibold">Foto do produto</h2>
-    <div className="grid min-h-40 place-items-center rounded-lg bg-muted/40">
-      {value ? <Image unoptimized src={value} alt="Foto cadastrada do produto" width={1024} height={768} className="h-72 w-full object-contain sm:h-96" /> : <p className="p-6 text-sm text-muted-foreground">Nenhuma foto cadastrada</p>}
+    <div className={`grid grid-rows-[minmax(0,1fr)] place-items-center rounded-lg bg-muted/40 ${value ? compact ? "h-32 sm:h-48" : "h-48 sm:h-64" : "min-h-16"}`}>
+      {value ? <Image unoptimized src={value} alt="Foto cadastrada do produto" width={1024} height={768} className="h-full max-h-full w-full object-contain" /> : <p className="p-3 text-sm text-muted-foreground">Nenhuma foto cadastrada</p>}
     </div>
-    {!readOnly && <>
+    {!readOnly && <details className="min-w-0"><summary className="cursor-pointer text-sm font-medium text-primary">{value ? "Alterar foto" : "Adicionar foto"}</summary><div className="mt-2 space-y-2">
       <label className="grid min-w-0 gap-2 text-sm">Selecionar foto do produto<input className="block w-full min-w-0 max-w-full" type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled || busy} onChange={async event => {
         const input = event.currentTarget
         const file = input.files?.[0]
@@ -40,9 +40,9 @@ export function ProductPhoto({ value, disabled, readOnly = false, onChange, onBu
         finally { bitmap?.close(); input.value = ""; setBusy(false); onBusy?.(false) }
       }} /></label>
       <p className="text-xs text-muted-foreground">JPG, PNG ou WebP. A imagem é ajustada para até 1024 pixels e será gravada ao salvar o produto.</p>
-      {busy && <p role="status">Preparando foto…</p>}
       {value && <Button type="button" variant="outline" disabled={disabled || busy} onClick={() => { onChange?.(""); setError("") }}>Remover foto</Button>}
-    </>}
+    </div></details>}
+    {busy && <p role="status">Preparando foto…</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>
 }

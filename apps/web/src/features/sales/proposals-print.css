@@ -1,3 +1,9 @@
+.erp-content .proposal-editor { --workspace-control-height: 36px; }
+.erp-content .proposal-editor input, .erp-content .proposal-editor select { display: block; height: 36px; min-height: 36px; padding-block: 4px; }
+.erp-content .proposal-editor input[type=date] { max-width: 176px; }
+.erp-content .proposal-editor textarea.erp-commercial-text { height: 56px; min-height: 56px; padding: 8px; line-height: 18px; }
+.erp-content .proposal-editor label { font-size: 12px; line-height: 18px; }
+
 .proposal-document { width: 100%; max-width: 900px; min-width: 0; margin: 24px auto; padding: clamp(20px, 4vw, 40px); border: 1px solid var(--border); border-radius: 12px; background: white; color: #20252d; font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; box-shadow: 0 8px 30px rgb(0 0 0 / 4%); }
 .proposal-document h2, .proposal-document h3, .proposal-issuer-name { font-size: 18px; font-weight: 600; line-height: 1.35; }
 .proposal-document h3 { margin-bottom: 8px; }

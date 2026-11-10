@@ -16,7 +16,7 @@ import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 import { commercialMoney, commercialMoneyInput, normalizeCommercialMoney } from "./order-presentation"
 import { quantity, useCommand, useResource } from "@/hooks/use-operation"
-import { ColorChoice, Lookup, type Choice } from "./orders"
+import { ColorChoice, Lookup, PlateHolderChoice, type Choice } from "./orders"
 import { ProposalDocument, type ProposalIssuer } from "./proposal-document"
 import "./proposals-print.css"
 
@@ -113,24 +113,23 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
     return () => controller.abort()
   }, [initial, tenantId])
   function changeItem(id: string, patch: Partial<Selected>) { setItems(previous => previous.map(item => item.id === id ? { ...item, ...patch } : item)); setDirty(true) }
-  return <><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, ...(initial ? [{ label: `Proposta ${initial.data.number}`, href: `/vendas/propostas/${initial.data.id}` }, { label: "Editar" }] : [{ label: "Nova proposta" }])]} title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina o escopo e as condições comerciais. O rascunho fica salvo na empresa ativa." />
-    <section className="form-section min-w-0 space-y-3 sm:space-y-5">
-      <Link className={linkClass} href={initial ? `/vendas/propostas/${initial.data.id}` : "/vendas/propostas"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações desta proposta?")) event.preventDefault() }}>Voltar às propostas</Link>
-      <div className="grid items-start gap-2 sm:gap-4 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
+  return <><PageHeader eyebrow="Vendas / Propostas" breadcrumbs={[...proposalTrail, ...(initial ? [{ label: `Proposta ${initial.data.number}`, href: `/vendas/propostas/${initial.data.id}` }, { label: "Editar" }] : [{ label: "Nova proposta" }])]} title={initial ? `Editar proposta ${initial.data.number} · versão ${initial.data.version}` : "Nova proposta"} description="Defina produtos e condições comerciais." />
+    <section className="proposal-editor form-section min-w-0 space-y-2 [--workspace-control-height:2.25rem]">
+      <div className="grid items-start gap-2 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly compact selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly compact disabled={frozen || items.length >= 100} choose={value => {
         if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade do item existente."); return }
         const saved = initial?.items.find(item => item.productId === value.id)
         setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), basePrice: commercialMoneyInput(saved?.unitPrice || value.basePrice || ""), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
       }} /></div>
-      <form className="space-y-3 sm:space-y-5" onSubmit={async event => {
+      <form className="space-y-2" onSubmit={async event => {
         event.preventDefault(); setError("")
         if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeCommercialMoney(item.basePrice || ""))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
-        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: item.plateHolderColor || null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
+        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
         if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
       }}>
-        <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4" onChange={() => setDirty(true)}>
+        <fieldset disabled={frozen} className="min-w-0 space-y-2" onChange={() => setDirty(true)}>
           <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Produtos</h2><span className="text-xs text-muted-foreground">{items.length} item(ns)</span></div>
           {!items.length && <p className="text-sm text-muted-foreground">Busque um produto para incluí-lo na proposta.</p>}
-          {items.map(item => <section className="min-w-0 space-y-2 border-b py-3 sm:space-y-3 sm:py-4" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
+          {items.map(item => <section className="min-w-0 space-y-2 border-b py-2" key={item.id} aria-label={`Item da proposta: ${item.name}`}>
             <div className="flex min-w-0 items-start gap-2 sm:gap-3">
               <ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} />
               <div className="min-w-0 flex-1"><h3 className="break-words text-sm font-medium [overflow-wrap:anywhere]">{item.name}</h3><p className="break-words text-xs text-muted-foreground">{item.sku}</p></div>
@@ -140,25 +139,25 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
               <label className="grid min-w-0 gap-1 text-xs">Unitário (R$)<Input className="h-9" aria-label={`Preço unitário de ${item.name}`} title="Preço unitário somente para consulta nesta proposta." readOnly value={item.basePrice || ""} /></label>
               <label className="grid min-w-0 gap-1 text-xs">Quantidade<Input className="h-9" aria-label={`Quantidade de ${item.name}`} inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
             </div>
-            {(item.structureColors?.length || item.upholsteryColors?.length && item.upholsteryConfigurable !== false || item.plateHolderTypes?.length || item.plateHolderColors?.length || item.structureColor || item.upholsteryColor || item.plateHolderColor || item.plateHolderType) ? <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
-              <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType, item.plateHolderColor].filter(Boolean).join(" · ") || "Escolher opções"}</span></summary>
-              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><ColorChoice label={`Cor dos anilheiros de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderColors" }} options={item.plateHolderColors} value={item.plateHolderColor} onChange={value => changeItem(item.id, { plateHolderColor: value })} /><ColorChoice label={`Tipo de anilheiro de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "plateHolderTypes" }} options={item.plateHolderTypes} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
-            </details> : null}
+            <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
+              <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType || "Não se aplica"].filter(Boolean).join(" · ")}</span></summary>
+              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
+            </details>
           </section>)}
           <details className="min-w-0 border-y py-2" onInvalidCapture={event => { event.currentTarget.open = true }}>
-            <summary className="cursor-pointer py-1 text-sm font-medium">Condições comerciais<span className="ml-2 text-xs font-normal text-muted-foreground">Validade, pagamento e entrega</span></summary>
-            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-              <label className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 sm:col-span-2">Validade da proposta<Input type="date" className="block max-w-full appearance-none sm:max-w-64 [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" required value={validUntil} onChange={event => setValidUntil(event.target.value)} /></label>
+            <summary className="cursor-pointer py-1 text-sm font-medium">Condições comerciais<span className="ml-2 hidden text-xs font-normal text-muted-foreground sm:inline">Validade, pagamento e entrega</span></summary>
+            <div className="mt-2 grid min-w-0 grid-cols-2 items-end gap-2">
+              <label className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">Validade da proposta<Input type="date" className="block max-w-44 appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" required value={validUntil} onChange={event => setValidUntil(event.target.value)} /></label>
               <CommercialText label="Condições de pagamento" required maxLength={2000} value={paymentTerms} onChange={event => setPaymentTerms(event.target.value)} />
               <CommercialText label="Condições de entrega" required maxLength={2000} value={deliveryTerms} onChange={event => setDeliveryTerms(event.target.value)} />
-              <div className="min-w-0 sm:col-span-2"><CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} /></div>
+              <div className="col-span-2 min-w-0"><CommercialText label="Observações" maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} /></div>
             </div>
           </details>
         </fieldset>
         {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
         {command.stale && <Button type="button" variant="outline" onClick={() => { if (window.confirm("Recarregar e descartar as alterações locais?")) { command.reset(); reload() } }}>Recarregar proposta</Button>}
         {command.uncertain && <p role="status">Resultado pendente. Repita a confirmação para conferir o mesmo comando.</p>}
-        <Button type="submit" disabled={command.busy || command.stale || !customer || !items.length}>{command.busy ? "Confirmando…" : command.uncertain ? "Repetir confirmação" : "Salvar proposta"}</Button>
+        <Button type="submit" className="h-9 px-3" disabled={command.busy || command.stale || !customer || !items.length}>{command.busy ? "Confirmando…" : command.uncertain ? "Repetir confirmação" : "Salvar proposta"}</Button>
       </form>
     </section>
   </>

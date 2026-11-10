@@ -43,6 +43,23 @@ fn fixture() -> (ApprovalRules, SimulationInput, Vec<SourceItem>) {
 }
 
 #[test]
+fn simulation_validates_fixed_holder_types_without_requiring_holder_color() {
+    let (rules, mut input, sources) = fixture();
+    for (requested, expected) in [
+        ("Standard", Some("Standard")),
+        ("olímpico", Some("Olímpico")),
+        ("Não se aplica", None),
+    ] {
+        input.items[0].plate_holder_type = Some(requested.into());
+        let (sale, _) = calculate(&example(), &rules, &input, &sources).unwrap();
+        assert_eq!(sale.items[0].plate_holder_type.as_deref(), expected);
+        assert!(sale.items[0].plate_holder_color.is_none());
+    }
+    input.items[0].plate_holder_type = Some("Cônico".into());
+    assert!(calculate(&example(), &rules, &input, &sources).is_err());
+}
+
+#[test]
 fn imported_sale_composition_and_commercial_entry_match_reference() {
     let (rules, input, sources) = fixture();
     let (sale, director) = calculate(&example(), &rules, &input, &sources).unwrap();

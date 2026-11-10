@@ -6,6 +6,41 @@ const tenant = "11111111-1111-4111-8111-111111111111"
 const productId = "22222222-2222-4222-8222-222222222222"
 const product = { id: productId, name: "Produto de teste", sku: "TEST-001", unit: "UN", ncm: null, cest: null, basePrice: "12.50", status: "active", revision: 1 }
 
+test("publicação de preços mantém prévia e versão publicada legíveis sem corte", async ({ context, page }, info) => {
+  await authenticate(context)
+  let publishes = 0
+  const item = { productId, sku: "LD-A020", name: "Suporte de Agachamento Búlgaro e Levantamentos", priceWithoutIpiCents: 1113719, ipiBps: 1300, priceWithIpiCents: 1258562 }
+  await page.route("**/api/erp/price-tables/**", route => {
+    const path = new URL(route.request().url()).pathname
+    const line = path.includes("national") ? "national" : "imported"
+    if (route.request().method() !== "GET") publishes++
+    return route.fulfill({ headers: { ETag: '"7"' }, json: path.endsWith("/preview")
+      ? { tenantId: tenant, line, revision: 7, digest: "a".repeat(64), items: [item] }
+      : { tenantId: tenant, line, data: { version: 6, publishedAt: "2026-11-09T18:13:45Z", items: [item] } } })
+  })
+  await page.goto("/preferencias/tabela-precos")
+  for (const line of ["imported", "national"]) {
+    await page.getByRole("combobox", { name: "Linha comercial", exact: true }).selectOption(line)
+    await page.getByRole("button", { name: "Preparar prévia", exact: true }).click()
+    await expect(page.getByRole("button", { name: "Confirmar publicação", exact: true })).toBeVisible()
+    const tables = page.getByRole("table", { name: "Produtos da tabela de preços", exact: true })
+    await expect(tables).toHaveCount(2)
+    for (const width of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 852 })
+      for (const table of await tables.all()) {
+        expect(await table.evaluate(element => element.parentElement!.scrollWidth <= element.parentElement!.clientWidth + 1)).toBe(true)
+        await expect(table.getByText("R$ 12.585,62", { exact: true })).toBeVisible()
+        await expect(table.getByText("R$ 11.137,19", { exact: true }).filter({ visible: true })).toBeVisible()
+        await expect(table.getByText("13%", { exact: true }).filter({ visible: true })).toBeVisible()
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    }
+  }
+  expect(publishes).toBe(0)
+  await page.setViewportSize({ width: 390, height: 852 })
+  await page.screenshot({ path: info.outputPath("price-publication-mobile.png"), fullPage: true })
+})
+
 async function authenticate(context: BrowserContext, tenantId = tenant, token = "catalog-navigation-fixture") {
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)
@@ -16,6 +51,7 @@ async function authenticate(context: BrowserContext, tenantId = tenant, token = 
 
 test.beforeEach(async ({ context, page }) => {
   await authenticate(context)
+  await page.route("**/api/erp/**", route => route.fulfill({ status: 503, json: { title: "Consulta não configurada nesta fixture" } }))
   await page.route("**/api/erp/products**", route => {
     if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { title: "Gravação não configurada nesta fixture" } })
     if (new URL(route.request().url()).pathname.endsWith("/catalog")) return route.fulfill({ status: 404, json: { title: "Ficha de apresentação ainda não cadastrada" } })
@@ -99,17 +135,70 @@ test("catálogo mantém produto e dados essenciais visíveis em telas estreitas"
 })
 
 test("catálogo separa nome e metadados e agrupa o preço sem rolagem lateral", async ({ page }) => {
-  await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 1, data: [{ ...product, basePrice: "19419.84", hasPhoto: false }] } }))
+  const name = "Equipamento para exercícios com identificação comercial completa no catálogo"
+  await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 1, data: [{ ...product, name, basePrice: "19419.84", hasPhoto: false }] } }))
   await page.goto("/cadastros/produtos")
   const table = page.getByRole("table", { name: "Catálogo de produtos", exact: true })
   for (const width of [320, 390, 640, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 })
-    await expect(table.getByRole("link", { name: product.name, exact: true })).toHaveText(product.name)
+    const link = table.getByRole("link", { name, exact: true })
+    await expect(link).toHaveText(name)
+    await expect(link).toHaveAttribute("title", name)
+    if (width < 1024) expect((await link.boundingBox())!.height).toBeLessThanOrEqual(44)
     await expect(table.getByText("R$ 19.419,84", { exact: true }).filter({ visible: true })).toBeVisible()
-    await expect(table.getByRole("row").filter({ hasText: product.name })).toContainText(product.sku)
+    await expect(table.getByRole("row").filter({ hasText: name })).toContainText(product.sku)
     expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
+})
+
+test("consulta e edição do produto agrupam os campos e limitam a foto no celular", async ({ page }, info) => {
+  const photoDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1nQAAAAASUVORK5CYII="
+  const stored = { ...product, basePrice: "19419.84", ncm: "85176259", cest: "1234567", photoDataUrl, structureColors: ["Preto"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] }
+  let saved: Record<string, unknown> | undefined
+  await page.route("**/api/erp/product-categories?*", route => route.fulfill({ json: { tenantId: tenant, data: [], total: 0 } }))
+  await page.route(`**/api/erp/products/${productId}`, route => {
+    if (route.request().method() === "PUT") saved = route.request().postDataJSON()
+    return route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { ...stored, ...saved } }, headers: { etag: '"revision-1"' } })
+  })
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 852 })
+    await page.goto(`/cadastros/produtos/${productId}`)
+    const facts = page.getByRole("group", { name: "Dados do produto", exact: true })
+    await expect(facts).toContainText("R$ 19.419,84")
+    for (const value of [stored.sku, stored.unit, stored.ncm, stored.cest, "Ativo"]) await expect(facts).toContainText(value)
+    const sku = await facts.getByText("SKU", { exact: true }).boundingBox()
+    const unit = await facts.getByText("Unidade", { exact: true }).boundingBox()
+    expect(unit!.x).toBeGreaterThan(sku!.x)
+    expect(unit!.y).toBe(sku!.y)
+    expect((await page.getByRole("img", { name: "Foto cadastrada do produto", exact: true }).boundingBox())!.height).toBeLessThanOrEqual(192)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.getByRole("link", { name: "Editar produto", exact: true }).click()
+    const name = page.getByRole("textbox", { name: "Nome do produto", exact: true })
+    const photo = page.getByRole("region", { name: "Foto do produto", exact: true })
+    await expect(name).toHaveValue(stored.name)
+    expect((await photo.getByRole("img", { name: "Foto cadastrada do produto", exact: true }).boundingBox())!.height).toBeLessThanOrEqual(128)
+    expect((await name.boundingBox())!.y).toBeLessThan((await photo.boundingBox())!.y)
+    const skuInput = await page.getByRole("textbox", { name: "SKU", exact: true }).boundingBox()
+    const unitInput = await page.getByRole("textbox", { name: "Unidade", exact: true }).boundingBox()
+    expect(unitInput!.x).toBeGreaterThan(skuInput!.x)
+    expect(unitInput!.y).toBe(skuInput!.y)
+    expect(skuInput!.height).toBe(36)
+    await expect(name).toHaveCSS("font-size", "16px")
+    await expect(page.getByLabel("Cores da estrutura", { exact: true })).toHaveValue("Preto")
+    await expect(page.getByLabel("Cores dos braços", { exact: true })).toHaveValue("Azul")
+    expect((await page.getByLabel("Cores da estrutura", { exact: true }).boundingBox())!.height).toBeLessThanOrEqual(64)
+    await expect(page.getByLabel("Tipo de anilheiro", { exact: true })).toHaveCount(0)
+    await expect(page.getByLabel("Cores dos anilheiros", { exact: true })).toHaveCount(0)
+    await photo.getByText("Alterar foto", { exact: true }).click()
+    await expect(photo.getByLabel("Selecionar foto do produto", { exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await page.getByRole("textbox", { name: "Preço base (R$)", exact: true }).fill("19419,84")
+  await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Produto salvo" })).toBeVisible()
+  expect(saved).toMatchObject({ basePrice: "19419.84", structureColors: ["Preto"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] })
+  await page.screenshot({ path: info.outputPath("product-editor-compact-mobile.png"), fullPage: true })
 })
 
 test("tabela publicada mantém preços desconto e ação acessíveis no celular", async ({ page }) => {

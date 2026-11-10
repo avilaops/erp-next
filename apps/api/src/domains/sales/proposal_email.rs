@@ -159,9 +159,6 @@ fn attachment(current: &ProposalSnapshot, company: &str, tax_id: &str) -> MailAt
             item.upholstery_color
                 .as_ref()
                 .map(|v| format!("Estofado: {v}")),
-            item.plate_holder_color
-                .as_ref()
-                .map(|v| format!("Anilheiros: {v}")),
             item.plate_holder_type
                 .as_ref()
                 .map(|v| format!("Tipo: {v}")),
@@ -413,8 +410,8 @@ mod tests {
                 amount: "44.98".into(),
                 structure_color: Some("Preto & azul".into()),
                 upholstery_color: None,
-                plate_holder_color: None,
-                plate_holder_type: None,
+                plate_holder_color: Some("Azul legado".into()),
+                plate_holder_type: Some("Olímpico".into()),
             }],
         };
         let file = attachment(&current, "Empresa & Filhos", "04252011000110");
@@ -435,6 +432,9 @@ mod tests {
         assert!(!html.contains("19.99"));
         assert!(!html.contains("<script>"));
         assert!(!html.contains("<img"));
+        assert!(html.contains("Tipo: Olímpico"));
+        assert!(!html.contains("Anilheiros:"));
+        assert!(!html.contains("Azul legado"));
     }
 
     #[test]

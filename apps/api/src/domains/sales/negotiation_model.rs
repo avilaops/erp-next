@@ -281,7 +281,10 @@ pub fn calculate(
             total_cents: cents(line_net + ipi)?,
             structure_color: item.structure_color.clone(),
             plate_holder_color: item.plate_holder_color.clone(),
-            plate_holder_type: item.plate_holder_type.clone(),
+            plate_holder_type: super::select_plate_holder_type(
+                item.plate_holder_type.as_deref(),
+                None,
+            )?,
             upholstery_color: item.upholstery_color.clone(),
         });
     }

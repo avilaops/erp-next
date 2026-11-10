@@ -17,6 +17,8 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+#[cfg(test)]
+mod component_selection_tests;
 pub mod metrics;
 pub mod negotiation;
 pub mod negotiation_model;
@@ -414,6 +416,37 @@ fn select_color(
         ))
 }
 
+// Holder colors remain accepted for older clients, but are never required.
+fn select_optional_color(
+    requested: Option<&str>,
+    available: &[String],
+    previous: Option<&str>,
+) -> Result<Option<String>, DomainError> {
+    let Some(selected) = requested.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    select_color(Some(selected), available, previous)
+}
+
+// Sales options are fixed, independent of legacy product catalog choices.
+fn select_plate_holder_type(
+    requested: Option<&str>,
+    previous: Option<&str>,
+) -> Result<Option<String>, DomainError> {
+    let Some(selected) = requested.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    match selected.to_lowercase().as_str() {
+        "não se aplica" => Ok(None),
+        "standard" => Ok(Some("Standard".to_owned())),
+        "olímpico" => Ok(Some("Olímpico".to_owned())),
+        _ if previous == Some(selected) => Ok(Some(selected.to_owned())),
+        _ => Err(DomainError::Invalid(
+            "Tipo de anilheiro deve ser Standard, Olímpico ou Não se aplica",
+        )),
+    }
+}
+
 fn legacy_plate_holder_color<'a>(
     plate_holder_color: Option<&'a str>,
     arm_color: Option<&'a str>,
@@ -499,7 +532,7 @@ async fn prepare_order(
             product.data.structure_colors.as_deref().unwrap_or_default(),
             saved.and_then(|line| line.structure_color.as_deref()),
         )?;
-        let plate_holder_color = select_color(
+        let plate_holder_color = select_optional_color(
             legacy_plate_holder_color(
                 item.plate_holder_color.as_deref(),
                 item.arm_color.as_deref(),
@@ -511,13 +544,8 @@ async fn prepare_order(
                 .unwrap_or_default(),
             saved.and_then(|line| line.plate_holder_color.as_deref()),
         )?;
-        let plate_holder_type = select_color(
+        let plate_holder_type = select_plate_holder_type(
             item.plate_holder_type.as_deref(),
-            product
-                .data
-                .plate_holder_types
-                .as_deref()
-                .unwrap_or_default(),
             saved.and_then(|line| line.plate_holder_type.as_deref()),
         )?;
         let upholstery_color = select_color(

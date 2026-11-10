@@ -46,14 +46,28 @@ struct Line {
 
 impl Line {
     fn finish_information(&self) -> Option<String> {
+        self.describe_finish(false)
+    }
+
+    // Previously generated linked drafts may retain the old description.
+    fn recorded_finish_information(&self) -> Option<String> {
+        self.describe_finish(true)
+    }
+
+    fn describe_finish(&self, include_legacy_holder_color: bool) -> Option<String> {
         let values = [
-            ("Estrutura", &self.structure_color),
-            ("Anilheiros", &self.plate_holder_color),
-            ("Tipo de anilheiro", &self.plate_holder_type),
-            ("Estofado", &self.upholstery_color),
+            ("Estrutura", &self.structure_color, true),
+            (
+                "Anilheiros",
+                &self.plate_holder_color,
+                include_legacy_holder_color,
+            ),
+            ("Tipo de anilheiro", &self.plate_holder_type, true),
+            ("Estofado", &self.upholstery_color, true),
         ]
         .into_iter()
-        .filter_map(|(label, value)| {
+        .filter(|(_, _, include)| *include)
+        .filter_map(|(label, value, _)| {
             value
                 .as_deref()
                 .filter(|s| !s.is_empty())
@@ -287,13 +301,17 @@ pub(super) async fn validate(
         .into_iter()
         .map(|line| {
             let additional_info = line.finish_information();
+            let recorded_info = line.recorded_finish_information();
             (
-                line.sku,
-                line.unit,
-                i128::from(line.quantity_micros),
-                i128::from(line.price_cents) * 100_000_000,
-                i128::from(line.amount_cents),
+                (
+                    line.sku,
+                    line.unit,
+                    i128::from(line.quantity_micros),
+                    i128::from(line.price_cents) * 100_000_000,
+                    i128::from(line.amount_cents),
+                ),
                 additional_info,
+                recorded_info,
             )
         })
         .collect::<Vec<_>>();
@@ -302,21 +320,59 @@ pub(super) async fn validate(
         .iter()
         .map(|item| {
             Ok((
-                item.code.clone(),
-                item.unit.clone(),
-                exact_decimal(&item.quantity, 11, 4)? * 100,
-                exact_decimal(&item.unit_price, 11, 10)?,
-                exact_decimal(&item.gross_total, 13, 2)?,
+                (
+                    item.code.clone(),
+                    item.unit.clone(),
+                    exact_decimal(&item.quantity, 11, 4)? * 100,
+                    exact_decimal(&item.unit_price, 11, 10)?,
+                    exact_decimal(&item.gross_total, 13, 2)?,
+                ),
                 item.additional_info.clone(),
             ))
         })
         .collect::<Result<Vec<_>, DomainError>>()?;
-    expected.sort();
-    received.sort();
-    if expected != received {
+    expected.sort_by(|left, right| left.0.cmp(&right.0));
+    received.sort_by(|left, right| left.0.cmp(&right.0));
+    if expected.len() != received.len()
+        || expected.iter().zip(&received).any(|(expected, received)| {
+            expected.0 != received.0 || (expected.1 != received.1 && expected.2 != received.1)
+        })
+    {
         return Err(DomainError::Conflict(
             "Itens, unidades, quantidades e preços precisam corresponder integralmente ao pedido de origem",
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fiscal_finish_information_contains_structure_upholstery_and_holder_type() {
+        let line = Line {
+            structure_color: Some("Preto".into()),
+            plate_holder_color: Some("Azul legado".into()),
+            plate_holder_type: Some("Olímpico".into()),
+            upholstery_color: Some("Vermelho".into()),
+            product_id: Uuid::nil(),
+            sku: "TEST".into(),
+            name: "Equipamento".into(),
+            unit: "UN".into(),
+            quantity_micros: 1_000_000,
+            price_cents: 100,
+            amount_cents: 100,
+        };
+        assert_eq!(
+            line.finish_information().as_deref(),
+            Some("Estrutura: Preto; Tipo de anilheiro: Olímpico; Estofado: Vermelho")
+        );
+        assert_eq!(
+            line.recorded_finish_information().as_deref(),
+            Some(
+                "Estrutura: Preto; Anilheiros: Azul legado; Tipo de anilheiro: Olímpico; Estofado: Vermelho"
+            )
+        );
+    }
 }

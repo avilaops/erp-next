@@ -158,7 +158,6 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
                     let mut description = item["name"].as_str().unwrap_or("").to_owned();
                     for (key, label) in [
                         ("structureColor", "Estrutura"),
-                        ("plateHolderColor", "Anilheiros"),
                         ("plateHolderType", "Tipo de anilheiro"),
                         ("upholsteryColor", "Estofado"),
                     ] {
@@ -343,8 +342,9 @@ mod tests {
         let snapshot = json!({"items":[{"name":"Equipamento","quantity":"2.000000","unit":"UN","unitPrice":"1200.00","amount":"2400.00","structureColor":"Branco","plateHolderColor":"Azul","plateHolderType":"Olímpico","upholsteryColor":"Vermelho"}]});
         assert_eq!(
             defaults(&snapshot)["itens"],
-            "Equipamento · Estrutura: Branco · Anilheiros: Azul · Tipo de anilheiro: Olímpico · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
+            "Equipamento · Estrutura: Branco · Tipo de anilheiro: Olímpico · Estofado: Vermelho | 2.000000 UN | R$ 1200.00 | R$ 2400.00"
         );
+        assert_eq!(snapshot["items"][0]["plateHolderColor"], "Azul");
         let historical = json!({"items":[{"name":"Equipamento","quantity":"1.000000","unit":"UN","unitPrice":"1200.00","amount":"1200.00"}]});
         assert_eq!(
             defaults(&historical)["itens"],

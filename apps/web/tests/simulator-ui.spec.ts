@@ -7,7 +7,29 @@ test("parâmetros comerciais organiza seções e alíquotas em tabela sem perder
   await page.route("**/api/erp/commercial-settings/imported", route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, line: "imported", canEdit: true, revision: 1, status: "draft", data, calculation: null, monthlyExpensesCents: 0 } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/preferencias/comercial")
+  const sections = page.getByRole("navigation", { name: "Seções dos parâmetros comerciais", exact: true })
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(sections.getByRole("button")).toHaveCount(5)
+    for (const button of await sections.getByRole("button").all()) await expect(button).toBeInViewport()
+    expect(await sections.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    const discount = page.getByLabel("Desconto livre do vendedor (%)", { exact: true })
+    const safety = page.getByLabel("Margem de segurança sobre o custo (%)", { exact: true })
+    const discountBounds = (await discount.boundingBox())!
+    const safetyBounds = (await safety.boundingBox())!
+    expect(Math.abs(discountBounds.y - safetyBounds.y)).toBeLessThanOrEqual(1)
+    expect(safetyBounds.x).toBeGreaterThan(discountBounds.x + discountBounds.width)
+    expect(discountBounds.height).toBe(36)
+    expect(await discount.evaluate(element => getComputedStyle(element).fontSize)).toBe("16px")
+    const policy = page.locator("#commercial-section-0")
+    expect((await policy.boundingBox())!.height).toBeLessThan(310)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
   await page.getByLabel("Lucro líquido desejado (%)", { exact: true }).fill("16,5")
+  for (const name of ["Tributos", "Canal de venda", "Provisões e despesas"]) {
+    await sections.getByRole("button", { name, exact: true }).click()
+    await expect(sections.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true")
+  }
   await page.getByRole("button", { name: "ICMS por UF", exact: true }).click()
   await expect(page.getByRole("table", { name: "Alíquotas por UF de destino", exact: true })).toBeVisible()
   await expect(page.getByRole("table").getByRole("row")).toHaveCount(28)
@@ -19,6 +41,45 @@ test("parâmetros comerciais organiza seções e alíquotas em tabela sem perder
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   const path = page.getByRole("navigation", { name: "Caminho de navegação" })
   await expect(path.getByRole("link", { name: "Preferências", exact: true })).toHaveAttribute("href", "/preferencias")
+})
+
+test("resultado gerencial resume valores em duas colunas e mantém a entrada sugerida na edição", async ({ page }) => {
+  const data = { ...Object.fromEntries(fieldGroups.flatMap(group => group.fields.map(([key, , unit]) => [key, unit === "days" ? 7 : key === "monthlyExpensesCents" ? 100000 : 100]))), originState: "SP", stateRates: states.map(state => ({ state, internalBps: 1800, fcpBps: 0, outgoingBps: null })) } as Parameters
+  const calculation = { worstState: "SP", worstNonContributor: true, worstIcmsBps: 1800, variableCostsBps: 3800, requiredPretaxMarginPercent: 15, discountedCostMultiplier: 2.12766, tableCostMultiplier: 2.65957, markupPercent: 165.957, rawCostMultiplierWithSafety: 2.65957, monthlyExpensesCents: 100000, breakEvenRevenue: 10000, destinationLimits: [] }
+  await page.route("**/api/erp/commercial-settings/imported", route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, line: "imported", canEdit: true, revision: 1, status: "draft", data, calculation, monthlyExpensesCents: 100000, suggestedDownPayment: { recommendedBps: 7000, exactBps: 6640, worstSku: "LD-TEST", canApply: true } } }))
+  await page.goto("/preferencias/comercial")
+  const result = page.getByRole("region", { name: "Resultado gerencial", exact: true })
+  await expect(result).toBeVisible()
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    const facts = result.locator("dl > div")
+    await expect(facts).toHaveCount(8)
+    const first = (await facts.nth(0).boundingBox())!
+    const second = (await facts.nth(1).boundingBox())!
+    expect(Math.abs(first.y - second.y)).toBeLessThanOrEqual(1)
+    expect(second.x).toBeGreaterThan(first.x + first.width)
+    expect((await result.boundingBox())!.height).toBeLessThan(600)
+    expect(await result.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await expect(result.getByText("custo ajustado × 2,660", { exact: true })).toBeVisible()
+  await expect(result.getByText("custo ajustado × 2,128", { exact: true })).toBeVisible()
+  await expect(result.getByText("166%", { exact: true })).toBeVisible()
+  await expect(result.getByText(/SP, não contribuinte · ICMS 18%/)).toBeVisible()
+  await expect(result.getByText(/38%/, { exact: true })).toBeVisible()
+  await expect(result.getByText(/15%/, { exact: true })).toBeVisible()
+  await expect(result.getByText("R$ 1.000,00", { exact: true })).toBeVisible()
+  await expect(result.getByText("R$ 10.000,00", { exact: true })).toBeVisible()
+  const explanation = result.locator("details")
+  await expect(explanation).not.toHaveAttribute("open", "")
+  await explanation.locator("summary").click()
+  await expect(explanation).toContainText("Venda com desconto = custo ajustado ÷")
+  await expect(result.getByRole("heading", { name: "Entrada mínima sugerida: 70%", exact: true })).toBeVisible()
+  await expect(result.getByText(/Necessidade no desconto livre: 66,4%/)).toBeVisible()
+  await result.getByRole("button", { name: "Usar entrada sugerida", exact: true }).click()
+  await expect(page.getByLabel("Entrada mínima (%)", { exact: true })).toHaveValue("70")
+  await expect(page.getByText("Sugestão aplicada à edição. Salve os parâmetros para confirmar.", { exact: true })).toBeVisible()
+  await expect(result).toHaveCount(0)
 })
 
 const product = "33333333-3333-4333-8333-333333333333"
@@ -95,7 +156,7 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2026-12-30")
   await page.locator("summary").filter({ hasText: `Acabamentos de ${equipment.name}` }).click()
   await page.getByLabel(`Cor da estrutura de ${equipment.name}`, { exact: true }).selectOption("Preto")
-  await page.getByLabel(`Cor dos anilheiros de ${equipment.name}`, { exact: true }).selectOption("Preto")
+  await expect(page.getByLabel(`Cor dos anilheiros de ${equipment.name}`, { exact: true })).toHaveCount(0)
   await page.getByLabel(`Tipo de anilheiro de ${equipment.name}`, { exact: true }).selectOption("Olímpico")
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toHaveCount(0)
   await page.getByRole("button", { name: "Simular", exact: true }).click()
@@ -106,7 +167,7 @@ test("gestão vê composição, limites e entrada; comando incerto conserva chav
   expect(commands).toHaveLength(2)
   expect(commands[0]).toEqual(commands[1])
   expect(commands[0].key).toMatch(/^[a-f0-9-]{36}$/)
-  expect(commands[0].body).toMatchObject({ customerId: customer, simulation: { items: [{ productId: product, structureColor: "Preto", plateHolderColor: "Preto", plateHolderType: "Olímpico" }], discount: { kind: "total", value: 22600 } }, digest: "a".repeat(64) })
+  expect(commands[0].body).toMatchObject({ customerId: customer, simulation: { items: [{ productId: product, structureColor: "Preto", plateHolderColor: null, plateHolderType: "Olímpico" }], discount: { kind: "total", value: 22600 } }, digest: "a".repeat(64) })
 })
 test("tabela ausente e falha de acesso não fabricam valores", async ({ page }) => {
   await page.route("**/api/erp/commercial/tables/imported", route => route.fulfill({ json: { tenantId: tenant, line: "imported", canManage: false, data: null } }))

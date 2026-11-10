@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { PartyComplements } from "./party-complements"
 import { RegistryLookup } from "@/features/records/registry-lookup"
 import { clearPartyCnpj, emptyCnpjProvenance, fillPartyCnpj, type PartyDraft } from "./party-cnpj"
+import "@/features/records/compact-form.css"
 
 type PartyInput = PartyDraft
 type Party = Schema<"Party">
@@ -58,24 +59,23 @@ export function PartyList() {
 
   return <>
 
-    <section className="form-section min-w-0 space-y-5">
+    <section className="compact-records form-section min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Pessoas cadastradas</h2>{result?.canEdit && <Link className={linkClass} href="/cadastros/clientes-fornecedores/novo">Nova pessoa</Link>}</div>
-      <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={event => {
+      <form className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4" onSubmit={event => {
         event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
         setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="min-w-0 space-y-2">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Documento sem máscara" /></label>
-        <label className="min-w-0 space-y-2">Relacionamento<select name="role" className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
-        <label className="min-w-0 space-y-2">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-        <Button className="self-end" type="submit" disabled={loading}>Buscar</Button>
+        <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2"><label className="min-w-0 space-y-1">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Documento sem máscara" /></label><Button className="h-9 px-3" type="submit" disabled={loading}>Buscar</Button></div>
+        <label className="min-w-0 space-y-1">Relacionamento<select name="role" className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
+        <label className="min-w-0 space-y-1">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
       </form>
       {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de clientes e fornecedores" tabIndex={0}><DataTable aria-label="Clientes e fornecedores" className="min-w-[640px]">
-          <thead><tr><th scope="col">Nome</th><th scope="col">CPF / CNPJ</th><th scope="col">Relacionamento</th><th scope="col">Contato</th><th scope="col">Situação</th></tr></thead>
+        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de clientes e fornecedores" tabIndex={0}><DataTable aria-label="Clientes e fornecedores" className="table-fixed lg:table-auto">
+          <thead><tr><th scope="col" className="w-[55%] lg:w-auto">Nome</th><th scope="col" className="hidden lg:table-cell">CPF / CNPJ</th><th scope="col" className="hidden lg:table-cell">Relacionamento</th><th scope="col">Contato</th><th scope="col" className="hidden lg:table-cell">Situação</th></tr></thead>
           <tbody>{result.data.map(party => <tr key={party.id}>
-            <th scope="row" className="font-medium"><Link className={linkClass} href={`/cadastros/clientes-fornecedores/${party.id}`}>{party.legalName}</Link></th>
-            <td className="whitespace-nowrap">{party.taxId}</td><td>{relationship(party)}</td><td>{party.email || party.phone || "Não informado"}</td><td>{party.status === "active" ? "Ativo" : "Arquivado"}</td>
+            <th scope="row" className="align-top font-medium"><Link className={`${linkClass} line-clamp-2 [overflow-wrap:anywhere] lg:line-clamp-none`} title={party.legalName} href={`/cadastros/clientes-fornecedores/${party.id}`}>{party.legalName}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground lg:hidden"><p className="[overflow-wrap:anywhere]">{party.taxId}</p><p>{relationship(party)}</p><p>{party.status === "active" ? "Ativo" : "Arquivado"}</p></div></th>
+            <td className="hidden whitespace-nowrap lg:table-cell">{party.taxId}</td><td className="hidden lg:table-cell">{relationship(party)}</td><td className="align-top [overflow-wrap:anywhere]">{party.email && <p>{party.email}</p>}{party.phone && <p className="mt-1 text-xs text-muted-foreground">{party.phone}</p>}{!party.email && !party.phone && "Não informado"}</td><td className="hidden lg:table-cell">{party.status === "active" ? "Ativo" : "Arquivado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhuma pessoa encontrada.</p>}
         <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!query.offset} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset - 25 }) }}>Anterior</Button><span className="text-sm">Página {query.offset / 25 + 1}</span><Button variant="outline" disabled={query.offset + 25 >= result.total} onClick={() => { setLoading(true); setQuery({ ...query, offset: query.offset + 25 }) }}>Próxima</Button></div>
@@ -170,35 +170,35 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
 
   return <>
     <PageHeader eyebrow="Cadastros · Clientes e fornecedores" title={view ? snapshot?.data?.legalName || "Pessoa" : id ? "Editar pessoa" : "Nova pessoa"} />
-    <section className="form-section mt-5 min-w-0 space-y-5">
+    <section className="compact-records form-section min-w-0 space-y-3">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />
         {!snapshot.canEdit && <p role="status">Somente consulta. Solicite permissão para alterar clientes e fornecedores.</p>}
         {saved && <p role="status">Pessoa salva no servidor.</p>}
         {error && <div role="alert" className="space-y-3 rounded-lg border border-destructive p-4"><p>{error}</p>{conflict && <Button variant="outline" onClick={reload}>Recarregar cadastro</Button>}</div>}
         {view && snapshot.data ? <>
-          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[["Tipo", draft.personType === "fisica" ? "Pessoa física" : "Pessoa jurídica"], ["CPF ou CNPJ", draft.taxId], ["Nome fantasia", draft.tradeName || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Relacionamento", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}</dl>
+          <dl className="grid min-w-0 grid-cols-2 gap-2">{[["Tipo", draft.personType === "fisica" ? "Pessoa física" : "Pessoa jurídica"], ["CPF ou CNPJ", draft.taxId], ["Nome fantasia", draft.tradeName || "Não informado"], ["E-mail", draft.email || "Não informado"], ["Telefone", draft.phone || "Não informado"], ["Relacionamento", relationship(draft)], ["Situação", draft.status === "active" ? "Ativo" : "Arquivado"]].map(([label, value]) => <div className={`min-w-0 ${label === "E-mail" ? "col-span-2" : ""}`} key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-medium [overflow-wrap:anywhere]">{value}</dd></div>)}</dl>
           <PartyComplements addresses={draft.addresses} contacts={draft.contacts} />
           {snapshot.canEdit && <Link className={linkClass} href={`/cadastros/clientes-fornecedores/${id}/editar`}>Editar pessoa</Link>}
-        </> : <form className="space-y-5" onSubmit={save}>
-          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 gap-5 sm:grid-cols-2">
-            {draft.personType === "juridica" ? <RegistryLookup documentField={<label className="block min-w-0 space-y-2"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>} kind="cnpj" context="party" tenantId={snapshot.tenantId} automaticValue={draft.taxId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
+        </> : <form className="space-y-3" onSubmit={save}>
+          <fieldset disabled={!snapshot.canEdit || saving || uncertain} className="grid min-w-0 grid-cols-2 gap-2">
+            <label className="min-w-0 space-y-1">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
+            <label className="min-w-0 space-y-1">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
+            <div className="col-span-2 min-w-0">{draft.personType === "juridica" ? <RegistryLookup documentField={<label className="block min-w-0 space-y-1"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>} kind="cnpj" context="party" tenantId={snapshot.tenantId} automaticValue={draft.taxId} disabled={!snapshot.canEdit || saving || uncertain || conflict} readValue={() => draft.taxId} onApply={fields => {
               const result = fillPartyCnpj(draft, fields, cnpjProvenance.current)
               if (!result.count) return 0
               cnpjProvenance.current = result.provenance
               setDraft(result.draft)
               setSaved(false)
               return result.count
-            }} /> : <label className="block min-w-0 space-y-2"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>}
-            <label className="min-w-0 space-y-2">Tipo de pessoa<select className={selectClass} value={draft.personType} onChange={event => change("personType", event.target.value)}><option value="juridica">Pessoa jurídica</option><option value="fisica">Pessoa física</option></select></label>
-            <label className="min-w-0 space-y-2">Situação<select className={selectClass} value={draft.status} onChange={event => change("status", event.target.value)}><option value="active">Ativo</option><option value="archived">Arquivado</option></select></label>
-            {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["email", "E-mail", 254], ["phone", "Telefone", 40] ] as const).map(([field, label, maximum]) => <label className="min-w-0 space-y-2" key={field}>{label}<Input required={field === "legalName"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" ? "" : null))} /></label>)}
+            }} /> : <label className="block min-w-0 space-y-1"><span>CPF ou CNPJ</span><Input required value={draft.taxId} maxLength={30} onChange={event => change("taxId", event.target.value)} /></label>}</div>
+            {([ ["legalName", "Nome ou razão social", 200], ["tradeName", "Nome fantasia", 200], ["phone", "Telefone", 40], ["email", "E-mail", 254] ] as const).map(([field, label, maximum]) => <label className={`min-w-0 space-y-1 ${field === "legalName" || field === "email" ? "col-span-2" : ""}`} key={field}>{label}<Input required={field === "legalName"} type={field === "email" ? "email" : "text"} value={draft[field] || ""} maxLength={maximum} onChange={event => change(field, event.target.value || (field === "legalName" ? "" : null))} /></label>)}
 
-            <div className="min-w-0 space-y-3"><p className="font-medium">Relacionamento comercial</p><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label><p className="text-sm text-muted-foreground">Selecione pelo menos um papel.</p></div>
+            <div className="col-span-2 min-w-0 space-y-1"><p className="text-xs font-medium">Relacionamento comercial</p><div className="flex flex-wrap gap-x-5 gap-y-1"><label className="flex min-h-9 items-center gap-2"><input type="checkbox" checked={draft.isCustomer} onChange={event => change("isCustomer", event.target.checked)} />Cliente</label><label className="flex min-h-9 items-center gap-2"><input type="checkbox" checked={draft.isSupplier} onChange={event => change("isSupplier", event.target.checked)} />Fornecedor</label></div></div>
           <PartyComplements tenantId={snapshot.tenantId} addresses={draft.addresses} contacts={draft.contacts} onAddresses={value => change("addresses", value)} onContacts={value => change("contacts", value)} />
           </fieldset>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outra pessoa.</p>}
-          <Button type="submit" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar pessoa"}</Button>
+          <Button type="submit" className="h-9 px-3" disabled={saving || conflict || !snapshot.canEdit || (!dirty && Boolean(id))}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar pessoa"}</Button>
         </form>}
       </>}
     </section>

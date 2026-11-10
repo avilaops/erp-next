@@ -101,14 +101,14 @@ export function PartyComplements({
       </div>
     )
   return (
-    <div className="col-span-full space-y-5">
-      <section className="space-y-3">
-        <h2 className="font-semibold">Endereços</h2>
+    <div className="col-span-full space-y-3">
+      <section className="space-y-2 border-t pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Endereços</h2><Button type="button" variant="outline" className="h-9 px-3" disabled={addresses.length >= 10} onClick={() => onAddresses([...addresses, { ...blankAddress }])}>Adicionar endereço</Button></div>
         <p className="text-sm text-muted-foreground">
-          Até dez endereços declarados, com um principal. A consulta de CEP exige sua confirmação para preencher campos vazios.
+          Opcional · até dez endereços, com um principal.
         </p>
         {addresses.map((item, index) => (
-          <fieldset className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2" key={index}>
+          <fieldset className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border p-2" key={index}>
             <legend className="px-2">Endereço {index + 1}</legend>
             {(
               [
@@ -123,7 +123,7 @@ export function PartyComplements({
                 ["complement", "Complemento", 200]
               ] as const
             ).map(([field, label, max]) => (
-              <label className="space-y-2" key={field}>
+              <label className={`min-w-0 space-y-1 ${field === "street" || field === "complement" ? "col-span-2" : ""}`} key={field}>
                 {label}
                 <Input
                   aria-label={`Endereço ${index + 1}: ${label}`}
@@ -199,27 +199,19 @@ export function PartyComplements({
             </Button>
           </fieldset>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={addresses.length >= 10}
-          onClick={() => onAddresses([...addresses, { ...blankAddress }])}
-        >
-          Adicionar endereço
-        </Button>
       </section>
       <datalist id={listId}>
         {contactTypes.map((label) => (
           <option key={label} value={label} />
         ))}
       </datalist>
-      <section className="space-y-3">
-        <h2 className="font-semibold">Contatos adicionais</h2>
+      <section className="space-y-2 border-t pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Contatos adicionais</h2><Button type="button" variant="outline" className="h-9 px-3" disabled={contacts.length >= 10} onClick={() => onContacts([...contacts, { ...blankContact }])}>Adicionar contato</Button></div>
         <p className="text-sm text-muted-foreground">
-          Até dez contatos, com um principal. Informe e-mail ou telefone; salvar não envia mensagens.
+          Opcional · informe e-mail ou telefone.
         </p>
         {contacts.map((item, index) => (
-          <fieldset className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2" key={index}>
+          <fieldset className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border p-2" key={index}>
             <legend className="px-2">Contato {index + 1}</legend>
             {(
               [
@@ -229,7 +221,7 @@ export function PartyComplements({
                 ["phone", "Telefone", 40]
               ] as const
             ).map(([field, label, max]) => (
-              <label className="space-y-2" key={field}>
+              <label className={`min-w-0 space-y-1 ${field === "name" || field === "email" ? "col-span-2" : ""}`} key={field}>
                 {label}
                 <Input
                   list={field === "role" ? listId : undefined}
@@ -278,14 +270,6 @@ export function PartyComplements({
             </Button>
           </fieldset>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={contacts.length >= 10}
-          onClick={() => onContacts([...contacts, { ...blankContact }])}
-        >
-          Adicionar contato
-        </Button>
       </section>
     </div>
   )

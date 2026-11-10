@@ -3,6 +3,7 @@
 import type { Schema } from "@/lib/api/types"
 
 import { useSuggestedPaymentMethod } from "@/features/finance/settings/use-suggested-payment-method"
+import { commercialMoney } from "@/features/sales/order-presentation"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
@@ -11,8 +12,10 @@ import { RequestError } from "@/components/feedback/session-recovery"
 import Link from "next/link"
 import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DataTable } from "@/components/workspace/data-table"
+import { Pagination } from "@/components/workspace/pagination"
 import { useCommand, useResource } from "../../hooks/use-operation"
 
 type Receivable = Schema<"Receivable">
@@ -33,12 +36,29 @@ export function Receivables({ id }: { id?: string }) {
 function ReceivableList() {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/receivables?offset=${offset}&limit=25`)
+  const total = result.value?.total || 0
   return <>
-    <section className="form-section min-w-0 space-y-4"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>
+    <PageHeader eyebrow="Financeiro" title="Contas a receber" description="Consulte vencimentos, saldos e recebimentos declarados dos pedidos de venda." actions={<Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos">Consultar pedidos</Link>} />
+    <section className="min-w-0 space-y-3" aria-label="Consulta de contas a receber">
       {result.loading ? <p role="status">Carregando contas…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} conta(s)</p>
-         <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map((account: Receivable) => <li key={account.id} className="min-w-0 space-y-2 rounded-xl border p-4"><Link className={`${linkClass} break-words`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link><p>R$ {account.amount.replace(".", ",")} · {situation(account)}</p><p>Saldo restante: R$ {account.outstandingAmount.replace(".", ",")}</p><p>Vencimento: {account.dueDate}</p><p className="break-all text-xs text-muted-foreground">Pedido {account.orderId}</p></li>)}</ul>
-        <div className="flex flex-wrap justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <p className="text-sm text-muted-foreground">{total} conta(s) a receber</p>
+        {result.value?.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de contas a receber" tabIndex={0}>
+          <DataTable aria-label="Contas a receber" className="table-fixed md:table-auto">
+            <thead><tr><th scope="col" className="w-[65%] md:w-auto">Cliente</th><th scope="col" className="hidden md:table-cell">Vencimento</th><th scope="col" className="hidden md:table-cell">Valor</th><th scope="col" className="text-right">Saldo restante</th><th scope="col" className="hidden md:table-cell">Situação</th><th scope="col" className="hidden md:table-cell">Pedido</th></tr></thead>
+            <tbody>{result.value.data.map((account: Receivable) => <tr key={account.id}>
+              <th scope="row" className="align-top"><Link className={`${linkClass} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground md:hidden"><p>Vencimento: {account.dueDate.split("-").reverse().join("/")}</p><p>Valor: {commercialMoney(account.amount)}</p><p>{situation(account)}</p></div></th>
+              <td className="hidden whitespace-nowrap md:table-cell">{account.dueDate.split("-").reverse().join("/")}</td>
+              <td className="hidden whitespace-nowrap md:table-cell">{commercialMoney(account.amount)}</td>
+              <td className="text-right align-top font-medium [overflow-wrap:anywhere] md:whitespace-nowrap">{commercialMoney(account.outstandingAmount)}</td>
+              <td className="hidden md:table-cell">{situation(account)}</td>
+              <td className="hidden max-w-44 break-all text-xs text-muted-foreground md:table-cell">{account.orderId}</td>
+            </tr>)}</tbody>
+          </DataTable>
+        </div> : <div className="form-section space-y-2">
+          <h2>Nenhuma conta a receber encontrada</h2>
+          <p className="text-sm text-muted-foreground">Consulte os pedidos de venda para conferir a origem dos títulos e as condições de pagamento.</p>
+        </div>}
+        {(total > 25 || offset > 0) && <Pagination offset={offset} pageSize={25} total={total} onOffsetChange={setOffset} />}
       </>}
     </section>
   </>

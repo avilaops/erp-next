@@ -90,11 +90,68 @@ test("catálogo mantém produto e dados essenciais visíveis em telas estreitas"
     await expect(table).toBeVisible()
     await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toBeVisible()
     if (width === 390) {
-      await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toContainText(/R\$/)
+      await expect(table.getByRole("link", { name: "Produto de teste 1", exact: true })).toHaveText("Produto de teste 1")
+      await expect(table.getByRole("row").filter({ hasText: "Produto de teste 1" }).first()).toContainText("R$ 12,50")
       expect(await page.getByRole("region", { name: "Lista de produtos" }).evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
+})
+
+test("catálogo separa nome e metadados e agrupa o preço sem rolagem lateral", async ({ page }) => {
+  await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 1, data: [{ ...product, basePrice: "19419.84", hasPhoto: false }] } }))
+  await page.goto("/cadastros/produtos")
+  const table = page.getByRole("table", { name: "Catálogo de produtos", exact: true })
+  for (const width of [320, 390, 640, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(table.getByRole("link", { name: product.name, exact: true })).toHaveText(product.name)
+    await expect(table.getByText("R$ 19.419,84", { exact: true }).filter({ visible: true })).toBeVisible()
+    await expect(table.getByRole("row").filter({ hasText: product.name })).toContainText(product.sku)
+    expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test("tabela publicada mantém preços desconto e ação acessíveis no celular", async ({ page }) => {
+  await page.route("**/api/erp/commercial/tables/*", route => route.fulfill({ json: { tenantId: tenant, line: "imported", canManage: true, data: { id: productId, version: 1, publishedAt: "2026-11-09T12:00:00Z", freeDiscountBps: 750, minimumDownPaymentBps: 5000, originState: "SP", items: [{ productId, name: "Equipamento com nome extenso para consulta comercial", sku: "EQUIP-001", unit: "UN", priceWithoutIpiCents: 1941984, priceWithIpiCents: 2136182, ipiBps: 1000 }] } } }))
+  await page.goto("/vendas/tabela-precos")
+  const table = page.getByRole("table", { name: "Preços publicados", exact: true })
+  for (const width of [320, 390, 640, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(table).toBeVisible()
+    await expect(table.getByText("R$ 19.419,84", { exact: true }).filter({ visible: true })).toBeVisible()
+    await expect(table.getByText("R$ 21.361,82", { exact: true })).toBeVisible()
+    await expect(table.getByText("7,5%", { exact: true }).filter({ visible: true })).toBeVisible()
+    const action = table.getByRole("link", { name: "Simular pedido", exact: true })
+    await expect(action).toHaveAttribute("href", `/vendas/simulador?linha=imported&produto=${productId}`)
+    const box = await action.boundingBox()
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width)
+    expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test("estoque usa linhas selecionáveis e quantidades legíveis sem perder precisão", async ({ page }) => {
+  await page.route("**/api/erp/stock?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ productId, name: product.name, sku: product.sku, unit: "UN", status: "active", quantity: "1234.500000", reserved: "0.000001", available: "1234.499999" }] } }))
+  await page.route("**/api/erp/stock/movements?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ id: "33333333-3333-4333-8333-333333333333", productId, direction: "receipt", quantity: "1234.500000", balanceAfter: "1234.500000", reason: "Entrada conferida", occurredAt: "2026-11-09T12:00:00Z", reversesId: null, sourceOrderId: null }] } }))
+  await page.goto("/estoque/saldos")
+  const table = page.getByRole("table", { name: "Saldos por produto", exact: true })
+  for (const width of [320, 390, 640, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(table).toBeVisible()
+    await expect(table.getByText("1.234,5 UN", { exact: true })).toBeVisible()
+    await expect(table.getByText("0,000001", { exact: true }).filter({ visible: true })).toBeVisible()
+    await expect(table.getByText("1.234,499999", { exact: true }).filter({ visible: true })).toBeVisible()
+    expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  const select = table.getByRole("button", { name: new RegExp(`^${product.name} SKU `) })
+  await select.focus()
+  await page.keyboard.press("Enter")
+  await expect(select).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("region", { name: "Movimentos do produto", exact: true })).toContainText("Entrada de 1.234,5 UN")
+  await expect(page.getByText("Somente consulta. Você não pode movimentar o estoque.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Confirmar lançamento", exact: true })).toHaveCount(0)
 })
 
 test("Início pede confirmação e cancelar preserva a edição", async ({ page }) => {

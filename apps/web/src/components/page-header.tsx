@@ -17,7 +17,7 @@ export function PageHeader({ eyebrow, title, description, breadcrumbs, back, act
           </li>)}
         </ol>
       </nav> : eyebrow ? <p className="mb-2 text-sm font-medium text-primary">{eyebrow}</p> : null}
-      <div className="flex flex-wrap items-start justify-between gap-4"><PageTitle>{title}</PageTitle>{actions && <div className="flex flex-wrap gap-2">{actions}</div>}</div>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3"><PageTitle>{title}</PageTitle>{actions && <div className="flex min-w-0 max-w-full flex-wrap gap-2 [&>a]:max-w-full [&>a]:whitespace-normal [&>button]:max-w-full [&>button]:whitespace-normal">{actions}</div>}</div>
       {description && <p className="mt-3 max-w-2xl text-sm text-muted-foreground">{description}</p>}
     </header>
   )

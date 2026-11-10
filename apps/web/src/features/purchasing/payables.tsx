@@ -3,6 +3,7 @@
 import type { Schema } from "@/lib/api/types"
 
 import { useSuggestedPaymentMethod } from "@/features/finance/settings/use-suggested-payment-method"
+import { commercialMoney } from "@/features/sales/order-presentation"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
@@ -11,8 +12,10 @@ import { RequestError } from "@/components/feedback/session-recovery"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DataTable } from "@/components/workspace/data-table"
+import { Pagination } from "@/components/workspace/pagination"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { money, purchaseLink, purchaseSelect } from "./purchase-types"
 
@@ -29,12 +32,25 @@ export function Payables({ id }: { id?: string }) {
 function PayableList() {
   const [offset, setOffset] = useState(0)
   const result = useResource<Listing>(`/api/erp/financial-payables?offset=${offset}&limit=25`)
+  const total = result.value?.total || 0
   return <>
-    <section className="form-section min-w-0 space-y-4"><Link className={purchaseLink} href="/compras/pedidos">Consultar compras</Link>
+    <PageHeader eyebrow="Financeiro" title="Contas a pagar" description="Consulte vencimentos, saldos e pagamentos declarados das obrigações da empresa." actions={<Link className={buttonVariants({ variant: "outline" })} href="/compras/pedidos">Consultar compras</Link>} />
+    <section className="min-w-0 space-y-3" aria-label="Consulta de contas a pagar">
       {result.loading ? <p role="status">Carregando contas a pagar…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p>{result.value?.total || 0} conta(s) a pagar</p>{!result.value?.data.length && <p>Nenhuma conta a pagar encontrada.</p>}
-        <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{result.value?.data.map((account: Account) => <li className="min-w-0 space-y-2 rounded-xl border p-4" key={account.id}><Link className={`${purchaseLink} break-words`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><p>{situation(account)}</p><p>Valor: {money(account.amount)} · Saldo: {money(account.outstandingAmount)}</p><p>Vencimento: {account.dueDate}</p></li>)}</ul>
-        <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => value - 25)}>Anterior</Button><span>Página {Math.floor(offset / 25) + 1}</span><Button variant="outline" disabled={offset + 25 >= (result.value?.total || 0)} onClick={() => setOffset(value => value + 25)}>Próxima</Button></div>
+        <p className="text-sm text-muted-foreground">{total} conta(s) a pagar</p>
+        {result.value?.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de contas a pagar" tabIndex={0}>
+          <DataTable aria-label="Contas a pagar" className="table-fixed md:table-auto">
+            <thead><tr><th scope="col" className="w-[65%] md:w-auto">Favorecido</th><th scope="col" className="hidden md:table-cell">Vencimento</th><th scope="col" className="hidden md:table-cell">Valor</th><th scope="col" className="text-right">Saldo restante</th><th scope="col" className="hidden md:table-cell">Situação</th></tr></thead>
+            <tbody>{result.value.data.map((account: Account) => <tr key={account.id}>
+              <th scope="row" className="align-top"><Link className={`${purchaseLink} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-pagar/${account.id}`}>Conta de {account.supplierName}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground md:hidden"><p>Vencimento: {account.dueDate.split("-").reverse().join("/")}</p><p>Valor: {commercialMoney(account.amount)}</p><p>{situation(account)}</p></div></th>
+              <td className="hidden whitespace-nowrap md:table-cell">{account.dueDate.split("-").reverse().join("/")}</td>
+              <td className="hidden whitespace-nowrap md:table-cell">{commercialMoney(account.amount)}</td>
+              <td className="text-right align-top font-medium [overflow-wrap:anywhere] md:whitespace-nowrap">{commercialMoney(account.outstandingAmount)}</td>
+              <td className="hidden md:table-cell">{situation(account)}</td>
+            </tr>)}</tbody>
+          </DataTable>
+        </div> : <div className="form-section space-y-2"><h2>Nenhuma conta a pagar encontrada</h2><p className="text-sm text-muted-foreground">Consulte as compras e os pagamentos de funcionários para conferir a origem das obrigações.</p></div>}
+        {(total > 25 || offset > 0) && <Pagination offset={offset} pageSize={25} total={total} onOffsetChange={setOffset} />}
       </>}
     </section>
   </>

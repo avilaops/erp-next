@@ -82,6 +82,25 @@ test("títulos distinguem lista, criação, configuração e dashboard", async (
   }
 })
 
+test("cadastro de tags mantém controles e nomes longos dentro da largura do celular", async ({ page }) => {
+  await page.route("**/api/erp/tags?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
+  await page.route("**/api/erp/tag-groups?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
+  const name = "TAGCOMNOMELONGO".repeat(15)
+  await page.route(`**/api/erp/tags/${record}`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: { id: record, revision: 1, code: "TAG", name, status: "active", groupId: null, notes: null } } }))
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.goto("/cadastros/tags/novo")
+  const picker = page.getByRole("region", { name: "Seleção de grupo de tags", exact: true })
+  await expect(picker.getByRole("button", { name: "Grupos anteriores", exact: true })).toBeVisible()
+  await expect(picker.getByRole("button", { name: "Próximos grupos", exact: true })).toBeVisible()
+  expect(await picker.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.goto(`/cadastros/tags/${record}`)
+  const title = page.getByRole("heading", { name, exact: true })
+  await expect(title).toBeVisible()
+  expect(await title.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
 test("importação de produtos aceita CSV sem inventar resultados", async ({ page }) => {
   await page.goto("/vendas/importacao")
   await expect(page.getByRole("heading", { name: "Importação indisponível", exact: true })).toBeVisible()
@@ -177,6 +196,49 @@ test("estoque aceita seis casas com vírgula e conserva o comando na repetição
 })
 
 for (const resource of ["payables", "receivables"] as const) {
+  test(resource + ": lista financeira mantém identificação e saldo visíveis no celular", async ({ page }) => {
+    const payable = resource === "payables"
+    const title = payable ? "Contas a pagar" : "Contas a receber"
+    const regionName = payable ? "Lista de contas a pagar" : "Lista de contas a receber"
+    const accountName = "COLISEU EQUIPAMENTOS PARA MUSCULACAO LTDA"
+    await page.route(`**/api/erp/${payable ? "financial-payables" : resource}?*`, route => route.fulfill({ json: {
+      tenantId: tenant, canEdit: true, total: 1, data: [{ id: record, orderId: record, receiptId: record, customerName: accountName, supplierName: accountName, dueDate: "2026-11-20", amount: "199128.86", paidAmount: "117128.36", receivedAmount: "117128.36", outstandingAmount: "82000.50", status: "open", revision: 1, paymentId: null }],
+    } }))
+    await page.goto(`/financeiro/contas-${payable ? "pagar" : "receber"}`)
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible()
+    const region = page.getByRole("region", { name: regionName, exact: true })
+    const table = region.getByRole("table", { name: title, exact: true })
+    for (const width of [320, 390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(region.getByRole("link", { name: `Conta de ${accountName}`, exact: true })).toBeInViewport()
+      await expect(region.getByRole("cell", { name: "R$ 82.000,50", exact: true })).toBeInViewport()
+      expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      if (width < 768) {
+        await expect(table.getByRole("columnheader")).toHaveText([payable ? "Favorecido" : "Cliente", "Saldo restante"])
+        await expect(table.getByRole("rowheader")).toContainText("Vencimento: 20/11/2026")
+        await expect(table.getByRole("rowheader")).toContainText("Valor: R$ 199.128,86")
+        await expect(table.getByRole("rowheader")).toContainText(payable ? "Pagamento parcial declarado" : "Recebimento parcial declarado")
+      } else {
+        await expect(table.getByRole("columnheader")).toHaveCount(payable ? 5 : 6)
+      }
+    }
+    await expect(page.getByRole("navigation", { name: "Paginação", exact: true })).toHaveCount(0)
+  })
+
+  test(resource + ": lista vazia explica a consulta e dispensa paginação", async ({ page }) => {
+    const payable = resource === "payables"
+    await page.route(`**/api/erp/${payable ? "financial-payables" : resource}?*`, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 0, data: [] } }))
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto(`/financeiro/contas-${payable ? "pagar" : "receber"}`)
+    await expect(page.getByRole("heading", { name: payable ? "Contas a pagar" : "Contas a receber", exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { name: payable ? "Nenhuma conta a pagar encontrada" : "Nenhuma conta a receber encontrada", exact: true })).toBeVisible()
+    await expect(page.getByRole("link", { name: payable ? "Consultar compras" : "Consultar pedidos", exact: true })).toHaveAttribute("href", payable ? "/compras/pedidos" : "/vendas/pedidos")
+    await expect(page.getByRole("navigation", { name: "Paginação", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: /^(Anterior|Próxima)$/ })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+
   test(resource + ": vírgula é aceita e enviada como decimal canônico", async ({ page }) => {
     const body = { tenantId: tenant, canEdit: true, data: { id: record, receiptId: record, orderId: record, supplierName: "Fornecedor fixture", customerName: "Cliente fixture", dueDate: "2026-11-20", amount: "100.00", paidAmount: "0.00", receivedAmount: "0.00", outstandingAmount: "100.00", status: "open", revision: 1, paymentId: null }, payments: [] }
     let sent: { amount: string } | undefined

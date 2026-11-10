@@ -123,7 +123,7 @@ function TagGroupPicker({ selected, disabled, choose }: { selected: string | nul
     {result.loading ? <p role="status">Carregando grupos…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button type="button" onClick={result.reload}>Tentar novamente</Button></div> : <>
       <ul className="space-y-2">{result.value?.data.map(group => <li key={group.id}><Button type="button" variant="outline" className="h-auto max-w-full whitespace-normal break-words" disabled={disabled} onClick={() => choose(group.id)}>Usar {group.name} · {group.code}</Button></li>)}</ul>
       {!result.value?.data.length && <p>Nenhum grupo ativo encontrado.</p>}
-      <div className="flex gap-3"><Button type="button" variant="outline" disabled={disabled || query.offset === 0} onClick={() => setQuery({ ...query, offset: query.offset - 10 })}>Grupos anteriores</Button><Button type="button" variant="outline" disabled={disabled || !result.value || query.offset + 10 >= result.value.total} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximos grupos</Button></div>
+      <div className="flex flex-wrap gap-3"><Button type="button" variant="outline" disabled={disabled || query.offset === 0} onClick={() => setQuery({ ...query, offset: query.offset - 10 })}>Grupos anteriores</Button><Button type="button" variant="outline" disabled={disabled || !result.value || query.offset + 10 >= result.value.total} onClick={() => setQuery({ ...query, offset: query.offset + 10 })}>Próximos grupos</Button></div>
       <Link className={linkClass} href="/cadastros/grupos-tags/novo" target="_blank" rel="noopener noreferrer">Cadastrar grupo de tags</Link>
     </>}
   </section>

@@ -61,10 +61,9 @@ function ProposalList() {
           <DataTable>
             <caption className="sr-only">Propostas comerciais</caption>
             <thead className="bg-muted/50"><tr>
-              <th scope="col" className="p-3">Proposta</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Versão</th><th scope="col" className="p-3">Validade</th><th scope="col" className="p-3 text-right">Valor</th>
+              <th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Versão</th><th scope="col" className="p-3">Validade</th><th scope="col" className="p-3 text-right">Valor</th>
             </tr></thead>
             <tbody>{result.value.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
-              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/propostas/${item.id}`}>Proposta {item.number}</Link></td>
               <td className="min-w-48 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link></td>
               <td className="whitespace-nowrap p-3">{labels[item.expired ? "expired" : item.status] || item.status}</td>
               <td className="whitespace-nowrap p-3 text-right tabular-nums">{item.version}</td>

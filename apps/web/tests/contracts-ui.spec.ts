@@ -229,7 +229,7 @@ test("pedido gera prévia, exige revisão e permite acompanhar o mesmo contrato 
   expect((await context.request.get("/api/erp/commercial-contracts")).status()).toBe(401)
   await context.addCookies([cookie()])
   await page.goto(`/vendas/pedidos/${orderId}`)
-  await page.getByRole("link", { name: "Enviar pedido e contrato", exact: true }).click()
+  await page.getByRole("link", { name: "Pedido e contratos", exact: true }).click()
   await page.getByRole("link", { name: "Gerar contrato", exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${orderId}/contratos/novo$`), { timeout: 30000 })
   await expect(page.getByRole("button", { name: "Gerar prévia para revisão" })).toBeDisabled()

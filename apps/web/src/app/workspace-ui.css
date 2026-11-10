@@ -56,6 +56,7 @@ body:has(.erp-workspace) {
 .erp-content :where(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=file], [type=hidden]), select) { height: var(--workspace-control-height); }
 .erp-content :where(textarea) { min-height: 64px; padding: 8px; }
 .erp-content [data-slot=button][data-size=default] { height: auto; min-height: var(--workspace-control-height); padding-block: 6px; font-size: 14px; }
+.erp-content select.workspace-fiscal-event { min-height: 44px; }
 .erp-content :where(input, select, textarea):disabled { cursor: not-allowed; background-color: var(--muted); color: var(--muted-foreground); }
 .erp-content :where(input, select, textarea)[aria-invalid=true] { border-color: var(--destructive); }
 .erp-content :where(table) { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }

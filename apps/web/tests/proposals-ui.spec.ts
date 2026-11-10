@@ -164,6 +164,34 @@ test("central de vendas consulta dados reais e preserva pedidos quando propostas
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+for (const width of [390, 1280]) test(`central de vendas mantém clientes e valores visíveis em ${width}px`, async ({ page }, info) => {
+  const customerName = "Academia de musculação e condicionamento físico com nome comercial bastante extenso"
+  await page.route(/\/api\/erp\/proposals\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ ...summary, customerName, amount: "199128.86", status: "superseded" }] } }))
+  await page.route(/\/api\/erp\/orders\?limit=5$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: false, total: 1, data: [{ id: record, number: "42", customerName, amount: "199128.86", status: "confirmed" }] } }))
+  await page.setViewportSize({ width, height: 844 })
+  await page.goto("/vendas")
+  for (const label of ["Propostas recentes", "Pedidos recentes"]) {
+    const table = page.getByRole("table", { name: label, exact: true })
+    await expect(table.getByRole("columnheader")).toHaveText(width < 640 ? ["Cliente", "Valor"] : label === "Pedidos recentes" ? ["Pedido", "Cliente", "Situação", "Valor"] : ["Cliente", "Situação", "Valor"])
+    const name = table.getByRole("link", { name: customerName, exact: true })
+    await expect(name).toBeVisible()
+    await expect(name).toHaveAttribute("title", customerName)
+    const value = table.getByRole("cell").filter({ hasText: /199\.128,86/ })
+    await expect(value).toBeVisible()
+    const region = page.getByRole("region", { name: label, exact: true })
+    expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    const bounds = await value.boundingBox()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+    const nameBounds = await name.boundingBox()
+    if (width < 640) expect(nameBounds!.height).toBeLessThanOrEqual(40)
+    await expect(table.getByText(label === "Pedidos recentes" ? "Reservado" : "Substituída", { exact: true }).filter({ visible: true })).toBeVisible()
+  }
+  await expect(page.getByRole("table", { name: "Pedidos recentes", exact: true }).getByRole("link", { name: "PV-000042", exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath(`sales-overview-${width}.png`), fullPage: true })
+})
+
 test("criação exige condições explícitas e envia cliente e produtos reais com chave idempotente", async ({ page }) => {
   let saved: Record<string, unknown> | undefined
   await page.route(/\/api\/erp\/proposals(?:\?.*)?$/, route => {

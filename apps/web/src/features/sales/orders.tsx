@@ -27,6 +27,7 @@ import { OrderNegotiation } from "./order-negotiation"
 import { commercialMoney, orderNumber } from "./order-presentation"
 import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 import { OrderDetailCommercial } from "./order-detail-commercial"
+import { OrderEmail } from "./order-email"
 
 type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean }
 type Listing = Schema<"OrderList">
@@ -259,7 +260,8 @@ function OrderDetail({ id }: { id: string }) {
         {["completed", "cancelled"].includes(value.data.status) && <p className="rounded-lg border bg-muted/35 px-3 py-2 text-sm">Pedido {value.data.status === "completed" ? "concluído" : "cancelado"}: os dados comerciais estão disponíveis para consulta.</p>}
         <div className="flex flex-wrap items-center gap-3 print:hidden" aria-label="Documentos do pedido">
           <span className="text-xs font-medium text-muted-foreground">Documentos</span>
-          <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/vendas/pedidos/${id}/contratos`}>{value.canEdit && value.data.status !== "cancelled" ? "Enviar pedido e contrato" : "Contratos do pedido"}</Link>
+          <OrderEmail id={id} number={value.data.number} tenantId={value.tenantId} etag={result.etag} onReload={result.reload} />
+          <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/vendas/pedidos/${id}/contratos`}>Pedido e contratos</Link>
         </div>
         {["confirmed", "completed"].includes(value.data.status) && ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read", "catalog.products.read"].every(permission => access.value?.permissions.includes(permission)) && <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/fiscal/notas-saida/nova?pedido=${id}`}>Preparar NF-e deste pedido</Link>}
         {value.data.status === "draft" && !value.pricingOrigin && value.canEdit && !command.busy && !command.uncertain && !command.stale && <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}

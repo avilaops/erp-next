@@ -1,0 +1,12 @@
+@media print {
+  body:has([data-pos-receipt]) *:not(:has([data-pos-receipt])):not([data-pos-receipt]):not([data-pos-receipt] *) {
+    display: none !important;
+  }
+  body:has([data-pos-receipt]) *:has([data-pos-receipt]) {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  [data-pos-receipt] { width: 100%; border: 0; background: white; color: black; }
+}

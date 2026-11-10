@@ -7,15 +7,9 @@ import { AutomaticCnpj, fillCompanyFields } from "@/features/records/automatic-c
 import Link from "next/link"
 import { accessHref, safeReturnTo } from "@/lib/return-to"
 import { AccessLink } from "@/components/feedback/session-recovery"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
-
-function companySelectionError(status: number, title?: string) {
-  if (status === 401) return "Sua sessão expirou. Entre novamente para continuar."
-  if (status === 403) return "Seu acesso a esta empresa não foi autorizado."
-  if (status === 503) return "O serviço de empresas está temporariamente indisponível. Tente novamente."
-  return title || "Não foi possível selecionar esta empresa. Tente novamente."
-}
+import { CompanySelectionError, selectCompany } from "./company-selection"
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -36,7 +30,6 @@ function isCompanyDirectory(value: unknown): value is { data: (Schema<"CompanySu
 }
 
 export function CompanyPicker() {
-  const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
   const [companies, setCompanies] = useState<(Schema<"CompanySummary"> & { status?: string })[]>([])
   const [platformAdministrator, setPlatformAdministrator] = useState(false)
@@ -84,14 +77,9 @@ export function CompanyPicker() {
     setBusyCompanyId(company.id)
     setFeedback({ message: `Acessando ${name}…`, error: false })
     try {
-      const response = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: company.id }), signal: AbortSignal.timeout(10000) })
-      setRequiresLogin(response.status === 401)
-      const result = await response.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
-      if (!response.ok) throw new Error(companySelectionError(response.status, result.title))
-      if (result.tenantId !== company.id) throw new Error("A empresa selecionada não foi confirmada. Atualize a lista e tente novamente.")
-      router.push(returnTo)
-      router.refresh()
+      await selectCompany(company.id, returnTo)
     } catch (error) {
+      setRequiresLogin(error instanceof CompanySelectionError && error.status === 401)
       const timedOut = error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)
       setFeedback({ message: timedOut ? "A seleção demorou mais que o esperado. Tente novamente." : error instanceof Error ? error.message : "Não foi possível selecionar esta empresa. Tente novamente.", error: true })
       setBusyCompanyId(null)
@@ -111,7 +99,6 @@ export function CompanyPicker() {
 const subscribe = () => () => {}
 
 export function CompanySignup() {
-  const router = useRouter()
   const returnTo = safeReturnTo(useSearchParams().get("returnTo"))
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false)
   const [status, setStatus] = useState("")
@@ -136,17 +123,7 @@ export function CompanySignup() {
         tenantId = result.tenantId
         setCreated(tenantId)
       }
-      const selected = await fetch("/api/auth/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) })
-      const selectedResult = await selected.json().catch(() => ({})) as { title?: string; tenantId?: unknown }
-      if (!selected.ok) {
-        const selectionFailure = [401, 403, 503].includes(selected.status)
-          ? companySelectionError(selected.status, selectedResult.title)
-          : selectedResult.title || "Empresa cadastrada. Acesse Suas empresas para selecioná-la"
-        throw new Error(selectionFailure)
-      }
-      if (selectedResult.tenantId !== tenantId) throw new Error("A empresa cadastrada não foi confirmada. Acesse Suas empresas para tentar novamente.")
-      router.push(returnTo)
-      router.refresh()
+      await selectCompany(tenantId!, returnTo)
     } catch (error) { setStatus(error instanceof Error ? error.message : "Não foi possível concluir. Tente novamente"); setBusy(false) }
   }
   const fields = [["legalName", "Nome empresarial"], ["tradeName", "Nome fantasia"], ["taxId", "CPF ou CNPJ"], ["postalCode", "CEP"], ["city", "Cidade"], ["street", "Rua"], ["number", "Número"], ["district", "Bairro"], ["email", "E-mail da empresa"]]

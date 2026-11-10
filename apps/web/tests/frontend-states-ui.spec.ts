@@ -61,7 +61,7 @@ test("metas e prévias não apresentam números fixos nem controles simulados", 
   await expect(page.getByRole("heading", { name: "Integração com Lojas", exact: true })).toBeVisible()
   await expect(page.getByText(/Criar uma chave não configura automaticamente o Lojas/)).toBeVisible()
   await expect(page.locator("main").getByText(/4821|10:42|Conexão saudável|Sincronizar estoque/)).toHaveCount(0)
-  for (const path of ["/eventos", "/novidades", "/vendas/pdv"]) {
+  for (const path of ["/eventos", "/novidades", "/vendas/loja-virtual"]) {
     await page.goto(path)
     await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
     await expect(page.locator("main button, main table, main input")).toHaveCount(0)
@@ -94,7 +94,7 @@ test("importação de produtos aceita CSV sem inventar resultados", async ({ pag
 
 test("funcionalidade sem integração não monta dados ou operações fictícias", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/vendas/pdv")
+  await page.goto("/vendas/loja-virtual")
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   await expect(page.locator("main button")).toHaveCount(0)
   await expect(page.locator("main").getByText(/R\$|Academia Horizonte|PV-1048/)).toHaveCount(0)
@@ -106,7 +106,7 @@ test("funcionalidade sem integração não monta dados ou operações fictícias
 
 test("navegação entre funcionalidade indisponível e cadastro preserva as operações reais", async ({ page }) => {
   await page.route("**/api/erp/products?*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
-  await page.goto("/vendas/pdv")
+  await page.goto("/vendas/loja-virtual")
   await expect(page.getByRole("heading", { name: "Funcionalidade indisponível", exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Buscar no ERP", exact: true }).click()
   await page.getByRole("dialog").getByRole("combobox").fill("Produtos")

@@ -24,7 +24,16 @@ export function SalesWorkspace() {
         {proposals.loading ? <p role="status">Carregando propostas…</p> : proposals.error ? <div role="alert"><RequestError message={proposals.error} status={proposals.status} /><Button variant="outline" onClick={proposals.reload}>Tentar consultar propostas novamente</Button></div> : proposals.value && <>
           <p className="text-xs text-muted-foreground">{proposals.value.total} proposta(s) cadastrada(s)</p>
           <div className="flex flex-wrap items-center gap-2 text-sm"><Link className={linkClass} href="/vendas/propostas">Consultar propostas</Link>{proposals.value.canEdit && <Link className={buttonVariants({ className: "h-9 px-3" })} href="/vendas/propostas/novo">Novo orçamento</Link>}</div>
-          {proposals.value.data.length === 0 ? <p>Nenhuma proposta cadastrada nesta empresa.</p> : <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Propostas recentes" tabIndex={0}><DataTable><caption className="sr-only">Propostas recentes</caption><thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Valor</th></tr></thead><tbody>{proposals.value.data.map(proposal => <tr key={proposal.id} className="border-t hover:bg-muted/30"><td className="min-w-40 p-3"><Link className={`${linkClass} break-words`} href={`/vendas/propostas/${proposal.id}`}>{proposal.customerName}</Link></td><td className="whitespace-nowrap p-3">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</td><td className="whitespace-nowrap p-3 text-right tabular-nums">{money(proposal.amount)}</td></tr>)}</tbody></DataTable></div>}
+          {proposals.value.data.length === 0 ? <p>Nenhuma proposta cadastrada nesta empresa.</p> : <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Propostas recentes" tabIndex={0}>
+            <DataTable className="table-fixed text-xs sm:table-auto sm:text-sm"><caption className="sr-only">Propostas recentes</caption>
+              <thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="w-[64%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="w-[36%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
+              <tbody>{proposals.value.data.map(proposal => <tr key={proposal.id} className="border-t hover:bg-muted/30">
+                <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={proposal.customerName} href={`/vendas/propostas/${proposal.id}`}>{proposal.customerName}</Link><p className="mt-1 text-[11px] text-muted-foreground sm:hidden">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</p></td>
+                <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</td>
+                <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{money(proposal.amount)}</td>
+              </tr>)}</tbody>
+            </DataTable>
+          </div>}
         </>}
       </section>
       <section className="min-w-0 space-y-3" aria-labelledby="sales-orders-title">
@@ -32,7 +41,20 @@ export function SalesWorkspace() {
         {orders.loading ? <p role="status">Carregando pedidos…</p> : orders.error ? <div role="alert"><RequestError message={orders.error} status={orders.status} /><Button variant="outline" onClick={orders.reload}>Tentar consultar pedidos novamente</Button></div> : orders.value && <>
           <p className="text-xs text-muted-foreground">{orders.value.total} pedido(s) cadastrado(s)</p>
           <div className="flex flex-wrap items-center gap-2 text-sm"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>{orders.value.canEdit && <Link className={buttonVariants({ className: "h-9 px-3" })} href="/vendas/pedidos/novo">Novo pedido</Link>}</div>
-          {orders.value.data.length === 0 ? <p>Nenhum pedido cadastrado nesta empresa.</p> : <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Pedidos recentes" tabIndex={0}><DataTable><caption className="sr-only">Pedidos recentes</caption><thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="p-3">Pedido</th><th scope="col" className="p-3">Cliente</th><th scope="col" className="p-3">Situação</th><th scope="col" className="p-3 text-right">Valor</th></tr></thead><tbody>{orders.value.data.map(order => <tr key={order.id} className="border-t hover:bg-muted/30"><td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link></td><td className="min-w-40 p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link></td><td className="whitespace-nowrap p-3">{statuses[order.status] || order.status}</td><td className="whitespace-nowrap p-3 text-right tabular-nums">{money(order.amount)}</td></tr>)}</tbody></DataTable></div>}
+          {orders.value.data.length === 0 ? <p>Nenhum pedido cadastrado nesta empresa.</p> : <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Pedidos recentes" tabIndex={0}>
+            <DataTable className="table-fixed text-xs sm:table-auto sm:text-sm"><caption className="sr-only">Pedidos recentes</caption>
+              <thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="hidden p-3 sm:table-cell">Pedido</th><th scope="col" className="w-[64%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="w-[36%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
+              <tbody>{orders.value.data.map(order => <tr key={order.id} className="border-t hover:bg-muted/30">
+                <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link></td>
+                <td className="min-w-0 p-2 align-top sm:p-3">
+                  <Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link>
+                  <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground sm:hidden"><Link className="underline underline-offset-4" href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link><span>{statuses[order.status] || order.status}</span></div>
+                </td>
+                <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{statuses[order.status] || order.status}</td>
+                <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{money(order.amount)}</td>
+              </tr>)}</tbody>
+            </DataTable>
+          </div>}
         </>}
       </section>
     </div>

@@ -1,4 +1,5 @@
-import { SalesCapabilityUnavailable } from "@/features/sales/sales-capability-unavailable"
-export default function Page() { return <SalesCapabilityUnavailable title="Frente de caixa" description="Venda, pagamento e fechamento persistente do caixa do PDV." /> }
+import { Suspense } from "react"
+import { PosAccess } from "@/features/pos/pos-access"
+export default function Page() { return <Suspense fallback={<p role="status">Carregando PDV…</p>}><PosAccess view="sale" /></Suspense> }
 
 export const metadata = { title: "PDV" }

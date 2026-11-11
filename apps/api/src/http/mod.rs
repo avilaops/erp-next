@@ -7,6 +7,8 @@ mod audit_tests;
 #[cfg(test)]
 mod certificate_tests;
 #[cfg(test)]
+mod commercial_table_tests;
+#[cfg(test)]
 mod commission_tests;
 #[cfg(test)]
 mod company_tests;
@@ -96,6 +98,8 @@ mod registration_settings_tests;
 mod registry_tests;
 #[cfg(test)]
 mod returns_tests;
+#[cfg(test)]
+mod sales_checkout_tests;
 #[cfg(test)]
 mod sales_settings_tests;
 #[cfg(test)]

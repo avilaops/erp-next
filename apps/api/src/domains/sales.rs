@@ -17,6 +17,8 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+pub mod checkout;
+pub(crate) mod checkout_document;
 #[cfg(test)]
 mod component_selection_tests;
 pub mod metrics;
@@ -154,6 +156,8 @@ pub struct OrderSnapshot {
     pricing_origin: bool,
     data: OrderSummary,
     items: Vec<OrderLine>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    checkout: Option<checkout::CheckoutSnapshot>,
 }
 #[derive(Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
@@ -267,7 +271,7 @@ async fn load(
     let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     let pricing_origin: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2)",
+        "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2) OR EXISTS(SELECT 1 FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2)",
     )
     .bind(tenant)
     .bind(id)
@@ -280,6 +284,7 @@ async fn load(
         pricing_origin,
         data,
         items,
+        checkout: checkout::load(tx, tenant, id).await?,
     })
 }
 
@@ -726,6 +731,11 @@ pub async fn update(
             "Somente pedidos em rascunho podem ser editados",
         ));
     }
+    if current.checkout.is_some() {
+        return Err(DomainError::Conflict(
+            "Condições comerciais preservadas. Cancele e crie outro pedido para alterar o acordo",
+        ));
+    }
     let prepared = prepare_order(&mut tx, tenant, &input, Some(&current), false).await?;
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let updated = sqlx::query("UPDATE sales_orders SET customer_id=$3,customer_name=$4,customer_tax_id=$5,due_date=$6,amount_cents=$7,revision=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2 AND status='draft' AND revision=$9")
@@ -882,12 +892,16 @@ async fn transition(
             }
         }
     }
+    if matches!(action, Action::Confirm) {
+        checkout::confirm(&mut tx, tenant, id, &identity, &headers).await?;
+    }
     if matches!(action, Action::Complete) {
         super::finance::originate_order_receivable(&mut tx, tenant, &identity, &headers, id)
             .await?;
     }
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     if matches!(action, Action::Cancel) {
+        checkout::cancel_unpaid(&mut tx, tenant, id, &identity, &headers).await?;
         super::returns::reconcile_unshipped(&mut tx, tenant, &identity, &headers, id, next).await?;
     }
     sqlx::query("UPDATE sales_orders SET status=$3,revision=$4,updated_at=now() WHERE tenant_id=$1 AND id=$2").bind(tenant).bind(id).bind(target).bind(next).execute(&mut *tx).await.map_err(db)?;

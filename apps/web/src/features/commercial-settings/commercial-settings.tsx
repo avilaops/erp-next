@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DataTable } from "@/components/workspace/data-table"
@@ -11,12 +11,12 @@ import { useResource } from "@/hooks/use-operation"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import { fieldGroups, states, toDraft, toParameters, type Calculation, type Draft, type Snapshot } from "./commercial-parameters"
 
-export function CommercialSettings() {
-  const [line, setLine] = useState<"imported" | "national">("imported")
+export function CommercialSettings({ initialLine = "imported" }: { initialLine?: "imported" | "national" } = {}) {
+  const [line, setLine] = useState<"imported" | "national">(initialLine)
   const resource = useResource<Snapshot>(`/api/erp/commercial-settings/${line}`)
   return <div className="mx-auto min-w-0 max-w-6xl space-y-3 px-4 pb-24 pt-6">
     <PageHeader breadcrumbs={[{ label: "Preferências", href: "/preferencias" }, { label: "Parâmetros comerciais" }]} title="Parâmetros comerciais" description="Configure a política de preços e confira o resultado por linha comercial." />
-    <nav aria-label="Atalhos comerciais" className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:flex sm:flex-wrap sm:gap-x-4"><Link className="py-1 text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="py-1 text-primary underline" href="/preferencias/tabela-precos">Publicar tabela</Link><Link className="py-1 text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link><Link className="py-1 text-primary underline" href="/vendas/simulador">Simulador comercial</Link></nav>
+    <nav aria-label="Atalhos comerciais" className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:flex sm:flex-wrap sm:gap-x-4"><Link className="py-1 text-primary underline" href="/preferencias/despesas-fixas">Despesas fixas</Link><Link className="py-1 text-primary underline" href={`/preferencias/tabela-precos?linha=${line}`}>Publicar tabela</Link><Link className="py-1 text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link><Link className="py-1 text-primary underline" href={`/vendas/simulador?linha=${line}`}>Simulador comercial</Link></nav>
     <div className="flex gap-2" aria-label="Linha de produto">
       <Button type="button" variant={line === "imported" ? "default" : "outline"} aria-pressed={line === "imported"} onClick={() => { if (line !== "imported" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("imported") }}>Importada</Button>
       <Button type="button" variant={line === "national" ? "default" : "outline"} aria-pressed={line === "national"} onClick={() => { if (line !== "national" && (!document.querySelector("form[data-commercial-dirty='true']") || window.confirm("Descartar a edição não salva?"))) setLine("national") }}>Nacional</Button>

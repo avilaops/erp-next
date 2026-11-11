@@ -1,8 +1,7 @@
 "use client"
 import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { erpFetch } from "@/lib/api/client"
 import { PageHeader } from "@/components/page-header"
@@ -12,12 +11,15 @@ import { DataTable } from "@/components/workspace/data-table"
 import { X } from "lucide-react"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { useCommand, useResource } from "@/hooks/use-operation"
-import { useNavigationGuard } from "@/components/shell/navigation-guard"
+import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navigation-guard"
 import { states } from "@/features/commercial-settings/commercial-parameters"
 import { Lookup, ColorChoice, PlateHolderChoice, type Choice } from "./orders"
 import { NegotiationResult } from "./negotiation-result"
 import { money, percent, inputAmount, parseAmount, type PriceTable, type SimulationInput, type Simulation } from "./negotiation-types"
 import type { Opportunity } from "./opportunities"
+import { commercialTableReturn, type CommercialSelection } from "./commercial-navigation-model"
+import { CommercialCheckout, type CheckoutHandle } from "./commercial-checkout"
+import type { CheckoutInput } from "./commercial-payment-model"
 
 type Selected = { productId: string; quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const selectClass = "h-9 min-h-9 min-w-0 rounded-lg border bg-background px-2"
@@ -30,7 +32,10 @@ function jumpTo(section: string) {
   heading?.scrollIntoView({ block: "start" })
 }
 
-type SimulatorProps = { initialLine: string; initialProduct: string; initialOpportunity?: string }
+function pricingKey(input: { versionId: string; destinationState: string; taxpayer: boolean; discount: { kind: string; value: number }; freightCents: number; items: { productId: string; quantity: number }[] }) {
+  return JSON.stringify([input.versionId, input.destinationState, input.taxpayer, input.discount.kind, input.discount.value, input.freightCents, input.items.map(item => [item.productId, item.quantity])])
+}
+type SimulatorProps = { initialLine: string; initialProduct: string; initialItems?: CommercialSelection[]; initialDestination?: string; initialTaxpayer?: boolean; initialOpportunity?: string; returnTo?: string }
 export function CommercialSimulator(props: SimulatorProps) {
   return props.initialOpportunity ? <OpportunityContext {...props} id={props.initialOpportunity} /> : <SimulatorPage {...props} />
 }
@@ -40,44 +45,62 @@ function OpportunityContext({ id, ...props }: SimulatorProps & { id: string }) {
   if (source.error || !source.value) return <main className="p-6"><p role="alert"><RequestError message={source.error || "Oportunidade indisponível"} status={source.status} /></p></main>
   return <SimulatorPage {...props} opportunity={source.value.data} opportunityTenant={source.value.tenantId} />
 }
-function SimulatorPage({ initialLine, initialProduct, opportunity, opportunityTenant }: SimulatorProps & { opportunity?: Opportunity; opportunityTenant?: string }) {
+function SimulatorPage({ initialLine, initialProduct, opportunity, opportunityTenant, returnTo, initialItems, initialDestination, initialTaxpayer }: SimulatorProps & { opportunity?: Opportunity; opportunityTenant?: string }) {
   const [line, setLine] = useState(initialLine === "national" ? "national" : "imported")
   const [lineLocked, setLineLocked] = useState(false)
-  const table = useResource<PriceTable>(`/api/erp/commercial/tables/${line}`)
+  const context = new URLSearchParams()
+  if (initialDestination) context.set("destinationState", initialDestination)
+  if (initialTaxpayer) context.set("taxpayer", "true")
+  const table = useResource<PriceTable>(`/api/erp/commercial/tables/${line}${context.size ? `?${context}` : ""}`)
+  const access = useResource<{ tenant: { id: string }; permissions: string[] }>("/api/erp/me")
+  const canCreate = table.value?.canCreateOrder !== false && access.value?.tenant.id === table.value?.tenantId && !!access.value?.permissions.includes("sales.orders.manage")
   return <main className="mx-auto min-w-0 max-w-7xl space-y-3 px-4 pb-8 pt-4 [&_label]:text-xs">
-    <PageHeader eyebrow="Vendas" title="Simulador comercial" description="Confira preços, entrada e condições antes de criar um pedido." />
+    <PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Simulador comercial" }]} title="Simulador comercial" description="Confira preços, entrada e condições antes de criar um pedido." />
     {opportunity && <section className="rounded-lg border p-4"><h2 className="font-semibold">{opportunity.title}</h2><p>{opportunity.customerName || opportunity.companyName} · {opportunity.contactName}</p><p className="whitespace-pre-wrap text-sm text-muted-foreground">{opportunity.notes}</p><Link className="text-primary underline" href={`/vendas/funil/${opportunity.id}`}>Abrir oportunidade de origem</Link></section>}
-    <nav className="flex flex-wrap gap-x-3 gap-y-1 text-xs"><Link className="text-primary underline" href="/vendas/tabela-precos">Tabela de preços</Link>{table.value?.canManage && <><Link className="text-primary underline" href="/preferencias/comercial">Parâmetros e metas</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link></>}</nav>
+    <nav className="flex flex-wrap gap-x-3 gap-y-1 text-xs" aria-label="Navegação comercial"><Link className="text-primary underline" href={commercialTableReturn(returnTo, line)}>Tabela de preços</Link><Link className="text-primary underline" href="/vendas/pedidos">Pedidos</Link>{table.value?.canManage && <><Link className="text-primary underline" href={`/preferencias/comercial?linha=${line}`}>Parâmetros e metas</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link></>}</nav>
     <label className="grid max-w-64 gap-1">Linha comercial<select className={selectClass} disabled={lineLocked} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm("Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
-    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <p role="alert"><RequestError message={table.error} status={table.status} /></p> : table.value && (opportunityTenant && opportunityTenant !== table.value.tenantId ? <p role="alert">A empresa da sessão mudou. Reabra a oportunidade.</p> : <Simulator key={`${line}:${table.value.tenantId}:${table.value.data?.id}`} table={table.value} opportunity={opportunity} onLineLockChange={setLineLocked} initialProduct={line === initialLine ? initialProduct : ""} />)}
+    {access.error && <p role="status" className="text-sm">Não foi possível conferir a permissão de criação. A simulação continua disponível. <Button variant="outline" onClick={access.reload}>Conferir acesso</Button></p>}
+    {!access.loading && !access.error && !canCreate && <p className="text-sm text-muted-foreground">Seu acesso permite consultar e simular. Criar pedidos exige permissão de gestão de vendas.</p>}
+    {table.loading ? <p role="status">Carregando versão publicada…</p> : table.error ? <div role="alert"><RequestError message={table.error} status={table.status} /><Button variant="outline" onClick={table.reload}>Tentar novamente</Button></div> : table.value && (opportunityTenant && opportunityTenant !== table.value.tenantId ? <p role="alert">A empresa da sessão mudou. Reabra a oportunidade.</p> : <Simulator key={`${line}:${table.value.tenantId}`} table={table.value} canCreate={canCreate} opportunity={opportunity} onLineLockChange={setLineLocked} initialItems={line === initialLine ? initialItems : undefined} initialDestination={initialDestination} initialTaxpayer={initialTaxpayer} initialProduct={line === initialLine ? initialProduct : ""} />)}
   </main>
 }
 
-function Simulator({ table, initialProduct, opportunity, onLineLockChange }: { table: PriceTable; initialProduct: string; opportunity?: Opportunity; onLineLockChange: (locked: boolean) => void }) {
+function Simulator({ table: initialTable, initialProduct, initialItems, initialDestination, initialTaxpayer, opportunity, onLineLockChange, canCreate }: { table: PriceTable; initialProduct: string; initialItems?: CommercialSelection[]; initialDestination?: string; initialTaxpayer?: boolean; opportunity?: Opportunity; onLineLockChange: (locked: boolean) => void; canCreate: boolean }) {
   const router = useRouter()
   const command = useCommand()
-  const [items, setItems] = useState<Selected[]>(() => table.data?.items.some(i => i.productId === initialProduct) ? [{ productId: initialProduct, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }] : [])
+  const [updatedTable, setUpdatedTable] = useState<PriceTable | null>(null)
+  const [reloading, setReloading] = useState(false)
+  const table = updatedTable || initialTable
+  const [items, setItems] = useState<Selected[]>(() => (initialItems?.length ? initialItems : initialProduct ? [{ productId: initialProduct, quantity: 1 }] : []).map(item => ({ productId: item.productId, quantity: String(item.quantity), structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" })))
   const [product, setProduct] = useState("")
   const [search, setSearch] = useState("")
-  const [destination, setDestination] = useState(table.data?.originState || "")
-  const [taxpayer, setTaxpayer] = useState("false")
+  const [destination, setDestination] = useState(initialDestination || table.data?.originState || "")
+  const [taxpayer, setTaxpayer] = useState(initialTaxpayer ? "true" : "false")
   const [discount, setDiscount] = useState<{ kind: "percent" | "amount" | "total"; raw: string }>({ kind: "percent", raw: "0" })
   const [freight, setFreight] = useState("")
   const [ourFreight, setOurFreight] = useState(false)
   const [downPayment, setDownPayment] = useState("")
   const [customer, setCustomer] = useState<Choice | null>(opportunity?.customerId ? { id: opportunity.customerId, legalName: opportunity.customerName || "Cliente da oportunidade" } : null)
   const [dueDate, setDueDate] = useState("")
-  const [result, setResult] = useState<{ value: Simulation; input: SimulationInput } | null>(null)
+  const [calculated, setResult] = useState<{ value: Simulation; input: SimulationInput } | null>(null)
+  const [pricedTotal, setPricedTotal] = useState<{ key: string; totalCents: number; minimumCents: number } | null>(null)
+  const checkout = useRef<CheckoutHandle>(null)
+  const result = calculated?.input.versionId === table.data?.id ? calculated : null
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [everCalculated, setEverCalculated] = useState(false)
   const [error, setError] = useState("")
-  const frozen = busy || command.busy || command.uncertain || command.stale
+  const frozen = busy || reloading || command.busy || command.uncertain || command.stale
+  const currentPriceKey = pricingKey({ versionId: table.data?.id || "", destinationState: destination, taxpayer: taxpayer === "true", discount: { kind: discount.kind, value: parseAmount(discount.raw) ?? -1 }, freightCents: ourFreight ? parseAmount(freight) ?? -1 : 0, items: items.map(item => ({ productId: item.productId, quantity: Number(item.quantity) })) })
+  const paymentTotal = pricedTotal?.key === currentPriceKey ? pricedTotal.totalCents : null
+  const paymentEntry = paymentTotal === null ? null : downPayment.trim() ? parseAmount(downPayment) : pricedTotal!.minimumCents
+  const unavailableItems = items.filter(item => !table.data?.items.some(source => source.productId === item.productId && source.available !== false))
   useEffect(() => { onLineLockChange(frozen) }, [frozen, onLineLockChange])
   useNavigationGuard(dirty || command.uncertain ? "Sair sem concluir esta negociação?" : null)
   function change() { setResult(null); setDirty(true); setError(""); command.reset() }
   function simulationInput(): SimulationInput {
     if (!table.data) throw Error("Publique uma tabela antes de simular.")
+    if (unavailableItems.length) throw Error("Há equipamentos indisponíveis nesta tabela. Confira a seleção e remova esses itens explicitamente para continuar.")
     const value = parseAmount(discount.raw)
     const freightCents = ourFreight ? parseAmount(freight) : 0
     const entry = downPayment.trim() ? parseAmount(downPayment) : null
@@ -94,6 +117,7 @@ function Simulator({ table, initialProduct, opportunity, onLineLockChange }: { t
       const value: Simulation & { title?: string } = await response.json()
       if (!response.ok) throw Error(value.title || "Não foi possível simular.")
       if (value.tenantId !== table.tenantId || !/^[a-f0-9]{64}$/.test(value.digest) || !value.sale) throw Error("Resposta da simulação incompleta.")
+      setPricedTotal({ key: pricingKey(input), totalCents: value.sale.totalCents, minimumCents: value.sale.minimumDownPaymentCents })
       setResult({ value, input }); setEverCalculated(true)
       const customerSection = document.getElementById("simulator-customer")?.closest("details")
       if (customerSection) customerSection.open = true
@@ -105,25 +129,44 @@ function Simulator({ table, initialProduct, opportunity, onLineLockChange }: { t
     finally { setBusy(false) }
   }
   async function convert() {
+    if (!canCreate) return
     if (!result || !customer || !dueDate) { setError("Selecione o cliente e informe o vencimento antes de criar o pedido."); return }
-    const value = await command.send<{ tenantId: string; id: string }>("/api/erp/commercial/orders", table.tenantId, { simulation: result.input, digest: result.value.digest, customerId: customer.id, dueDate, ...(opportunity ? { opportunityId: opportunity.id, opportunityRevision: opportunity.revision } : {}) })
+    let terms: CheckoutInput | undefined
+    if (table.paymentMethods !== undefined && !command.uncertain) {
+      try { terms = checkout.current?.read(); if (!terms) throw Error("Confira as condições do pedido.") }
+      catch (reason) { setError(reason instanceof Error ? reason.message : "Confira as condições do pedido."); jumpTo("customer"); return }
+    }
+    const value = await command.send<{ tenantId: string; id: string }>("/api/erp/commercial/orders", table.tenantId, { simulation: result.input, digest: result.value.digest, customerId: customer.id, dueDate, ...(terms ? { checkout: terms } : {}), ...(opportunity ? { opportunityId: opportunity.id, opportunityRevision: opportunity.revision } : {}) })
     if (value?.tenantId === table.tenantId && value.id) { setDirty(false); router.push(`/vendas/pedidos/${value.id}`) }
   }
+  async function refreshTable() {
+    if (reloading || command.busy || command.uncertain) return
+    setReloading(true); setError("")
+    try {
+      const response = await erpFetch(`/api/erp/commercial/tables/${table.line}`, { cache: "no-store" })
+      const latest: PriceTable & { title?: string } = await response.json()
+      if (!response.ok) throw Error(latest.title || "Não foi possível atualizar a tabela.")
+      if (latest.tenantId !== table.tenantId || latest.line !== table.line || !latest.data) throw Error("A tabela não está disponível para esta negociação. Confira a empresa e a publicação.")
+      setUpdatedTable(latest); setResult(null); command.reset()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível atualizar a tabela.") }
+    finally { setReloading(false) }
+  }
   if (!table.data) return <section className="form-section space-y-3"><p>Nenhuma tabela publicada nesta linha.</p>{table.canManage && <Link className="text-primary underline" href="/preferencias/tabela-precos">Publicar tabela de preços</Link>}</section>
-  const choices = table.data.items.filter(i => `${i.sku} ${i.name}`.toLowerCase().includes(search.toLowerCase()) && !items.some(selected => selected.productId === i.productId))
+  const choices = table.data.items.filter(i => i.available !== false && `${i.sku} ${i.name}`.toLowerCase().includes(search.toLowerCase()) && !items.some(selected => selected.productId === i.productId))
   return <div data-simulation-dirty={dirty} className="space-y-4">
     <div className="sticky top-[52px] z-20 space-y-1 border-y bg-background py-1 lg:top-16">
       <div className="flex min-w-0 items-center justify-between gap-2">
         {(error || command.error) ? <p role="alert" className="min-w-0 text-xs sm:text-sm"><RequestError message={error || command.error} status={command.status || undefined} /></p> : <p role="status" className="min-w-0 text-xs text-muted-foreground sm:text-sm">Tabela v{table.data.version} · {result ? "Calculada" : everCalculated ? "Alterada após o cálculo: simule novamente" : "Simulação não salva"}</p>}
-        <Button type="button" disabled={frozen || !items.length} onClick={simulate}>{busy ? "Calculando…" : "Simular"}</Button>
+        <div className="flex shrink-0 gap-2"><Button type="button" variant={result ? "outline" : "default"} disabled={frozen || !items.length} onClick={simulate}>{busy ? "Calculando…" : "Simular"}</Button>{result && canCreate && <Button type="button" disabled={frozen} onClick={() => jumpTo("customer")}>Continuar pedido</Button>}</div>
       </div>
-      <nav aria-label="Etapas da simulação" className="grid grid-cols-4 gap-1 text-xs sm:text-sm">
-        {[["equipment", "Equipamentos"], ["conditions", "Condições"], ["result", "Resultado"], ["customer", "Cliente"]].map(([id, label]) => <a key={id} href={`#simulator-${id}`} className="flex min-h-9 min-w-0 items-center justify-center rounded-md px-1 font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" onClick={event => { event.preventDefault(); jumpTo(id) }}>{label}</a>)}
+      <nav aria-label="Etapas da simulação" className={`grid ${canCreate ? "grid-cols-4" : "grid-cols-3"} gap-1 text-xs sm:text-sm`}>
+        {[["equipment", "Equipamentos"], ["conditions", "Condições"], ["result", "Resultado"], ...(canCreate ? [["customer", "Cliente"]] : [])].map(([id, label]) => <a key={id} href={`#simulator-${id}`} className="flex min-h-9 min-w-0 items-center justify-center rounded-md px-1 font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" onClick={event => { event.preventDefault(); jumpTo(id) }}>{label}</a>)}
       </nav>
     </div>
     <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:gap-5">
       <div className="min-w-0 space-y-3"><fieldset disabled={frozen} className="form-section min-w-0 space-y-2 !p-3">
         <h2 id="simulator-equipment" tabIndex={-1} className={sectionHeadingClass}>Equipamentos</h2>
+        {unavailableItems.length > 0 && <p role="alert" className="rounded-lg border p-2 text-xs">{unavailableItems.length} equipamento(s) da seleção não estão disponíveis nesta tabela. A seleção foi preservada. Remova os itens indisponíveis para continuar.</p>}
         <label className="grid min-w-0 gap-1 sm:gap-2">Buscar equipamento<Input type="search" value={search} onChange={e => setSearch(e.target.value)} /></label>
         <div className="flex min-w-0 flex-wrap gap-2"><select aria-label="Equipamento da tabela" className={`${selectClass} w-full flex-1`} value={product} onChange={e => setProduct(e.target.value)}><option value="">Selecione um equipamento</option>{choices.map(i => <option key={i.productId} value={i.productId}>{i.sku} · {i.name}</option>)}</select><Button type="button" variant="outline" disabled={!product || items.length >= 100} onClick={() => { if (items.some(i => i.productId === product)) return; setItems([...items, { productId: product, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }]); setProduct(""); change() }}>Adicionar</Button></div>
         {items.length ? <DataTable aria-label="Equipamentos da simulação" className="table-fixed"><thead><tr className="border-b text-xs text-muted-foreground"><th scope="col" className="py-2 font-medium">Equipamento</th><th scope="col" className="w-20 px-1 py-2 font-medium">Qtd.</th><th scope="col" className="w-11 py-2"><span className="sr-only">Ações</span></th></tr></thead><tbody>{items.map((item, index) => <SelectedProduct key={item.productId} item={item} name={table.data!.items.find(i => i.productId === item.productId)?.name || item.productId} sku={table.data!.items.find(i => i.productId === item.productId)?.sku || ""} tenant={table.tenantId} update={next => { setItems(items.map((i, n) => n === index ? next : i)); change() }} remove={() => { setItems(items.filter((_, n) => n !== index)); change() }} />)}</tbody></DataTable> : <p className="text-xs text-muted-foreground">Adicione equipamentos para iniciar.</p>}
@@ -146,9 +189,18 @@ function Simulator({ table, initialProduct, opportunity, onLineLockChange }: { t
       <aside className="min-w-0 space-y-3 lg:sticky lg:top-48 lg:row-span-2 lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto lg:overscroll-contain" aria-labelledby="simulator-result">
         <h2 id="simulator-result" tabIndex={-1} className={sectionHeadingClass}>Resultado</h2>
         {result ? <NegotiationResult sale={result.value.sale} director={result.value.director} /> : <p className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">{items.length ? "Confira as condições e clique em Simular." : "Adicione equipamentos para calcular preços e entrada."}{everCalculated && " Simule novamente para atualizar os valores."}</p>}
-        {command.stale && <p>A tabela ou a política mudou. Recarregue a página e simule novamente.</p>}
+        {command.stale && <div className="space-y-2 rounded-lg border bg-background p-3 text-sm"><p>A tabela ou a política mudou. Atualize e confira os valores antes de criar o pedido.</p><Button variant="outline" className="h-auto min-h-10 whitespace-normal" disabled={reloading} onClick={refreshTable}>{reloading ? "Atualizando tabela…" : "Atualizar tabela e simular novamente"}</Button></div>}
       </aside>
-      <details className="form-section min-w-0 space-y-2 !p-3 lg:col-start-1"><summary className="cursor-pointer"><h2 id="simulator-customer" tabIndex={-1} className={sectionHeadingClass}>Dados para criar o pedido</h2></summary><Lookup compact endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><label className="grid min-w-0 gap-1 sm:gap-2">Vencimento da conta a receber<Input type="date" disabled={frozen} value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true) }} /></label>{result && <Button className="h-auto min-h-11 max-w-full whitespace-normal" disabled={!customer || !dueDate || busy || command.busy || command.stale} onClick={convert}>{command.uncertain ? "Conferir criação com o mesmo comando" : "Criar pedido com estas condições"}</Button>}</details>
+      {canCreate && <details className="form-section min-w-0 space-y-3 !p-3 lg:col-start-1">
+        <summary className="cursor-pointer"><h2 id="simulator-customer" tabIndex={-1} className={sectionHeadingClass}>Dados para criar o pedido</h2></summary>
+        <Lookup compact endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} />
+        {table.paymentMethods !== undefined ? <CommercialCheckout ref={checkout} tenantId={table.tenantId} customerId={customer?.id} methods={table.paymentMethods} totalCents={paymentTotal} entryCents={paymentEntry} entryRaw={downPayment} onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate} onDueDateChange={date => { setDueDate(date); setDirty(true) }} onDirty={() => setDirty(true)} disabled={frozen} /> : <label className="grid min-w-0 gap-1 sm:gap-2">Vencimento da conta a receber<Input type="date" disabled={frozen} value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true) }} /></label>}
+        {result && <>
+          {(!customer || !dueDate) && <p className="text-xs text-muted-foreground">Selecione o cliente e informe o vencimento para criar o pedido.</p>}
+          <Button className="h-auto min-h-11 max-w-full whitespace-normal" disabled={!customer || !dueDate || busy || reloading || command.busy || command.stale} onClick={convert}>{command.uncertain ? "Conferir criação com o mesmo comando" : "Criar pedido com estas condições"}</Button>
+          <p className="text-xs text-muted-foreground">{table.paymentMethods !== undefined ? "O pedido recebe um número. A confirmação seguinte reserva o estoque e gera os títulos da entrada e das parcelas, sem registrar recebimentos." : "O pedido recebe um número. A confirmação seguinte reserva o estoque."}</p>
+        </>}
+      </details>}
     </div>
   </div>
 }

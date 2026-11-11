@@ -89,7 +89,7 @@ pub async fn snapshot(
     tenant: Uuid,
     order: Uuid,
 ) -> Result<Value, DomainError> {
-    sqlx::query_scalar(r#"
+    let mut snapshot: Value = sqlx::query_scalar(r#"
         SELECT jsonb_build_object(
             'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
@@ -108,7 +108,20 @@ pub async fn snapshot(
         LEFT JOIN company_profiles c ON c.tenant_id=o.tenant_id
         WHERE o.tenant_id=$1 AND o.id=$2
     "#)
-        .bind(tenant).bind(order).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
+        .bind(tenant).bind(order).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
+    if let Some(checkout) = crate::domains::sales::checkout::load(tx, tenant, order).await? {
+        apply_checkout(&mut snapshot, &checkout);
+    }
+    Ok(snapshot)
+}
+
+fn apply_checkout(
+    snapshot: &mut Value,
+    checkout: &crate::domains::sales::checkout::CheckoutSnapshot,
+) {
+    let customer = &checkout.customer;
+    snapshot["customer"] = json!({"id":customer["id"],"name":customer["legalName"],"taxId":customer["taxId"],"email":customer["email"],"addresses":customer["addresses"]});
+    snapshot["commercialTerms"] = json!(crate::domains::sales::checkout_document::terms(checkout));
 }
 
 fn address(value: &Value) -> String {
@@ -200,6 +213,18 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
     );
     result.insert("itens".into(), items);
     result.insert("pedido_numero".into(), order_number(snapshot));
+    if let Some(terms) = snapshot
+        .get("commercialTerms")
+        .filter(|terms| terms.is_object())
+    {
+        for (field, source) in [
+            ("condicoes", "paymentTerms"),
+            ("entrega", "deliveryTerms"),
+            ("observacoes", "notes"),
+        ] {
+            result.insert(field.into(), terms[source].as_str().unwrap_or("").into());
+        }
+    }
     result
 }
 
@@ -336,6 +361,27 @@ pub fn submission_body(contract: &Contract) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkout_contract_uses_frozen_customer_and_terms_without_fabricating_a_proposal() {
+        let mut snapshot = json!({"order":{"id":"order","number":"42","amount":"100.00","dueDate":"2027-01-01"},"customer":{"name":"Cadastro alterado","addresses":[{"street":"Endereço alterado"}]},"proposal":null,"items":[]});
+        apply_checkout(
+            &mut snapshot,
+            &crate::domains::sales::checkout_document::fixture(),
+        );
+        let defaults = defaults(&snapshot);
+        assert_eq!(defaults["cliente_nome"], "Cliente preservado <b>");
+        assert_eq!(defaults["cliente_email"], "preservado@example.test");
+        assert_eq!(
+            defaults["cliente_endereco"],
+            "Rua preservada & segura, 10, São Paulo, SP"
+        );
+        assert!(defaults["condicoes"].contains("Parcela 2: R$ 14,99"));
+        assert!(defaults["condicoes"].contains("não comprovam recebimento"));
+        assert!(defaults["entrega"].contains("45 dias após o recebimento da entrada"));
+        assert_eq!(defaults["observacoes"], "Observação <script> & conferência");
+        assert!(snapshot["proposal"].is_null());
+    }
 
     #[test]
     fn contract_items_include_the_finish_recorded_in_the_order() {

@@ -7,10 +7,11 @@ export async function forwardErp(request: Request, resource: string) {
   const priceListResource = /^\/price-lists(?:\/[a-f0-9-]{36})?$/i.test(resource) && (resource === "/price-lists" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const opportunityResource = /^\/opportunities(?:\/[a-f0-9-]{36})?$/.test(resource) && (resource === "/opportunities" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const metricResource = request.method === "GET" && /^\/commercial\/metrics\/(?:orders|commissions)$/.test(resource)
+  const commercialTableResource = request.method === "GET" && /^\/commercial\/tables\/(?:imported|national)$/.test(resource)
   const negotiationResource = metricResource || request.method === "GET" && /^\/commercial\/(?:tables\/(?:imported|national)|orders\/[a-f0-9-]{36}|approval-settings)$/.test(resource)
     || request.method === "POST" && /^\/commercial\/(?:simulate|orders|orders\/[a-f0-9-]{36}\/decision)$/.test(resource)
     || request.method === "PUT" && resource === "/commercial/approval-settings"
-  if (resource.startsWith("/commercial/") && (!negotiationResource || !metricResource && new URL(request.url).search)) return Response.json({ title: "Recurso comercial inválido" }, { status: 400 })
+  if (resource.startsWith("/commercial/") && (!negotiationResource || !metricResource && !commercialTableResource && new URL(request.url).search)) return Response.json({ title: "Recurso comercial inválido" }, { status: 400 })
   const warrantyResource = request.method === "GET" && /^\/warranty-(?:cases(?:\/[a-f0-9-]{36})?|service-orders)$/.test(resource)
     || request.method === "POST" && /^\/warranty-(?:policies|cases|cases\/[a-f0-9-]{36}\/(?:transition|assignment|service-order|approval|rma|quarantine)|service-orders\/[a-f0-9-]{36}\/parts|rmas\/[a-f0-9-]{36}\/transition|quarantines\/[a-f0-9-]{36}\/transition)$/.test(resource)
   if (resource.startsWith("/warranty-") && !warrantyResource) return Response.json({ title: "Recurso de garantia inválido" }, { status: 400 })
@@ -117,6 +118,15 @@ export async function forwardErp(request: Request, resource: string) {
       for (const [key,value] of query) {
         if (key !== "month" || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key,value)
+      }
+    }
+    if (commercialTableResource) {
+      const query = new URL(request.url).searchParams
+      for (const [key, value] of query) {
+        if (!["destinationState", "taxpayer"].includes(key) || query.getAll(key).length !== 1
+          || key === "destinationState" && !/^[A-Z]{2}$/.test(value)
+          || key === "taxpayer" && !["true", "false"].includes(value)) return Response.json({ title: "Filtro comercial inválido" }, { status: 400 })
+        upstream.searchParams.set(key, value)
       }
     }
     if (simulatorResource) {

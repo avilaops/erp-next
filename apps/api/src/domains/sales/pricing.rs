@@ -131,7 +131,8 @@ pub(super) async fn sees_costs(
     subject: &str,
 ) -> Result<bool, DomainError> {
     let rights = access::load_access(tx, tenant, subject).await?;
-    Ok(access::require_permission(&rights, DIRECTOR).is_ok())
+    Ok(access::require_permission(&rights, DIRECTOR).is_ok()
+        && access::require_permission(&rights, "sales.approvals.director").is_ok())
 }
 
 #[utoipa::path(post,path="/api/v1/sales-simulator/{line}/quote",operation_id="quote_sales_simulator",tag="Sales",security(("bearerAuth"=[])),params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),request_body=QuoteInput,responses((status=200,body=Value),(status=404,description="Versão ou equipamento indisponível"),(status=422,description="Condições inválidas")))]

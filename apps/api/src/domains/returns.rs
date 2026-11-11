@@ -234,6 +234,7 @@ struct OriginalPayment {
     amount_cents: i64,
     method: String,
     occurred_on: time::Date,
+    financial_account_id: Option<Uuid>,
 }
 
 /// Reverse declared payments without claiming that a bank transfer was executed.
@@ -245,7 +246,7 @@ async fn cancel_title(
     actor: (&AuthenticatedIdentity, &HeaderMap),
     input: &ReturnInput,
     occurred: time::Date,
-) -> Result<(Option<Uuid>, Vec<Uuid>), DomainError> {
+) -> Result<(Option<Uuid>, Vec<Uuid>, Vec<Uuid>), DomainError> {
     let (identity, headers) = actor;
     let (accounts, payments, foreign, source_column, positive, entity) = match kind {
         Kind::Sale => (
@@ -265,9 +266,9 @@ async fn cancel_title(
             "payable",
         ),
     };
-    let account=sqlx::query_as::<_, (Uuid,String,i64)>(&format!("SELECT id,status,revision FROM {accounts} WHERE tenant_id=$1 AND {source_column}=$2 FOR UPDATE"))
-        .bind(tenant).bind(source).fetch_optional(&mut **tx).await.map_err(db)?;
-    let Some((account, status, revision)) = account else {
+    let titles=sqlx::query_as::<_, (Uuid,String,i64)>(&format!("SELECT id,status,revision FROM {accounts} WHERE tenant_id=$1 AND {source_column}=$2 ORDER BY id FOR UPDATE"))
+        .bind(tenant).bind(source).fetch_all(&mut **tx).await.map_err(db)?;
+    if titles.is_empty() {
         if matches!(kind, Kind::Sale) {
             return Err(DomainError::Conflict(
                 "Pedido concluído sem título financeiro; concilie antes de cancelar",
@@ -286,34 +287,53 @@ async fn cancel_title(
                 "Recebimento sem título financeiro; concilie antes de estornar",
             ));
         }
-        return Ok((None, Vec::new()));
+        return Ok((None, Vec::new(), Vec::new()));
+    }
+    let account_ids: Vec<Uuid> = titles.iter().map(|row| row.0).collect();
+    let singular = if account_ids.len() == 1 {
+        Some(account_ids[0])
+    } else {
+        None
     };
-    if status == "cancelled" {
-        return Err(DomainError::Conflict("Título financeiro já cancelado"));
-    }
-    let originals=sqlx::query_as::<_,OriginalPayment>(&format!("SELECT p.id,p.amount_cents,p.method,p.occurred_on FROM {payments} p WHERE p.tenant_id=$1 AND p.{foreign}=$2 AND p.kind=$3 AND NOT EXISTS(SELECT 1 FROM {payments} reversed WHERE reversed.tenant_id=p.tenant_id AND reversed.reverses_id=p.id) ORDER BY p.created_at,p.id"))
-        .bind(tenant).bind(account).bind(positive).fetch_all(&mut **tx).await.map_err(db)?;
     let mut ids = Vec::new();
-    for original in originals {
-        if occurred < original.occurred_on {
-            return Err(DomainError::Invalid(
-                "Estorno não pode anteceder um pagamento ou recebimento original",
-            ));
+    for (account, status, revision) in titles {
+        if status == "cancelled" {
+            return Err(DomainError::Conflict("Título financeiro já cancelado"));
         }
-        let id = Uuid::now_v7();
-        sqlx::query(&format!("INSERT INTO {payments}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8)"))
-            .bind(id).bind(tenant).bind(account).bind(original.amount_cents).bind(&original.method).bind(input.reason.trim()).bind(occurred).bind(original.id).execute(&mut **tx).await.map_err(db)?;
-        if matches!(kind, Kind::Sale) {
-            super::commissions::on_reversal(tx, tenant, original.id, id, identity, headers).await?;
+        let originals=sqlx::query_as::<_,OriginalPayment>(&format!("SELECT p.id,p.amount_cents,p.method,p.occurred_on,p.financial_account_id FROM {payments} p WHERE p.tenant_id=$1 AND p.{foreign}=$2 AND p.kind=$3 AND NOT EXISTS(SELECT 1 FROM {payments} reversed WHERE reversed.tenant_id=p.tenant_id AND reversed.reverses_id=p.id) ORDER BY p.created_at,p.id"))
+          .bind(tenant).bind(account).bind(positive).fetch_all(&mut **tx).await.map_err(db)?;
+        for original in originals {
+            if occurred < original.occurred_on {
+                return Err(DomainError::Invalid(
+                    "Estorno não pode anteceder um pagamento ou recebimento original",
+                ));
+            }
+            if let Some(account_id) = original.financial_account_id {
+                super::financial_account_ledger::require_unmanaged_cash_account(
+                    tx, tenant, account_id,
+                )
+                .await?;
+            }
+            let id = Uuid::now_v7();
+            sqlx::query(&format!("INSERT INTO {payments}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id,financial_account_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8,$9)"))
+            .bind(id).bind(tenant).bind(account).bind(original.amount_cents).bind(&original.method).bind(input.reason.trim()).bind(occurred).bind(original.id).bind(original.financial_account_id).execute(&mut **tx).await.map_err(db)?;
+            if let Some(account_id) = original.financial_account_id {
+                sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
+                .bind(Uuid::now_v7()).bind(tenant).bind(account_id).bind(if matches!(kind,Kind::Sale) {"debit"} else {"credit"}).bind(original.amount_cents).bind(occurred).bind("Estorno de declaração por cancelamento comercial").bind(input.reason.trim()).execute(&mut **tx).await.map_err(db)?;
+            }
+            if matches!(kind, Kind::Sale) {
+                super::commissions::on_reversal(tx, tenant, original.id, id, identity, headers)
+                    .await?;
+            }
+            record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.payment_reversed",Kind::Purchase=>"payable.payment_reversed"},details:json!({"paymentId":id,"reversesId":original.id,"amount":decimal(original.amount_cents,2),"source":"commercial_return","bankTransferExecuted":false})}).await?;
+            ids.push(id);
         }
-        record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.payment_reversed",Kind::Purchase=>"payable.payment_reversed"},details:json!({"paymentId":id,"reversesId":original.id,"amount":decimal(original.amount_cents,2),"source":"commercial_return","bankTransferExecuted":false})}).await?;
-        ids.push(id);
-    }
-    let next = revision.checked_add(1).ok_or(AccessError::Internal)?;
-    sqlx::query(&format!("UPDATE {accounts} SET status='cancelled',payment_id=NULL,revision=$3 WHERE tenant_id=$1 AND id=$2"))
+        let next = revision.checked_add(1).ok_or(AccessError::Internal)?;
+        sqlx::query(&format!("UPDATE {accounts} SET status='cancelled',payment_id=NULL,revision=$3 WHERE tenant_id=$1 AND id=$2"))
         .bind(tenant).bind(account).bind(next).execute(&mut **tx).await.map_err(db)?;
-    record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.cancelled",Kind::Purchase=>"payable.cancelled"},details:json!({"sourceId":source,"reason":input.reason.trim(),"previousRevision":revision,"revision":next,"status":"cancelled","outstandingAmount":"0.00"})}).await?;
-    Ok((Some(account), ids))
+        record(tx,tenant,identity,headers,DomainChange{kind:entity,id:account,event:match kind {Kind::Sale=>"receivable.cancelled",Kind::Purchase=>"payable.cancelled"},details:json!({"sourceId":source,"reason":input.reason.trim(),"previousRevision":revision,"revision":next,"status":"cancelled","outstandingAmount":"0.00"})}).await?;
+    }
+    Ok((singular, ids, account_ids))
 }
 
 /// Reconcile an unshipped cancellation initiated by the existing sales command.
@@ -421,7 +441,7 @@ async fn apply_sale(
         input.reason.trim(),
     )
     .await?;
-    let (account, payments) =
+    let (account, payments, accounts) =
         cancel_title(tx, tenant, order, Kind::Sale, actor, input, occurred).await?;
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let id = Uuid::now_v7();
@@ -436,7 +456,7 @@ async fn apply_sale(
         input.reason.trim(),
     )
     .await?;
-    let summary = json!({"id":id,"kind":"sale_cancellation","sourceId":order,"orderId":order,"cancellationId":id,"revision":next,"reason":input.reason.trim(),"occurredOn":input.occurred_on,"receivableId":account,"stockMovementIds":movements,"paymentReversalIds":payments,"fiscalCancellation":{"requested":fiscal_required,"status":if fiscal_required {"pending"} else {"not_required"}},"reconciliation":{"commission":commission,"production":production}});
+    let summary = json!({"id":id,"kind":"sale_cancellation","sourceId":order,"orderId":order,"cancellationId":id,"revision":next,"reason":input.reason.trim(),"occurredOn":input.occurred_on,"receivableId":account,"receivableIds":accounts,"stockMovementIds":movements,"paymentReversalIds":payments,"fiscalCancellation":{"requested":fiscal_required,"status":if fiscal_required {"pending"} else {"not_required"}},"reconciliation":{"commission":commission,"production":production}});
     sqlx::query("INSERT INTO sales_order_cancellations(id,tenant_id,order_id,reason,occurred_on,order_revision,summary) VALUES($1,$2,$3,$4,$5,$6,$7)")
         .bind(id).bind(tenant).bind(order).bind(input.reason.trim()).bind(occurred).bind(next).bind(&summary).execute(&mut **tx).await.map_err(db)?;
     sqlx::query("UPDATE sales_orders SET status='cancelled',revision=$3,updated_at=now() WHERE tenant_id=$1 AND id=$2")
@@ -520,7 +540,7 @@ async fn apply_purchase(
         input.reason.trim(),
     )
     .await?;
-    let (account, payments) =
+    let (account, payments, _) =
         cancel_title(tx, tenant, receipt, Kind::Purchase, actor, input, occurred).await?;
     sqlx::query("UPDATE purchase_order_lines ordered SET received_micros=ordered.received_micros-selected.quantity_micros FROM purchase_receipt_lines selected WHERE ordered.tenant_id=$1 AND ordered.order_id=$2 AND selected.tenant_id=ordered.tenant_id AND selected.receipt_id=$3 AND selected.product_id=ordered.product_id")
         .bind(tenant).bind(order).bind(receipt).execute(&mut **tx).await.map_err(db)?;

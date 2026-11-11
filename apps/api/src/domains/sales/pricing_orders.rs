@@ -144,8 +144,9 @@ pub async fn get(
     let (revision, status) = order.ok_or(DomainError::NotFound)?;
     let row: Option<(Value,bool,Option<String>)> = sqlx::query_as("SELECT snapshot,needs_approval,approved_by FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
-    let can_approve = pricing::sees_costs(&mut tx, tenant, &identity.subject).await?;
     let rights = crate::platform::access::load_access(&mut tx, tenant, &identity.subject).await?;
+    let can_approve =
+        crate::platform::access::require_permission(&rights, pricing::DIRECTOR).is_ok();
     let director = can_approve
         && crate::platform::access::require_permission(&rights, "sales.approvals.director").is_ok();
     let data = row.map(|(mut snapshot, needs_approval, approved_by)| {

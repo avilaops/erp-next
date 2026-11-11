@@ -8,9 +8,11 @@ import type { Schema } from "@/lib/api/types"
 import { commercialMoney, commercialQuantity } from "./order-presentation"
 import { money, percent, approvalLabels, type Sale, type Director, type SimulationInput } from "./negotiation-types"
 import type { Simulation as LegacySimulation } from "@/features/commercial-settings/simulator-model"
+import type { CheckoutSnapshot } from "./commercial-payment-model"
+import { CommercialCheckoutSummary } from "./commercial-checkout-summary"
 
-type Order = Schema<"OrderSnapshot">
-type Quote = { tenantId: string; data: { sale: Sale; input: SimulationInput; version: number } | null; director?: Director | null; approvalStatus?: string }
+type Order = Schema<"OrderSnapshot"> & { checkout?: CheckoutSnapshot | null }
+type Quote = { tenantId: string; data: { sale: Sale; input: SimulationInput; version: number } | null; director?: Director | null; approvalStatus?: string; checkout?: CheckoutSnapshot | null }
 type Pricing = { tenantId: string; data: { snapshot: LegacySimulation; approved: boolean; needsApproval: boolean } | null }
 type Party = Schema<"PartySnapshot">
 const approvals: Record<string, string> = { not_required: "Dentro da política", pending: "Aguardando aprovação", approved: "Aprovada", rejected: "Recusada" }
@@ -50,14 +52,15 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
   const legacySnapshot = loaded?.pricing?.data?.snapshot
   const legacy = legacySnapshot?.tenantId === order.tenantId ? legacySnapshot : undefined
   const sale = quote?.sale
-  const customer = loaded?.party?.data
+  const checkout = order.checkout || loaded?.quote?.checkout
+  const customer = checkout?.customer || loaded?.party?.data
   const address = customer?.addresses?.find(item => item.primary) || customer?.addresses?.[0]
   const contact = customer?.contacts?.find(item => item.primary) || customer?.contacts?.[0]
   const tableTotal = sale?.tableTotalCents ?? legacy?.sale.tableTotalCents
   const discount = sale?.discountCents ?? legacy?.sale.discountCents
   const discountBps = sale?.discountBps ?? legacy?.sale.discountBps
   const total = sale?.totalCents ?? legacy?.sale.invoiceTotalCents
-  const entry = sale?.downPaymentCents
+  const entry = checkout?.entry.amountCents ?? sale?.downPaymentCents
   const freight = sale?.freightCents ?? legacy?.sale.freightCents
   const freeDiscount = sale?.freeDiscountBps ?? legacy?.sale.freeDiscountBps
   const director = canReadDirector ? loaded?.quote?.director : null
@@ -102,19 +105,20 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
       {!hasComposition && <p className="text-xs text-muted-foreground">IPI e descontos não informados neste pedido.</p>}
     </section>
     <section className="space-y-3 border-t pt-4" aria-label="Cliente do pedido"><h2 className="font-semibold">Cliente</h2><Fields values={[
-      ["Razão social", order.data.customerName], ["CPF / CNPJ", order.data.customerTaxId?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")], ["Inscrição estadual", undefined],
+      ["Razão social", order.data.customerName], ["CPF / CNPJ", order.data.customerTaxId?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5").replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")], ["Inscrição estadual", checkout?.stateRegistration],
       ["Nome fantasia", customer?.tradeName], ["Contato", contact?.name], ["Telefone", contact?.phone || customer?.phone], ["E-mail", contact?.email || customer?.email],
       ["Endereço cadastral", address ? [address.street, address.number, address.complement, address.district, `${address.city}/${address.state}`, address.postalCode].filter(Boolean).join(" · ") : undefined]
     ]} /></section>
     <div className="grid min-w-0 gap-5 lg:grid-cols-2">
       <section className="min-w-0 space-y-3 border-t pt-4" aria-label="Entrega do pedido"><h2 className="font-semibold">Entrega</h2><Fields values={[
         ["UF de destino negociada", quote?.input.destinationState || legacy?.input.destination], ["Contribuinte de ICMS", quote ? (quote.input.taxpayer ? "Sim" : "Não") : legacy ? (legacy.input.taxpayer ? "Sim" : "Não") : undefined],
-        ["Prazo de fabricação", undefined], ["Frete pago pela empresa", amount(freight)], ["Observações de entrega", undefined]
+        ["Prazo de fabricação", checkout?.manufacturingDays == null ? undefined : `${checkout.manufacturingDays} dias após o recebimento da entrada`], ["Frete pago pela empresa", amount(freight)], ["Observações de entrega", checkout?.deliveryNotes]
       ]} /></section>
       <section className="min-w-0 space-y-3 border-t pt-4" aria-label="Pagamento do pedido"><h2 className="font-semibold">Pagamento</h2><Fields values={[
-        ["Entrada negociada", amount(entry)], ["Saldo após entrada negociada", total !== undefined && entry !== undefined ? money(total - entry) : undefined], ["Forma de pagamento", undefined], ["Vencimento", order.data.dueDate?.split("-").reverse().join("/")]
+        ["Entrada negociada", amount(entry)], ["Saldo após entrada negociada", total !== undefined && entry !== undefined ? money(total - entry) : undefined], ["Forma de pagamento", checkout ? [...new Set([checkout.entry.paymentMethod?.name, ...checkout.installments.map(item => item.paymentMethod.name)].filter(Boolean))].join(" · ") : undefined], ["Vencimento", order.data.dueDate?.split("-").reverse().join("/")]
       ]} />{entry !== undefined && <p className="text-xs text-muted-foreground">Valores negociados. Consulte os recebimentos no financeiro.</p>}</section>
     </div>
+    {checkout && <CommercialCheckoutSummary checkout={checkout} />}
     {hasComposition && <section className="space-y-3 border-t pt-4" aria-label="Desconto e aprovação"><h2 className="font-semibold">Desconto e aprovação</h2><Fields values={[
       ["Desconto aplicado", discountBps === undefined ? undefined : percent(discountBps)], ["Desconto em reais", amount(discount)], ["Limite sem aprovação", freeDiscount === undefined ? undefined : percent(freeDiscount)],
       ["Situação da aprovação", quote ? approvals[loaded?.quote?.approvalStatus || ""] || loaded?.quote?.approvalStatus : legacy ? (loaded?.pricing?.data?.approved ? "Aprovada" : loaded?.pricing?.data?.needsApproval ? "Aguardando aprovação" : "Dentro da política") : undefined]

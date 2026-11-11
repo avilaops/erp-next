@@ -30,8 +30,9 @@ import { commercialMoney, orderNumber } from "./order-presentation"
 import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 import { OrderDetailCommercial } from "./order-detail-commercial"
 import { OrderEmail } from "./order-email"
+import type { CheckoutSnapshot } from "./commercial-payment-model"
 
-type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean }
+type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean; checkout?: CheckoutSnapshot | null }
 type Listing = Schema<"OrderList">
 export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[]; hasPhoto?: boolean }
 type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
@@ -283,8 +284,8 @@ function OrderDetail({ id }: { id: string }) {
         {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
         {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar pedido</Button>}
         {command.uncertain ? <Button disabled={command.busy} onClick={() => act(pendingAction)}>Repetir confirmação do pedido</Button> : value.canEdit && ["draft", "confirmed"].includes(value.data.status) && <div className="space-y-2 border-y py-3 print:hidden"><p className="text-xs font-medium text-muted-foreground">Ações do pedido</p><div className="flex flex-wrap gap-2 [&>button:first-child]:basis-full sm:[&>button:first-child]:basis-auto">
-          {value.data.status === "draft" && <Button className="h-auto min-h-11 max-w-full whitespace-normal px-3" disabled={command.busy || command.stale || !result.etag} onClick={() => act("confirm")}>Confirmar e reservar estoque</Button>}
-          {value.data.status === "confirmed" && <Button className="h-auto max-w-full whitespace-normal" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Registrar saída de estoque e gerar a conta a receber deste pedido?")) void act("complete") }}>Concluir e gerar conta a receber</Button>}
+          {value.data.status === "draft" && <Button className="h-auto min-h-11 max-w-full whitespace-normal px-3" disabled={command.busy || command.stale || !result.etag} onClick={() => act("confirm")}>{value.checkout ? "Confirmar, reservar e gerar parcelas" : "Confirmar e reservar estoque"}</Button>}
+          {value.data.status === "confirmed" && <Button className="h-auto max-w-full whitespace-normal" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm(value.checkout ? "Registrar a saída de estoque e concluir este pedido? Os títulos da entrada e das parcelas já foram gerados na confirmação. Recebimentos são registrados no financeiro." : "Registrar saída de estoque e gerar a conta a receber deste pedido?")) void act("complete") }}>{value.checkout ? "Concluir pedido" : "Concluir e gerar conta a receber"}</Button>}
           {value.data.status === "draft" && !value.pricingOrigin && !command.busy && !command.stale && <Link className={buttonVariants({ variant: "outline", className: "h-9 flex-1 px-3 sm:flex-none" })} href={`/vendas/pedidos/${id}/editar`}>Editar rascunho</Link>}
           <Button variant="outline" className="h-9 flex-1 px-3 sm:flex-none" disabled={command.busy || command.stale || !result.etag} onClick={() => { if (window.confirm("Cancelar o pedido e liberar sua reserva, se houver?")) void act("cancel") }}>Cancelar pedido</Button>
         </div></div>}
@@ -293,7 +294,7 @@ function OrderDetail({ id }: { id: string }) {
           <details className="py-3"><summary className="cursor-pointer text-sm font-medium">Negociação e condições comerciais</summary><div className="space-y-4 pt-3"><OrderNegotiation id={id} onDecision={result.reload} showDirector={access.value?.tenant.id === value.tenantId && ["sales.approvals.director", "platform.company.manage"].every(permission => access.value?.permissions.includes(permission))} />{value.data.status === "draft" && <OrderSalesRules tenantId={value.tenantId} />}{value.pricingOrigin && <OrderPricing id={id} onSaved={result.reload} showDirector={access.value?.tenant.id === value.tenantId && ["sales.approvals.director", "platform.company.manage"].every(permission => access.value?.permissions.includes(permission))} />}</div></details>
           {access.value?.permissions.includes("finance.commissions.read") && <details className="py-3"><summary className="cursor-pointer text-sm font-medium">Comissões do pedido</summary><div className="pt-3"><OrderCommissionTerms orderId={id} onSaved={result.reload} /></div></details>}
         </div>
-        {value.data.status === "completed" && <Link className={linkClass} href="/financeiro/contas-receber">Consultar contas a receber</Link>}
+        {(value.data.status === "completed" || value.checkout && value.data.status === "confirmed") && <Link className={linkClass} href="/financeiro/contas-receber">Consultar contas a receber</Link>}
         {["completed", "cancelled"].includes(value.data.status) && <CommercialReturn kind="sale" id={id} tenantId={value.tenantId} etag={result.etag} reversed={value.data.status === "cancelled"} canManage={value.canEdit && access.value?.tenant.id === value.tenantId && ["inventory.stock.manage", "finance.receivables.manage"].every(permission => access.value!.permissions.includes(permission))} disabled={command.busy || command.uncertain || command.stale} onSuccess={() => { setNotice("Cancelamento integral confirmado. Consulte o histórico e acompanhe a situação fiscal da NF-e."); result.reload() }} onReload={result.reload} />}
       </>}
     </section>

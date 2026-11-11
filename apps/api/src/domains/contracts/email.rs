@@ -109,11 +109,16 @@ fn contents(snapshot: &Value, fields: &Value, escape: bool) -> String {
         ("entrega", "deliveryTerms", "Condições de entrega"),
         ("observacoes", "notes", "Observações comerciais"),
     ] {
-        // The accepted proposal is authoritative even when the PDF model does
-        // not declare a corresponding field. Historical snapshots keep theirs.
-        if let Some(value) = snapshot["proposal"][source]
+        // Negotiated installments and accepted proposals remain authoritative
+        // even when the PDF model does not declare the corresponding field.
+        if let Some(value) = snapshot["commercialTerms"][source]
             .as_str()
             .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                snapshot["proposal"][source]
+                    .as_str()
+                    .filter(|value| !value.trim().is_empty())
+            })
             .or_else(|| {
                 fields[key]
                     .as_str()
@@ -153,6 +158,24 @@ pub fn invitation(snapshot: &Value, fields: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkout_invitation_preserves_installments_and_escapes_customer_terms() {
+        let checkout = crate::domains::sales::checkout_document::fixture();
+        let snapshot = json!({"order":{"number":"42","amount":"100.00","dueDate":"2027-01-01"},"company":{"legalName":"Empresa"},"customer":{"name":"Cliente"},"items":[],"proposal":null,"commercialTerms":crate::domains::sales::checkout_document::terms(&checkout)});
+        let preview = preview(&snapshot, &json!({}));
+        assert!(preview.text.contains("Parcela 2: R$ 14,99"));
+        assert!(
+            preview
+                .text
+                .contains("45 dias após o recebimento da entrada")
+        );
+        let invitation = invitation(&snapshot, &json!({}));
+        let body = invitation["message"]["body"].as_str().unwrap();
+        assert!(!body.contains("<script>"));
+        assert!(!body.contains("<combinada>"));
+        assert!(body.contains("Parcela 2: R$ 14,99"));
+    }
 
     #[test]
     fn order_invitation_uses_commercial_snapshot_and_one_signing_link_without_internal_costs() {

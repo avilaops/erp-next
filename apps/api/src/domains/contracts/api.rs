@@ -100,6 +100,8 @@ pub struct ContractContext {
     pub items: Vec<ContractContextItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal: Option<ContractProposalContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commercial_terms: Option<crate::domains::sales::checkout_document::CheckoutDocument>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

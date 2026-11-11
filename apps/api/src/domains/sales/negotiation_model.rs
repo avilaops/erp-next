@@ -4,7 +4,7 @@ use crate::{domains::DomainError, platform::commercial_settings_model::Commercia
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const CALCULATOR: &str = "ludus-order-v1-integer-cents";
+pub const CALCULATOR: &str = "ludus-order-v2-integer-cents";
 const LIMIT: i128 = 99_999_999_999_999;
 
 #[derive(Clone, Debug, Deserialize, Serialize, utoipa::ToSchema)]
@@ -158,6 +158,10 @@ fn rounded(numerator: i128, denominator: i128) -> i128 {
     (numerator + denominator / 2) / denominator
 }
 
+fn up(numerator: i128, denominator: i128) -> i128 {
+    (numerator + denominator - 1) / denominator
+}
+
 pub fn calculate(
     p: &CommercialParameters,
     rules: &ApprovalRules,
@@ -229,11 +233,41 @@ pub fn calculate(
             i128::from(source.purchase_cents) * i128::from(10_000 + p.cost_safety_bps) * quantity;
     }
     cents(table)?;
-    let net = match input.discount {
-        Discount::Percent(bps) if bps < 10_000 => rounded(table * i128::from(10_000 - bps), 10_000),
-        Discount::Amount(value) if i128::from(value) < table => table - i128::from(value),
+    // Published prices round IPI upwards per unit, including at zero discount.
+    let gross = |unit: i128| up(unit * i128::from(10_000 + p.ipi_bps), 10_000);
+    // Apply one common rational discount, then round each unit before quantity.
+    let (numerator, denominator) = match input.discount {
+        Discount::Percent(bps) if bps < 10_000 => (i128::from(10_000 - bps), 10_000),
+        Discount::Amount(value) if i128::from(value) < table => (table - i128::from(value), table),
         Discount::Total(value) if value > 0 => {
-            rounded(i128::from(value) * 10_000, i128::from(10_000 + p.ipi_bps))
+            let total_at = |net: i128| {
+                input
+                    .items
+                    .iter()
+                    .zip(sources)
+                    .map(|(item, source)| {
+                        gross(rounded(i128::from(source.price_cents) * net, table))
+                            * i128::from(item.quantity)
+                    })
+                    .sum::<i128>()
+            };
+            if i128::from(value) > total_at(table) {
+                return Err(DomainError::Invalid(
+                    "Total desejado deve ser positivo e não superar a tabela",
+                ));
+            }
+            // Search the final unit-rounded totals: inverting aggregate IPI can
+            // exceed the desired total after unit and quantity normalization.
+            let (mut low, mut high) = (0, table);
+            while low < high {
+                let mid = (low + high + 1) / 2;
+                if total_at(mid) <= i128::from(value) {
+                    low = mid;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            (low, table)
         }
         _ => {
             return Err(DomainError::Invalid(
@@ -241,29 +275,23 @@ pub fn calculate(
             ));
         }
     };
-    if net <= 0 || net > table {
+    if numerator <= 0 || numerator > denominator {
         return Err(DomainError::Invalid(
             "Total desejado deve ser positivo e não superar a tabela",
         ));
     }
     let mut items = Vec::with_capacity(sources.len());
-    let mut accumulated = 0_i128;
-    let mut allocated = 0_i128;
     let mut total_ipi = 0_i128;
     for (item, source) in input.items.iter().zip(sources) {
-        accumulated += i128::from(source.price_cents) * i128::from(item.quantity);
-        let cumulative_net = rounded(net * accumulated, table);
-        let requested_line_net = cumulative_net - allocated;
-        allocated = cumulative_net;
         // Sales order lines use integer unit cents. Normalize the requested total
         // to that precision before calculating any margin or approval decision.
-        let unit_net = rounded(requested_line_net, i128::from(item.quantity));
+        let unit_net = rounded(i128::from(source.price_cents) * numerator, denominator);
         if unit_net == 0 {
             return Err(DomainError::Invalid(
                 "Desconto deixa um equipamento sem valor comercial",
             ));
         }
-        let unit_total = rounded(unit_net * i128::from(10_000 + p.ipi_bps), 10_000);
+        let unit_total = gross(unit_net);
         let line_net = unit_net * i128::from(item.quantity);
         let ipi = (unit_total - unit_net) * i128::from(item.quantity);
         total_ipi += ipi;
@@ -315,7 +343,7 @@ pub fn calculate(
             "Comissão inviabiliza o cálculo da entrada",
         ));
     }
-    let required_entry = rounded(
+    let required_entry = up(
         (supplier + target) * i128::from(10_000 + p.ipi_bps),
         entry_denominator,
     );
@@ -331,7 +359,19 @@ pub fn calculate(
     }
     let discount = table - net;
     let mut reasons = Vec::new();
-    if discount * 10_000 > table * i128::from(p.free_discount_bps) {
+    let free_net = input
+        .items
+        .iter()
+        .zip(sources)
+        .map(|(item, source)| {
+            rounded(
+                i128::from(source.price_cents) * i128::from(10_000 - p.free_discount_bps),
+                10_000,
+            ) * i128::from(item.quantity)
+        })
+        .sum::<i128>();
+    // Use the same rounded unit boundary as an exact free-percentage entry.
+    if net < free_net {
         reasons.push("desconto-acima-do-livre".into());
     }
     if profit < 0 || (rules.below_target && band != "atTarget") {
@@ -365,7 +405,7 @@ pub fn calculate(
             items,
             table_total_cents: cents(table)?,
             discount_cents: cents(discount)?,
-            discount_bps: (discount * 10_000 / table) as u32,
+            discount_bps: rounded(discount * 10_000, table) as u32,
             net_sale_cents: cents(net)?,
             ipi_bps: p.ipi_bps,
             ipi_cents: cents(total_ipi)?,
@@ -396,7 +436,7 @@ pub fn calculate(
             target_profit_cents: cents(target)?,
             down_payment_commission_cents: cents(required_entry - supplier - target)?,
             required_down_payment_cents,
-            required_down_payment_bps: (required_entry * 10_000 / total)
+            required_down_payment_bps: up(required_entry * 10_000, total)
                 .try_into()
                 .map_err(|_| DomainError::Invalid("Entrada necessária fora do limite"))?,
             minimum_at_target_cents: cents(rounded(

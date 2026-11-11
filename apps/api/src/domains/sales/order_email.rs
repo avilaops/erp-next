@@ -136,6 +136,16 @@ fn escape(value: &str) -> String {
 
 fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttachment {
     let data = &current.data;
+    let customer_name = current
+        .checkout
+        .as_ref()
+        .and_then(|checkout| checkout.customer["legalName"].as_str())
+        .unwrap_or(&data.customer_name);
+    let customer_tax_id = current
+        .checkout
+        .as_ref()
+        .and_then(|checkout| checkout.customer["taxId"].as_str())
+        .unwrap_or(&data.customer_tax_id);
     let mut html = format!(
         "<!doctype html><html lang=\"pt-BR\"><meta charset=\"utf-8\"><title>Pedido {}</title><style>body{{font:14px Arial,sans-serif;margin:32px;color:#17202a}}table{{border-collapse:collapse;width:100%}}th,td{{padding:8px;border-bottom:1px solid #ddd;text-align:left}}</style><body><h1>{}</h1><p>CNPJ/CPF: {}</p><h2>Pedido {} · revisão {}</h2><p>Cliente: {} · CPF/CNPJ: {}</p><p>Vencimento: {} · Situação: {}</p><table><thead><tr><th>Produto</th><th>Acabamento</th><th>Quantidade</th><th>Unitário (R$)</th><th>Total (R$)</th></tr></thead><tbody>",
         escape(&data.number),
@@ -143,8 +153,8 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
         escape(tax_id),
         escape(&data.number),
         data.revision,
-        escape(&data.customer_name),
-        escape(&data.customer_tax_id),
+        escape(customer_name),
+        escape(customer_tax_id),
         escape(&data.due_date),
         match data.status.as_str() {
             "draft" => "Rascunho",
@@ -172,9 +182,58 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
         html.push_str(&format!("<tr><td>{}<br><small>{}</small></td><td>{}</td><td>{} {}</td><td>{}</td><td>{}</td></tr>", escape(&item.name), escape(&item.sku), escape(&finishes), escape(&item.quantity), escape(&item.unit), escape(&item.unit_price), escape(&item.amount)));
     }
     html.push_str(&format!(
-        "</tbody></table><p><strong>Total: R$ {}</strong></p></body></html>",
+        "</tbody></table><p><strong>Total: R$ {}</strong></p>",
         escape(&data.amount)
     ));
+    if let Some(checkout) = &current.checkout {
+        let customer = &checkout.customer;
+        let address = customer["addresses"].as_array().and_then(|addresses| {
+            addresses
+                .iter()
+                .find(|value| value["primary"] == true)
+                .or_else(|| addresses.first())
+        });
+        if let Some(address) = address {
+            let address = [
+                "street",
+                "number",
+                "complement",
+                "district",
+                "city",
+                "state",
+                "postalCode",
+            ]
+            .iter()
+            .filter_map(|field| address[*field].as_str())
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ");
+            html.push_str(&format!("<p>Endereço do cliente: {}</p>", escape(&address)));
+        }
+        for (label, value) in [
+            ("E-mail", customer["email"].as_str()),
+            ("Telefone", customer["phone"].as_str()),
+            ("Inscrição estadual", checkout.state_registration.as_deref()),
+        ] {
+            if let Some(value) = value.filter(|value| !value.is_empty()) {
+                html.push_str(&format!("<p>{label}: {}</p>", escape(value)));
+            }
+        }
+        let terms = super::checkout_document::terms(checkout);
+        for (label, value) in [
+            ("Pagamento", terms.payment_terms),
+            ("Entrega", terms.delivery_terms),
+            ("Observações", terms.notes),
+        ] {
+            if !value.is_empty() {
+                html.push_str(&format!(
+                    "<h2>{label}</h2><p>{}</p>",
+                    escape(&value).replace('\n', "<br>")
+                ));
+            }
+        }
+    }
+    html.push_str("</body></html>");
     MailAttachment {
         filename: format!("pedido-{}-r{}.html", data.number, data.revision),
         content_type: "text/html; charset=utf-8".to_owned(),
@@ -394,10 +453,60 @@ mod tests {
 
     #[test]
     fn attachment_preserves_recorded_prices_and_escapes_customer_content() {
-        let order = OrderSnapshot {
+        let order = sample_order();
+        let file = attachment(&order, "Empresa & Filhos", "04252011000110");
+        assert_eq!(file.filename, "pedido-42-r3.html");
+        let html = String::from_utf8(file.bytes).unwrap();
+        for expected in [
+            "Cliente &lt;script&gt;",
+            "Empresa &amp; Filhos",
+            "Produto &lt;b&gt;",
+            "17.99",
+            "44.98",
+            "Azul &amp; preto",
+            "Tipo: Redondo",
+            "Reservado",
+        ] {
+            assert!(html.contains(expected), "missing {expected}");
+        }
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("<b>"));
+        assert!(!html.contains("Anilheiros:"));
+        assert!(!html.contains("Branco"));
+    }
+
+    #[test]
+    fn attachment_uses_frozen_checkout_customer_and_all_planned_terms() {
+        let mut order = sample_order();
+        order.data.customer_name = "Nome divergente".into();
+        order.checkout = Some(super::super::checkout_document::fixture());
+        let html = String::from_utf8(attachment(&order, "Empresa", "123").bytes).unwrap();
+        for expected in [
+            "Cliente preservado &lt;b&gt;",
+            "Rua preservada &amp; segura",
+            "preservado@example.test",
+            "ISENTO",
+            "Parcela 1: R$ 15,00",
+            "Parcela 2: R$ 14,99",
+            "Pix &amp; combinado",
+            "45 dias após o recebimento da entrada",
+            "Entrega &lt;combinada&gt;",
+            "Observação &lt;script&gt; &amp; conferência",
+            "não comprovam recebimento",
+        ] {
+            assert!(html.contains(expected), "missing {expected}");
+        }
+        assert!(!html.contains("Nome divergente"));
+        assert!(!html.contains("<script>"));
+        assert!(!html.contains("<b>"));
+    }
+
+    fn sample_order() -> OrderSnapshot {
+        OrderSnapshot {
             tenant_id: Uuid::nil(),
             can_edit: true,
             pricing_origin: true,
+            checkout: None,
             data: OrderSummary {
                 id: Uuid::nil(),
                 number: "42".into(),
@@ -422,26 +531,7 @@ mod tests {
                 plate_holder_color: Some("Branco".into()),
                 plate_holder_type: Some("Redondo".into()),
             }],
-        };
-        let file = attachment(&order, "Empresa & Filhos", "04252011000110");
-        assert_eq!(file.filename, "pedido-42-r3.html");
-        let html = String::from_utf8(file.bytes).unwrap();
-        for expected in [
-            "Cliente &lt;script&gt;",
-            "Empresa &amp; Filhos",
-            "Produto &lt;b&gt;",
-            "17.99",
-            "44.98",
-            "Azul &amp; preto",
-            "Tipo: Redondo",
-            "Reservado",
-        ] {
-            assert!(html.contains(expected), "missing {expected}");
         }
-        assert!(!html.contains("<script>"));
-        assert!(!html.contains("<b>"));
-        assert!(!html.contains("Anilheiros:"));
-        assert!(!html.contains("Branco"));
     }
 
     #[test]

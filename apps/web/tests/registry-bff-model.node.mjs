@@ -12,8 +12,11 @@ async function proxyFor(tenantId) {
     export const currentSession = async () => (${JSON.stringify(tenantId ? identity : null)});
     export const erpConfiguration = () => ({origin:"http://fixture.local",api:"http://backend.local"});
   `).toString("base64");
+  const fiscalSource = readFileSync(new URL("../src/lib/api/local-fiscal-origin.ts", import.meta.url), "utf8");
+  const fiscalModule = "data:text/javascript;base64," + Buffer.from(ts.transpileModule(fiscalSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText).toString("base64");
   const source = readFileSync(new URL("../src/server/bff/erp-proxy.ts", import.meta.url), "utf8")
     .replace('import "server-only"', "")
+    .replace('"@/lib/api/local-fiscal-origin"', JSON.stringify(fiscalModule))
     .replace('"@/server/auth/erp-session"', JSON.stringify(sessionModule));
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
   return (await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"))).forwardErp;
@@ -22,6 +25,24 @@ const request = tenantId => new Request("http://fixture.local/api/erp/registry-l
   method: "POST",
   headers: { origin: "http://fixture.local", "content-type": "application/json", ...(tenantId ? { "x-tenant-id": tenantId } : {}) },
   body: JSON.stringify({ kind: "cep", value: "01001000", context: "company" }),
+});
+
+test("commercial table forwards only a single destination and contributor filter", async () => {
+  const forward = await proxyFor(tenant);
+  const previous = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => { calls.push({ url: String(url), options }); return Response.json({ tenantId: tenant }); };
+  const table = query => new Request(`http://fixture.local/api/erp/commercial/tables/imported${query}`);
+  try {
+    assert.equal((await forward(table("?destinationState=MG&taxpayer=true"), "/commercial/tables/imported")).status, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(new URL(calls[0].url).search, "?destinationState=MG&taxpayer=true");
+    assert.equal(calls[0].options.headers.get("x-tenant-id"), tenant);
+    for (const query of ["?destinationState=MG&destinationState=SP", "?taxpayer=yes", "?destinationState=mg", "?override=director"]) {
+      assert.equal((await forward(table(query), "/commercial/tables/imported")).status, 400, query);
+    }
+    assert.equal(calls.length, 1);
+  } finally { globalThis.fetch = previous; }
 });
 
 test("company logo fits the bounded company body without increasing other resources", async () => {

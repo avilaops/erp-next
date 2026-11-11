@@ -4,11 +4,15 @@ import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access
 
 export const metadata = { title: "Parâmetros comerciais · Avila ERP" }
 
-export default function Page() {
-  return <Suspense fallback={<p role="status">Carregando parâmetros…</p>}><CommercialAccess /></Suspense>
+type PageProps = { searchParams: Promise<{ linha?: string }> }
+
+export default function Page(props: PageProps) {
+  return <Suspense fallback={<p role="status">Carregando parâmetros…</p>}><CommercialAccess {...props} /></Suspense>
 }
 
-async function CommercialAccess() {
+async function CommercialAccess({ searchParams }: PageProps) {
+  const params = await searchParams
+  const line = params.linha === "national" ? "national" : "imported"
   const access = await currentWorkspaceAccess()
-  return access.session ? <CommercialSettings /> : <WorkspaceAccessNotice state={access.state} />
+  return access.session ? <CommercialSettings key={line} initialLine={line} /> : <WorkspaceAccessNotice state={access.state} />
 }

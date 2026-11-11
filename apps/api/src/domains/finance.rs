@@ -24,6 +24,9 @@ pub(super) async fn originate_order_receivable(
     headers: &HeaderMap,
     order_id: Uuid,
 ) -> Result<(), DomainError> {
+    if sales::checkout::exists(tx, tenant, order_id).await? {
+        return sales::checkout::verify_receivables(tx, tenant, order_id).await;
+    }
     let origin = sales::receivable_origin(tx, tenant, order_id).await?;
     if !(1..=99999999999999).contains(&origin.amount_cents) {
         return Err(DomainError::Invalid("Valor do recebível fora do limite"));
@@ -49,10 +52,18 @@ pub struct Receivable {
     status: String,
     revision: i64,
     payment_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    order_installment_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installment_number: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installment_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    planned_payment_method_id: Option<Uuid>,
 }
 
 // Totals come from the append-only ledger, not a second mutable balance.
-const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id FROM receivables r CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
+const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id,r.order_installment_id,i.number AS installment_number,i.kind AS installment_kind,i.payment_method_id AS planned_payment_method_id FROM receivables r LEFT JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
 #[derive(Clone, FromRow, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Payment {

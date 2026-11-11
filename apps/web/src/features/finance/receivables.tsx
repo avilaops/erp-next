@@ -18,12 +18,13 @@ import { DataTable } from "@/components/workspace/data-table"
 import { Pagination } from "@/components/workspace/pagination"
 import { useCommand, useResource } from "../../hooks/use-operation"
 
-type Receivable = Schema<"Receivable">
+type Receivable = Schema<"Receivable"> & { installmentKind?: string | null; installmentNumber?: number | null }
 type Detail = Schema<"ReceivableSnapshot">
 type Listing = Schema<"ReceivableList">
 type FinancialAccounts = { data: { id: string; code: string; name: string }[] }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
+const installmentLabel = (account: Receivable) => account.installmentKind === "entry" ? "Entrada do pedido" : account.installmentKind === "balance" ? `Parcela ${account.installmentNumber}` : ""
 
 function situation(account: Receivable) {
   if (account.status === "cancelled") return "Cancelado"
@@ -46,7 +47,7 @@ function ReceivableList() {
           <DataTable aria-label="Contas a receber" className="table-fixed md:table-auto">
             <thead><tr><th scope="col" className="w-[65%] md:w-auto">Cliente</th><th scope="col" className="hidden md:table-cell">Vencimento</th><th scope="col" className="hidden md:table-cell">Valor</th><th scope="col" className="text-right">Saldo restante</th><th scope="col" className="hidden md:table-cell">Situação</th><th scope="col" className="hidden md:table-cell">Pedido</th></tr></thead>
             <tbody>{result.value.data.map((account: Receivable) => <tr key={account.id}>
-              <th scope="row" className="align-top"><Link className={`${linkClass} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground md:hidden"><p>Vencimento: {account.dueDate.split("-").reverse().join("/")}</p><p>Valor: {commercialMoney(account.amount)}</p><p>{situation(account)}</p></div></th>
+              <th scope="row" className="align-top"><Link className={`${linkClass} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link>{installmentLabel(account) && <p className="mt-1 text-xs font-normal text-muted-foreground">{installmentLabel(account)}</p>}<div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground md:hidden"><p>Vencimento: {account.dueDate.split("-").reverse().join("/")}</p><p>Valor: {commercialMoney(account.amount)}</p><p>{situation(account)}</p></div></th>
               <td className="hidden whitespace-nowrap md:table-cell">{account.dueDate.split("-").reverse().join("/")}</td>
               <td className="hidden whitespace-nowrap md:table-cell">{commercialMoney(account.amount)}</td>
               <td className="text-right align-top font-medium [overflow-wrap:anywhere] md:whitespace-nowrap">{commercialMoney(account.outstandingAmount)}</td>
@@ -87,7 +88,7 @@ function ReceivableDetail({ id }: { id: string }) {
       {notice && <p role="status">{notice}</p>}
       {methodError && <p role="status">Sugestão indisponível. Confira o meio declarado antes de confirmar.</p>}
       {result.loading ? <p role="status">Carregando conta…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : value && <>
-        <h2 className="break-words font-semibold">{value.data.customerName}</h2><p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
+        <h2 className="break-words font-semibold">{value.data.customerName}</h2>{installmentLabel(value.data) && <p className="text-sm font-medium">{installmentLabel(value.data)}</p>}<p>Valor: R$ {value.data.amount.replace(".", ",")}</p><p>Recebido declarado: R$ {value.data.receivedAmount.replace(".", ",")}</p><p>Saldo restante: R$ {value.data.outstandingAmount.replace(".", ",")}</p><p>Situação: {situation(value.data)}</p><p>Vencimento: {value.data.dueDate}</p><p className="break-all text-sm text-muted-foreground">Conta {id} · Revisão {value.data.revision}</p><Link className={linkClass} href={`/vendas/pedidos/${value.data.orderId}`}>Consultar pedido de origem</Link>
         {!value.canEdit ? <p>Somente consulta.</p> : cancelled ? <p>Título cancelado. O histórico foi preservado.</p> : <form className="space-y-4" onSubmit={async event => {
           event.preventDefault(); setNotice("")
           const normalizedAmount = normalizeDecimal(amount)

@@ -127,7 +127,7 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
     assert_eq!(seller.0, StatusCode::OK, "{}", seller.1);
     assert!(seller.1.get("director").is_none());
     assert_eq!(seller.1["sale"]["needsApproval"], true);
-    let director = call(
+    let management = call(
         &router,
         "POST",
         &quote_uri,
@@ -137,9 +137,9 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         input(3000),
     )
     .await;
-    assert_eq!(director.0, StatusCode::OK);
-    assert!(director.1["director"]["equipmentCostCents"].is_i64());
-    assert_eq!(director.1["digest"], seller.1["digest"]);
+    assert_eq!(management.0, StatusCode::OK);
+    assert!(management.1.get("director").is_none());
+    assert_eq!(management.1["digest"], seller.1["digest"]);
     let mut foreign = input(0);
     foreign["versionId"] = json!(Uuid::nil());
     assert_eq!(
@@ -294,12 +294,26 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         Value::Null,
     )
     .await;
+    assert_eq!(manager_snapshot.1["canApprove"], true);
     assert!(
         manager_snapshot.1["data"]["snapshot"]
             .get("director")
             .is_none()
     );
     sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','sales.approvals.director') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let director = call(
+        &router,
+        "POST",
+        &quote_uri,
+        ("editor", TENANT),
+        None,
+        None,
+        input(3000),
+    )
+    .await;
+    assert_eq!(director.0, StatusCode::OK);
+    assert!(director.1["director"]["equipmentCostCents"].is_i64());
+    assert_eq!(director.1["digest"], seller.1["digest"]);
     let director_snapshot = call(
         &router,
         "GET",

@@ -13,7 +13,10 @@ use crate::{
 };
 use axum::{
     Extension, Json,
-    extract::{Path, State, rejection::JsonRejection},
+    extract::{
+        Path, Query, State,
+        rejection::{JsonRejection, QueryRejection},
+    },
     http::{HeaderMap, StatusCode},
     response::Response,
 };
@@ -192,26 +195,279 @@ async fn prepare(
     })
 }
 
-#[utoipa::path(get,path="/api/v1/commercial/tables/{line}",operation_id="get_commercial_tables_line",tag="Sales",params(("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Sem acesso comercial")))]
+#[derive(Default, Deserialize, utoipa::IntoParams)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub struct TableQuery {
+    destination_state: Option<String>,
+    taxpayer: Option<bool>,
+}
+
+#[derive(sqlx::FromRow)]
+struct TableRow {
+    #[sqlx(flatten)]
+    source: SourceItem,
+    ipi_bps: i32,
+    price_with_ipi_cents: i64,
+    available: bool,
+}
+
+#[derive(Clone, Copy)]
+struct TableAuthority {
+    manager: bool,
+    director: bool,
+}
+
+impl TableAuthority {
+    fn kind(self, rules: Option<&ApprovalRules>) -> &'static str {
+        if self.director {
+            "director"
+        } else if self.manager {
+            match rules.map(|rules| &rules.manager_limit) {
+                Some(model::ManagerLimit::Profit) => "managerProfit",
+                _ => "managerTarget",
+            }
+        } else {
+            "seller"
+        }
+    }
+
+    fn permits(self, sale: &SaleQuote, director: &DirectorQuote) -> bool {
+        sale.approval_reasons.is_empty()
+            || self.director
+            || (self.manager && !director.requires_director)
+    }
+}
+
+/// Only the quoted public price and the actor's usable percentage leave this helper.
+/// Cost, margin and director projections remain within this transaction.
+fn table_limit(
+    parameters: &CommercialParameters,
+    rules: &ApprovalRules,
+    input: &mut SimulationInput,
+    source: &SourceItem,
+    authority: TableAuthority,
+) -> Option<(u32, i64)> {
+    let quote_at = |input: &mut SimulationInput, discount| {
+        input.discount = model::Discount::Percent(discount);
+        model::calculate(parameters, rules, input, std::slice::from_ref(source))
+            .ok()
+            .filter(|(sale, director)| authority.permits(sale, director))
+    };
+    quote_at(input, 0)?;
+    let (mut low, mut high) = (0_u32, 9_999_u32);
+    while low < high {
+        let middle = (low + high).div_ceil(2);
+        if quote_at(input, middle).is_some() {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    // Validate the exact unit-cent result rather than trusting an algebraic margin bound.
+    quote_at(input, low).map(|(sale, _)| (low, sale.total_cents))
+}
+
+struct TableContext<'a> {
+    parameters: &'a CommercialParameters,
+    rules: Option<&'a ApprovalRules>,
+    version: Uuid,
+    line: &'a str,
+    destination: &'a str,
+    taxpayer: bool,
+    globally_available: bool,
+    authority: TableAuthority,
+}
+
+fn table_projection(context: TableContext<'_>, rows: &[TableRow]) -> (Vec<Value>, Vec<Value>) {
+    let TableContext {
+        parameters,
+        rules,
+        version,
+        line,
+        destination,
+        taxpayer,
+        globally_available,
+        authority,
+    } = context;
+    let mut items = Vec::with_capacity(rows.len());
+    let mut bounds = [(Some(9_999_u32), 0_usize); 54];
+    for row in rows {
+        let available = globally_available && row.available;
+        let mut selected_limit = None;
+        let mut free_price = None;
+        if let Some(rules) = rules.filter(|_| available) {
+            let mut input = SimulationInput {
+                line: line.into(),
+                version_id: version,
+                destination_state: destination.into(),
+                taxpayer,
+                discount: model::Discount::Percent(parameters.free_discount_bps),
+                freight_cents: 0,
+                down_payment_cents: None,
+                items: vec![model::SimulationItem {
+                    product_id: row.source.product_id,
+                    quantity: 1,
+                    structure_color: None,
+                    plate_holder_color: None,
+                    plate_holder_type: None,
+                    upholstery_color: None,
+                }],
+            };
+            free_price =
+                model::calculate(parameters, rules, &input, std::slice::from_ref(&row.source))
+                    .ok()
+                    .map(|(sale, _)| sale.total_cents);
+            for (state_index, state) in crate::platform::commercial_settings_model::STATES
+                .iter()
+                .enumerate()
+            {
+                for (taxpayer_index, condition) in [false, true].into_iter().enumerate() {
+                    input.destination_state = (*state).into();
+                    input.taxpayer = condition;
+                    let limit = table_limit(parameters, rules, &mut input, &row.source, authority);
+                    if *state == destination && condition == taxpayer {
+                        selected_limit = limit;
+                    }
+                    let entry = &mut bounds[state_index * 2 + taxpayer_index];
+                    entry.0 = entry
+                        .0
+                        .zip(limit.map(|(limit, _)| limit))
+                        .map(|(previous, limit)| previous.min(limit));
+                    entry.1 += 1;
+                }
+            }
+        }
+        items.push(json!({
+            "productId":row.source.product_id,"sku":row.source.sku,"name":row.source.name,"unit":row.source.unit,
+            "priceWithoutIpiCents":row.source.price_cents,"ipiBps":row.ipi_bps,"priceWithIpiCents":row.price_with_ipi_cents,
+            "available":available,
+            "unavailableReason":(!available).then_some(if !globally_available {"Confira os parâmetros e as regras de aprovação antes de negociar"} else {"Produto ou custo alterado, indisponível ou fora da tabela. Atualize e publique a tabela"}),
+            "freeDiscountPriceWithIpiCents":free_price,
+            "maxOwnDiscountBps":selected_limit.map(|(limit, _)| limit),
+            "minOwnPriceWithIpiCents":selected_limit.map(|(_, price)| price)
+        }));
+    }
+    let mut destinations = Vec::with_capacity(54);
+    for (state_index, state) in crate::platform::commercial_settings_model::STATES
+        .iter()
+        .enumerate()
+    {
+        for (taxpayer_index, condition) in [false, true].into_iter().enumerate() {
+            let (limit, count) = bounds[state_index * 2 + taxpayer_index];
+            destinations.push(json!({"state":state,"taxpayer":condition,"maxOwnDiscountBps":if count > 0 {limit} else {None}}));
+        }
+    }
+    (items, destinations)
+}
+
+#[utoipa::path(get,path="/api/v1/commercial/tables/{line}",operation_id="get_commercial_tables_line",tag="Sales",params(TableQuery,("line"=String,Path),("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value),(status=403,description="Sem acesso comercial"),(status=422,description="Destino ou condição inválidos")))]
 pub async fn table(
     State(state): State<AppState>,
     Extension(identity): Extension<AuthenticatedIdentity>,
     Path(line): Path<String>,
     headers: HeaderMap,
+    query: Result<Query<TableQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     if !matches!(line.as_str(), "imported" | "national") {
         return Err(DomainError::Invalid("Linha comercial inválida"));
     }
-    // Deliberate allowlist: no cost snapshots or margin targets in the sales response.
-    let data: Option<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',v.id,'version',v.version,'publishedAt',v.published_at,'originState',v.policy_snapshot->>'originState','freeDiscountBps',v.policy_snapshot->'freeDiscountBps','minimumDownPaymentBps',v.policy_snapshot->'minimumDownPaymentBps','items',(SELECT COALESCE(jsonb_agg(jsonb_build_object('productId',i.product_id,'sku',i.product_snapshot->>'sku','name',i.product_snapshot->>'name','unit',i.product_snapshot->>'unit','priceWithoutIpiCents',i.price_without_ipi_cents,'ipiBps',i.ipi_bps,'priceWithIpiCents',i.price_with_ipi_cents) ORDER BY i.product_snapshot->>'sku'),'[]'::jsonb) FROM price_table_items i JOIN products p ON p.tenant_id=i.tenant_id AND p.id=i.product_id WHERE i.tenant_id=v.tenant_id AND i.version_id=v.id AND p.status='active')) FROM commercial_settings s JOIN price_table_versions v ON v.tenant_id=s.tenant_id AND v.id=s.active_price_version_id WHERE s.tenant_id=$1 AND s.product_line=$2")
+    let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros de destino inválidos"))?;
+    if query.destination_state.as_ref().is_some_and(|state| {
+        !crate::platform::commercial_settings_model::STATES.contains(&state.as_str())
+    }) {
+        return Err(DomainError::Invalid("UF de destino inválida"));
+    }
+    sqlx::query("SELECT id FROM tenants WHERE id=$1 FOR SHARE")
+        .bind(tenant)
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let rights = access::load_access(&mut tx, tenant, &identity.subject).await?;
+    access::require_permission(&rights, READ)?;
+    let can_create = access::require_permission(&rights, MANAGE).is_ok();
+    let can_manage = access::require_permission(&rights, POLICY).is_ok();
+    let authority = TableAuthority {
+        manager: access::require_permission(&rights, APPROVE).is_ok(),
+        director: access::require_permission(&rights, DIRECTOR).is_ok(),
+    };
+    let saved_rules: Option<Value> =
+        sqlx::query_scalar("SELECT rules FROM commercial_approval_settings WHERE tenant_id=$1")
+            .bind(tenant)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(db)?;
+    let saved_rules: Option<ApprovalRules> = saved_rules
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|_| access::AccessError::Internal)?;
+    // Checkout needs only active display choices, never financial accounts or settlement details.
+    let payment_methods: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',id,'name',name,'kind',modality) FROM payment_methods WHERE tenant_id=$1 AND status='active' ORDER BY name,id")
+        .bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
+    let published: Option<(Uuid,i64,i64,Value,Value)> = sqlx::query_as("SELECT v.id,v.settings_revision,s.revision,v.policy_snapshot,jsonb_build_object('id',v.id,'version',v.version,'publishedAt',v.published_at,'originState',v.policy_snapshot->>'originState','freeDiscountBps',v.policy_snapshot->'freeDiscountBps','minimumDownPaymentBps',v.policy_snapshot->'minimumDownPaymentBps') FROM commercial_settings s JOIN price_table_versions v ON v.tenant_id=s.tenant_id AND v.id=s.active_price_version_id AND v.product_line=s.product_line WHERE s.tenant_id=$1 AND s.product_line=$2")
         .bind(tenant).bind(&line).fetch_optional(&mut *tx).await.map_err(db)?;
-    let can_manage = allowed(&mut tx, tenant, &identity, POLICY).await?;
+    let data = if let Some((version, saved_revision, current_revision, policy, mut data)) =
+        published
+    {
+        let parameters: CommercialParameters =
+            serde_json::from_value(policy).map_err(|_| access::AccessError::Internal)?;
+        let destination = query
+            .destination_state
+            .as_deref()
+            .unwrap_or(&parameters.origin_state);
+        let taxpayer = query.taxpayer.unwrap_or(false);
+        let rows: Vec<TableRow> = sqlx::query_as("SELECT i.product_id,i.product_snapshot->>'sku' AS sku,i.product_snapshot->>'name' AS name,i.product_snapshot->>'unit' AS unit,p.revision AS product_revision,i.cost_revision,i.price_without_ipi_cents AS price_cents,(i.cost_snapshot->>'purchaseCostCents')::bigint AS purchase_cents,(i.cost_snapshot->>'taxCreditBps')::integer AS credit_bps,(i.cost_snapshot->>'packagingCents')::bigint AS packaging_cents,i.ipi_bps,i.price_with_ipi_cents,COALESCE(p.status='active' AND p.unit=i.product_snapshot->>'unit' AND p.revision=(i.product_snapshot->>'revision')::bigint AND ((v.source_kind='calculated' AND c.product_line=$3 AND c.revision=i.cost_revision) OR (v.source_kind='legacy' AND i.cost_revision IS NULL AND i.source_snapshot->>'source'=v.source_reference->>'source')),false) AS available FROM price_table_items i JOIN products p ON p.tenant_id=i.tenant_id AND p.id=i.product_id JOIN price_table_versions v ON v.tenant_id=i.tenant_id AND v.id=i.version_id LEFT JOIN product_costs c ON c.tenant_id=i.tenant_id AND c.product_id=i.product_id WHERE i.tenant_id=$1 AND i.version_id=$2 AND v.product_line=$3 ORDER BY i.product_snapshot->>'sku',i.product_id")
+            .bind(tenant).bind(version).bind(&line).fetch_all(&mut *tx).await.map_err(db)?;
+        let globally_available = saved_revision == current_revision && saved_rules.is_some();
+        let (status, message) = if saved_revision != current_revision {
+            (
+                "settingsStale",
+                Some(
+                    "Parâmetros alterados após a publicação. Publique a tabela atualizada antes de simular",
+                ),
+            )
+        } else if saved_rules.is_none() {
+            (
+                "rulesMissing",
+                Some("Salve as regras de aprovação da empresa antes de simular"),
+            )
+        } else if rows.iter().any(|row| !row.available) {
+            (
+                "itemsUnavailable",
+                Some(
+                    "Há produtos ou custos alterados após a publicação. Confira os itens disponíveis",
+                ),
+            )
+        } else {
+            ("ready", None)
+        };
+        let (items, destinations) = table_projection(
+            TableContext {
+                parameters: &parameters,
+                rules: saved_rules.as_ref(),
+                version,
+                line: &line,
+                destination,
+                taxpayer,
+                globally_available,
+                authority,
+            },
+            &rows,
+        );
+        data["context"] = json!({"destinationState":destination,"taxpayer":taxpayer,"quantity":1,"freightCents":0,"downPayment":"policy"});
+        data["availability"] = json!({"status":status,"message":message});
+        data["items"] = json!(items);
+        data["destinations"] = json!(destinations);
+        Some(data)
+    } else {
+        None
+    };
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         None,
-        json!({"tenantId":tenant,"line":line,"data":data,"canManage":can_manage}),
+        json!({"tenantId":tenant,"line":line,"data":data,"canManage":can_manage,"canCreateOrder":can_create,"authority":authority.kind(saved_rules.as_ref()),"paymentMethods":payment_methods}),
     ))
 }
 
@@ -231,7 +487,9 @@ pub async fn simulate(
     let Json(input) =
         payload.map_err(|_| DomainError::Invalid("Simulação inválida ou campos desconhecidos"))?;
     let prepared = prepare(&mut tx, tenant, &input).await?;
-    let director = if allowed(&mut tx, tenant, &identity, POLICY).await? {
+    let director = if allowed(&mut tx, tenant, &identity, POLICY).await?
+        && allowed(&mut tx, tenant, &identity, DIRECTOR).await?
+    {
         Some(prepared.director)
     } else {
         None
@@ -253,6 +511,8 @@ pub struct ConvertInput {
     due_date: String,
     opportunity_id: Option<Uuid>,
     opportunity_revision: Option<i64>,
+    #[serde(default)]
+    checkout: Option<super::checkout::CheckoutInput>,
 }
 
 #[utoipa::path(post,path="/api/v1/commercial/orders",operation_id="post_commercial_orders",tag="Sales",request_body=ConvertInput,params(("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=201,body=Value),(status=412,description="Simulação desatualizada")))]
@@ -266,7 +526,10 @@ pub async fn convert(
     let key = command_key(&headers)?;
     let Json(input) =
         payload.map_err(|_| DomainError::Invalid("Conversão inválida ou campos desconhecidos"))?;
-    let request = json!({"simulation":input.simulation,"digest":input.digest,"customerId":input.customer_id,"dueDate":input.due_date,"opportunityId":input.opportunity_id,"opportunityRevision":input.opportunity_revision});
+    let mut request = json!({"simulation":input.simulation,"digest":input.digest,"customerId":input.customer_id,"dueDate":input.due_date,"opportunityId":input.opportunity_id,"opportunityRevision":input.opportunity_revision});
+    if let Some(checkout) = &input.checkout {
+        request["checkout"] = json!(checkout);
+    }
     if input.opportunity_id.is_some() != input.opportunity_revision.is_some() {
         return Err(DomainError::Invalid("Oportunidade exige sua revisão atual"));
     }
@@ -367,6 +630,18 @@ pub async fn convert(
         json!({"director":prepared.director,"policy":prepared.policy,"sources":prepared.sources});
     sqlx::query("INSERT INTO commercial_order_quotes(tenant_id,order_id,price_version_id,public_snapshot,private_snapshot,approval_rules,approval_status,requires_director,created_by) SELECT $1,$2,$3,$4,$5,$6,$7,$8,id FROM identities WHERE auth_subject=$9")
         .bind(tenant).bind(order).bind(input.simulation.version_id).bind(public).bind(private).bind(json!(prepared.rules)).bind(status).bind(prepared.director.requires_director).bind(&identity.subject).execute(&mut *tx).await.map_err(db)?;
+    if let Some(checkout) = &input.checkout {
+        super::checkout::save(
+            &mut tx,
+            tenant,
+            order,
+            input.customer_id,
+            prepared.sale.total_cents,
+            prepared.sale.down_payment_cents,
+            checkout,
+        )
+        .await?;
+    }
     if auto && status == "approved" {
         sqlx::query("INSERT INTO commercial_approval_decisions(id,tenant_id,order_id,order_revision,decision,reason,decided_by) SELECT $1,$2,$3,1,'approved','Autoaprovação da diretoria conforme política salva',id FROM identities WHERE auth_subject=$4").bind(Uuid::now_v7()).bind(tenant).bind(order).bind(&identity.subject).execute(&mut *tx).await.map_err(db)?;
     }
@@ -484,11 +759,12 @@ pub async fn quote(
     };
     let decisions: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('decision',d.decision,'reason',d.reason,'createdAt',d.created_at,'decidedBy',i.display_name) FROM commercial_approval_decisions d JOIN identities i ON i.id=d.decided_by WHERE d.tenant_id=$1 AND d.order_id=$2 ORDER BY d.created_at,d.id")
         .bind(tenant).bind(id).fetch_all(&mut *tx).await.map_err(db)?;
+    let checkout = super::checkout::load(&mut tx, tenant, id).await?;
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         Some(revision),
-        json!({"tenantId":tenant,"revision":revision,"data":public,"director":details,"approvalStatus":status,"canApprove":can_approve,"decisions":decisions}),
+        json!({"tenantId":tenant,"revision":revision,"data":public,"director":details,"approvalStatus":status,"canApprove":can_approve,"decisions":decisions,"checkout":checkout}),
     ))
 }
 

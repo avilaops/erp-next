@@ -165,3 +165,22 @@ externos. O login de produção ainda depende de provisionamento e validação p
 
 As telas financeiras e comerciais fora deste recorte podem continuar demonstrativas;
 não são prova de integração por compartilharem a navegação do ERP.
+
+## Pedidos com plano comercial preservado (11/11/2026)
+
+A conversão do simulador aceita um plano de entrada e até 120 parcelas do saldo.
+O servidor confere métodos ativos, datas, valores positivos e soma exata com o
+preço negociado. Cliente, endereço, IE declarada, métodos, fabricação e observações
+ficam preservados com o acordo; alterações posteriores no cadastro não os substituem.
+
+Ao confirmar esse pedido, a reserva e os títulos abertos de entrada/parcelas são
+criados na mesma transação. A entrada sem data vence na confirmação, no calendário
+de São Paulo. Isso não declara recebimento, não movimenta banco e não inicia produção.
+O prazo de fabricação informado é contado após o recebimento da entrada.
+Concluir realiza a saída de estoque e verifica os títulos existentes, sem duplicá-los.
+Cancelar um pedido confirmado recusa recebimentos ativos: é necessário estorná-los
+no financeiro com a permissão apropriada antes de liberar reserva e cancelar títulos.
+
+Pedidos anteriores ou sem esse plano mantêm o título único gerado na conclusão.
+Os comandos conservam revisão e idempotência. Os documentos e o detalhe usam os
+mesmos dados e condições preservados, sem confundir previsão com dinheiro recebido.

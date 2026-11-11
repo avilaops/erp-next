@@ -1,11 +1,11 @@
 use serde_json::{Value, json};
-use sqlx::{Postgres, Transaction};
+use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;
 
 use super::model::Contract;
 use crate::{
     domains::fiscal::danfe_client::{DanfeClient, RenderError},
-    domains::{DomainError, db},
+    domains::{DomainError, db, fixed},
     platform::mail::MailAttachment,
 };
 
@@ -66,6 +66,22 @@ fn order_document(snapshot: &Value) -> Vec<u8> {
         "Vencimento: {}",
         order["dueDate"].as_str().unwrap_or("")
     ));
+    let terms = snapshot
+        .get("commercialTerms")
+        .filter(|value| value.is_object())
+        .unwrap_or(&snapshot["proposal"]);
+    for (field, label) in [
+        ("paymentTerms", "Pagamento"),
+        ("deliveryTerms", "Entrega"),
+        ("notes", "Observações"),
+    ] {
+        if let Some(value) = terms[field]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+        {
+            lines.push(format!("{label}: {value}"));
+        }
+    }
     let text = lines
         .iter()
         .map(|line| rtf_text(line))
@@ -102,6 +118,25 @@ fn payment_document(
         .collect::<Vec<_>>()
         .join("\\par ");
     format!(r#"{{\rtf1\ansi\deff0 {{\fonttbl {{\f0 Arial;}}}}\f0\fs22 {text}\par }}"#).into_bytes()
+}
+
+#[derive(FromRow)]
+struct PaymentTitle {
+    status: String,
+    amount_cents: i64,
+    received_cents: i64,
+}
+
+fn fully_settled(titles: &[PaymentTitle], order_amount: i64) -> bool {
+    !titles.is_empty()
+        && titles
+            .iter()
+            .all(|title| title.status == "paid" && title.received_cents == title.amount_cents)
+        && titles
+            .iter()
+            .map(|title| i128::from(title.amount_cents))
+            .sum::<i128>()
+            == i128::from(order_amount)
 }
 
 pub async fn build(
@@ -151,14 +186,31 @@ pub async fn build(
         ));
     };
 
-    let payment: Option<(String, Uuid, i64, String, String, String)> = sqlx::query_as(
-        "SELECT r.status,r.payment_id,p.amount_cents,p.method,p.reference,p.occurred_on::text FROM receivables r LEFT JOIN receivable_payments p ON p.tenant_id=r.tenant_id AND p.id=r.payment_id WHERE r.tenant_id=$1 AND r.order_id=$2",
+    let titles: Vec<PaymentTitle> = sqlx::query_as(
+        "SELECT r.status,r.amount_cents,COALESCE((SELECT sum(CASE p.kind WHEN 'receipt' THEN p.amount_cents ELSE -p.amount_cents END) FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id),0)::bigint AS received_cents FROM receivables r WHERE r.tenant_id=$1 AND r.order_id=$2 ORDER BY r.due_date,r.id",
     )
     .bind(contract.tenant_id)
     .bind(contract.order_id)
-    .fetch_optional(&mut **tx)
+    .fetch_all(&mut **tx)
     .await
     .map_err(db)?;
+    let order_amount = fixed(
+        contract.snapshot["order"]["amount"]
+            .as_str()
+            .ok_or(DomainError::Conflict(
+                "O pedido preservado não possui valor válido",
+            ))?,
+        2,
+    )?;
+    let payment_lines: Vec<(Uuid, i64, String, String, String)> = if fully_settled(
+        &titles,
+        order_amount,
+    ) {
+        sqlx::query_as("SELECT p.id,p.amount_cents,p.method,p.reference,p.occurred_on::text FROM receivable_payments p JOIN receivables r ON r.tenant_id=p.tenant_id AND r.id=p.receivable_id WHERE r.tenant_id=$1 AND r.order_id=$2 AND p.kind='receipt' AND NOT EXISTS(SELECT 1 FROM receivable_payments reversed WHERE reversed.tenant_id=p.tenant_id AND reversed.reverses_id=p.id) ORDER BY p.occurred_on,p.id")
+            .bind(contract.tenant_id).bind(contract.order_id).fetch_all(&mut **tx).await.map_err(db)?
+    } else {
+        Vec::new()
+    };
 
     let nfe_xml_bytes = nfe_xml.into_bytes();
     let mut attachments = vec![
@@ -213,12 +265,7 @@ pub async fn build(
             bytes: pdf,
         });
     }
-    let payment_line = payment.and_then(
-        |(status, payment_id, amount, method, reference, occurred_on)| {
-            (status == "paid").then_some((payment_id, amount, method, reference, occurred_on))
-        },
-    );
-    if let Some((payment_id, amount, method, reference, occurred_on)) = payment_line {
+    for (payment_id, amount, method, reference, occurred_on) in payment_lines {
         let bytes = payment_document(
             &contract.snapshot,
             amount,
@@ -227,7 +274,7 @@ pub async fn build(
             &occurred_on,
         );
         let filename = format!("comprovante-pagamento-{}.doc", payment_id);
-        manifest.push(json!({"kind":"payment","filename":filename,"contentType":"application/msword","paymentId":payment_id,"sha256":super::model::digest(&bytes)}));
+        manifest.push(json!({"kind":"payment","filename":filename,"contentType":"application/msword","paymentId":payment_id,"amountCents":amount,"settlementTotalCents":order_amount,"titleCount":titles.len(),"sha256":super::model::digest(&bytes)}));
         attachments.push(MailAttachment {
             filename,
             content_type: "application/msword".into(),
@@ -260,12 +307,53 @@ mod tests {
     use super::*;
 
     #[test]
+    fn payment_package_requires_all_installments_settled_and_exact_order_total() {
+        let title = |status: &str, amount, received| PaymentTitle {
+            status: status.into(),
+            amount_cents: amount,
+            received_cents: received,
+        };
+        assert!(fully_settled(
+            &[
+                title("paid", 140, 140),
+                title("paid", 30, 30),
+                title("paid", 30, 30)
+            ],
+            200
+        ));
+        assert!(!fully_settled(
+            &[title("paid", 140, 140), title("open", 60, 10)],
+            200
+        ));
+        assert!(!fully_settled(
+            &[title("paid", 140, 140), title("cancelled", 60, 0)],
+            200
+        ));
+        assert!(!fully_settled(&[title("paid", 140, 140)], 200));
+        assert!(!fully_settled(&[title("paid", 200, 50)], 200));
+        assert!(!fully_settled(&[], 200));
+        assert!(fully_settled(&[title("paid", 200, 200)], 200));
+    }
+
+    #[test]
     fn rtf_escapes_controls_and_keeps_unicode() {
         let value = rtf_text(r#"Cliente {Ávila} \ contrato"#);
         assert!(value.contains(r#"\{"#));
         assert!(value.contains(r#"\}"#));
         assert!(value.contains(r#"\u193?"#));
         assert!(value.contains(r#"\\"#));
+    }
+
+    #[test]
+    fn order_document_preserves_checkout_terms_without_claiming_settlement() {
+        let checkout = crate::domains::sales::checkout_document::fixture();
+        let snapshot = json!({"order":{"number":"42","amount":"100.00","dueDate":"2027-01-01"},"company":{"legalName":"Empresa"},"customer":{"name":"Cliente"},"items":[],"commercialTerms":crate::domains::sales::checkout_document::terms(&checkout)});
+        let text = String::from_utf8(order_document(&snapshot)).unwrap();
+        assert!(text.contains("Parcela 2: R$ 14,99"));
+        assert!(text.contains("01/02/2027"));
+        assert!(text.contains("45 dias ap"));
+        assert!(text.contains("recebimento da entrada"));
+        assert!(text.contains("Entrega <combinada>"));
     }
 
     #[test]

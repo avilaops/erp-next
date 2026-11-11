@@ -14,7 +14,10 @@ use super::{
     model::{DraftInput, Recipient, exact_decimal},
 };
 use crate::{
-    domains::{DomainError, authorized, db, decimal, party_complements::PartyAddress, response},
+    domains::{
+        DomainError, authorized, db, decimal, party_complements::PartyAddress, response,
+        sales::negotiation_model::SaleQuote,
+    },
     platform::{access, auth::AuthenticatedIdentity, state::AppState},
 };
 
@@ -78,6 +81,26 @@ impl Line {
     }
 }
 
+async fn commercial_quote(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    id: Uuid,
+) -> Result<Option<SaleQuote>, DomainError> {
+    let sale: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT public_snapshot->'sale' FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    sale.map(|sale| {
+        serde_json::from_value(sale)
+            .map_err(|_| DomainError::Conflict("A composição da negociação preservada é inválida"))
+    })
+    .transpose()
+}
+
 async fn order(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
@@ -92,10 +115,26 @@ async fn order(
     }
     // A simulated commercial total already includes IPI. Fiscal preparation
     // starts from the preserved net sale and still requires explicit tax declarations.
-    let net: Option<i64> = sqlx::query_scalar("SELECT (snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
-        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
-    if let Some(net) = net {
-        order.amount_cents = net;
+    if let Some(sale) = commercial_quote(tx, tenant, id).await? {
+        let net = sale
+            .items
+            .iter()
+            .try_fold(0_i64, |total, item| total.checked_add(item.net_cents));
+        if order.amount_cents != sale.total_cents
+            || sale.net_sale_cents <= 0
+            || net != Some(sale.net_sale_cents)
+        {
+            return Err(DomainError::Conflict(
+                "A composição do pedido diverge da negociação preservada",
+            ));
+        }
+        order.amount_cents = sale.net_sale_cents;
+    } else {
+        let net: Option<i64> = sqlx::query_scalar("SELECT (snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
+            .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
+        if let Some(net) = net {
+            order.amount_cents = net;
+        }
     }
     Ok(order)
 }
@@ -112,16 +151,40 @@ async fn lines(
             "O pedido deve conter de 1 a 990 itens para a preparação fiscal",
         ));
     }
-    let simulated: Option<(i64,i64)> = sqlx::query_as("SELECT (snapshot#>>'{sale,unitWithoutIpiCents}')::bigint,(snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
-        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
-    if let Some((unit, net)) = simulated {
-        if lines.len() != 1 {
+    if let Some(sale) = commercial_quote(tx, tenant, id).await? {
+        if lines.len() != sale.items.len()
+            || lines.iter().zip(&sale.items).any(|(line, item)| {
+                line.product_id != item.product_id
+                    || line.sku != item.sku
+                    || line.unit != item.unit
+                    || line.quantity_micros != i64::from(item.quantity) * 1_000_000
+                    || line.price_cents != item.unit_total_cents
+                    || line.amount_cents != item.total_cents
+                    || item.unit_net_cents <= 0
+                    || item.unit_net_cents.checked_mul(i64::from(item.quantity))
+                        != Some(item.net_cents)
+            })
+        {
             return Err(DomainError::Conflict(
-                "A composição do pedido diverge da simulação preservada",
+                "A composição do pedido diverge da negociação preservada",
             ));
         }
-        lines[0].price_cents = unit;
-        lines[0].amount_cents = net;
+        for (line, item) in lines.iter_mut().zip(sale.items) {
+            line.price_cents = item.unit_net_cents;
+            line.amount_cents = item.net_cents;
+        }
+    } else {
+        let simulated: Option<(i64,i64)> = sqlx::query_as("SELECT (snapshot#>>'{sale,unitWithoutIpiCents}')::bigint,(snapshot#>>'{sale,netSaleCents}')::bigint FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2")
+            .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
+        if let Some((unit, net)) = simulated {
+            if lines.len() != 1 {
+                return Err(DomainError::Conflict(
+                    "A composição do pedido diverge da simulação preservada",
+                ));
+            }
+            lines[0].price_cents = unit;
+            lines[0].amount_cents = net;
+        }
     }
     for line in &lines {
         if line.quantity_micros % 100 != 0 {

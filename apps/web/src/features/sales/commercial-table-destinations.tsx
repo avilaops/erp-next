@@ -1,0 +1,13 @@
+import { percent, type PriceTable } from "./negotiation-types"
+
+export function CommercialTableDestinations({ data, destination, taxpayer, onSelect }: { data: NonNullable<PriceTable["data"]>; destination: string; taxpayer: boolean; onSelect: (state: string) => void }) {
+  const destinations = (data.destinations || []).filter(item => item.taxpayer === taxpayer)
+  const selected = destinations.find(item => item.state === destination)
+  return <details className="rounded-lg border bg-muted/20">
+    <summary className="cursor-pointer rounded-lg px-3 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"><span>Sua alçada de desconto por destino</span><span className="ml-2 text-xs font-normal text-muted-foreground">{destination} · {taxpayer ? "Com IE" : "Sem IE"}{selected?.maxOwnDiscountBps != null ? ` · até ${percent(selected.maxOwnDiscountBps)}` : " · limite indisponível"}</span></summary>
+    <div className="space-y-3 border-t p-3"><p className="text-xs text-muted-foreground">Comparativo para {taxpayer ? "clientes contribuintes do ICMS" : "clientes sem inscrição estadual"}. Resume o menor limite disponível entre os equipamentos negociáveis. Confira a alçada de cada item na tabela.</p>
+      <p className="text-xs text-muted-foreground">A marca indica o desconto livre de {percent(data.freeDiscountBps)} · 1 unidade · frete por nossa conta: zero · entrada da política.</p>
+      {!destinations.length ? <p className="text-xs text-muted-foreground">Comparativo indisponível para esta publicação.</p> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{destinations.map(item => <button type="button" key={item.state} aria-pressed={item.state === destination} onClick={() => onSelect(item.state)} className="min-w-0 rounded-md border bg-background px-2 py-2 text-left text-xs aria-pressed:border-primary aria-pressed:ring-1 aria-pressed:ring-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"><span className="flex items-center justify-between gap-2"><strong>{item.state}</strong><span className="tabular-nums">{item.maxOwnDiscountBps == null ? "Indisponível" : percent(item.maxOwnDiscountBps)}</span></span><span aria-hidden="true" className="relative mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary/75" style={{ width: `${Math.min(100, Math.max(0, (item.maxOwnDiscountBps || 0) / 100))}%` }} /><span className="absolute inset-y-0 w-px bg-foreground" style={{ left: `${data.freeDiscountBps / 100}%` }} /></span></button>)}</div>}
+    </div>
+  </details>
+}

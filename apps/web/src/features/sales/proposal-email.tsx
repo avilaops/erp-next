@@ -10,30 +10,30 @@ import { useCommand, useResource } from "@/hooks/use-operation"
 type Delivery = { id: string; status: "sent" | "failed" | "uncertain"; recipient: string; createdAt: string }
 type EmailStatus = { tenantId: string; recipient: string | null; canSend: boolean; emailReady: boolean; deliveries: Delivery[] }
 type Receipt = { tenantId: string; revision: number; delivery: Delivery }
+type EmailDraft = { recipientOverride: string | null; subject: string; message: string }
 const deliveryLabels = { sent: "Aceito pelo servidor de e-mail", failed: "Recusado pelo servidor de e-mail", uncertain: "Confirmação pendente · não reenviar" }
 
 export function ProposalEmail({ id, number, version, tenantId, etag, onReload, disabled = false }: { id: string; number: string; version: number; tenantId: string; etag: string; onReload: () => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
+  const command = useCommand()
+  const [receipt, setReceipt] = useState<Delivery | null>(null)
+  const [draft, setDraft] = useState<EmailDraft>({ recipientOverride: null, subject: `Proposta ${number} · versão ${version}`, message: `Olá,\n\nSegue em anexo a proposta ${number} para sua conferência.\n\nFicamos à disposição.` })
   // Only consult delivery configuration/history when the composer is opened.
   return <>
     <Button variant="outline" className="h-9 px-3" disabled={disabled} title={disabled ? "Consulte a versão atual e aguarde operações pendentes para enviar" : undefined} onClick={() => setOpen(true)}>Enviar por e-mail</Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader><DialogTitle>Enviar proposta {number} por e-mail</DialogTitle><DialogDescription>Confira o destinatário e a mensagem antes de enviar o documento da proposta.</DialogDescription></DialogHeader>
-        {open && <ProposalEmailComposer id={id} number={number} version={version} tenantId={tenantId} etag={etag} onReload={onReload} />}
+        {open && <ProposalEmailComposer id={id} tenantId={tenantId} etag={etag} onReload={onReload} command={command} receipt={receipt} onReceipt={setReceipt} draft={draft} onDraftChange={patch => setDraft(previous => ({ ...previous, ...patch }))} />}
       </DialogContent>
     </Dialog>
   </>
 }
 
-function ProposalEmailComposer({ id, number, version, tenantId, etag, onReload }: { id: string; number: string; version: number; tenantId: string; etag: string; onReload: () => void }) {
+function ProposalEmailComposer({ id, tenantId, etag, onReload, command, receipt, onReceipt, draft, onDraftChange }: { id: string; tenantId: string; etag: string; onReload: () => void; command: ReturnType<typeof useCommand>; receipt: Delivery | null; onReceipt: (delivery: Delivery) => void; draft: EmailDraft; onDraftChange: (patch: Partial<EmailDraft>) => void }) {
   const messageId = useId()
   const resource = useResource<EmailStatus>(`/api/erp/proposals/${id}/email`)
-  const command = useCommand()
-  const [recipientOverride, setRecipientOverride] = useState<string | null>(null)
-  const [subject, setSubject] = useState(`Proposta ${number} · versão ${version}`)
-  const [message, setMessage] = useState(`Olá,\n\nSegue em anexo a proposta ${number} para sua conferência.\n\nFicamos à disposição.`)
-  const [receipt, setReceipt] = useState<Delivery | null>(null)
+  const { recipientOverride, subject, message } = draft
   const value = resource.value?.tenantId === tenantId ? resource.value : null
   const recipient = recipientOverride ?? value?.recipient ?? ""
   const pendingDelivery = receipt?.status === "uncertain" || value?.deliveries.some(delivery => delivery.status === "uncertain")
@@ -44,14 +44,14 @@ function ProposalEmailComposer({ id, number, version, tenantId, etag, onReload }
     event.preventDefault()
     if (!command.uncertain && (!value.canSend || !value.emailReady || frozen)) return
     const result = await command.send<Receipt>(`/api/erp/proposals/${id}/email`, tenantId, { recipient, subject, message }, etag)
-    if (result?.tenantId === tenantId) { setReceipt(result.delivery); resource.reload(); if (result.delivery.status === "sent") onReload() }
+    if (result?.tenantId === tenantId) { onReceipt(result.delivery); resource.reload(); if (result.delivery.status === "sent") onReload() }
   }}>
     {!value.emailReady && <p role="status" className="rounded-lg border p-3">O envio de e-mail ainda não está configurado no servidor. Nenhuma mensagem será enviada até a configuração estar disponível.</p>}
     {!value.canSend && <p role="status">Envio indisponível: confira sua permissão, a validade e a situação da proposta.</p>}
     <fieldset disabled={frozen || !value.canSend || !value.emailReady} className="space-y-3">
-      <label className="block space-y-2">Destinatário<Input type="email" autoComplete="email" required maxLength={254} value={recipient} onChange={event => setRecipientOverride(event.target.value)} /></label>
-      <label className="block space-y-2">Assunto<Input required maxLength={200} value={subject} onChange={event => setSubject(event.target.value)} /></label>
-      <div className="space-y-2"><label htmlFor={messageId} className="block">Mensagem</label><textarea id={messageId} required maxLength={10000} rows={5} className="w-full rounded-lg border border-input bg-background p-3" value={message} onChange={event => setMessage(event.target.value)} /></div>
+      <label className="block space-y-2">Destinatário<Input type="email" autoComplete="email" required maxLength={254} value={recipient} onChange={event => onDraftChange({ recipientOverride: event.target.value })} /></label>
+      <label className="block space-y-2">Assunto<Input required maxLength={200} value={subject} onChange={event => onDraftChange({ subject: event.target.value })} /></label>
+      <div className="space-y-2"><label htmlFor={messageId} className="block">Mensagem</label><textarea id={messageId} required maxLength={10000} rows={5} className="w-full rounded-lg border border-input bg-background p-3" value={message} onChange={event => onDraftChange({ message: event.target.value })} /></div>
     </fieldset>
     <p className="rounded-lg border bg-muted/30 p-3 text-sm">Anexo: documento da proposta em HTML, com cliente, itens, acabamentos e valores registrados. A versão da proposta é capturada pelo servidor no momento do envio.</p>
     {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}

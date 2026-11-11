@@ -36,6 +36,41 @@ for (const width of [390, 1280]) test(`proposta abre envio explícito e atualiza
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+for (const mode of ["busy", "uncertain"] as const) test(`proposta preserva o comando ${mode} ao fechar e reabrir o envio`, async ({ page }) => {
+  const keys: string[] = []
+  let release: () => void = () => {}
+  const pending = new Promise<void>(resolve => { release = resolve })
+  await page.route(`**/api/erp/proposals/${record}/email`, async route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { tenantId: tenant, recipient: "cliente@example.test", canSend: true, emailReady: true, deliveries: [] } })
+    keys.push(route.request().headers()["idempotency-key"])
+    if (keys.length === 1 && mode === "uncertain") return route.abort("failed")
+    if (mode === "busy") await pending
+    return route.fulfill({ headers: { ETag: '"4"' }, json: { tenantId: tenant, revision: 4, delivery: { id: record, recipient: "cliente@example.test", status: "sent", createdAt: "2026-11-11T12:00:00Z" } } })
+  })
+  try {
+    await page.goto(`/vendas/propostas/${record}`)
+    await page.getByRole("button", { name: "Enviar por e-mail", exact: true }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Enviar e-mail com anexo", exact: true }).click()
+    await expect.poll(() => keys.length).toBe(1)
+    if (mode === "uncertain") await expect(dialog.getByRole("button", { name: "Consultar resultado do envio", exact: true })).toBeEnabled()
+    await dialog.getByRole("button", { name: "Close", exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await page.getByRole("button", { name: "Enviar por e-mail", exact: true }).click()
+    if (mode === "busy") {
+      await expect(dialog.getByRole("button", { name: "Confirmando envio…", exact: true })).toBeDisabled()
+      release()
+    } else {
+      await expect(dialog.getByRole("button", { name: "Consultar resultado do envio", exact: true })).toBeEnabled()
+      await dialog.getByRole("button", { name: "Consultar resultado do envio", exact: true }).click()
+      expect(keys).toEqual([keys[0], keys[0]])
+    }
+    await expect(dialog.getByRole("status")).toContainText("Aceito pelo servidor")
+    await expect(dialog.getByRole("button", { name: "Enviar e-mail com anexo", exact: true })).toBeDisabled()
+    expect(keys).toHaveLength(mode === "busy" ? 1 : 2)
+  } finally { release() }
+})
+
 for (const mode of ["unconfigured", "readonly", "uncertain", "history"] as const) test(`proposta ${mode} impede envio e explica a pendência`, async ({ page }) => {
   if (mode === "history") await page.route(`**/api/erp/proposals/${record}`, route => route.fulfill({ headers: { ETag: '"3"' }, json: { tenantId: tenant, canEdit: true, data: { ...proposal, isCurrent: false }, items: [], versions: [proposal] } }))
   let sends = 0

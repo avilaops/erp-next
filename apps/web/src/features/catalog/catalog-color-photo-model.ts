@@ -8,6 +8,7 @@ const photos = [
   { name: "Hermès Orange", x: 971, y: 939, width: 90, height: 62 },
   { name: "Apple Green", x: 1072, y: 939, width: 90, height: 62 },
   { name: "Ocean Blue", x: 75, y: 263, width: 92, height: 63 },
+  { name: "Black", x: 260, y: 1695, width: 180, height: 62 },
   { name: "Saddle Brown", x: 510, y: 1695, width: 180, height: 62 },
   { name: "Reddish Brown", x: 760, y: 1695, width: 180, height: 62 },
   { name: "Mocha", x: 1010, y: 1695, width: 180, height: 62 },

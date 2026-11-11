@@ -19,6 +19,8 @@ import { commercialMoney, commercialMoneyInput, normalizeCommercialMoney } from 
 import { quantity, useCommand, useResource } from "@/hooks/use-operation"
 import { ColorChoice, Lookup, PlateHolderChoice, type Choice } from "./orders"
 import { ProposalDocument, type ProposalIssuer } from "./proposal-document"
+import { ProposalEmail } from "./proposal-email"
+import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
 import "./proposals-print.css"
 
 type Detail = Schema<"ProposalSnapshot">
@@ -142,7 +144,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
             </div>
             <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
               <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType || "Não se aplica"].filter(Boolean).join(" · ")}</span></summary>
-              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
+              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice palette={catalogPaletteFor(item.structureColors)} label={`${catalogPaletteFor(item.structureColors) ? "Braços" : "Estofado"} de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
             </details>
           </section>)}
           <details className="min-w-0 border-y py-2" onInvalidCapture={event => { event.currentTarget.open = true }}>
@@ -175,7 +177,7 @@ function ProposalDetail({ id }: { id: string }) {
   const [dueDate, setDueDate] = useState("")
   const [notice, setNotice] = useState("")
   const value = result.value
-  const frozen = command.busy || command.uncertain || command.stale
+  const frozen = result.loading || command.busy || command.uncertain || command.stale
   const sameTenant = access.value?.tenant.id === value?.tenantId
   const canDecide = sameTenant && access.value?.permissions.includes("sales.proposals.decide")
   const canConvert = sameTenant && ["sales.orders.read", "sales.orders.manage"].every(permission => access.value?.permissions.includes(permission))
@@ -189,8 +191,11 @@ function ProposalDetail({ id }: { id: string }) {
     <div className="print:hidden"><Link className={linkClass} href="/vendas/propostas">Voltar às propostas</Link></div>
     <section className="mt-5 min-w-0 space-y-5">
       {notice && <p role="status" className="print:hidden">{notice}</p>}
-      {result.loading ? <p role="status">Carregando proposta…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button onClick={result.reload}>Tentar novamente</Button></div> : value && <>
-        <div className="flex justify-end print:hidden"><Button variant="outline" onClick={() => window.print()}>Imprimir / salvar PDF</Button></div>
+      {result.loading && !value ? <p role="status">Carregando proposta…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button onClick={result.reload}>Tentar novamente</Button></div> : value && <>
+        <div className="flex flex-wrap justify-end gap-2 print:hidden">
+          <ProposalEmail key={`${id}:${value.data.version}`} id={id} number={value.data.number} version={value.data.version} tenantId={value.tenantId} etag={result.etag} disabled={!value.data.isCurrent || frozen} onReload={() => { setVersion(""); setAction(""); result.reload() }} />
+          <Button variant="outline" onClick={() => window.print()}>Imprimir / salvar PDF</Button>
+        </div>
         <label className="grid min-w-0 gap-2 print:hidden">Histórico de versões<select className="min-h-10 w-full min-w-0 rounded-lg border bg-background px-3" value={version} disabled={frozen} onChange={event => { setVersion(event.target.value); setAction("") }}><option value="">Versão atual</option>{value.versions.map(item => <option key={item.version} value={String(item.version)}>Versão {item.version} · {labels[item.status]} · {money(item.amount)}</option>)}</select></label>
         <ProposalDocument snapshot={value} issuer={issuer.value?.tenantId === value.tenantId ? issuer.value.data : undefined} issuerName={sameTenant ? access.value?.tenant.legalName : undefined} />
         {value.data.decisionReason && <p className="whitespace-pre-wrap print:hidden">Motivo registrado: {value.data.decisionReason}</p>}

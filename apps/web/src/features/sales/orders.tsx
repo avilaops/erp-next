@@ -241,7 +241,8 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
           {command.stale && <Button type="button" variant="outline" onClick={() => { if (!dirty || window.confirm("Recarregar e descartar as alterações locais deste rascunho?")) { command.reset(); reload() } }}>Recarregar rascunho</Button>}
-          <Button type="submit" disabled={command.busy || command.stale || !customer || !items.length}>{command.busy ? "Confirmando…" : command.uncertain ? initial ? "Conferir alteração do pedido" : "Conferir criação do pedido" : initial ? "Salvar rascunho" : "Criar rascunho"}</Button>
+          {!initial && <p className="text-xs text-muted-foreground">Ao criar, o pedido recebe um número. Depois, confirme para reservar estoque.</p>}
+          <Button type="submit" disabled={command.busy || command.stale || !customer || !items.length}>{command.busy ? initial ? "Salvando…" : "Criando…" : command.uncertain ? initial ? "Conferir alteração do pedido" : "Conferir criação do pedido" : initial ? "Salvar rascunho" : "Criar pedido"}</Button>
         </form>
     </section>
   </>

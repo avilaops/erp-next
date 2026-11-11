@@ -196,7 +196,7 @@ test("pedido reserva estoque, conclui, gera conta e registra recebimento e estor
   await page.getByRole("button", { name: /^Selecionar Produto do pedido integral/ }).click()
   await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2026-11-27")
   await page.getByRole("textbox", { name: "Quantidade de Produto do pedido integral", exact: true }).fill("3")
-  await page.getByRole("button", { name: "Criar rascunho", exact: true }).click()
+  await page.getByRole("button", { name: "Criar pedido", exact: true }).click()
   await expect(page.getByText("Total: R$ 0,99", { exact: true })).toBeVisible()
   const orderId = new URL(page.url()).pathname.split("/").at(-1)!
   await page.getByRole("button", { name: "Confirmar e reservar estoque", exact: true }).click()

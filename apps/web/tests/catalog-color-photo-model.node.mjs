@@ -16,7 +16,6 @@ test("legacy Portuguese aliases require the complete same-product DHZ signature"
     assert.equal(catalogColorPhoto(stored, "dhz-hammerforce")?.name, name);
   }
   assert.equal(catalogColorPhoto("Amarelo", "dhz-hammerforce"), undefined);
-  assert.equal(catalogColorPhoto("Black"), undefined);
 });
 
 test("matches distinctive catalog names while preserving the selected stored name", () => {
@@ -27,8 +26,20 @@ test("matches distinctive catalog names while preserving the selected stored nam
   assert.equal(catalogColorPhoto("Titanium Grey")?.name, "Titanium Grey");
 });
 
+test("uses the manufacturer's leather rectangle for explicit Black upholstery", () => {
+  const leather = catalogColorPhoto("Black");
+  assert.ok(leather);
+  assert.equal(leather.name, "Black");
+  // The upholstery strip is below the equipment images; frame and arm samples are above them.
+  assert.ok(leather.y >= 1653);
+  assert.ok(catalogColorPhoto("Piano Black").y < 1653);
+  assert.ok(catalogColorPhoto("Preto", "dhz-hammerforce").y < 1653);
+  assert.ok(catalogColorPhoto("Grafite", "dhz-hammerforce").y < 1653);
+  assert.equal(catalogColorPhoto("Preto"), undefined);
+});
+
 test("does not assign DHZ photos to generic or unknown colors", () => {
-  for (const color of ["Black", "Preto", "Red", "Cinza", "Azul", "Piano Black especial", ""]) {
+  for (const color of ["Preto", "Red", "Cinza", "Azul", "Piano Black especial", ""]) {
     assert.equal(catalogColorPhoto(color), undefined);
   }
 });
@@ -38,7 +49,7 @@ test("catalog asset keeps the original embedded image bytes recorded in provenan
   const image = readFileSync(new URL(`../public/catalog/${provenance.asset}`, import.meta.url));
   assert.equal(image.length, provenance.assetBytes);
   assert.equal(createHash("sha256").update(image).digest("hex"), provenance.assetSha256);
-  for (const name of ["Piano Black", "Graphite Black", "Light Grey", "Performance Red", "Titanium Grey", "Hermès Orange", "Apple Green", "Ocean Blue", "Saddle Brown", "Reddish Brown", "Mocha"]) {
+  for (const name of ["Piano Black", "Graphite Black", "Light Grey", "Performance Red", "Titanium Grey", "Hermès Orange", "Apple Green", "Ocean Blue", "Black", "Saddle Brown", "Reddish Brown", "Mocha"]) {
     const rectangle = catalogColorPhoto(name);
     assert.ok(rectangle, name);
     assert.ok(rectangle.x + rectangle.width <= provenance.width, name);

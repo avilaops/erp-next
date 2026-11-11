@@ -11,6 +11,17 @@ type Command = { key: string; revision: string; body: unknown }
 
 test.beforeEach(async ({ context }) => installFrontendFixture(context))
 
+test("Fiscal no cabeçalho do monitor volta à visão geral do módulo", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa da nota" }, permissions: ["fiscal.received_nfe.read"] } }))
+  await page.route("**/api/erp/fiscal/received-nfes?**", route => route.fulfill({ json: { tenantId: tenant, canImport: false, data: [], total: 0 } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/fiscal/monitor")
+  const trail = page.getByRole("navigation", { name: "Caminho de navegação", exact: true })
+  await expect(trail.getByRole("link", { name: "Fiscal", exact: true })).toHaveAttribute("href", "/fiscal")
+  await trail.getByRole("link", { name: "Fiscal", exact: true }).click()
+  await expect(page).toHaveURL(/\/fiscal$/)
+})
+
 async function details(page: Page, canConvert = true) {
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant, legalName: "Empresa da nota" }, permissions: ["fiscal.received_nfe.manage", ...(canConvert ? ["purchasing.orders.read", "purchasing.orders.manage"] : [])] } }))
   await page.route("**/api/erp/fiscal/received-nfes/11", route => route.fulfill({ json: { tenantId: tenant, data: note } }))

@@ -7,6 +7,7 @@ import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 
 import Link from "next/link"
+import { GuardedLink } from "@/components/shell/navigation-guard"
 import { useEffect, useRef, useState } from "react"
 import { Download, FileText, RefreshCw, Upload } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -135,7 +136,7 @@ export function ReceivedMonitor() {
 
   return <div className="mx-auto max-w-6xl space-y-3 px-4 pb-8 pt-8 sm:space-y-6 sm:pb-24 lg:px-6">
     <header className="flex flex-wrap items-start justify-between gap-2 border-b pb-3 sm:gap-4 sm:pb-6">
-      <div><p className="text-sm text-primary">Fiscal / Notas recebidas</p><PageTitle className="mt-1 text-3xl font-semibold">Monitor de notas fiscais</PageTitle><p className="mt-1 break-words text-sm text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
+      <div><nav aria-label="Caminho de navegação" className="text-sm text-primary"><ol className="flex flex-wrap items-center gap-1"><li><GuardedLink className="underline-offset-4 hover:underline" href="/fiscal">Fiscal</GuardedLink></li><li><span aria-hidden="true" className="mr-1">/</span><span aria-current="page">Notas recebidas</span></li></ol></nav><PageTitle className="mt-1 text-3xl font-semibold">Monitor de notas fiscais</PageTitle><p className="mt-1 break-words text-sm text-muted-foreground">{company || "Documentos da empresa ativa"}</p></div>
       <Link className={buttonVariants({ variant: "outline" })} href="/preferencias/fiscal">Configurações fiscais</Link>
     </header>
     <FiscalDistribution onChanged={() => { setLoading(true); setRefresh(value => value + 1) }} />

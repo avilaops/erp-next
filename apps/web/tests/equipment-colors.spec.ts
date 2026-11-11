@@ -74,7 +74,7 @@ test("cores do equipamento são escolhidas, persistidas e preservadas após alte
   await page.screenshot({ path: info.outputPath("equipment-colors-choice-mobile.png"), fullPage: true })
   const overflow = await page.evaluate(() => Array.from(document.querySelectorAll("main *")).filter(element => element.getBoundingClientRect().right > innerWidth + 1).map(element => ({ tag: element.tagName, className: element.className, right: element.getBoundingClientRect().right })).slice(0, 12))
   expect(overflow).toEqual([])
-  await page.getByRole("button", { name: "Criar rascunho", exact: true }).click()
+  await page.getByRole("button", { name: "Criar pedido", exact: true }).click()
   await expect(page).toHaveURL(/\/vendas\/pedidos\/[a-f0-9-]{36}$/)
   const orderId = new URL(page.url()).pathname.split("/").at(-1)!
   await expect(page.getByText("Estrutura: Branco", { exact: true })).toBeVisible()

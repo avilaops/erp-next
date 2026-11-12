@@ -313,9 +313,10 @@ pub async fn put(
             .await?,
         );
     }
-    if let Some(main_media_id) = input.main_media_id {
-        if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND m.id=$3 AND m.variant IN ('webp','black','thumbnail') AND f.status='available')")
-            .bind(tenant).bind(id).bind(main_media_id).fetch_one(&mut *tx).await.map_err(db)? { return Err(DomainError::Invalid("Selecione uma imagem de apresentação deste produto")); }
+    if let Some(main_media_id) = input.main_media_id
+        && !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND m.id=$3 AND m.variant IN ('webp','black','thumbnail') AND f.status='available')")
+            .bind(tenant).bind(id).bind(main_media_id).fetch_one(&mut *tx).await.map_err(db)? {
+        return Err(DomainError::Invalid("Selecione uma imagem de apresentação deste produto"));
     }
     let sources = input.catalog_sources.as_ref().map(|sources| json!(sources));
     if current.is_none() {

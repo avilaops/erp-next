@@ -61,10 +61,15 @@ test("busca global encontra Produtos com destino direto", async ({ page }) => {
 })
 
 test("exportação de produtos oferece download autorizado", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: "11111111-1111-4111-8111-111111111111" }, permissions: ["catalog.products.export", "catalog.products.read"] } }))
+  await page.route("**/api/erp/products/export", route => route.fulfill({ body: "sku,name,unit,ncm,cest,base_price,status\r\n", contentType: "text/csv" }))
   await page.goto("/preferencias/dados/exportacao")
   await expect(page.getByRole("heading", { name: "Exportação de produtos", exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Baixar produtos.csv", exact: true })).toBeVisible()
-  await expect(page.getByText(/Não é backup nem exportação contábil\./)).toBeVisible()
+  const downloadButton = page.getByRole("button", { name: "Baixar produtos.csv", exact: true })
+  await expect(downloadButton).toBeEnabled()
+  const [download] = await Promise.all([page.waitForEvent("download"), downloadButton.click()])
+  expect(download.suggestedFilename()).toBe("produtos.csv")
+  await expect(page.getByRole("status").filter({ hasText: "Nenhum produto corresponde aos filtros" })).toBeVisible()
 })
 
 test("filtro e página do catálogo sobrevivem a recarga e histórico", async ({ page }) => {

@@ -69,6 +69,13 @@ for (const width of [320, 390, 430, 1366, 1440]) test(`tabela nacional até pedi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+test("peso do simulador respeita quantidade inteira digitada com zero inicial", async ({ page }) => {
+  await page.route(`**/api/erp/products/${product}/catalog`, route => route.fulfill({ json: { tenantId: tenant, data: { weight: "180 kg" } } }))
+  await page.goto(`/vendas/simulador?produto=${product}`)
+  await page.getByLabel(`Quantidade de ${name}`, { exact: true }).fill("02")
+  await expect(page.getByRole("region", { name: "Peso do pedido", exact: true })).toContainText("360 kg")
+})
+
 test("atualiza tabela obsoleta sem perder cliente, vencimento ou acabamentos", async ({ page }) => {
   let tableReads = 0
   let refreshFailed = false

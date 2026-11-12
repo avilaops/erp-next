@@ -185,6 +185,10 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
         "</tbody></table><p><strong>Total: R$ {}</strong></p>",
         escape(&data.amount)
     ));
+    match equipment_weight::total(current.items.iter().map(|item| (item.quantity.as_str(), item.equipment_weight.as_deref()))) {
+        Some(weight) => html.push_str(&format!("<p><strong>Peso bruto total: {weight} kg</strong></p>")),
+        None => html.push_str("<p><strong>Peso bruto total: Incompleto</strong></p><p>Há equipamentos sem peso válido cadastrado.</p>"),
+    }
     if let Some(checkout) = &current.checkout {
         let customer = &checkout.customer;
         let address = customer["addresses"].as_array().and_then(|addresses| {
@@ -501,6 +505,29 @@ mod tests {
         assert!(!html.contains("<b>"));
     }
 
+    #[test]
+    fn attachment_marks_missing_equipment_weight_instead_of_claiming_zero() {
+        let order = sample_order();
+        let html = String::from_utf8(attachment(&order, "Empresa", "123").bytes).unwrap();
+        assert!(html.contains("Peso bruto total"));
+        assert!(html.contains("Incompleto"));
+        assert!(!html.contains("Peso bruto total: 0 kg"));
+    }
+
+    #[test]
+    fn attachment_totals_equipment_weight_using_each_recorded_quantity() {
+        let mut order = sample_order();
+        order.items[0].quantity = "6.000000".into();
+        order.items[0].equipment_weight = Some("180,5 kg".into());
+        let mut second = sample_order().items.remove(0);
+        second.quantity = "2.000000".into();
+        second.equipment_weight = Some("90.25 KG".into());
+        order.items.push(second);
+        let html = String::from_utf8(attachment(&order, "Empresa", "123").bytes).unwrap();
+        assert!(html.contains("Peso bruto total: 1.263,5 kg"));
+        assert!(!html.contains("Incompleto"));
+    }
+
     fn sample_order() -> OrderSnapshot {
         OrderSnapshot {
             tenant_id: Uuid::nil(),
@@ -526,6 +553,7 @@ mod tests {
                 quantity: "2.500000".into(),
                 unit_price: "17.99".into(),
                 amount: "44.98".into(),
+                equipment_weight: None,
                 structure_color: Some("Azul & preto".into()),
                 upholstery_color: None,
                 plate_holder_color: Some("Branco".into()),

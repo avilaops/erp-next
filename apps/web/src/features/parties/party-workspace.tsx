@@ -2,6 +2,7 @@
 
 import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
+import { lookupMunicipalityCode } from "@/lib/municipality-code"
 
 import type { Schema } from "@/lib/api/types"
 
@@ -102,6 +103,41 @@ export function PartyEditor({ id, view = false }: { id?: string; view?: boolean 
   const command = useRef<{ key: string; body: string } | null>(null)
   const cnpjProvenance = useRef(emptyCnpjProvenance())
   const dirty = JSON.stringify(draft) !== baseline
+  const municipalityTenant = snapshot?.tenantId
+  const canResolveMunicipalities = !view && !loading && snapshot?.canEdit && !saving && !conflict && !uncertain
+
+  useEffect(() => {
+    if (!canResolveMunicipalities || !municipalityTenant) return
+    const missing = draft.addresses.filter(address => !address.municipalityCode?.trim() && /^\d{8}$/.test(address.postalCode.replace(/\D/g, "")) && address.city.trim() && address.state.length === 2)
+    if (!missing.length) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      void Promise.all(missing.map(async address => {
+        try {
+          const code = await lookupMunicipalityCode({ ...address, taxId: "", cityName: address.city, municipalityCode: address.municipalityCode || "" }, municipalityTenant, controller.signal, erpFetch)
+          return { address, code }
+        } catch { return { address, code: null } }
+      })).then(results => {
+        if (controller.signal.aborted || pending.current) return
+        // Automatic enrichment remains part of the address supplied by the CNPJ lookup.
+        const generated = cnpjProvenance.current.address
+        const generatedCode = results.find(result => result.address === generated)?.code
+        if (generated && generatedCode) cnpjProvenance.current.address = { ...generated, municipalityCode: generatedCode }
+        setDraft(current => {
+          let changed = false
+          const addresses = current.addresses.map(address => {
+            const code = results.find(result => result.address === address)?.code
+            if (!code || address.municipalityCode?.trim()) return address
+            changed = true
+            return { ...address, municipalityCode: code }
+          })
+          return changed ? { ...current, addresses } : current
+        })
+        if (results.some(result => result.code)) setSaved(false)
+      })
+    }, 300)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [draft.addresses, municipalityTenant, canResolveMunicipalities])
 
   useEffect(() => {
     const controller = new AbortController()

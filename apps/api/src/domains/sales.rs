@@ -21,6 +21,7 @@ pub mod checkout;
 pub(crate) mod checkout_document;
 #[cfg(test)]
 mod component_selection_tests;
+mod equipment_weight;
 pub mod metrics;
 pub mod negotiation;
 pub mod negotiation_model;
@@ -139,6 +140,8 @@ pub struct OrderLine {
     quantity: String,
     unit_price: String,
     amount: String,
+    /// Peso unitário no cadastro atual do equipamento, em kg.
+    equipment_weight: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -268,7 +271,7 @@ async fn load(
 ) -> Result<OrderSnapshot, DomainError> {
     let data=sqlx::query_as::<_,OrderSummary>("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color,(SELECT c.weight FROM product_catalog_profiles c WHERE c.tenant_id=sales_order_lines.tenant_id AND c.product_id=sales_order_lines.product_id) AS equipment_weight FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     let pricing_origin: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2) OR EXISTS(SELECT 1 FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2)",

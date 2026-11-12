@@ -35,6 +35,11 @@ const upstream = createServer(async (request, response) => {
   if (request.url === "/api/v1/registry-lookups") {
     let raw = ""; for await (const chunk of request) raw += chunk
     const input = JSON.parse(raw)
+    if (input.kind === "cep") {
+      const value = input.value.replace(/\D/g, "")
+      response.end(JSON.stringify({ tenantId: replyTenant, kind: "cep", value, status: "found", expiresAt: expiresAt || "2099-01-01T00:00:00Z", data: { fields: { postalCode: value, state: value === "01001000" ? "SP" : "RJ", city: value === "01001000" ? "São Paulo" : "Rio de Janeiro", municipalityCode: value === "01001000" ? "3550308" : "3304557" } } }))
+      return
+    }
     expect(input.kind).toBe("cnpj"); expect(input.context).toBe("party")
     const value = input.value.replace(/[.\s/-]/g, "").toUpperCase()
     requests.push(value)
@@ -140,6 +145,7 @@ test("changing CNPJ replaces untouched generated values and keeps subsequent man
   await page.goto(`${path}/novo`)
   await cnpjInput(page).fill(first)
   await expect(fantasy(page)).toHaveValue("Fantasia 04")
+  await expect(page.getByLabel("Endereço 1: Código IBGE", { exact: true })).toHaveValue("3550308")
   await page.getByRole("textbox", { name: "Nome ou razão social", exact: true }).fill("Minha edição")
   await page.getByRole("textbox", { name: "E-mail", exact: true }).fill("escolhido@example.test")
   await cnpjInput(page).fill(second)

@@ -151,16 +151,16 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível atualizar a tabela.") }
     finally { setReloading(false) }
   }
-  if (!table.data) return <section className="form-section space-y-3"><p>Nenhuma tabela publicada nesta linha.</p>{table.canManage && <Link className="text-primary underline" href="/preferencias/tabela-precos">Publicar tabela de preços</Link>}</section>
+  if (!table.data) return <section className="form-section space-y-3"><p>Nenhuma tabela publicada nesta linha.</p>{table.canManage ? <Link className="inline-flex min-h-11 items-center text-primary underline" href={`/preferencias/tabela-precos?linha=${table.line}`}>Publicar tabela de preços</Link> : <p className="text-sm text-muted-foreground">Peça à gestão para publicar a tabela desta linha.</p>}</section>
   const choices = table.data.items.filter(i => i.available !== false && `${i.sku} ${i.name}`.toLowerCase().includes(search.toLowerCase()) && !items.some(selected => selected.productId === i.productId))
-  return <div data-simulation-dirty={dirty} className="space-y-4">
+  return <div data-simulation-dirty={dirty} className="space-y-4 [--workspace-control-height:44px] sm:[--workspace-control-height:36px]">
     <div className="sticky top-[52px] z-20 space-y-1 border-y bg-background py-1 lg:top-16">
       <div className="flex min-w-0 items-center justify-between gap-2">
         {(error || command.error) ? <p role="alert" className="min-w-0 text-xs sm:text-sm"><RequestError message={error || command.error} status={command.status || undefined} /></p> : <p role="status" className="min-w-0 text-xs text-muted-foreground sm:text-sm">Tabela v{table.data.version} · {result ? "Calculada" : everCalculated ? "Alterada após o cálculo: simule novamente" : "Simulação não salva"}</p>}
         <div className="flex shrink-0 gap-2"><Button type="button" variant={result ? "outline" : "default"} disabled={frozen || !items.length} onClick={simulate}>{busy ? "Calculando…" : "Simular"}</Button>{result && canCreate && <Button type="button" disabled={frozen} onClick={() => jumpTo("customer")}>Continuar pedido</Button>}</div>
       </div>
       <nav aria-label="Etapas da simulação" className={`grid ${canCreate ? "grid-cols-4" : "grid-cols-3"} gap-1 text-xs sm:text-sm`}>
-        {[["equipment", "Equipamentos"], ["conditions", "Condições"], ["result", "Resultado"], ...(canCreate ? [["customer", "Cliente"]] : [])].map(([id, label]) => <a key={id} href={`#simulator-${id}`} className="flex min-h-9 min-w-0 items-center justify-center rounded-md px-1 font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" onClick={event => { event.preventDefault(); jumpTo(id) }}>{label}</a>)}
+        {[["equipment", "Equipamentos"], ["conditions", "Condições"], ["result", "Resultado"], ...(canCreate ? [["customer", "Cliente"]] : [])].map(([id, label]) => <a key={id} href={`#simulator-${id}`} className="flex min-h-11 min-w-0 items-center justify-center rounded-md px-1 font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9" onClick={event => { event.preventDefault(); jumpTo(id) }}>{label}</a>)}
       </nav>
     </div>
     <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:gap-5">
@@ -187,13 +187,13 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
       </div>
       <aside className="min-w-0 space-y-3 lg:sticky lg:top-48 lg:row-span-2 lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto lg:overscroll-contain" aria-labelledby="simulator-result">
         <h2 id="simulator-result" tabIndex={-1} className={sectionHeadingClass}>Resultado</h2>
-        {result ? <NegotiationResult sale={result.value.sale} director={result.value.director} /> : <p className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">{items.length ? "Confira as condições e clique em Simular." : "Adicione equipamentos para calcular preços e entrada."}{everCalculated && " Simule novamente para atualizar os valores."}</p>}
+        {result ? <NegotiationResult sale={result.value.sale} director={result.value.director} context={result.input} /> : <p className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">{items.length ? "Confira as condições e clique em Simular." : "Adicione equipamentos para calcular preços e entrada."}{everCalculated && " Simule novamente para atualizar os valores."}</p>}
         {command.stale && <div className="space-y-2 rounded-lg border bg-background p-3 text-sm"><p>A tabela ou a política mudou. Atualize e confira os valores antes de criar o pedido.</p><Button variant="outline" className="h-auto min-h-10 whitespace-normal" disabled={reloading} onClick={refreshTable}>{reloading ? "Atualizando tabela…" : "Atualizar tabela e simular novamente"}</Button></div>}
       </aside>
       {canCreate && <details className="form-section min-w-0 space-y-3 !p-3 lg:col-start-1">
         <summary className="cursor-pointer"><h2 id="simulator-customer" tabIndex={-1} className={sectionHeadingClass}>Dados para criar o pedido</h2></summary>
         <Lookup compact endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} />
-        {table.paymentMethods !== undefined ? <CommercialCheckout ref={checkout} tenantId={table.tenantId} customerId={customer?.id} methods={table.paymentMethods} totalCents={paymentTotal} entryCents={paymentEntry} entryRaw={downPayment} onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate} onDueDateChange={date => { setDueDate(date); setDirty(true) }} onDirty={() => setDirty(true)} disabled={frozen} /> : <label className="grid min-w-0 gap-1 sm:gap-2">Vencimento da conta a receber<Input type="date" disabled={frozen} value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true) }} /></label>}
+        {table.paymentMethods !== undefined ? <CommercialCheckout ref={checkout} tenantId={table.tenantId} customerId={customer?.id} methods={table.paymentMethods} totalCents={paymentTotal} entryCents={paymentEntry} entryRaw={downPayment} onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate} onDueDateChange={date => { setDueDate(date); setDirty(true) }} onDirty={() => { setDirty(true); setError("") }} disabled={frozen} /> : <label className="grid min-w-0 gap-1 sm:gap-2">Vencimento da conta a receber<Input type="date" disabled={frozen} value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true) }} /></label>}
         {result && <>
           {(!customer || !dueDate) && <p className="text-xs text-muted-foreground">Selecione o cliente e informe o vencimento para criar o pedido.</p>}
           <Button className="h-auto min-h-11 max-w-full whitespace-normal" disabled={!customer || !dueDate || busy || reloading || command.busy || command.stale} onClick={convert}>{command.uncertain ? "Conferir criação com o mesmo comando" : "Criar pedido com estas condições"}</Button>

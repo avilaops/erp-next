@@ -94,6 +94,164 @@ async function openCheckout(page: Page) {
   await page.getByRole("button", { name: "Continuar pedido", exact: true }).click()
 }
 
+async function preparedCheckout(page: Page) {
+  await openCheckout(page)
+  await page.getByLabel("Buscar cliente", { exact: true }).fill("Horizonte")
+  await page.getByRole("button", { name: "Pesquisar cliente", exact: true }).click()
+  await page.getByRole("button", { name: `Selecionar ${originalCustomer.legalName}`, exact: true }).click()
+  await page.getByLabel("Forma da entrada", { exact: true }).selectOption(pix)
+  await page.getByLabel("Forma do saldo", { exact: true }).selectOption(boleto)
+  await page.getByLabel("Parcelas", { exact: true }).fill("2")
+  await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2027-02-28")
+  await page.getByRole("button", { name: "Gerar parcelas", exact: true }).click()
+}
+
+for (const width of [320, 390, 430, 1366, 1440]) test(`erro abre e foca a parcela recolhida sem perder dados em ${width}px`, async ({ context, page, baseURL }, info) => {
+  await installFrontendFixture(context, baseURL)
+  const state = await fixture(page)
+  await page.setViewportSize({ width, height: 900 })
+  await preparedCheckout(page)
+  const amount = page.getByLabel("Valor da parcela 2 (R$)", { exact: true })
+  const second = page.locator("summary").filter({ hasText: "Parcela 2 de 2" })
+  await second.click()
+  await amount.fill("0,00")
+  await page.getByLabel("Valor da parcela 1 (R$)", { exact: true }).fill("6510,36")
+  await second.click()
+  await expect(amount).toBeHidden()
+  await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
+  await expect(amount).toBeVisible()
+  await expect(amount).toBeFocused()
+  await expect(amount).toHaveAttribute("aria-invalid", "true")
+  await expect(amount).toHaveAccessibleDescription("Informe um valor maior que zero para a parcela 2.")
+  await expect(amount).toHaveValue("0,00")
+  await expect(page.getByLabel("Valor da parcela 1 (R$)", { exact: true })).toHaveValue("6510,36")
+  expect(state.creation()).toBeNull()
+  expect(state.writes.filter(write => write.pathname === "/api/erp/commercial/orders")).toHaveLength(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  for (const link of await page.getByRole("navigation", { name: "Etapas da simulação" }).getByRole("link").all()) {
+    if (width < 500) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  }
+  if (width < 500) expect((await page.getByRole("button", { name: "Remover parcela 2", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44)
+  await page.screenshot({ path: info.outputPath(`checkout-error-${width}.png`) })
+  await amount.fill("3255,18")
+  await expect(amount).not.toHaveAttribute("aria-invalid", "true")
+})
+
+test("erro na fabricação recolhida abre as observações e preserva o plano", async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  const state = await fixture(page)
+  await preparedCheckout(page)
+  const optional = page.locator("summary").filter({ hasText: "Entrega e observações" })
+  await optional.click()
+  const field = page.getByLabel("Prazo de fabricação (dias)", { exact: true })
+  await field.fill("4000")
+  await page.getByLabel("Observações da entrega", { exact: true }).fill("Preservar agendamento")
+  await optional.click()
+  await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
+  await expect(field).toBeVisible()
+  await expect(field).toBeFocused()
+  await expect(field).toHaveAttribute("aria-invalid", "true")
+  await expect(page.getByLabel("Observações da entrega", { exact: true })).toHaveValue("Preservar agendamento")
+  await expect(page.getByLabel("Valor da parcela 2 (R$)", { exact: true })).toHaveValue("3255,18")
+  expect(state.creation()).toBeNull()
+})
+
+for (const label of ["Forma da entrada", "Forma da parcela 2", "Vencimento da parcela 2"]) test(`recuperação aponta o campo obrigatório ${label}`, async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  const state = await fixture(page)
+  await preparedCheckout(page)
+  const second = page.locator("summary").filter({ hasText: "Parcela 2 de 2" })
+  if (label.includes("parcela 2")) await second.click()
+  const field = page.getByLabel(label, { exact: true })
+  if (label.startsWith("Forma")) await field.selectOption("")
+  else await field.fill("")
+  if (label.includes("parcela 2")) await second.click()
+  await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
+  await expect(field).toBeVisible()
+  await expect(field).toBeFocused()
+  await expect(field).toHaveAttribute("aria-invalid", "true")
+  await expect(field).toHaveAccessibleDescription(/(Escolha a forma de pagamento|Informe um vencimento válido)/)
+  expect(state.writes.filter(write => write.pathname === "/api/erp/commercial/orders")).toHaveLength(0)
+})
+
+test("resultado identifica o destino calculado e some quando as condições mudam", async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  await fixture(page)
+  await page.goto(`/vendas/simulador?produto=${product}`)
+  await page.getByRole("combobox", { name: "UF de destino", exact: true }).selectOption("MG")
+  await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("true")
+  await simulate(page)
+  const result = page.getByRole("region", { name: "Resultado da simulação", exact: true })
+  await expect(result).toContainText("Destino: MG · Contribuinte de ICMS")
+  await page.getByRole("combobox", { name: "UF de destino", exact: true }).selectOption("SP")
+  await expect(result).toHaveCount(0)
+  await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("false")
+  await simulate(page)
+  await expect(result).toContainText("Destino: SP · Não contribuinte de ICMS")
+})
+
+for (const action of ["remover inválida", "remover anterior", "substituir", "cancelar"]) test(`metadados do erro acompanham a ação ${action}`, async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  await fixture(page)
+  await preparedCheckout(page)
+  await page.locator("summary").filter({ hasText: "Parcela 2 de 2" }).click()
+  const amount = page.getByLabel("Valor da parcela 2 (R$)", { exact: true })
+  await amount.fill("0,00")
+  await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
+  await expect(amount).toHaveAttribute("aria-invalid", "true")
+  const descriptionId = await amount.getAttribute("aria-describedby")
+  expect(descriptionId).toBeTruthy()
+  if (action.startsWith("remover")) {
+    await page.getByRole("button", { name: action === "remover inválida" ? "Remover parcela 2" : "Remover parcela 1", exact: true }).click()
+  } else {
+    await page.getByRole("button", { name: "Gerar parcelas", exact: true }).click()
+    const dialog = page.getByRole("dialog", { name: "Substituir as parcelas editadas?", exact: true })
+    await dialog.getByRole("button", { name: action === "substituir" ? "Substituir parcelas" : "Manter parcelas", exact: true }).click()
+  }
+  const description = page.locator(`[id="${descriptionId}"]`)
+  if (action === "cancelar") {
+    await expect(description).toContainText("parcela 2")
+    await expect(amount).toHaveAttribute("aria-invalid", "true")
+    await expect(amount).toHaveValue("0,00")
+  } else {
+    await expect(description).toHaveCount(0)
+    await expect(page.getByRole("alert").filter({ hasText: "parcela 2" })).toHaveCount(0)
+    if (action === "remover anterior") {
+      await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
+      await expect(page.getByRole("alert").filter({ hasText: "parcela 1" })).toBeVisible()
+      await expect(page.getByLabel("Valor da parcela 1 (R$)", { exact: true })).toHaveAccessibleDescription("Informe um valor maior que zero para a parcela 1.")
+    }
+  }
+})
+
+test("metadados do percentual inválido são acessíveis sem interromper o Tab", async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  await fixture(page)
+  await openCheckout(page)
+  const percent = page.getByLabel("Entrada (%)", { exact: true })
+  await percent.fill("101")
+  await percent.press("Tab")
+  await expect(percent).toHaveAttribute("aria-invalid", "true")
+  await expect(percent).toHaveAccessibleDescription("A entrada deve estar entre 0% e 100%.")
+  await expect(page.getByLabel("Forma da entrada", { exact: true })).toBeFocused()
+  await percent.fill("70,00")
+  await percent.press("Tab")
+  await expect(percent).not.toHaveAttribute("aria-invalid", "true")
+})
+
+test("atalho de publicação mantém a linha Nacional e respeita acesso de consulta", async ({ context, page, baseURL }) => {
+  await installFrontendFixture(context, baseURL)
+  await fixture(page)
+  let canManage = true
+  await page.route("**/api/erp/commercial/tables/national", route => route.fulfill({ json: { tenantId: tenant, line: "national", canManage, data: null } }))
+  await page.goto("/vendas/simulador?linha=national")
+  await expect(page.getByRole("link", { name: "Publicar tabela de preços", exact: true })).toHaveAttribute("href", "/preferencias/tabela-precos?linha=national")
+  canManage = false
+  await page.reload()
+  await expect(page.getByRole("link", { name: "Publicar tabela de preços", exact: true })).toHaveCount(0)
+  await expect(page.getByText("Peça à gestão para publicar a tabela desta linha.", { exact: true })).toBeVisible()
+})
+
 test("consulta comercial mantém a entrada ajustável sem acesso à criação", async ({ context, page, baseURL }) => {
   await installFrontendFixture(context, baseURL)
   await fixture(page)

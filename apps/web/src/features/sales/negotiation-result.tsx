@@ -1,17 +1,18 @@
 "use client"
 
-import { money, percent, approvalLabels, type Sale, type Director } from "./negotiation-types"
+import { money, percent, approvalLabels, type Sale, type Director, type SimulationInput } from "./negotiation-types"
 
 function Rows({ values }: { values: [string, string][] }) {
   return <dl className="space-y-3">{values.map(([label, value]) => <div key={label} className="flex min-w-0 flex-wrap justify-between gap-x-4 gap-y-1"><dt className="min-w-0 break-words text-sm text-muted-foreground">{label}</dt><dd className="font-medium tabular-nums">{value}</dd></div>)}</dl>
 }
 
-export function NegotiationResult({ sale, director }: { sale: Sale; director: Director | null }) {
+export function NegotiationResult({ sale, director, context }: { sale: Sale; director: Director | null; context?: Pick<SimulationInput, "destinationState" | "taxpayer"> }) {
   const discountLimit = sale.maximumAtTargetDiscountBps ?? director?.maximumAtTargetDiscountBps
   const requiredEntry = sale.requiredDownPaymentCents ?? director?.requiredDownPaymentCents
   return <div className="space-y-5">
     <section className="form-section space-y-4" aria-label="Resultado da simulação">
       <h2 className="font-semibold">Resultado comercial</h2>
+      {context && <p className="text-sm text-muted-foreground">Destino: {context.destinationState} · {context.taxpayer ? "Contribuinte de ICMS" : "Não contribuinte de ICMS"}</p>}
       <ul className="space-y-1 text-sm">{sale.items.map(item => <li key={item.productId}>{item.quantity} un. · {item.name} · {item.sku}</li>)}</ul>
       <div><p className="text-sm text-muted-foreground">Total da venda, com IPI</p><p className="break-words text-3xl font-semibold tabular-nums">{money(sale.totalCents)}</p></div>
       {discountLimit !== undefined && requiredEntry !== undefined && <div className="rounded-lg border p-3">

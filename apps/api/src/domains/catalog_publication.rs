@@ -88,6 +88,22 @@ impl MediaGateway {
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CatalogSource {
+    pub title: String,
+    pub url: String,
+    pub pdf_page: Option<u32>,
+    pub printed_page: Option<u32>,
+}
+
+fn deserialize_required_main_media<'de, D>(deserializer: D) -> Result<Option<Uuid>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<Uuid>::deserialize(deserializer)
+}
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CatalogProfileInput {
     pub collection: String,
     pub muscle_group: String,
@@ -96,12 +112,21 @@ pub struct CatalogProfileInput {
     pub description: String,
     pub weight: String,
     pub weight_stack: String,
-    pub main_media_id: Uuid,
+    // A deliberate null keeps the legacy photo; absence must never remove media.
+    #[serde(deserialize_with = "deserialize_required_main_media")]
+    #[schema(required = true)]
+    pub main_media_id: Option<Uuid>,
+    /// Omission preserves metadata written by newer clients; empty clears it.
+    pub manufacturer: Option<String>,
+    pub manufacturer_model: Option<String>,
+    pub catalog_product_name: Option<String>,
+    pub live_area: Option<String>,
+    pub catalog_sources: Option<Vec<CatalogSource>>,
     #[serde(default)]
     pub new_image: Option<String>,
 }
 impl CatalogProfileInput {
-    fn validate(&self) -> Result<(), DomainError> {
+    fn validate(&mut self) -> Result<(), DomainError> {
         if !["core", "premium"].contains(&self.collection.as_str())
             || [&self.muscle_group, &self.technical_category]
                 .iter()
@@ -114,6 +139,47 @@ impl CatalogProfileInput {
             return Err(DomainError::Invalid(
                 "Confira linha, grupo e dimensões em milímetros",
             ));
+        }
+        for (value, limit) in [
+            (&mut self.manufacturer, 80),
+            (&mut self.manufacturer_model, 80),
+            (&mut self.catalog_product_name, 200),
+            (&mut self.live_area, 200),
+        ] {
+            if let Some(value) = value {
+                *value = value.trim().to_owned();
+                if value.chars().count() > limit || value.chars().any(char::is_control) {
+                    return Err(DomainError::Invalid("Confira os dados do fabricante"));
+                }
+            }
+        }
+        if let Some(sources) = &mut self.catalog_sources {
+            if sources.len() > 10 {
+                return Err(DomainError::Invalid("Cadastre até dez fontes do catálogo"));
+            }
+            for source in sources {
+                source.title = source.title.trim().to_owned();
+                source.url = source.url.trim().to_owned();
+                let url = reqwest::Url::parse(&source.url)
+                    .map_err(|_| DomainError::Invalid("Informe uma fonte HTTPS válida"))?;
+                if source.title.is_empty()
+                    || source.title.chars().count() > 160
+                    || source.title.chars().any(char::is_control)
+                    || source.url.len() > 2048
+                    || url.scheme() != "https"
+                    || url.host_str().is_none()
+                    || !url.username().is_empty()
+                    || url.password().is_some()
+                    || [source.pdf_page, source.printed_page]
+                        .into_iter()
+                        .flatten()
+                        .any(|page| !(1..=10000).contains(&page))
+                {
+                    return Err(DomainError::Invalid(
+                        "Confira título, endereço HTTPS e páginas da fonte",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -130,15 +196,20 @@ struct ProfileRow {
     weight: String,
     weight_stack: String,
     public_path: String,
-    main_media_id: Uuid,
+    main_media_id: Option<Uuid>,
+    manufacturer: String,
+    manufacturer_model: String,
+    catalog_product_name: String,
+    live_area: String,
+    catalog_sources: Value,
 }
 async fn profile(
     tx: &mut Transaction<'_, Postgres>,
     tenant: Uuid,
     id: Uuid,
-) -> Result<ProfileRow, DomainError> {
-    sqlx::query_as("SELECT revision,collection,muscle_group,technical_category,dimensions_mm,description,weight,weight_stack,public_path,main_media_id FROM product_catalog_profiles WHERE tenant_id=$1 AND product_id=$2")
-        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)
+) -> Result<Option<ProfileRow>, DomainError> {
+    sqlx::query_as("SELECT revision,collection,muscle_group,technical_category,dimensions_mm,description,weight,weight_stack,public_path,main_media_id,manufacturer,manufacturer_model,catalog_product_name,live_area,catalog_sources FROM product_catalog_profiles WHERE tenant_id=$1 AND product_id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)
 }
 async fn assets(
     tx: &mut Transaction<'_, Postgres>,
@@ -164,14 +235,26 @@ pub async fn get(
         false,
     )
     .await?;
+    let category: Option<Option<String>> = sqlx::query_scalar("SELECT c.code FROM products p LEFT JOIN product_categories c ON (c.tenant_id,c.id)=(p.tenant_id,p.category_id) WHERE p.tenant_id=$1 AND p.id=$2")
+        .bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+    let category = category.ok_or(DomainError::NotFound)?;
+    let default_collection = if category.as_deref() == Some("PREMIUM") {
+        "premium"
+    } else {
+        "core"
+    };
     let data = profile(&mut tx, tenant, id).await?;
     let media = assets(&mut tx, tenant, id).await?;
-    let revision = data.revision;
+    let revision = data.as_ref().map_or(0, |profile| profile.revision);
+    let media_configured = state
+        .catalog_media
+        .as_ref()
+        .is_some_and(|gateway| gateway.tenant == tenant);
     tx.commit().await.map_err(db)?;
     Ok(response(
         StatusCode::OK,
         Some(revision),
-        json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"assets":media}),
+        json!({"tenantId":tenant,"productId":id,"canEdit":can_edit,"data":data,"assets":media,"defaultCollection":default_collection,"mediaConfigured":media_configured}),
     ))
 }
 #[utoipa::path(put,operation_id="catalog_profile_put",path="/api/v1/products/{id}/catalog",tag="Catalog",request_body=CatalogProfileInput,security(("bearerAuth"=[])),params(("id"=Uuid,Path)),responses((status=200,description="Rascunho salvo"),(status=412,description="Revisão alterada")))]
@@ -183,7 +266,15 @@ pub async fn put(
     Json(mut input): Json<CatalogProfileInput>,
 ) -> Result<Response, DomainError> {
     input.validate()?;
-    let expected = revision(&headers)?;
+    let expected = if headers
+        .get(axum::http::header::IF_MATCH)
+        .and_then(|value| value.to_str().ok())
+        == Some("\"0\"")
+    {
+        0
+    } else {
+        revision(&headers)?
+    };
     let (tenant, mut tx, _) = authorized(
         &state,
         &headers,
@@ -193,29 +284,61 @@ pub async fn put(
         true,
     )
     .await?;
+    // Serialize profile creation and updates through the existing product row.
+    sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM products WHERE tenant_id=$1 AND id=$2 FOR UPDATE",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(db)?
+    .ok_or(DomainError::NotFound)?;
     let current: Option<i64> = sqlx::query_scalar("SELECT revision FROM product_catalog_profiles WHERE tenant_id=$1 AND product_id=$2 FOR UPDATE").bind(tenant).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
-    if current != Some(expected) {
+    if current.unwrap_or(0) != expected {
         return Err(DomainError::StaleRevision);
     }
     if let Some(image) = input.new_image.take() {
         let gateway = MediaGateway::for_tenant(&state, tenant)?;
-        input.main_media_id = super::catalog_images::store(
-            &mut tx,
-            gateway,
-            tenant,
-            id,
-            &identity.subject,
-            &input.collection,
-            image,
-        )
-        .await?;
+        input.main_media_id = Some(
+            super::catalog_images::store(
+                &mut tx,
+                gateway,
+                tenant,
+                id,
+                &identity.subject,
+                &input.collection,
+                image,
+            )
+            .await?,
+        );
     }
-    if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND m.id=$3 AND m.variant IN ('webp','black','thumbnail') AND f.status='available')")
-        .bind(tenant).bind(id).bind(input.main_media_id).fetch_one(&mut *tx).await.map_err(db)? { return Err(DomainError::Invalid("Selecione uma imagem de apresentação deste produto")); }
-    let changed=sqlx::query("UPDATE product_catalog_profiles SET collection=$4,muscle_group=$5,technical_category=$6,dimensions_mm=$7,description=$8,weight=$9,weight_stack=$10,main_media_id=$11,revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND product_id=$2 AND revision=$3")
-        .bind(tenant).bind(id).bind(expected).bind(&input.collection).bind(input.muscle_group.trim()).bind(input.technical_category.trim()).bind(input.dimensions_mm.to_vec()).bind(&input.description).bind(&input.weight).bind(&input.weight_stack).bind(input.main_media_id).execute(&mut *tx).await.map_err(db)?;
-    if changed.rows_affected() != 1 {
-        return Err(DomainError::StaleRevision);
+    if let Some(main_media_id) = input.main_media_id {
+        if !sqlx::query_scalar::<_,bool>("SELECT EXISTS(SELECT 1 FROM product_media_assets m JOIN system_config.files f ON (f.tenant_id,f.id)=(m.tenant_id,m.file_id) WHERE m.tenant_id=$1 AND m.product_id=$2 AND m.id=$3 AND m.variant IN ('webp','black','thumbnail') AND f.status='available')")
+            .bind(tenant).bind(id).bind(main_media_id).fetch_one(&mut *tx).await.map_err(db)? { return Err(DomainError::Invalid("Selecione uma imagem de apresentação deste produto")); }
+    }
+    let sources = input.catalog_sources.as_ref().map(|sources| json!(sources));
+    if current.is_none() {
+        let path = format!(
+            "/{}/product-{id}/",
+            if input.collection == "core" {
+                "core"
+            } else {
+                "loja"
+            }
+        );
+        sqlx::query("INSERT INTO product_catalog_profiles(tenant_id,product_id,collection,muscle_group,technical_category,dimensions_mm,description,weight,weight_stack,main_media_id,public_path,manufacturer,manufacturer_model,catalog_product_name,live_area,catalog_sources) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)")
+            .bind(tenant).bind(id).bind(&input.collection).bind(input.muscle_group.trim()).bind(input.technical_category.trim()).bind(input.dimensions_mm.to_vec()).bind(&input.description).bind(&input.weight).bind(&input.weight_stack).bind(input.main_media_id).bind(path)
+            .bind(input.manufacturer.as_deref().unwrap_or("")).bind(input.manufacturer_model.as_deref().unwrap_or("")).bind(input.catalog_product_name.as_deref().unwrap_or("")).bind(input.live_area.as_deref().unwrap_or("")).bind(sources.unwrap_or_else(||json!([])))
+            .execute(&mut *tx).await.map_err(db)?;
+    } else {
+        let changed=sqlx::query("UPDATE product_catalog_profiles SET collection=$4,muscle_group=$5,technical_category=$6,dimensions_mm=$7,description=$8,weight=$9,weight_stack=$10,main_media_id=$11,manufacturer=COALESCE($12,manufacturer),manufacturer_model=COALESCE($13,manufacturer_model),catalog_product_name=COALESCE($14,catalog_product_name),live_area=COALESCE($15,live_area),catalog_sources=COALESCE($16,catalog_sources),revision=revision+1,updated_at=now() WHERE tenant_id=$1 AND product_id=$2 AND revision=$3")
+            .bind(tenant).bind(id).bind(expected).bind(&input.collection).bind(input.muscle_group.trim()).bind(input.technical_category.trim()).bind(input.dimensions_mm.to_vec()).bind(&input.description).bind(&input.weight).bind(&input.weight_stack).bind(input.main_media_id)
+            .bind(&input.manufacturer).bind(&input.manufacturer_model).bind(&input.catalog_product_name).bind(&input.live_area).bind(sources)
+            .execute(&mut *tx).await.map_err(db)?;
+        if changed.rows_affected() != 1 {
+            return Err(DomainError::StaleRevision);
+        }
     }
     record(
         &mut tx,
@@ -225,7 +348,11 @@ pub async fn put(
         DomainChange {
             kind: "product",
             id,
-            event: "catalog.profile.updated",
+            event: if current.is_none() {
+                "catalog.profile.created"
+            } else {
+                "catalog.profile.updated"
+            },
             details: json!({"revision":expected+1}),
         },
     )

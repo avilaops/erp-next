@@ -12,6 +12,130 @@ use uuid::Uuid;
 const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "22222222-2222-4222-8222-222222222222";
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn party_fiscal_metadata_preserves_omission_clears_null_and_is_tenant_scoped(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    permissions(&admin).await;
+    let mut body = input();
+    body["fiscal"] = json!({"taxpayerIndicator":"1","stateRegistration":"110042490114"});
+    let key = Uuid::now_v7();
+    let (status, headers, created) = call(
+        &router,
+        "POST",
+        "/api/v1/parties",
+        TENANT,
+        "editor",
+        None,
+        Some(key),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["data"]["fiscal"], body["fiscal"]);
+    let uri = format!(
+        "/api/v1/parties/{}",
+        created["data"]["id"].as_str().unwrap()
+    );
+    let replayed = call(
+        &router,
+        "POST",
+        "/api/v1/parties",
+        TENANT,
+        "editor",
+        None,
+        Some(key),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(replayed.2, created);
+    let omitted = input();
+    let (status, updated_headers, updated) = call(
+        &router,
+        "PUT",
+        &uri,
+        TENANT,
+        "editor",
+        headers.get("etag").and_then(|h| h.to_str().ok()),
+        None,
+        omitted,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(updated["data"]["fiscal"], body["fiscal"]);
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &uri,
+            OTHER,
+            "editor",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "reader",
+            Some("\"2\""),
+            None,
+            body.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            TENANT,
+            "editor",
+            Some("\"1\""),
+            None,
+            body.clone()
+        )
+        .await
+        .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    body["fiscal"] = Value::Null;
+    let (status, _, cleared) = call(
+        &router,
+        "PUT",
+        &uri,
+        TENANT,
+        "editor",
+        updated_headers.get("etag").and_then(|h| h.to_str().ok()),
+        None,
+        body,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cleared["data"]["fiscal"].is_null());
+    let listed = call(
+        &router,
+        "GET",
+        "/api/v1/parties",
+        TENANT,
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert!(listed.2["data"][0]["fiscal"].is_null());
+    cleanup(&admin, application, server, &role).await;
+}
+
 fn input() -> Value {
     json!({"personType":"juridica","legalName":" Indústria parceira ","tradeName":"Parceira","taxId":"04.252.011/0001-10","email":"contato@example.test","phone":null,"isCustomer":true,"isSupplier":false,"status":"active"})
 }

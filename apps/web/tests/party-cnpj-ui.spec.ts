@@ -72,6 +72,23 @@ test.beforeEach(async ({ context }) => {
 const cnpjInput = (page: Page) => page.getByRole("textbox", { name: "CPF ou CNPJ", exact: true })
 const fantasy = (page: Page) => page.getByRole("textbox", { name: "Nome fantasia", exact: true })
 
+test("CNPJ recuperado mantém a origem do endereço após completar IBGE", async ({ page }) => {
+  let cepCalls = 0
+  await page.route("**/api/erp/registry-lookups", route => {
+    if (route.request().postDataJSON().kind === "cep" && ++cepCalls === 1) return route.fulfill({ status: 503, json: { title: "Consulta temporariamente indisponível" } })
+    return route.continue()
+  })
+  await page.goto(`${path}/novo`)
+  await cnpjInput(page).fill(first)
+  await expect(page.getByLabel("Endereço 1: Número", { exact: true })).toHaveValue("04")
+  await expect.poll(() => cepCalls).toBe(1)
+  page.once("dialog", dialog => dialog.accept())
+  await page.reload()
+  await expect(page.getByLabel("Endereço 1: Código IBGE", { exact: true })).toHaveValue("3550308")
+  await cnpjInput(page).fill(second)
+  await expect(page.getByLabel("Endereço 1: Número", { exact: true })).toHaveValue("19")
+})
+
 for (const role of ["customer", "supplier"]) test(`automatic CNPJ fills and persists ${role} contacts and address through the real BFF`, async ({ page }) => {
   await page.setViewportSize({ width: role === "customer" ? 320 : 1280, height: 900 })
   await page.goto(`${path}/novo`)

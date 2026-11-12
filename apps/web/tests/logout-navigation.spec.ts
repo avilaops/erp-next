@@ -32,6 +32,7 @@ test.beforeEach(async ({ context, page }) => {
   await page.goto("/cadastros/produtos/novo")
   await expect(page.getByRole("button", { name: "Salvar produto", exact: true })).toBeEnabled()
   await page.getByRole("textbox", { name: "Nome do produto", exact: true }).fill("Edição pendente")
+  await page.evaluate(() => sessionStorage.setItem("erp:party-draft:v1:previous-session:new", JSON.stringify({ taxId: "synthetic-personal-data" })))
 })
 test.afterEach(async ({ context }) => { await context.unrouteAll({ behavior: "ignoreErrors" }) })
 
@@ -44,6 +45,7 @@ test("cancelar a saída preserva a edição e não envia POST", async ({ page, c
   await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeEnabled()
   expect(posts).toEqual([])
   expect((await context.cookies(origin)).some(cookie => cookie.name === "erp_session")).toBe(true)
+  expect(await page.evaluate(() => sessionStorage.getItem("erp:party-draft:v1:previous-session:new"))).not.toBeNull()
 })
 
 test("confirmar a saída pede confirmação uma vez e conclui o logout central", async ({ page, context }) => {
@@ -58,6 +60,7 @@ test("confirmar a saída pede confirmação uma vez e conclui o logout central",
   expect(logouts[0].searchParams.get("client_id")).toBe("browser-fixture-client")
   expect(logouts[0].searchParams.get("post_logout_redirect_uri")).toBe(`${origin}/api/auth/logout/central/callback`)
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("erp_"))).toEqual([])
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(key => key.startsWith("erp:party-draft:")))).toEqual([])
 })
 
 test("falha no POST mantém a proteção da edição e permite tentar novamente", async ({ page, context }) => {

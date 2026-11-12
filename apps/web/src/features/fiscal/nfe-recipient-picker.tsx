@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import type { DraftInput } from "./nfe-draft-model"
 import { lookupMunicipalityCode, validMunicipalityCode } from "@/lib/municipality-code"
 import type { PartyAddress } from "@/features/parties/party-complements"
+import type { PartyFiscal } from "@/features/parties/party-cnpj"
 
-export function NfeRecipientPicker({ tenant, onApply }: { tenant: string; onApply: (recipient: DraftInput["recipient"]) => void }) {
+export function NfeRecipientPicker({ tenant, onApply }: { tenant: string; onApply: (recipient: DraftInput["recipient"], fiscal: PartyFiscal | null) => void }) {
   const [query, setQuery] = useState("")
   const [rows, setRows] = useState<Schema<"Party">[]>([])
   const [busy, setBusy] = useState(false)
@@ -38,12 +39,13 @@ export function NfeRecipientPicker({ tenant, onApply }: { tenant: string; onAppl
       const [value, me] = await Promise.all([response.json(), meResponse.json()])
       if (!response.ok) throw new Error(value.title || "Não foi possível abrir o cliente")
       if (!meResponse.ok || me.tenant?.id !== tenant || value.tenantId !== tenant) throw new Error("A empresa da sessão mudou. Reabra a nota.")
-      const party: Schema<"Party"> = value.data
+      const party: Schema<"Party"> & { fiscal?: PartyFiscal | null } = value.data
+      if (party.id !== id || !party.isCustomer || party.status !== "active") throw new Error("Cliente indisponível. Atualize a busca.")
       const addresses: PartyAddress[] = party.addresses || []
       const address = addresses.find(item => item.primary) || (addresses.length === 1 ? addresses[0] : undefined)
       if (controller.signal.aborted) return
-      onApply({ taxId: party.taxId, legalName: party.legalName, state: address?.state || "", municipalityCode: validMunicipalityCode(address?.municipalityCode, address?.state || "") ? address!.municipalityCode! : "", postalCode: address?.postalCode.replace(/\D/g, "") || "", street: address?.street || "", number: address?.number || "", district: address?.district || "", complement: address?.complement || null, phone: party.phone?.replace(/\D/g, "") || null, email: party.email || null, cityName: address?.city || null })
-      setRows([]); setMessage("Cadastro copiado. Confira o endereço e o código IBGE do destinatário.")
+      onApply({ taxId: party.taxId, legalName: party.legalName, state: address?.state || "", municipalityCode: validMunicipalityCode(address?.municipalityCode, address?.state || "") ? address!.municipalityCode! : "", postalCode: address?.postalCode.replace(/\D/g, "") || "", street: address?.street || "", number: address?.number || "", district: address?.district || "", complement: address?.complement || null, phone: party.phone?.replace(/\D/g, "") || null, email: party.email || null, cityName: address?.city || null }, party.fiscal || null)
+      setRows([]); setMessage("Cadastro copiado. Confira endereço, IBGE e classificação ICMS na etapa Tributação.")
     } catch (reason) { if (!controller.signal.aborted) setMessage(reason instanceof Error ? reason.message : "Consulta indisponível") }
     finally { if (!controller.signal.aborted) setBusy(false) }
   }

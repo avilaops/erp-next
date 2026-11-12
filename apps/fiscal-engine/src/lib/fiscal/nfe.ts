@@ -55,8 +55,10 @@ export type NfeRecipient = NfeAddress & {
   name: string;
   /** Digits, or `null` for who has none or is exempt. */
   stateRegistration: string | null;
-  /** Contributor of ICMS: a company with a state registration in numbers. */
+  /** Contributor of ICMS, including a contributor exempt from registration. */
   taxpayer: boolean;
+  /** Explicit indIEDest. Omission preserves the historical boolean mapping. */
+  taxpayerIndicator?: "1" | "2" | "9";
   email?: string | null;
 };
 
@@ -431,7 +433,12 @@ export function nfeProblems(input: NfeInput): string[] {
   need(/^\d{7}$/.test(recipient.cityCode), "Cliente: código do município no IBGE (cadastro do cliente).");
   need(foreign ? recipient.cityCode === "9999999" && recipient.cep === "" && /^\d{4}$/.test(recipient.countryCode ?? "") && !["0000", "1058"].includes(recipient.countryCode ?? "") && Boolean(recipient.countryName?.trim()) : /^\d{8}$/.test(recipient.cep) && Boolean(UF_CODES[recipient.uf]), "Cliente: CEP e UF.");
   need(recipient.street.trim() !== "" && recipient.number.trim() !== "" && recipient.district.trim() !== "" && recipient.city.trim() !== "", "Cliente: rua, número, bairro e cidade.");
-  need(!recipient.taxpayer || /^\d{2,14}$/.test(recipient.stateRegistration ?? ""), "Cliente contribuinte: inscrição estadual em números.");
+  const taxpayerIndicator = recipient.taxpayerIndicator ?? (recipient.taxpayer ? "1" : "9");
+  need(["1", "2", "9"].includes(taxpayerIndicator) && recipient.taxpayer === (taxpayerIndicator !== "9"), "Cliente: indicador ICMS incompatível com a declaração de contribuinte.");
+  need(recipient.stateRegistration === null || /^\d{2,14}$/.test(recipient.stateRegistration), "Cliente: inscrição estadual em números.");
+  need(taxpayerIndicator !== "1" || !!recipient.stateRegistration, "Cliente contribuinte: inscrição estadual em números.");
+  need(taxpayerIndicator !== "2" || recipient.stateRegistration === null, "Cliente isento de inscrição estadual não informa IE.");
+  need(model !== 65 || taxpayerIndicator === "9" && recipient.stateRegistration === null, "NFC-e exige não contribuinte sem inscrição estadual.");
 
   const delivery = input.delivery;
   if (delivery) {
@@ -763,8 +770,8 @@ export function buildNfeXml(input: NfeInput): { key: string; xml: string; totals
     (recipient.uf === "EX" ? `<idEstrangeiro>${recipient.foreignId ?? ""}</idEstrangeiro>` : tag(recipient.kind === "PJ" ? "CNPJ" : "CPF", recipient.document)) +
       tag("xNome", homologation ? HOMOLOGATION_NAME : clean(recipient.name, 60)) +
       address("enderDest", recipient) +
-      tag("indIEDest", recipient.taxpayer ? "1" : "9") +
-      tag("IE", recipient.taxpayer ? recipient.stateRegistration : null) +
+      tag("indIEDest", recipient.taxpayerIndicator ?? (recipient.taxpayer ? "1" : "9")) +
+      tag("IE", recipient.stateRegistration) +
       // An address cut at 60 letters is another address: one that does not fit is left out (the field is optional).
       tag("email", recipient.email && clean(recipient.email, 61).length <= 60 ? clean(recipient.email, 60) : null),
   );

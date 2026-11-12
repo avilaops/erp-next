@@ -1,10 +1,14 @@
 import type { ApiPath, JsonBody, JsonReply } from "./types"
+import { endPartyDraftSession } from "../party-draft-session"
 
 export function erpFetch(resource: string, init: RequestInit = {}): Promise<Response> {
   if (!resource.startsWith("/api/erp/") || resource.includes("\\") || resource.includes("#")) {
     return Promise.reject(new Error("Recurso do ERP inválido"))
   }
-  return fetch(resource, { cache: "no-store", ...init, credentials: "same-origin" })
+  return fetch(resource, { cache: "no-store", ...init, credentials: "same-origin" }).then(response => {
+    if (response.status === 401 && typeof window !== "undefined") endPartyDraftSession()
+    return response
+  })
 }
 
 export async function readApi<Path extends ApiPath>(

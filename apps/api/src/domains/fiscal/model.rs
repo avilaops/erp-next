@@ -424,6 +424,8 @@ pub struct IbsCbsDeclaration {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TaxDeclaration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_taxpayer_indicator: Option<crate::domains::parties::TaxpayerIndicator>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_icms_rate: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_fcp_rate: Option<String>,
@@ -471,27 +473,36 @@ impl TaxDeclaration {
             ));
         }
         let first = &draft.items[0];
-        if self.recipient_taxpayer {
-            if !self
-                .recipient_state_registration
-                .as_ref()
-                .is_some_and(|value| {
-                    (2..=14).contains(&value.len())
-                        && value.bytes().all(|byte| byte.is_ascii_digit())
-                })
-            {
-                return Err(DomainError::Invalid(
-                    "Contribuinte exige inscrição estadual de 2 a 14 dígitos",
-                ));
-            }
-        } else if self.recipient_state_registration.is_some()
-            || (!self.final_consumer
-                && draft.recipient.state != "EX"
-                && ![5, 6].contains(&draft.purpose))
-            || first.icms_cst.as_deref() == Some("50")
+        use crate::domains::parties::TaxpayerIndicator;
+        let indicator = self
+            .recipient_taxpayer_indicator
+            .unwrap_or(if self.recipient_taxpayer {
+                TaxpayerIndicator::Contributor
+            } else {
+                TaxpayerIndicator::NonContributor
+            });
+        if indicator.is_contributor() != self.recipient_taxpayer {
+            return Err(DomainError::Invalid(
+                "Indicador ICMS incompatível com a declaração de contribuinte",
+            ));
+        }
+        indicator.validate_registration(self.recipient_state_registration.as_deref())?;
+        if draft.model == 65
+            && (indicator != TaxpayerIndicator::NonContributor
+                || self.recipient_state_registration.is_some())
         {
             return Err(DomainError::Invalid(
-                "Não contribuinte exige consumidor final, sem IE; CST 50 fora do recorte",
+                "NFC-e exige não contribuinte sem inscrição estadual",
+            ));
+        }
+        if !self.recipient_taxpayer
+            && ((!self.final_consumer
+                && draft.recipient.state != "EX"
+                && ![5, 6].contains(&draft.purpose))
+                || first.icms_cst.as_deref() == Some("50"))
+        {
+            return Err(DomainError::Invalid(
+                "Não contribuinte exige consumidor final; CST 50 fora do recorte",
             ));
         }
         let taxed_icms = first.icms_cst.as_deref() == Some("00");
@@ -1866,6 +1877,33 @@ mod tests {
         assert!(unsupported.validate(&profile).is_err());
         let mut declaration = serde_json::to_value(value.tax_declaration.unwrap()).unwrap();
         declaration["unknownRate"] = serde_json::json!("18.0000");
+        assert!(serde_json::from_value::<TaxDeclaration>(declaration).is_err());
+    }
+
+    #[test]
+    fn explicit_recipient_indicator_preserves_exempt_and_non_taxpayer_registration() {
+        for (indicator, taxpayer, registration) in [
+            ("1", true, Some("110042490114")),
+            ("2", true, None),
+            ("9", false, None),
+            ("9", false, Some("123456")),
+        ] {
+            let (mut value, profile) = declared_normal_draft();
+            let mut declaration =
+                serde_json::to_value(value.tax_declaration.take().unwrap()).unwrap();
+            declaration["recipientTaxpayerIndicator"] = serde_json::json!(indicator);
+            declaration["recipientTaxpayer"] = serde_json::json!(taxpayer);
+            declaration["recipientStateRegistration"] = serde_json::json!(registration);
+            declaration["finalConsumer"] = serde_json::json!(!taxpayer);
+            value.tax_declaration = Some(serde_json::from_value(declaration).unwrap());
+            assert!(value.validate(&profile).is_ok(), "indicator {indicator}");
+            let tax = value.tax_declaration.as_mut().unwrap();
+            tax.recipient_taxpayer = !taxpayer;
+            assert!(value.validate(&profile).is_err());
+        }
+        let (value, _) = declared_normal_draft();
+        let mut declaration = serde_json::to_value(value.tax_declaration.unwrap()).unwrap();
+        declaration["recipientTaxpayerIndicator"] = serde_json::json!("3");
         assert!(serde_json::from_value::<TaxDeclaration>(declaration).is_err());
     }
 

@@ -1,0 +1,15 @@
+.order-customer-fields .order-customer-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.order-customer-fields .order-customer-actions > button { min-height: 2.75rem; }
+.order-customer-fields .order-customer-selected { display: grid; min-width: 0; gap: .75rem; border: 1px solid var(--border); border-radius: .75rem; padding: .875rem; overflow-wrap: anywhere; }
+.order-customer-fields .order-customer-group { display: grid; min-width: 0; gap: .75rem; margin: 0; padding: .875rem 0 0; border: 0; border-top: 1px solid var(--border); }
+.order-customer-fields .order-customer-group > legend { padding-inline-end: .5rem; font-size: .875rem; font-weight: 600; }
+.order-customer-fields .order-customer-registration { display: grid; min-width: 0; gap: .5rem; grid-column: 1 / -1; }
+.order-customer-fields .order-customer-exempt { display: flex; min-height: 2.75rem; align-items: center; gap: .625rem; font-size: .875rem; }
+.order-customer-fields .order-customer-exempt > input { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
+.order-customer-fields .order-customer-city-state { display: grid; min-width: 0; gap: .75rem; grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 6.5rem); }
+.order-customer-fields .order-address-fields .order-field-grid > .order-customer-city-state { grid-column: 1 / -1; }
+.order-customer-fields .order-customer-edit-note { border-inline-start: 3px solid var(--primary); padding-inline-start: .75rem; }
+.order-customer-fields .order-customer-issues { display: grid; gap: .5rem; overflow-wrap: anywhere; }
+.order-customer-fields .order-customer-issues ul { display: grid; gap: .5rem; padding-inline-start: 1rem; list-style: disc; }
+.order-customer-fields input[aria-invalid="true"], .order-customer-fields select[aria-invalid="true"] { border-color: var(--destructive); }
+@media (max-width: 24rem) { .order-customer-fields .order-customer-city-state { grid-template-columns: minmax(0, 1fr) 5.5rem; } }

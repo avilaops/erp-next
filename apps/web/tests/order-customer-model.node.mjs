@@ -6,6 +6,8 @@ import {
   clearOrderCustomerGenerated,
   emptyOrderCustomerDraft,
   orderCustomerDraft,
+  orderCustomerIssues,
+  formatOrderCustomerValue,
   orderCustomerPayloadEqual,
   validateOrderCustomer,
   writeOrderCustomer,
@@ -16,6 +18,38 @@ const party = () => ({ personType: "juridica", legalName: "Empresa registrada", 
 const command = (input = party(), id) => ({ tenantId: "tenant-a", id, etag: id ? '"4"' : "", key: "fixed-command", body: JSON.stringify(input), input })
 const response = (data, status = 200, etag = '"5"') => Response.json(data, { status, headers: etag ? { ETag: etag } : {} })
 const saved = (input = party(), id = "customer-a", tenantId = "tenant-a") => ({ tenantId, canEdit: true, data: { ...input, id, revision: 5 } })
+
+test("all customer issues are pure, ordered and unique, and first-error validation uses the same result", () => {
+  const draft = emptyOrderCustomerDraft()
+  const snapshot = structuredClone(draft)
+  const issues = orderCustomerIssues(draft)
+  assert.deepEqual(issues.map(issue => issue.field), ["taxId", "legalName", "responsible", "phone", "email", "stateRegistration", "postalCode", "street", "number", "district", "city", "state"])
+  assert.deepEqual(validateOrderCustomer(draft), issues[0])
+  assert.deepEqual(draft, snapshot)
+  const invalid = { ...orderCustomerDraft(party()), email: "bad@", postalCode: "123", stateRegistration: "ISENTO", municipalityCode: "3304557", complement: "x".repeat(201) }
+  assert.deepEqual(orderCustomerIssues(invalid).map(issue => issue.field), ["postalCode", "city", "complement", "email"])
+  assert.equal(orderCustomerIssues({ ...orderCustomerDraft(party()), stateRegistration: "ISENTO" }).length, 0)
+})
+
+test("document, CEP and phone presentation preserves all digits, alphanumeric CNPJ and invalid manual text", () => {
+  assert.equal(formatOrderCustomerValue("taxId", "52998224725", "fisica"), "529.982.247-25")
+  assert.equal(formatOrderCustomerValue("taxId", "12ABC34501DE35", "juridica"), "12.ABC.345/01DE-35")
+  assert.equal(formatOrderCustomerValue("postalCode", "01001000"), "01001-000")
+  assert.equal(formatOrderCustomerValue("phone", "11999999999"), "(11) 99999-9999")
+  assert.equal(formatOrderCustomerValue("phone", "+55 11 99999-9999"), "+55 11 99999-9999")
+  for (const field of ["phone", "postalCode", "taxId"]) assert.equal(formatOrderCustomerValue(field, "invalid!"), "invalid!")
+})
+
+test("formatting edited phone presentation never rewrites an otherwise unchanged selected customer or its contact", () => {
+  for (const original of [party(), { ...party(), phone: null, email: null }]) {
+    const draft = orderCustomerDraft(original)
+    const formatted = { ...draft, phone: formatOrderCustomerValue("phone", draft.phone), postalCode: "01001-000", taxId: "04.252.011/0001-10", stateRegistration: "ISENTO" }
+    const input = buildOrderCustomerPayload(formatted, original)
+    assert.equal(orderCustomerPayloadEqual(input, original), true)
+    assert.deepEqual(input.contacts, original.contacts)
+    assert.equal(input.phone, original.phone)
+  }
+})
 
 test("a one-address editor preserves other addresses, contacts, roles and supplier status", () => {
   const original = party()

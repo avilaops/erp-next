@@ -94,6 +94,11 @@ html { scroll-padding-top: 76px; }
 .erp-company-link small { display: block; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
 .erp-company-link strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
 .erp-company-link:hover { background: var(--muted); }
+.erp-company-link .erp-company-short { display: none; }
+@media (max-width: 639px) {
+  .erp-company-link .erp-company-full { display: none; }
+  .erp-company-link .erp-company-short { display: block; }
+}
 .erp-search-trigger { display: flex; align-items: center; gap: 10px; width: min(320px, 100%); min-width: 120px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--sidebar); text-align: left; }
 .erp-search-trigger > span { flex: 1; font-size: 14px; color: var(--muted-foreground); }
 .erp-search-trigger kbd { font-size: 12px; white-space: nowrap; color: var(--muted-foreground); }

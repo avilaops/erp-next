@@ -19,6 +19,25 @@ export type OrderCustomerWriteResult =
 
 export const normalizeOrderCustomerDocument = (value: string) => value.trim().replace(/[.\s/-]/g, "").toUpperCase()
 const optional = (value: string | null | undefined) => value?.trim() || null
+const normalizedPhone = (value: string | null | undefined) => {
+  const trimmed = optional(value)
+  return trimmed && /^[\d\s()+.-]+$/.test(trimmed) ? trimmed.replace(/[\s().-]/g, "") : trimmed
+}
+
+// Apply on blur only: incomplete/foreign numbers and invalid manual input stay intact.
+export function formatOrderCustomerValue(field: OrderCustomerField, value: string, personType = "juridica") {
+  if (field === "taxId" && /^[A-Za-z\d.\s/-]+$/.test(value)) {
+    const document = normalizeOrderCustomerDocument(value)
+    if (personType === "fisica" && /^\d{11}$/.test(document)) return document.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
+    if (personType === "juridica" && /^[A-Z\d]{12}\d{2}$/.test(document)) return document.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, "$1.$2.$3/$4-$5")
+  }
+  if (field === "postalCode" && /^[\d. -]+$/.test(value) && value.replace(/\D/g, "").length === 8) return value.replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2")
+  if (field === "phone" && /^[\d\s().-]+$/.test(value)) {
+    const digits = value.replace(/\D/g, "")
+    if (/^\d{10,11}$/.test(digits)) return digits.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3")
+  }
+  return value
+}
 const addressIndex = (party: OrderCustomerParty) => Math.max(0, party.addresses.findIndex(address => address.primary))
 const contactIndex = (party: OrderCustomerParty) => Math.max(0, party.contacts.findIndex(contact => contact.primary))
 const states = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
@@ -55,7 +74,7 @@ export function buildOrderCustomerPayload(draft: OrderCustomerDraft, original?: 
   party.legalName = draft.legalName
   party.tradeName = optional(draft.tradeName)
   if (!original || draft.email !== baseline.email) party.email = optional(draft.email)
-  if (!original || draft.phone !== baseline.phone) party.phone = optional(draft.phone)
+  if (!original || normalizedPhone(draft.phone) !== normalizedPhone(baseline.phone)) party.phone = normalizedPhone(draft.phone)
   const selectedAddress = addressIndex(party)
   const previousAddress = party.addresses[selectedAddress]
   // The small editor replaces only the selected primary address, never the rest of the record.
@@ -67,11 +86,11 @@ export function buildOrderCustomerPayload(draft: OrderCustomerDraft, original?: 
   const selectedContact = contactIndex(party)
   const previousContact = party.contacts[selectedContact]
   if (draft.responsible.trim()) {
-    if (!previousContact) party.contacts.push({ name: draft.responsible, role: null, phone: optional(draft.phone), email: optional(draft.email), primary: true })
+    if (!previousContact) party.contacts.push({ name: draft.responsible, role: null, phone: normalizedPhone(draft.phone), email: optional(draft.email), primary: true })
     else party.contacts[selectedContact] = {
       ...previousContact,
       ...(draft.responsible !== baseline.responsible ? { name: draft.responsible } : {}),
-      ...(draft.phone !== baseline.phone ? { phone: optional(draft.phone) } : {}),
+      ...(normalizedPhone(draft.phone) !== normalizedPhone(baseline.phone) ? { phone: normalizedPhone(draft.phone) } : {}),
       ...(draft.email !== baseline.email ? { email: optional(draft.email) } : {}),
     }
   } else if (previousContact && draft.responsible !== baseline.responsible) party.contacts.splice(selectedContact, 1)
@@ -100,19 +119,25 @@ function validDocument(value: string, personType: string) {
   return digit(normalized.slice(0, 12)) === normalized[12] && digit(normalized.slice(0, 13)) === normalized[13]
 }
 
-export function validateOrderCustomer(draft: OrderCustomerDraft): OrderCustomerIssue | null {
-  if (!validDocument(draft.taxId, draft.personType)) return { field: "taxId", message: `Informe um ${draft.personType === "fisica" ? "CPF" : "CNPJ"} válido.` }
+export function orderCustomerIssues(draft: OrderCustomerDraft): OrderCustomerIssue[] {
+  const issues: OrderCustomerIssue[] = []
+  const add = (field: OrderCustomerField, message: string) => { if (!issues.some(issue => issue.field === field)) issues.push({ field, message }) }
+  if (!validDocument(draft.taxId, draft.personType)) add("taxId", `Informe um ${draft.personType === "fisica" ? "CPF" : "CNPJ"} válido.`)
   const required: [OrderCustomerField, string, number][] = [["legalName", draft.personType === "fisica" ? "nome completo" : "razão social", 200], ["responsible", "nome do responsável", 200], ["phone", "celular", 40], ["email", "e-mail", 254], ...(draft.personType === "juridica" ? [["stateRegistration", "inscrição estadual ou ISENTO", 40] as [OrderCustomerField, string, number]] : []), ["postalCode", "CEP", 10], ["street", "endereço", 200], ["number", "número", 40], ["district", "bairro", 200], ["city", "cidade", 200], ["state", "UF", 2]]
   for (const [field, label, maximum] of required) {
-    if (!draft[field].trim() || [...draft[field].trim()].length > maximum || /[\u0000-\u001f\u007f]/.test(draft[field])) return { field, message: `Confira ${label}: preenchimento obrigatório dentro do limite de ${maximum} caracteres.` }
+    if (!draft[field].trim() || [...draft[field].trim()].length > maximum || /[\u0000-\u001f\u007f]/.test(draft[field])) add(field, `Confira ${label}: preenchimento obrigatório dentro do limite de ${maximum} caracteres.`)
   }
-  if (!/^[\d. -]+$/.test(draft.postalCode) || draft.postalCode.replace(/\D/g, "").length !== 8) return { field: "postalCode", message: "Informe um CEP com oito dígitos." }
-  if (!states.includes(draft.state.toUpperCase())) return { field: "state", message: "Selecione a UF do endereço." }
-  if (draft.municipalityCode.trim() && !validMunicipalityCode(draft.municipalityCode, draft.state)) return { field: "city", message: "O código IBGE não corresponde à UF. Consulte o CEP ou confira cidade e UF." }
+  if (!/^[\d. -]+$/.test(draft.postalCode) || draft.postalCode.replace(/\D/g, "").length !== 8) add("postalCode", "Informe um CEP com oito dígitos.")
+  if (!states.includes(draft.state.toUpperCase())) add("state", "Selecione a UF do endereço.")
+  if (draft.municipalityCode.trim() && !validMunicipalityCode(draft.municipalityCode, draft.state)) add("city", "O código IBGE não corresponde à UF. Consulte o CEP ou confira cidade e UF.")
   const limits: [OrderCustomerField, number][] = [["tradeName", 200], ["stateRegistration", 40], ["complement", 200]]
-  for (const [field, maximum] of limits) if ([...draft[field].trim()].length > maximum || /[\u0000-\u001f\u007f]/.test(draft[field])) return { field, message: "O campo contém caracteres inválidos ou ultrapassa o limite permitido." }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) || !/^[\x20-\x7e]+$/.test(draft.email.trim())) return { field: "email", message: "Informe um e-mail válido." }
-  return null
+  for (const [field, maximum] of limits) if ([...draft[field].trim()].length > maximum || /[\u0000-\u001f\u007f]/.test(draft[field])) add(field, "O campo contém caracteres inválidos ou ultrapassa o limite permitido.")
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) || !/^[\x20-\x7e]+$/.test(draft.email.trim())) add("email", "Informe um e-mail válido.")
+  return issues
+}
+
+export function validateOrderCustomer(draft: OrderCustomerDraft): OrderCustomerIssue | null {
+  return orderCustomerIssues(draft)[0] ?? null
 }
 
 const lookupFields: OrderCustomerField[] = ["legalName", "tradeName", "phone", "email", "postalCode", "state", "city", "street", "number", "district", "complement", "stateRegistration"]

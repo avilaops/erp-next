@@ -23,10 +23,14 @@ import { paymentToday, type CheckoutInput } from "./commercial-payment-model"
 import { OrderWeightSummary } from "./order-weight-summary"
 import { OrderCustomerForm, type OrderCustomerHandle } from "./order-customer-form"
 import { CommercialOrderLayout, OrderEquipmentSearch, OrderSection, OrderTotals } from "./commercial-order-layout"
+import { OrderPendingReview, OrderQuickSummary, OrderSectionNavigation, focusOrderSection } from "./order-mobile-navigation"
+import { orderedOrderIssues, type OrderIssue } from "./order-progress"
+import { OrderDeliveryDestination, OrderDiscountFields, OrderFreightFields } from "./order-negotiation-fields"
 
 type Selected = { productId: string; quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const selectClass = "h-9 min-h-9 min-w-0 rounded-lg border bg-background px-2"
 const sectionHeadingClass = "scroll-mt-48 rounded-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring lg:scroll-mt-40"
+const validOrderQuantity = (value: string) => /^\d{1,7}$/.test(value) && Number(value) >= 1 && Number(value) <= 1_000_000
 function jumpTo(section: string) {
   const heading = document.getElementById(`simulator-${section}`)
   const disclosure = heading?.closest("details")
@@ -58,9 +62,9 @@ function SimulatorPage({ initialLine, initialProduct, opportunity, opportunityTe
   const access = useResource<{ tenant: { id: string }; permissions: string[] }>("/api/erp/me")
   const canCreate = table.value?.canCreateOrder !== false && access.value?.tenant.id === table.value?.tenantId && !!access.value?.permissions.includes("sales.orders.manage")
   const canManageCustomer = access.value?.tenant.id === table.value?.tenantId && !!access.value?.permissions.includes("catalog.parties.manage")
-  const lineControl = <label className="grid max-w-64 gap-1"><span className={orderMode ? "sr-only" : undefined}>Linha comercial</span><select className={selectClass} disabled={lineLocked} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm("Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
+  const lineControl = <label className="grid max-w-64 gap-1"><span>{orderMode ? "Tabela de preços" : "Linha comercial"}</span><select className={selectClass} disabled={lineLocked} value={line} onChange={e => { if (!document.querySelector("[data-simulation-dirty='true']") || window.confirm(orderMode ? "Trocar a tabela descarta os itens e os dados deste pedido. Continuar?" : "Descartar a simulação desta linha?")) setLine(e.target.value) }}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
   return <main className={orderMode ? "commercial-order-page space-y-4" : "mx-auto min-w-0 max-w-7xl space-y-3 px-4 pb-8 pt-4 [&_label]:text-xs"}>
-    <PageHeader breadcrumbs={orderMode ? [{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, { label: "Novo" }] : [{ label: "Vendas", href: "/vendas" }, { label: "Simulador comercial" }]} title={orderMode ? "Novo pedido" : "Simulador comercial"} description={orderMode ? "Monte o pedido, negocie o desconto e veja na hora se pode fechar." : "Confira preços, entrada e condições antes de criar um pedido."} />
+    {orderMode ? <div className="order-page-heading"><Link href="/vendas/pedidos" className="text-primary underline">Voltar aos pedidos</Link><PageHeader title="Novo pedido" description="Monte a negociação e salve para confirmar depois." /><p className="text-xs text-muted-foreground">Em preenchimento · não salvo</p></div> : <PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Simulador comercial" }]} title="Simulador comercial" description="Confira preços, entrada e condições antes de criar um pedido." />}
     {opportunity && <section className="rounded-lg border p-4"><h2 className="font-semibold">{opportunity.title}</h2><p>{opportunity.customerName || opportunity.companyName} · {opportunity.contactName}</p><p className="whitespace-pre-wrap text-sm text-muted-foreground">{opportunity.notes}</p><Link className="text-primary underline" href={`/vendas/funil/${opportunity.id}`}>Abrir oportunidade de origem</Link></section>}
     {!orderMode && <><nav className="flex flex-wrap gap-x-3 gap-y-1 text-xs" aria-label="Navegação comercial"><Link className="text-primary underline" href={commercialTableReturn(returnTo, line)}>Tabela de preços</Link><Link className="text-primary underline" href="/vendas/pedidos">Pedidos</Link>{table.value?.canManage && <><Link className="text-primary underline" href={`/preferencias/comercial?linha=${line}`}>Parâmetros e metas</Link><Link className="text-primary underline" href="/preferencias/aprovacao-comercial">Regras de aprovação</Link></>}</nav>{lineControl}</>}
     {access.error && <p role="status" className="text-sm">Não foi possível conferir a permissão de criação. A simulação continua disponível. <Button variant="outline" onClick={access.reload}>Conferir acesso</Button></p>}
@@ -78,7 +82,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   const [items, setItems] = useState<Selected[]>(() => (initialItems?.length ? initialItems : initialProduct ? [{ productId: initialProduct, quantity: 1 }] : []).map(item => ({ productId: item.productId, quantity: String(item.quantity), structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" })))
   const [product, setProduct] = useState("")
   const [search, setSearch] = useState("")
-  const [destination, setDestination] = useState(initialDestination || table.data?.originState || "")
+  const [destinationDraft, setDestination] = useState(initialDestination || table.data?.originState || "")
   const [taxpayer, setTaxpayer] = useState(initialTaxpayer ? "true" : "false")
   const [discount, setDiscount] = useState<{ kind: "percent" | "amount" | "total"; raw: string }>({ kind: "percent", raw: "0" })
   const [freight, setFreight] = useState("")
@@ -105,6 +109,11 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   const [dirty, setDirty] = useState(false)
   const [everCalculated, setEverCalculated] = useState(false)
   const [error, setError] = useState("")
+  const [attempted, setAttempted] = useState(false)
+  const [freightMode, setFreightMode] = useState("customer")
+  const [customerProgress, setCustomerProgress] = useState<{ issues: OrderIssue[]; addressState: string }>({ issues: [{ field: "customer.taxId", section: "customer", message: "Selecione ou cadastre o cliente." }], addressState: "" })
+  const [checkoutIssues, setCheckoutIssues] = useState<OrderIssue[]>([])
+  const destination = orderMode && !destinationManual ? customerProgress.addressState || initialDestination || table.data?.originState || "" : destinationDraft
   const frozen = (!orderMode && manualBusy) || savingOrder || customerBusy || customerUncertain || reloading || command.busy || command.uncertain || command.stale
   const currentPriceKey = pricingKey({ versionId: table.data?.id || "", destinationState: destination, taxpayer: taxpayer === "true", discount: { kind: discount.kind, value: parseAmount(discount.raw) ?? -1 }, freightCents: ourFreight ? parseAmount(freight) ?? -1 : 0, items: items.map(item => ({ productId: item.productId, quantity: Number(item.quantity) })) })
   const paymentTotal = pricedTotal?.key === currentPriceKey ? pricedTotal.totalCents : null
@@ -125,6 +134,23 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   const orderQuoteSignature = (() => { if (!orderMode) return ""; try { return JSON.stringify(simulationInput()) } catch { return "" } })()
   const result = calculated && calculated.input.versionId === table.data?.id && (!orderMode || JSON.stringify(calculated.input) === orderQuoteSignature) ? calculated : null
   const busy = manualBusy || !!orderQuoteSignature && autoPendingKey === orderQuoteSignature
+  const orderIssues = orderedOrderIssues([
+    ...(!items.length ? [{ field: "equipment.search", section: "equipment" as const, message: "Adicione ao menos um equipamento." }] : []),
+    ...items.filter(item => !validOrderQuantity(item.quantity)).map(item => ({ field: `equipment.quantity.${item.productId}`, section: "equipment" as const, message: `Confira a quantidade de ${table.data?.items.find(source => source.productId === item.productId)?.name || "equipamento"}.` })),
+    ...(unavailableItems.length ? [{ field: "equipment.search", section: "equipment" as const, message: "Remova os equipamentos indisponíveis nesta tabela." }] : []),
+    ...customerProgress.issues,
+    ...checkoutIssues.filter(issue => issue.field !== "checkout.entry" || !!result),
+    ...(ourFreight && parseAmount(freight) === null ? [{ field: "delivery.freight", section: "delivery" as const, message: "Informe o custo de frete por nossa conta." }] : []),
+    ...(parseAmount(discount.raw) === null ? [{ field: "discount.percent", section: "discount" as const, message: "Confira o desconto ou valor negociado." }] : []),
+    ...(items.length && !result ? [{ field: "discount.percent", section: "discount" as const, message: quoteStale ? "Atualize a tabela para conferir os valores." : busy ? "Aguarde o cálculo da negociação." : "Confira as condições para calcular o total." }] : []),
+  ])
+  function focusOrderIssue(issue: OrderIssue) {
+    if (issue.field.startsWith("customer.")) { customerForm.current?.focus(issue.field.slice(9)); return }
+    if (issue.field.startsWith("checkout.")) { checkout.current?.focus(issue.field.slice(9)); return }
+    const target = issue.field === "equipment.search" ? document.getElementById("order-equipment-search") : document.querySelector<HTMLElement>(`[data-order-field="${issue.field}"]`)
+    if (target) { target.focus({ preventScroll: true }); target.scrollIntoView({ block: "center" }) }
+    else focusOrderSection(issue.section)
+  }
   useEffect(() => {
     if (!orderMode || !orderQuoteSignature || command.busy || command.uncertain || savingOrder || customerUncertain || reloading) return
     const input: SimulationInput = JSON.parse(orderQuoteSignature)
@@ -168,6 +194,8 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
     if (orderMode) {
       if (converting.current || command.busy || command.stale || reloading) return
       if (!command.uncertain && !customerUncertain) {
+        setAttempted(true)
+        if (orderIssues.length) { setError("Confira as pendências indicadas antes de salvar."); focusOrderIssue(orderIssues[0]); return }
         if (!result || busy) { setError("Confira os valores calculados antes de salvar o pedido."); return }
         try {
           const details = customerForm.current?.read()
@@ -216,48 +244,92 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   if (!table.data) return <section className="form-section space-y-3">{orderMode && lineControl}<p>Nenhuma tabela publicada nesta linha.</p>{table.canManage ? <Link className="inline-flex min-h-11 items-center text-primary underline" href={`/preferencias/tabela-precos?linha=${table.line}`}>Publicar tabela de preços</Link> : <p className="text-sm text-muted-foreground">Peça à gestão para publicar a tabela desta linha.</p>}</section>
   if (orderMode) {
     const sale = result?.value.sale || null
-    const validQuantity = (value: string) => /^\d{1,7}$/.test(value) && Number(value) >= 1 && Number(value) <= 1_000_000
-    const quantityTotal = items.every(item => validQuantity(item.quantity)) ? items.reduce((total, item) => total + Number(item.quantity), 0) : null
+    const quantityTotal = items.every(item => validOrderQuantity(item.quantity)) ? items.reduce((total, item) => total + Number(item.quantity), 0) : null
     const ownLimit = table.data.destinations?.find(rule => rule.state === destination && rule.taxpayer === (taxpayer === "true"))?.maxOwnDiscountBps ?? table.data.freeDiscountBps
     function markDirty() {
       if (!savingOrder && !customerUncertain && !command.uncertain) pendingOrder.current = null
       setDirty(true); setError("")
     }
+    const focusSearch = () => {
+      const search = document.getElementById("order-equipment-search")
+      search?.focus({ preventScroll: true }); search?.scrollIntoView({ block: "center" })
+    }
     const add = (productId: string) => {
       if (frozen) return
       const existing = items.find(item => item.productId === productId)
-      if (existing && (!validQuantity(existing.quantity) || Number(existing.quantity) >= 1_000_000)) { setError("Confira a quantidade deste equipamento antes de acrescentar uma unidade."); return }
+      if (existing && (!validOrderQuantity(existing.quantity) || Number(existing.quantity) >= 1_000_000)) { setError("Confira a quantidade deste equipamento antes de acrescentar uma unidade."); return }
       if (!existing && items.length >= 100) { setError("O pedido aceita até 100 equipamentos diferentes."); return }
-      setItems(current => existing ? current.map(item => item.productId === productId ? { ...item, quantity: String(Number(item.quantity) + 1) } : item) : [...current, { productId, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }]); change()
+      setItems(current => existing ? current.map(item => item.productId === productId ? { ...item, quantity: String(Number(item.quantity) + 1) } : item) : [...current, { productId, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }])
+      change()
     }
-    return <div data-simulation-dirty={dirty}>
-      <CommercialCheckout ref={checkout} tenantId={table.tenantId} methods={table.paymentMethods || []} totalCents={paymentTotal} entryCents={paymentEntry} entryRaw={downPayment} onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate} onDueDateChange={date => { setDueDate(date); markDirty() }} onDirty={markDirty} disabled={frozen} freightField={<label className="grid gap-1">Frete por nossa conta (R$)<Input aria-label="Frete por nossa conta (R$)" inputMode="decimal" value={freight} placeholder="0,00" onChange={event => { setFreight(event.target.value); setOurFreight(!!event.target.value.trim()); change() }} /><span className="text-xs font-normal text-muted-foreground">Deixe vazio se o cliente paga ou retira.</span></label>} renderOrder={({ payment, delivery }) => <CommercialOrderLayout
-        equipment={<OrderSection title="Equipamentos" detail={<div className="flex items-center gap-3">{lineControl}<span>{quantityTotal === null ? "Confira as quantidades" : `${quantityTotal} un.`} · v{table.data!.version}</span></div>}>
-          <OrderEquipmentSearch items={table.data!.items} selected={items.map(item => item.productId)} disabled={frozen} onAdd={add} />
-          {unavailableItems.length > 0 && <p role="alert" className="text-sm">Há equipamentos indisponíveis nesta versão. Remova os itens indicados para continuar.</p>}
-          {items.length ? <div className="order-equipment-scroll" role="region" aria-label="Equipamentos do pedido" tabIndex={0}><DataTable className="order-equipment-table" aria-label="Equipamentos do pedido"><thead><tr><th scope="col">Equipamento</th><th scope="col">Qtd.</th><th scope="col">Valor unit. s/ IPI</th><th scope="col">Desconto</th><th scope="col">Total c/ IPI</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead><tbody>{items.map((item, index) => <SelectedProduct key={item.productId} item={item} name={table.data!.items.find(source => source.productId === item.productId)?.name || "Equipamento indisponível"} sku={table.data!.items.find(source => source.productId === item.productId)?.sku || ""} tenant={table.tenantId} orderMode price={table.data!.items.find(source => source.productId === item.productId)} priced={sale?.items.find(source => source.productId === item.productId)} disabled={frozen} update={next => { setItems(current => current.map((source, position) => position === index ? next : source)); change() }} remove={() => { setItems(current => current.filter(source => source.productId !== item.productId)); change() }} />)}</tbody><tfoot><tr><th scope="row">Total</th><td>{quantityTotal === null ? "—" : `${quantityTotal} un.`}</td><td>{sale ? money(sale.tableTotalCents) : "—"}</td><td>{sale ? money(sale.discountCents) : "—"}</td><td>{sale ? money(sale.totalCents) : "—"}</td><td /></tr></tfoot></DataTable></div> : <p className="order-equipment-empty">Nenhum equipamento ainda.</p>}
-          <OrderWeightSummary tenantId={table.tenantId} items={items.map(item => ({ ...item, quantity: validQuantity(item.quantity) ? String(Number(item.quantity)) : "" }))} />
-        </OrderSection>}
-        customer={<OrderCustomerForm ref={customerForm} tenantId={table.tenantId} disabled={frozen} canManage={canCreate && canManageCustomer} onDirty={markDirty} onBusyChange={setCustomerBusy} onUncertainChange={setCustomerUncertain} onDestinationChange={state => { if (!destinationManual && state !== destination) { setDestination(state); change() } }} onTaxpayerChange={value => { if (!taxpayerManual && String(value) !== taxpayer) { setTaxpayer(String(value)); change() } }} />}
-        delivery={<><h3>Entrega e condições</h3><fieldset className="order-field-grid" disabled={frozen}>
-          <label className="grid gap-1">Estado de entrega<select aria-label="Estado de entrega" className={selectClass} value={destination} onChange={event => { setDestinationManual(true); setDestination(event.target.value); change() }}>{states.map(state => <option key={state}>{state}</option>)}</select><span className="text-xs font-normal text-muted-foreground">Segue a UF do endereço. Altere se a entrega for em outro estado.</span></label>
-          <div className="grid content-start gap-1"><p className="text-xs font-medium">Cliente contribuinte do ICMS (tem IE)?</p><div className="order-taxpayer">{[["false", "Não"], ["true", "Sim"]].map(([value, label]) => <button type="button" key={value} aria-pressed={taxpayer === value} onClick={() => { setTaxpayerManual(true); setTaxpayer(value); change() }}>{label}</button>)}</div><p className="text-xs text-muted-foreground">Acompanha a inscrição estadual. ISENTO corresponde a Não.</p></div>
-        </fieldset>{delivery}</>}
-        payment={<OrderSection title="Forma de pagamento" detail="Combinada com o cliente">{payment}</OrderSection>}
-        discount={<OrderSection title="Desconto" detail="Sobre a tabela"><fieldset disabled={frozen} className="space-y-4">
-          <div className="order-discount-input"><label className="sr-only" htmlFor="order-discount-percent">Desconto (%)</label><Input id="order-discount-percent" inputMode="decimal" value={discount.kind === "percent" ? discount.raw : sale ? inputAmount(sale.discountBps) : ""} placeholder="0,00" onChange={event => { setDiscount({ kind: "percent", raw: event.target.value }); change() }} /><input aria-label="Ajustar desconto percentual" type="range" min="0" max="99.99" step="0.01" value={discount.kind === "percent" ? (parseAmount(discount.raw) || 0) / 100 : (sale?.discountBps || 0) / 100} onChange={event => { setDiscount({ kind: "percent", raw: event.target.value }); change() }} /></div>
-          <label className="grid gap-1">Cliente quer pagar (total com IPI)<Input inputMode="decimal" value={discount.kind === "total" ? discount.raw : ""} placeholder="R$ — calcula o desconto para você" onChange={event => { setDiscount(event.target.value.trim() ? { kind: "total", raw: event.target.value } : { kind: "percent", raw: "0" }); change() }} /></label>
-          <div className="order-authority"><meter aria-label="Limite da sua alçada" aria-valuetext={percent(ownLimit)} min={0} max={100} value={ownLimit / 100} /><div className="order-authority-labels"><span>Livre até {percent(table.data!.freeDiscountBps)}</span><span>Sua alçada: {percent(ownLimit)}</span><span>Acima: aprovação</span></div></div>
-          <div role="status" className={`order-policy-status ${!sale || sale.approvalReasons.length ? "bg-amber-500/15 text-amber-900 dark:text-amber-200" : "bg-emerald-500/15 text-emerald-900 dark:text-emerald-200"}`}><strong>{!items.length ? "Adicione equipamentos" : busy ? "Calculando negociação" : !sale ? "Confira as condições" : sale.approvalReasons.length ? "Aprovação necessária" : "Liberado"}</strong><span>{!items.length ? "Busque pelo nome ou código no campo acima." : sale?.approvalReasons.length ? "O pedido será salvo e precisará da aprovação indicada antes da confirmação." : sale ? "Condições dentro da política comercial." : "Preencha quantidades e valores válidos para calcular."}</span></div>
-        </fieldset></OrderSection>}
-        totals={<OrderTotals sale={sale} pending={busy} hasItems={!!items.length} />}
-        save={<>
-          {(error || command.error) && <div role="alert" className="space-y-2 text-sm"><RequestError message={error || command.error} status={command.status || undefined} />{quoteError && !quoteStale && !frozen && !!items.length && <Button type="button" variant="outline" onClick={() => setQuoteRetry(value => value + 1)}>Calcular novamente</Button>}</div>}
-          {(command.stale || quoteStale) && <><p className="text-sm">A tabela ou a política mudou. Atualize e confira os valores antes de salvar.</p><Button type="button" variant="outline" disabled={reloading} onClick={refreshTable}>Atualizar tabela e calcular</Button></>}
-          <Button type="button" disabled={!canCreate || !items.length || !result || busy || savingOrder || customerBusy || command.busy || command.stale} onClick={convert}>{savingOrder || command.busy ? "Salvando…" : command.uncertain ? "Conferir criação do pedido" : customerUncertain ? "Conferir cadastro e salvar pedido" : "Salvar pedido"}</Button>
-          <p className="text-xs text-muted-foreground">O pedido recebe um número. Depois, a confirmação reserva o estoque e gera os títulos previstos, sem registrar recebimentos.</p>
-        </>}
-      />} />
+    const saveBlocked = !canCreate ? "Seu acesso permite consultar; salvar exige permissão de gestão de vendas."
+      : savingOrder || command.busy ? "Salvando o pedido. Aguarde a confirmação."
+      : customerBusy ? "Conferindo o cadastro do cliente antes de salvar."
+      : reloading ? "Atualizando a tabela. Aguarde o cálculo."
+      : command.stale || quoteStale ? "Atualize a tabela e confira os valores antes de salvar."
+      : busy && !command.uncertain && !customerUncertain ? "Calculando os valores da negociação. Aguarde." : ""
+    const deliveryMethodNote = freightMode === "pickup" ? "Entrega: retirada pelo cliente." : freightMode === "company" ? "Entrega: frete por nossa conta, sem acréscimo ao total cobrado do cliente." : "Entrega: frete pago pelo cliente, contratado separadamente do pedido."
+    return <div data-simulation-dirty={dirty} className="order-form-content">
+      <OrderSectionNavigation issues={orderIssues} />
+      <CommercialCheckout
+        ref={checkout} tenantId={table.tenantId} methods={table.paymentMethods || []}
+        totalCents={paymentTotal} entryCents={paymentEntry} entryRaw={downPayment}
+        onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate}
+        onDueDateChange={date => { setDueDate(date); markDirty() }} onDirty={markDirty} disabled={frozen}
+        onProgressChange={setCheckoutIssues} deliveryMethodNote={deliveryMethodNote}
+        freightField={<OrderFreightFields mode={freightMode} value={freight} onMode={mode => { setFreightMode(mode); setOurFreight(mode === "company"); change() }} onChange={value => { setFreight(value); change() }} />}
+        renderOrder={({ payment, delivery }) => <CommercialOrderLayout
+          equipment={<OrderSection id="order-equipment" title="Equipamentos" detail={quantityTotal === null ? "Confira as quantidades" : quantityTotal + " un."}>
+            <div className="order-table-context">{lineControl}<details><summary>Detalhes da tabela</summary><p>Versão {table.data!.version} · {table.line === "national" ? "Nacional" : "Importada"}</p><p>Ao trocar a tabela, confira os preços e monte uma nova negociação.</p></details></div>
+            <OrderEquipmentSearch items={table.data!.items} selected={items.map(item => item.productId)} disabled={frozen} onAdd={add} />
+            {unavailableItems.length > 0 && <p role="alert" className="text-sm">Há equipamentos indisponíveis nesta versão. Remova os itens indicados para continuar.</p>}
+            {items.length ? <div className="order-equipment-scroll" role="region" aria-label="Equipamentos do pedido" tabIndex={0}>
+              <DataTable className="order-equipment-table" aria-label="Equipamentos do pedido">
+                <thead><tr><th scope="col">Equipamento</th><th scope="col">Qtd.</th><th scope="col">Valor unit. s/ IPI</th><th scope="col">Desconto</th><th scope="col">Total c/ IPI</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
+                <tbody>{items.map((item, index) => <SelectedProduct key={item.productId} item={item}
+                  name={table.data!.items.find(source => source.productId === item.productId)?.name || "Equipamento indisponível"}
+                  sku={table.data!.items.find(source => source.productId === item.productId)?.sku || ""}
+                  tenant={table.tenantId} orderMode price={table.data!.items.find(source => source.productId === item.productId)}
+                  priced={sale?.items.find(source => source.productId === item.productId)} disabled={frozen}
+                  update={next => { setItems(current => current.map((source, position) => position === index ? next : source)); change() }}
+                  remove={() => { setItems(current => current.filter(source => source.productId !== item.productId)); change() }} />)}</tbody>
+                <tfoot><tr><th scope="row">Total</th><td>{quantityTotal === null ? "—" : quantityTotal + " un."}</td><td>{sale ? money(sale.tableTotalCents) : "—"}</td><td>{sale ? money(sale.discountCents) : "—"}</td><td>{sale ? money(sale.totalCents) : "—"}</td><td /></tr></tfoot>
+              </DataTable>
+            </div> : <div className="order-equipment-empty"><p>Nenhum equipamento ainda.</p><Button type="button" variant="outline" disabled={frozen} onClick={focusSearch}>Adicionar equipamento</Button></div>}
+            {attempted && orderIssues.filter(issue => issue.section === "equipment").map(issue => <p key={issue.field} className="text-xs text-destructive">{issue.message}</p>)}
+            <OrderWeightSummary tenantId={table.tenantId} items={items.map(item => ({ ...item, quantity: validOrderQuantity(item.quantity) ? String(Number(item.quantity)) : "" }))} />
+          </OrderSection>}
+          customer={<OrderCustomerForm ref={customerForm} tenantId={table.tenantId} disabled={frozen}
+            canManage={canCreate && canManageCustomer} onDirty={markDirty}
+            onBusyChange={setCustomerBusy} onUncertainChange={setCustomerUncertain} onProgressChange={setCustomerProgress}
+            onDestinationChange={state => { if (!destinationManual && state !== destination) { setDestination(state); change() } }}
+            onTaxpayerChange={value => { if (!taxpayerManual && String(value) !== taxpayer) { setTaxpayer(String(value)); change() } }} />}
+          delivery={<><OrderDeliveryDestination destination={destination} addressState={customerProgress.addressState}
+            originState={table.data!.originState} manual={destinationManual} disabled={frozen}
+            onChange={state => { setDestinationManual(true); setDestination(state); change() }}
+            onFollowAddress={() => { setDestinationManual(false); setDestination(customerProgress.addressState || table.data!.originState); change() }}
+            taxpayer={taxpayer} taxpayerManual={taxpayerManual} onTaxpayerChange={value => { setTaxpayerManual(true); setTaxpayer(value); change() }} />{delivery}</>}
+          discount={<OrderDiscountFields sale={sale} discount={discount} pending={busy} hasItems={!!items.length} disabled={frozen}
+            ownLimit={ownLimit} freeLimit={table.data!.freeDiscountBps} authority={table.authority} onAdd={focusSearch}
+            onPercent={raw => { setDiscount({ kind: "percent", raw }); change() }}
+            onTotal={raw => { setDiscount(raw.trim() ? { kind: "total", raw } : { kind: "percent", raw: "0" }); change() }} />}
+          payment={<OrderSection id="order-payment" title="Forma de pagamento" detail="Combinada com o cliente">{payment}</OrderSection>}
+          totals={<OrderSection id="order-review" title="Revisão do pedido">
+            <OrderTotals sale={sale} pending={busy} hasItems={!!items.length} />
+            <p className="text-xs text-muted-foreground">{deliveryMethodNote}</p>
+            <OrderPendingReview issues={orderIssues} onFocus={focusOrderIssue} attempted={attempted} />
+          </OrderSection>}
+          save={<>
+            {(error || command.error) && <div role="alert" className="space-y-2 text-sm"><RequestError message={error || command.error} status={command.status || undefined} />{quoteError && !quoteStale && !frozen && !!items.length && <Button type="button" variant="outline" onClick={() => setQuoteRetry(value => value + 1)}>Calcular novamente</Button>}</div>}
+            {(command.stale || quoteStale) && <Button type="button" variant="outline" disabled={reloading} onClick={refreshTable}>Atualizar tabela e calcular</Button>}
+            {saveBlocked ? <p role="status" className="text-sm">{saveBlocked}</p> : orderIssues.length > 0 && !command.uncertain && !customerUncertain ? <p className="text-sm">Faltam dados para salvar. Toque em Salvar pedido para ir à primeira pendência.</p> : null}
+            {(command.uncertain || customerUncertain) && <p role="status" className="text-sm">A confirmação está pendente. Confira o mesmo envio antes de editar ou sair.</p>}
+            <Button type="button" disabled={!!saveBlocked} onClick={convert}>{savingOrder || command.busy ? "Salvando…" : command.uncertain ? "Conferir criação do pedido" : customerUncertain ? "Conferir cadastro e salvar pedido" : "Salvar pedido"}</Button>
+            <p className="text-xs text-muted-foreground">Salvar cria um pedido em rascunho com número. Confirmar pedido, no detalhe, reserva o estoque e gera os títulos previstos. Recebimentos são registrados separadamente.</p>
+          </>}
+        />}
+      />
+      <OrderQuickSummary sale={sale} pending={busy} hasItems={!!items.length} issueCount={orderIssues.length} />
     </div>
   }
   const choices = table.data.items.filter(i => i.available !== false && `${i.sku} ${i.name}`.toLowerCase().includes(search.toLowerCase()) && !items.some(selected => selected.productId === i.productId))
@@ -321,7 +393,7 @@ function SelectedProduct({ item, name, sku, tenant, update, remove, orderMode = 
   return <>
     <tr>
       <th scope="row" className="min-w-0 break-words py-3 pr-2 text-left align-top font-medium"><span className="block text-xs text-muted-foreground">{sku}</span>{name}</th>
-      <td className="px-1 py-3 align-top"><div className={orderMode ? "order-quantity-control" : undefined}>{orderMode && <Button type="button" variant="outline" aria-label={`Diminuir quantidade de ${name}`} disabled={disabled || !/^\d+$/.test(item.quantity) || Number(item.quantity) <= 1} onClick={() => update({ ...item, quantity: String(Number(item.quantity) - 1) })}><Minus aria-hidden="true" /></Button>}<Input aria-label={`Quantidade de ${name}`} className="px-2 text-center tabular-nums" inputMode="numeric" maxLength={7} disabled={disabled} value={item.quantity} onChange={e => update({ ...item, quantity: e.target.value })} />{orderMode && <Button type="button" variant="outline" aria-label={`Aumentar quantidade de ${name}`} disabled={disabled || !/^\d+$/.test(item.quantity) || Number(item.quantity) >= 1_000_000} onClick={() => update({ ...item, quantity: String(Number(item.quantity) + 1) })}><Plus aria-hidden="true" /></Button>}</div></td>
+      <td className="px-1 py-3 align-top"><div className={orderMode ? "order-quantity-control" : undefined}>{orderMode && <Button type="button" variant="outline" aria-label={`Diminuir quantidade de ${name}`} disabled={disabled || !/^\d+$/.test(item.quantity) || Number(item.quantity) <= 1} onClick={() => update({ ...item, quantity: String(Number(item.quantity) - 1) })}><Minus aria-hidden="true" /></Button>}<Input data-order-field={orderMode ? `equipment.quantity.${item.productId}` : undefined} aria-invalid={orderMode && !validOrderQuantity(item.quantity) || undefined} aria-label={`Quantidade de ${name}`} className="px-2 text-center tabular-nums" inputMode="numeric" maxLength={7} disabled={disabled} value={item.quantity} onChange={e => update({ ...item, quantity: e.target.value })} />{orderMode && <Button type="button" variant="outline" aria-label={`Aumentar quantidade de ${name}`} disabled={disabled || !/^\d+$/.test(item.quantity) || Number(item.quantity) >= 1_000_000} onClick={() => update({ ...item, quantity: String(Number(item.quantity) + 1) })}><Plus aria-hidden="true" /></Button>}</div></td>
       {orderMode && <><td className="align-top">{price ? money(price.priceWithoutIpiCents) : "Indisponível"}</td><td className="align-top">{priced ? money(priced.tableUnitCents * priced.quantity - priced.netCents) : "—"}</td><td className="align-top">{priced ? money(priced.totalCents) : "—"}</td></>}
       <td className="py-3 align-top"><Button variant="ghost" size="icon" type="button" disabled={disabled} aria-label={`Remover equipamento ${name}`} onClick={remove}><X aria-hidden="true" /></Button></td>
     </tr>

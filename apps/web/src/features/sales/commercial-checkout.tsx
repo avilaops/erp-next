@@ -4,12 +4,14 @@ import { useImperativeHandle, useState, type Ref } from "react"
 import { GuardedLink } from "@/components/shell/navigation-guard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useResource } from "@/hooks/use-operation"
 import { RequestError } from "@/components/feedback/session-recovery"
-import { addPaymentDays, entryFromPercent, entryPercent, installmentPlan, paymentToday, type CheckoutInput, type PaymentMethod } from "./commercial-payment-model"
+import { addPaymentDays, entryFromPercent, entryPercent, installmentPlan, nextInstallmentDate, paymentToday, type CheckoutInput, type PaymentMethod } from "./commercial-payment-model"
 import { inputAmount, money, parseAmount } from "./negotiation-types"
 
-type Row = { key: string; paymentMethodId: string; dueOn: string; amount: string }
+type Row = { key: string; paymentMethodId: string; dueOn: string; amount: string; expanded?: boolean }
+const rowSignature = (rows: Row[]) => JSON.stringify(rows.map(row => [row.paymentMethodId, row.dueOn, row.amount]))
 export type CheckoutHandle = { read: () => CheckoutInput }
 const selectClass = "h-9 min-h-9 w-full min-w-0 rounded-lg border bg-background px-2"
 const textareaClass = "min-h-16 w-full rounded-lg border bg-background p-2"
@@ -40,6 +42,9 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
   const [firstDays, setFirstDays] = useState("30")
   const [interval, setInterval] = useState("30")
   const [rows, setRows] = useState<Row[]>([])
+  const [generatedSignature, setGeneratedSignature] = useState(rowSignature([]))
+  const [replaceOpen, setReplaceOpen] = useState(false)
+  const [optionalOpen, setOptionalOpen] = useState(false)
   const [manufacturing, setManufacturing] = useState("")
   const [registrationDraft, setRegistration] = useState({ customerId, value: "" })
   const registration = registrationDraft.customerId === customerId ? registrationDraft.value : ""
@@ -69,31 +74,47 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
       return { paymentMethodId: row.paymentMethodId, dueOn: row.dueOn, amountCents }
     })
     const manufacturingDays = manufacturing.trim() ? Number(manufacturing) : null
-    if (manufacturingDays !== null && (!/^\d{1,4}$/.test(manufacturing) || manufacturingDays > 3650)) throw Error("Informe um prazo de fabricação entre 0 e 3650 dias.")
+    if (manufacturingDays !== null && (!/^\d{1,4}$/.test(manufacturing) || manufacturingDays > 3650)) { setOptionalOpen(true); throw Error("Informe um prazo de fabricação entre 0 e 3650 dias.") }
     return { entry: { paymentMethodId: entryCents ? entryMethod : null, dueOn: entryCents && entryDate ? entryDate : null }, installments, stateRegistration: registration.trim() || null, manufacturingDays, deliveryNotes, paymentNotes, notes }
   } }))
-  function generate() {
+  function generate(confirmed = false) {
+    if (disabled) return
     onDirty()
     setError("")
     try {
       if (balance === null || balance < 0) throw Error("Simule a venda antes de gerar as parcelas.")
       if (!/^\d{1,3}$/.test(count) || !/^\d{1,4}$/.test(interval) || !/^\d{1,4}$/.test(firstDays)) throw Error("Confira quantidade, primeiro prazo e intervalo das parcelas.")
-      const first = dueDate || addPaymentDays(entryDate || paymentToday(), Number(firstDays))
+      const first = dueDate || nextInstallmentDate(entryDate || paymentToday(), firstDays)
       const generated = installmentPlan(balance, Number(count), first, Number(interval), balanceMethod)
-      setRows(generated.map(row => ({ key: crypto.randomUUID(), ...row, amount: inputAmount(row.amountCents) })))
+      if (!confirmed && rows.length > 0 && rowSignature(rows) !== generatedSignature) { setReplaceOpen(true); return }
+      const next = generated.map(row => ({ key: crypto.randomUUID(), ...row, amount: inputAmount(row.amountCents) }))
+      setRows(next)
+      setGeneratedSignature(rowSignature(next))
+      setReplaceOpen(false)
       onDueDateChange(generated[0]?.dueOn || entryDate || paymentToday())
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Confira as condições do pagamento.") }
+  }
+  function addInstallment() {
+    if (disabled) return
+    setError("")
+    try {
+      const lastDate = rows.at(-1)?.dueOn
+      const dueOn = lastDate ? nextInstallmentDate(lastDate, interval) : dueDate ? addPaymentDays(dueDate, 0) : nextInstallmentDate(entryDate || paymentToday(), firstDays)
+      setRows([...rows, { key: crypto.randomUUID(), paymentMethodId: balanceMethod, dueOn, amount: "0,00", expanded: true }])
+      setCount(String(rows.length + 1))
+      if (!rows.length) onDueDateChange(dueOn)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Confira o vencimento da parcela.") }
   }
   return <div className="space-y-4" onClickCapture={event => { if (event.target instanceof Element && event.target.closest("button")) onDirty() }}>
     {customerId && <CustomerDetails key={customerId} id={customerId} tenantId={tenantId} />}
     <fieldset disabled={disabled} className="min-w-0 space-y-3" onChange={onDirty}>
-      <div className="grid min-w-0 grid-cols-2 gap-2"><label className="grid min-w-0 gap-1">Inscrição estadual do cliente<Input maxLength={40} value={registration} placeholder="Número ou ISENTO" onChange={event => setRegistration({ customerId, value: event.target.value })} /></label><label className="grid min-w-0 gap-1">Prazo de fabricação (dias)<Input inputMode="numeric" maxLength={4} value={manufacturing} onChange={event => setManufacturing(event.target.value)} /></label></div>
-      <p className="text-xs text-muted-foreground">O prazo de fabricação é contado após o recebimento da entrada. A condição de contribuinte é conferida nas condições comerciais.</p>
-      <label className="grid min-w-0 gap-1">Observações da entrega<textarea aria-label="Observações da entrega" className={textareaClass} rows={2} maxLength={2000} value={deliveryNotes} onChange={event => setDeliveryNotes(event.target.value)} /></label>
+      <label className="grid min-w-0 gap-1">Inscrição estadual do cliente<Input maxLength={40} value={registration} placeholder="Número ou ISENTO" onChange={event => setRegistration({ customerId, value: event.target.value })} /></label>
+      <p className="text-xs text-muted-foreground">A condição de contribuinte é conferida nas condições comerciais.</p>
       <section className="min-w-0 space-y-3 border-t pt-3" aria-label="Forma de pagamento negociada">
         <h3 className="font-semibold">Forma de pagamento</h3>
         {!methods.length && <p role="status" className="text-sm">Cadastre uma forma de pagamento para concluir as condições. <GuardedLink className="text-primary underline" href="/cadastros/formas-pagamento" target="_blank" rel="noopener noreferrer">Consultar cadastro</GuardedLink></p>}
-        <div className="grid grid-cols-2 gap-2"><label className="grid min-w-0 gap-1">Entrada (R$)<Input inputMode="decimal" value={entryRaw} placeholder={entryCents === null ? "Simule primeiro" : inputAmount(entryCents)} onChange={event => onEntryChange(event.target.value)} disabled={totalCents === null} /></label><label className="grid min-w-0 gap-1">Entrada (%)<Input key={paymentKey} inputMode="decimal" defaultValue={entryCents !== null && totalCents !== null ? entryPercent(entryCents, totalCents) : ""} disabled={totalCents === null} onBlur={event => { setInvalidPercentForEntry(null); setError(""); if (totalCents === null || entryCents !== null && event.target.value.trim().replace(".", ",") === entryPercent(entryCents, totalCents)) return; const amount = entryFromPercent(totalCents, event.target.value); if (amount === null) { setInvalidPercentForEntry(paymentKey); setError("A entrada deve estar entre 0% e 100%.") } else if (amount !== entryCents) { setError(""); onEntryChange(inputAmount(amount)) } }} /></label></div>
+        <div className="grid grid-cols-2 gap-2"><label className="grid min-w-0 gap-1">Entrada (R$)<Input inputMode="decimal" value={entryRaw} placeholder={entryCents === null ? "Use a política comercial" : inputAmount(entryCents)} onChange={event => onEntryChange(event.target.value)} /></label><label className="grid min-w-0 gap-1">Entrada (%)<Input key={paymentKey} inputMode="decimal" defaultValue={entryCents !== null && totalCents !== null ? entryPercent(entryCents, totalCents) : ""} disabled={totalCents === null} onBlur={event => { setInvalidPercentForEntry(null); setError(""); if (totalCents === null || entryCents !== null && event.target.value.trim().replace(".", ",") === entryPercent(entryCents, totalCents)) return; const amount = entryFromPercent(totalCents, event.target.value); if (amount === null) { setInvalidPercentForEntry(paymentKey); setError("A entrada deve estar entre 0% e 100%.") } else if (amount !== entryCents) { setError(""); onEntryChange(inputAmount(amount)) } }} /></label></div>
+        {totalCents === null && <p className="text-xs text-muted-foreground">Ajuste a entrada em reais ou deixe vazia para usar a política comercial. Simule para conferir o percentual e o saldo.</p>}
         <div className="grid grid-cols-2 gap-2"><Method label="Forma da entrada" value={entryMethod} methods={methods} onChange={setEntryMethod} disabled={entryCents === 0} /><label className="grid min-w-0 gap-1">Data da entrada<Input type="date" value={entryDate} onChange={event => setEntryDate(event.target.value)} /></label></div>
         <p className="text-xs text-muted-foreground">Data da entrada vazia: vencimento na confirmação do pedido. Previsto não significa recebido.</p>
         <h4 className="font-medium">Saldo{balance !== null && balance >= 0 ? ` · ${money(balance)}` : " · simule para conferir"}</h4>
@@ -101,14 +122,43 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
         <div className="grid grid-cols-3 gap-2"><label className="grid min-w-0 gap-1">Parcelas<Input inputMode="numeric" maxLength={3} value={count} onChange={event => setCount(event.target.value)} /></label><label className="grid min-w-0 gap-1">Primeira em (dias)<Input inputMode="numeric" maxLength={4} value={firstDays} onChange={event => { setFirstDays(event.target.value); onDueDateChange("") }} /></label><label className="grid min-w-0 gap-1">Intervalo (dias)<Input inputMode="numeric" maxLength={4} value={interval} onChange={event => setInterval(event.target.value)} /></label></div>
         <label className="grid min-w-0 gap-1">Vencimento da conta a receber<Input type="date" value={dueDate} onChange={event => firstDate(event.target.value)} /></label>
         <p className="text-xs text-muted-foreground">Primeiro vencimento do saldo. Ajuste cada parcela após gerar; os valores precisam somar o saldo.</p>
-        <Button type="button" variant="outline" disabled={balance === null} onClick={generate}>Gerar parcelas</Button>
-        {rows.length > 0 && <ol className="space-y-2" aria-label="Parcelas negociadas">{rows.map((row, index) => <li key={row.key} className="min-w-0 space-y-2 rounded-lg border p-2"><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium">Parcela {index + 1} de {rows.length}</span><Button type="button" variant="ghost" className="h-8 min-h-8 px-2" aria-label={`Remover parcela ${index + 1}`} onClick={() => { const remaining = rows.filter(item => item.key !== row.key); setRows(remaining); setCount(String(Math.max(1, remaining.length))); if (index === 0) onDueDateChange(remaining[0]?.dueOn || "") }}>Remover</Button></div><div className="grid grid-cols-2 gap-2"><label className="grid min-w-0 gap-1">Vencimento da parcela {index + 1}<Input type="date" value={row.dueOn} onChange={event => { setRows(rows.map(item => item.key === row.key ? { ...item, dueOn: event.target.value } : item)); if (index === 0) onDueDateChange(event.target.value) }} /></label><label className="grid min-w-0 gap-1">Valor da parcela {index + 1} (R$)<Input inputMode="decimal" value={row.amount} onChange={event => setRows(rows.map(item => item.key === row.key ? { ...item, amount: event.target.value } : item))} /></label></div><Method label={`Forma da parcela ${index + 1}`} value={row.paymentMethodId} methods={methods} onChange={value => setRows(rows.map(item => item.key === row.key ? { ...item, paymentMethodId: value } : item))} /></li>)}</ol>}
+        <Button type="button" variant="outline" disabled={balance === null} onClick={() => generate()}>Gerar parcelas</Button>
+        {rows.length > 0 && <ol className="space-y-2" aria-label="Parcelas negociadas">{rows.map((row, index) => <li key={row.key} className="min-w-0 rounded-lg border">
+          <details open={index === 0 || row.expanded} className="min-w-0">
+            <summary className="min-h-11 cursor-pointer rounded-lg p-2 text-xs focus-visible:outline-2 focus-visible:outline-ring">
+              <span className="font-medium">Parcela {index + 1} de {rows.length}</span>
+              <span className="mt-1 block pl-4 text-muted-foreground">{row.dueOn ? row.dueOn.split("-").reverse().join("/") : "Confira o vencimento"} · {parseAmount(row.amount) === null ? "Confira o valor" : money(parseAmount(row.amount)!)} · {methods.find(method => method.id === row.paymentMethodId)?.name || "Escolha a forma"}</span>
+            </summary>
+            <div className="space-y-2 border-t p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid min-w-0 gap-1">Vencimento da parcela {index + 1}<Input type="date" value={row.dueOn} onChange={event => { setRows(rows.map(item => item.key === row.key ? { ...item, dueOn: event.target.value } : item)); if (index === 0) onDueDateChange(event.target.value) }} /></label>
+                <label className="grid min-w-0 gap-1">Valor da parcela {index + 1} (R$)<Input inputMode="decimal" value={row.amount} onChange={event => setRows(rows.map(item => item.key === row.key ? { ...item, amount: event.target.value } : item))} /></label>
+              </div>
+              <Method label={`Forma da parcela ${index + 1}`} value={row.paymentMethodId} methods={methods} onChange={value => setRows(rows.map(item => item.key === row.key ? { ...item, paymentMethodId: value } : item))} />
+              <Button type="button" variant="ghost" className="h-8 min-h-8 px-2" aria-label={`Remover parcela ${index + 1}`} onClick={() => { const remaining = rows.filter(item => item.key !== row.key); setRows(remaining); setCount(String(Math.max(1, remaining.length))); if (index === 0) onDueDateChange(remaining[0]?.dueOn || "") }}>Remover parcela</Button>
+            </div>
+          </details>
+        </li>)}</ol>}
         {rows.length > 0 && <p role="status" className="text-xs">Parcelas: {money(rowsTotal)}{balance !== null ? ` · Saldo: ${money(balance)}${rowsTotal === balance ? " · Soma conferida" : " · Ajuste os valores"}` : ""}</p>}
-        <Button type="button" variant="outline" disabled={rows.length >= 120 || !balanceMethod} onClick={() => { const next = { key: crypto.randomUUID(), paymentMethodId: balanceMethod, dueOn: rows.at(-1)?.dueOn || dueDate || paymentToday(), amount: "0,00" }; setRows([...rows, next]); setCount(String(rows.length + 1)) }}>Adicionar parcela</Button>
-        <label className="grid min-w-0 gap-1">Observações do pagamento<textarea aria-label="Observações do pagamento" className={textareaClass} rows={2} maxLength={2000} value={paymentNotes} onChange={event => setPaymentNotes(event.target.value)} /></label>
+        <Button type="button" variant="outline" disabled={rows.length >= 120 || !balanceMethod} onClick={addInstallment}>Adicionar parcela</Button>
       </section>
-      <label className="grid min-w-0 gap-1">Observações do pedido<textarea aria-label="Observações do pedido" className={textareaClass} rows={2} maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} /></label>
+      <details open={optionalOpen} onToggle={event => setOptionalOpen(event.currentTarget.open)} className="min-w-0 rounded-lg border">
+        <summary className="min-h-11 cursor-pointer rounded-lg p-3 font-medium focus-visible:outline-2 focus-visible:outline-ring">Entrega e observações<span className="mt-1 block pl-4 text-xs font-normal text-muted-foreground">{[manufacturing && `${manufacturing} dias`, deliveryNotes.trim() && "Entrega preenchida", paymentNotes.trim() && "Pagamento preenchido", notes.trim() && "Pedido preenchido"].filter(Boolean).join(" · ") || "Prazo de fabricação e informações opcionais"}</span></summary>
+        <div className="space-y-3 border-t p-3">
+          <label className="grid min-w-0 gap-1">Prazo de fabricação (dias)<Input inputMode="numeric" maxLength={4} value={manufacturing} onChange={event => setManufacturing(event.target.value)} /></label>
+          <p className="text-xs text-muted-foreground">{entryCents === null ? "Simule para conferir a condição de entrada." : entryCents > 0 ? "O prazo de fabricação é contado após o recebimento da entrada." : "Pedido sem entrada: combine com o cliente o início da fabricação e registre nas observações da entrega."}</p>
+          <label className="grid min-w-0 gap-1">Observações da entrega<textarea aria-label="Observações da entrega" className={textareaClass} rows={2} maxLength={2000} value={deliveryNotes} onChange={event => setDeliveryNotes(event.target.value)} /></label>
+          <label className="grid min-w-0 gap-1">Observações do pagamento<textarea aria-label="Observações do pagamento" className={textareaClass} rows={2} maxLength={2000} value={paymentNotes} onChange={event => setPaymentNotes(event.target.value)} /></label>
+          <label className="grid min-w-0 gap-1">Observações do pedido<textarea aria-label="Observações do pedido" className={textareaClass} rows={2} maxLength={10000} value={notes} onChange={event => setNotes(event.target.value)} /></label>
+        </div>
+      </details>
     </fieldset>
     {error && <p role="alert" className="text-sm">{error}</p>}
+    <Dialog open={replaceOpen && !disabled} onOpenChange={setReplaceOpen}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader><DialogTitle>Substituir as parcelas editadas?</DialogTitle><DialogDescription>As alterações de valores, vencimentos e formas de pagamento serão substituídas por um novo plano com as condições atuais.</DialogDescription></DialogHeader>
+        <DialogFooter><Button type="button" variant="outline" onClick={() => setReplaceOpen(false)}>Manter parcelas</Button><Button type="button" disabled={disabled} onClick={() => generate(true)}>Substituir parcelas</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 }

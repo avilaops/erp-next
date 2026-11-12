@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { installmentPlan, entryFromPercent, entryPercent, addPaymentDays } from "../src/features/sales/commercial-payment-model.ts";
+import * as payment from "../src/features/sales/commercial-payment-model.ts";
+
+test("próxima parcela avança o intervalo, preserva zero e valida o calendário", () => {
+  assert.equal(typeof payment.nextInstallmentDate, "function");
+  assert.equal(payment.nextInstallmentDate("2027-02-28", "30"), "2027-03-30");
+  assert.equal(payment.nextInstallmentDate("2028-02-28", "1"), "2028-02-29");
+  assert.equal(payment.nextInstallmentDate("2027-02-28", "0"), "2027-02-28");
+  for (const interval of ["", "-1", "1.5", "3651", "NaN"]) assert.throws(() => payment.nextInstallmentDate("2027-02-28", interval));
+  assert.throws(() => payment.nextInstallmentDate("2027-02-30", "30"));
+});
 
 test("parcelas distribuem centavos sem alterar o saldo e atravessam meses pelo calendário", () => {
   const rows = installmentPlan(10000, 3, "2026-12-30", 30, "method");

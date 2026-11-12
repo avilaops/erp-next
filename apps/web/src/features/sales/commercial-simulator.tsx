@@ -182,8 +182,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
         {result && <p className="text-sm">Desconto calculado: {percent(result.value.sale.discountBps)} · {money(result.value.sale.discountCents)} sem IPI. Total: {money(result.value.sale.totalCents)}.</p>}
         <label className="flex items-center gap-2"><input type="checkbox" checked={ourFreight} onChange={e => { setOurFreight(e.target.checked); change() }} />Frete por nossa conta</label>
         {ourFreight && <label className="grid min-w-0 gap-1 sm:gap-2">Frete pago pela empresa (R$)<Input inputMode="decimal" value={freight} onChange={e => { setFreight(e.target.value); change() }} /></label>}
-        <label className="grid min-w-0 gap-1 sm:gap-2"><span>Entrada negociada (R$)<span className="sr-only">, deixe vazia para usar a política</span></span><Input aria-describedby="simulator-entry-help" inputMode="decimal" value={downPayment} onChange={e => { setDownPayment(e.target.value); change() }} /></label>
-        <p id="simulator-entry-help" className="text-xs text-muted-foreground">Deixe a entrada vazia para usar a política comercial.</p>
+        {(table.paymentMethods === undefined || !canCreate) && <><label className="grid min-w-0 gap-1 sm:gap-2"><span>Entrada negociada (R$)<span className="sr-only">, deixe vazia para usar a política</span></span><Input aria-describedby="simulator-entry-help" inputMode="decimal" value={downPayment} onChange={e => { setDownPayment(e.target.value); change() }} /></label><p id="simulator-entry-help" className="text-xs text-muted-foreground">Deixe a entrada vazia para usar a política comercial.</p></>}
       </fieldset>
       </div>
       <aside className="min-w-0 space-y-3 lg:sticky lg:top-48 lg:row-span-2 lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto lg:overscroll-contain" aria-labelledby="simulator-result">
@@ -217,7 +216,7 @@ function SelectedProduct({ item, name, sku, tenant, update, remove }: { item: Se
       <td className="py-3 align-top"><Button variant="ghost" size="icon" type="button" aria-label={`Remover equipamento ${name}`} onClick={remove}><X aria-hidden="true" /></Button></td>
     </tr>
     <tr className="border-b last:border-0"><td colSpan={3} className="min-w-0 pb-3">
-      {product.error && <p role="alert">{product.error}</p>}
+      {product.error && <div className="space-y-2 rounded-lg border p-2 text-xs"><p role="alert"><RequestError message={product.error} status={product.status} /></p><Button type="button" variant="outline" disabled={product.loading} aria-label={`Recarregar acabamentos de ${name}`} onClick={product.reload}>{product.loading ? "Carregando acabamentos…" : "Recarregar acabamentos"}</Button></div>}
       <details className="group min-w-0">
         <summary className="min-h-10 cursor-pointer rounded-md py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">Acabamentos<span className="sr-only"> de {name}</span><span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">{selectedFinishes || "Escolher cores"}</span></summary>
         <div className="grid min-w-0 gap-4 pt-3 sm:grid-cols-2">

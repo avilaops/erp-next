@@ -20,6 +20,11 @@ export function installmentPlan(balance: number, count: number, first: string, i
   return Array.from({ length: count }, (_, index) => ({ paymentMethodId: method, dueOn: addPaymentDays(first, index * interval), amountCents: Number(base) + (index < remainder ? 1 : 0) }))
 }
 
+export function nextInstallmentDate(lastDate: string, interval: string): string {
+  if (!/^\d{1,4}$/.test(interval) || Number(interval) > 3650) throw Error("Informe um intervalo entre 0 e 3650 dias.")
+  return addPaymentDays(lastDate, Number(interval))
+}
+
 export function entryFromPercent(total: number, raw: string): number | null {
   if (!Number.isSafeInteger(total) || total <= 0 || total > maximumCents || !/^\d{1,3}(?:[.,]\d{1,2})?$/.test(raw.trim())) return null
   const [whole, fraction = ""] = raw.trim().replace(",", ".").split(".")

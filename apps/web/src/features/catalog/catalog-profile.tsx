@@ -1,84 +1,139 @@
 "use client"
 import Image from "next/image"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { erpFetch } from "@/lib/api/client"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
+import { CatalogProfileFields } from "./catalog-profile-fields"
+import { catalogProfileDraft, catalogSourceLink, sameCatalogProfile, type CatalogProfileData, type CatalogProfileInput, type CatalogProfileSnapshot } from "./catalog-profile-model"
 
-type Profile = { revision: number; collection: string; muscleGroup: string; technicalCategory: string; dimensionsMm: number[]; description: string; weight: string; weightStack: string; publicPath: string; mainMediaId: string }
-type Asset = { id: string; variant: string; version: number; width: number; height: number }
-type Snapshot = { tenantId: string; canEdit: boolean; data: Profile; assets: Asset[] }
-const labels: Record<string, string> = { source: "Original privado", black: "Apresentação em preto", webp: "WebP para o site", thumbnail: "Miniatura" }
+const assetLabels: Record<string, string> = { source: "Original privado", black: "Apresentação em preto", webp: "Imagem para o site", thumbnail: "Miniatura" }
 
-export function CatalogProfile({ id, tenantId }: { id: string; tenantId: string }) {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
-  const [draft, setDraft] = useState<Profile | null>(null)
+export function CatalogProfile({ id, tenantId, edit = false, canEdit: productCanEdit = false }: { id: string; tenantId: string; edit?: boolean; canEdit?: boolean }) {
+  const [snapshot, setSnapshot] = useState<CatalogProfileSnapshot | null>(null)
+  const [draft, setDraft] = useState<CatalogProfileInput | null>(null)
+  const [baseline, setBaseline] = useState<CatalogProfileInput | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [busy, setBusy] = useState(false)
-  const [preview, setPreview] = useState("")
+  const [conflict, setConflict] = useState(false)
+  const [uncertain, setUncertain] = useState(false)
   const [retry, setRetry] = useState(0)
   const [newImage, setNewImage] = useState<string | null>(null)
   const [imageName, setImageName] = useState("")
-  const dirty = !!newImage || !!draft && JSON.stringify(draft) !== JSON.stringify(snapshot?.data)
-  useNavigationGuard(dirty ? "Há alterações no catálogo ainda não salvas. Sair?" : null)
+  const [preview, setPreview] = useState("")
+  const pending = useRef(false)
+  const active = useRef(true)
+  const dirty = !!newImage || !!draft && !!baseline && !sameCatalogProfile(draft, baseline)
+  useNavigationGuard(dirty || uncertain || busy ? "Há alterações na ficha técnica ainda não salvas. Sair?" : null)
+  useEffect(() => { active.current = true; return () => { active.current = false } }, [])
+
+  async function read(signal?: AbortSignal): Promise<CatalogProfileSnapshot> {
+    const response = await erpFetch(`/api/erp/products/${id}/catalog`, { cache: "no-store", signal })
+    if (response.status === 404) return { tenantId, productId: id, canEdit: productCanEdit, data: null, assets: [], defaultCollection: "core", mediaConfigured: false }
+    const value = await response.json()
+    if (!response.ok) throw new Error(value.title || "Não foi possível carregar a ficha técnica.")
+    if (value.tenantId !== tenantId || value.productId && value.productId !== id) throw new Error("A empresa ou o produto mudou. Recarregue o cadastro.")
+    return { ...value, canEdit: !!value.canEdit && productCanEdit }
+  }
+  function apply(value: CatalogProfileSnapshot) {
+    const input = catalogProfileDraft(value.data, value.defaultCollection)
+    setSnapshot(value); setDraft(input); setBaseline(input); setEditing(edit && value.canEdit)
+    setPreview(value.data?.mainMediaId || value.assets.find(asset => asset.variant === "webp")?.id || "")
+    setNewImage(null); setImageName(""); setConflict(false); setUncertain(false)
+  }
   useEffect(() => {
     const controller = new AbortController()
-    erpFetch(`/api/erp/products/${id}/catalog`, { signal: controller.signal }).then(async response => {
-      if (response.status === 404) return
-      const value = await response.json()
-      if (!response.ok) throw new Error(value.title || "Galeria indisponível")
-      if (value.tenantId !== tenantId) throw new Error("A empresa mudou. Recarregue a ficha.")
-      if (!controller.signal.aborted) { setSnapshot(value); setDraft(value.data); setPreview(value.data.mainMediaId); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
+    read(controller.signal).then(value => { if (!controller.signal.aborted) { apply(value); setError("") } })
+      .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Ficha indisponível.") })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [id, tenantId, retry])
-  if (!snapshot || !draft) return error ? <p role="alert">{error} <Button variant="outline" onClick={() => setRetry(n => n + 1)}>Tentar novamente</Button></p> : null
-  async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!draft || !snapshot) return
-    setBusy(true); setError(""); setMessage("")
-    const { revision, collection, muscleGroup, technicalCategory, dimensionsMm, description, weight, weightStack, mainMediaId } = draft
-    const input = { collection, muscleGroup, technicalCategory, dimensionsMm, description, weight, weightStack, mainMediaId, ...(newImage ? { newImage } : {}) }
-    try {
-      const response = await erpFetch(`/api/erp/products/${id}/catalog`, { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `"${revision}"` }, body: JSON.stringify(input) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.title || "Não foi possível salvar")
-      const next = { ...draft, revision: result.revision, mainMediaId: result.mainMediaId }; setDraft(next); setSnapshot({ ...snapshot, data: next }); setNewImage(null); setImageName(""); setPreview(result.mainMediaId); setRetry(n => n + 1); setMessage("Rascunho salvo. Publique pelo catálogo de produtos quando estiver pronto.")
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao salvar") }
-    finally { setBusy(false) }
+    // The keyed parent remounts this component when product or tenant changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, tenantId, retry, productCanEdit, edit])
+
+  function reload() {
+    if (pending.current) return
+    if ((dirty || uncertain) && !window.confirm("Descartar sua edição e carregar a ficha técnica do servidor?")) return
+    setLoading(true); setRetry(value => value + 1)
   }
-  return <section className="space-y-6 rounded-xl border p-4 sm:p-6" aria-label="Catálogo e biblioteca de imagens">
-    <div><h2 className="text-xl font-semibold">Catálogo e imagens</h2><p className="mt-2 text-sm text-muted-foreground">Revise a apresentação do equipamento. Salvar não altera o site até você publicar o catálogo.</p></div>
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <div className="min-w-0 space-y-4">
-        <div className="rounded-xl bg-white p-4"><Image unoptimized src={newImage || `/api/erp/products/${id}/media/${preview}`} alt="Prévia da imagem selecionada" width={1200} height={1000} className="h-80 w-full object-contain sm:h-96" /></div>
-        {snapshot.canEdit && <label className="grid gap-2 text-sm">Enviar nova foto<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={async event => {
-          const input = event.currentTarget, file = input.files?.[0]
-          if (!file) return
-          setError(""); setBusy(true)
+  async function save(event: React.FormEvent) {
+    event.preventDefault()
+    if (!draft || !snapshot?.canEdit || pending.current || conflict || uncertain) return
+    pending.current = true; setBusy(true); setError(""); setMessage("")
+    const input = { ...draft, ...(newImage ? { newImage } : {}) }
+    const expected = snapshot.data?.revision || 0
+    let confirmed = false
+    try {
+      const response = await erpFetch(`/api/erp/products/${id}/catalog`, { method: "PUT", headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId, "If-Match": `"${expected}"` }, body: JSON.stringify(input) })
+      const result = await response.json()
+      if (!active.current) return
+      if (!response.ok) {
+        setConflict(response.status === 412)
+        if (response.status >= 500) setUncertain(true)
+        if (response.status === 403) setSnapshot({ ...snapshot, canEdit: false })
+        setError(result.title || "Não foi possível salvar a ficha técnica.")
+        return
+      }
+      if (!Number.isSafeInteger(result.revision) || result.revision <= expected) throw new Error("Confirmação incompleta")
+      confirmed = true
+      const saved: CatalogProfileData = { ...draft, revision: result.revision, mainMediaId: result.mainMediaId ?? null, publicPath: snapshot.data?.publicPath || `/${draft.collection === "core" ? "core" : "loja"}/product-${id}/` }
+      apply({ ...snapshot, data: saved })
+      try { const value = await read(); if (active.current && value.data) apply(value) } catch { if (active.current) setError("A ficha foi salva. Não foi possível atualizar a consulta; tente recarregar.") }
+      if (active.current) setMessage("Ficha técnica salva.")
+    } catch {
+      if (active.current && !confirmed) { setUncertain(true); setError("Não foi possível confirmar a gravação. Sua edição foi preservada.") }
+    } finally { pending.current = false; if (active.current) setBusy(false) }
+  }
+  async function checkSave() {
+    if (!draft || !snapshot || pending.current) return
+    pending.current = true; setBusy(true); setError("")
+    try {
+      const value = await read()
+      if (!active.current) return
+      if (value.data && !newImage && sameCatalogProfile(catalogProfileDraft(value.data), draft)) { apply(value); setMessage("Ficha técnica salva e conferida.") }
+      else if ((!value.data && !snapshot.data) || (value.data && snapshot.data && value.data.revision === snapshot.data.revision && baseline && sameCatalogProfile(catalogProfileDraft(value.data), baseline))) { setUncertain(false); setError("A gravação ainda não foi confirmada. Sua edição foi preservada; você pode tentar salvar novamente.") }
+      else { setUncertain(false); setConflict(true); setError("A ficha no servidor é diferente. Confira antes de recarregar; sua edição foi preservada.") }
+    } catch (reason) { if (active.current) setError(reason instanceof Error ? reason.message : "Não foi possível conferir a gravação.") }
+    finally { pending.current = false; if (active.current) setBusy(false) }
+  }
+
+  return <section className="min-w-0 space-y-3 rounded-lg border p-3" aria-label="Ficha técnica">
+    <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-semibold">Ficha técnica</h2><p className="text-xs text-muted-foreground">Identificação, medidas e informações do fabricante.</p></div>{snapshot?.canEdit && !editing && <Button type="button" variant="outline" size="sm" onClick={() => { setEditing(true); setMessage("") }}>{snapshot.data ? "Editar ficha técnica" : "Adicionar ficha técnica"}</Button>}</div>
+    {loading ? <p role="status" className="text-sm text-muted-foreground">Carregando ficha técnica…</p> : snapshot && draft && <>
+      {editing ? <form aria-label="Ficha técnica do produto" className="min-w-0 space-y-3" onSubmit={save}>
+        <CatalogProfileFields draft={draft} disabled={!snapshot.canEdit || busy || uncertain} onChange={value => { setDraft(value); setMessage("") }} />
+        {snapshot.mediaConfigured && <label className="grid min-w-0 gap-1 text-sm">Imagem principal no site<select className="h-9 min-w-0 w-full rounded-lg border bg-background px-2" disabled={busy || uncertain} value={draft.mainMediaId || ""} onChange={event => { setDraft({ ...draft, mainMediaId: event.target.value || null }); setPreview(event.target.value); setMessage("") }}><option value="">Manter foto do cadastro</option>{snapshot.assets.filter(asset => asset.variant !== "source").map(asset => <option key={asset.id} value={asset.id}>{assetLabels[asset.variant] || asset.variant} · versão {asset.version}</option>)}</select></label>}
+        <div className="flex flex-wrap gap-2"><Button type="submit" disabled={!snapshot.canEdit || !dirty || busy || conflict || uncertain}>{busy ? "Salvando…" : "Salvar ficha técnica"}</Button><Button type="button" variant="outline" disabled={busy || uncertain} onClick={() => { if (baseline) setDraft(baseline); setNewImage(null); setImageName(""); setEditing(false); setError(""); setConflict(false); setMessage("") }}>Cancelar edição</Button></div>
+      </form> : snapshot.data ? <TechnicalSummary value={snapshot.data} /> : <p className="text-sm text-muted-foreground">Ficha técnica ainda não preenchida.</p>}
+      {snapshot.mediaConfigured && <details className="min-w-0 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Imagens do catálogo ({snapshot.assets.length})</summary><div className="mt-3 min-w-0 space-y-3">
+        {(newImage || preview) && <Image unoptimized src={newImage || `/api/erp/products/${id}/media/${preview}`} alt="Prévia da imagem selecionada" width={1200} height={1000} className="h-48 w-full rounded-lg bg-white object-contain" />}
+        {snapshot.canEdit && <label className="grid min-w-0 gap-1 text-sm">Enviar nova foto<input className="block min-w-0 w-full" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || uncertain} onChange={async event => {
+          const field = event.currentTarget, file = field.files?.[0]
+          if (!file || pending.current) return
+          pending.current = true; setError(""); setBusy(true)
           try {
             if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10_000_000) throw new Error("Escolha JPG, PNG ou WebP com até 10 MB.")
             const value = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Não foi possível ler a foto.")); reader.readAsDataURL(file) })
-            setNewImage(value); setImageName(file.name)
-          } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao abrir a foto") }
-          finally { input.value = ""; setBusy(false) }
-        }} /><span className="text-muted-foreground">Até 10 MB, 16 megapixels e 6000 px por lado. O original fica privado; as versões WebP preservam as cores. Grave em “Salvar apresentação”.</span></label>}
-        {newImage && <p className="text-sm">Foto pendente: {imageName} <Button type="button" variant="outline" disabled={busy} onClick={() => { setNewImage(null); setImageName("") }}>Descartar foto pendente</Button></p>}
-        <div className="grid grid-cols-2 gap-3">{snapshot.assets.map(asset => <button key={asset.id} type="button" onClick={() => setPreview(asset.id)} aria-pressed={preview === asset.id} className={`rounded-lg border p-3 text-left ${preview === asset.id ? "border-primary ring-1 ring-primary" : ""}`}><Image unoptimized src={`/api/erp/products/${id}/media/${asset.id}`} alt={labels[asset.variant] || asset.variant} width={160} height={110} className="h-24 w-full rounded bg-white object-contain" /><strong className="mt-2 block text-sm">{labels[asset.variant] || asset.variant}</strong><span className="text-xs text-muted-foreground">{asset.width} × {asset.height} px · versão {asset.version}</span></button>)}</div>
-      </div>
-      <form className="space-y-4" onSubmit={save}>
-        <fieldset disabled={!snapshot.canEdit || busy} className="space-y-4">
-          <label className="grid gap-2">Linha<select className="rounded-lg border bg-background p-2" value={draft.collection} onChange={e => setDraft({ ...draft, collection: e.target.value })}><option value="core">Ludus Core</option><option value="premium">Ludus Premium</option></select></label>
-          {([["muscleGroup", "Grupo corporal"], ["technicalCategory", "Categoria técnica"], ["weight", "Peso do equipamento"], ["weightStack", "Bateria de pesos"]] as const).map(([field, label]) => <label key={field} className="grid gap-2">{label}<Input maxLength={80} required={field === "muscleGroup" || field === "technicalCategory"} value={draft[field]} onChange={e => setDraft({ ...draft, [field]: e.target.value })} /></label>)}
-          <div className="grid grid-cols-3 gap-2">{["Profundidade", "Largura", "Altura"].map((label, i) => <label key={label} className="grid gap-2 text-sm">{label} (mm)<Input type="number" min={1} max={50000} step={1} required value={draft.dimensionsMm[i]} onChange={e => setDraft({ ...draft, dimensionsMm: draft.dimensionsMm.map((n, j) => i === j ? Number(e.target.value) : n) })} /></label>)}</div>
-          <label className="grid gap-2">Descrição<textarea className="rounded-lg border bg-background p-3" rows={4} maxLength={4000} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} /></label>
-          <label className="grid gap-2">Imagem principal no site<select className="rounded-lg border bg-background p-2" value={draft.mainMediaId} onChange={e => { setDraft({ ...draft, mainMediaId: e.target.value }); setPreview(e.target.value) }}>{snapshot.assets.filter(a => a.variant !== "source").map(a => <option key={a.id} value={a.id}>{labels[a.variant]} · versão {a.version}</option>)}</select></label>
-          <p className="text-sm text-muted-foreground">Área de treino estimada: {((draft.dimensionsMm[0] / 1000 + 1.2) * (draft.dimensionsMm[1] / 1000 + 1.2)).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} m². Margem de 600 mm por lado para estudo preliminar, sujeita ao projeto.</p>
-          <Button type="submit" disabled={!dirty || busy}>{busy ? "Salvando…" : "Salvar apresentação"}</Button>
-        </fieldset>
-        {error && <p role="alert" className="text-destructive">{error}</p>}{message && <p role="status">{message}</p>}
-      </form>
-    </div>
+            if (active.current) { setNewImage(value); setImageName(file.name); setEditing(true); setMessage("") }
+          } catch (reason) { if (active.current) setError(reason instanceof Error ? reason.message : "Falha ao abrir a foto.") }
+          finally { pending.current = false; field.value = ""; if (active.current) setBusy(false) }
+        }} /><span className="text-xs text-muted-foreground">Até 10 MB. A foto é gravada junto da ficha técnica; a publicação do site é uma ação separada.</span></label>}
+        {newImage && <p className="text-sm">Foto pendente: {imageName} <Button type="button" variant="outline" size="sm" disabled={busy || uncertain} onClick={() => { setNewImage(null); setImageName("") }}>Descartar foto pendente</Button></p>}
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">{snapshot.assets.map(asset => <button key={asset.id} type="button" onClick={() => setPreview(asset.id)} aria-pressed={preview === asset.id} className={`min-w-0 rounded-lg border p-2 text-left ${preview === asset.id ? "border-primary ring-1 ring-primary" : ""}`}><Image unoptimized src={`/api/erp/products/${id}/media/${asset.id}`} alt={assetLabels[asset.variant] || asset.variant} width={160} height={110} className="h-20 w-full rounded bg-white object-contain" /><strong className="mt-1 block text-xs">{assetLabels[asset.variant] || asset.variant}</strong><span className="text-xs text-muted-foreground">{asset.width} × {asset.height} px · v{asset.version}</span></button>)}</div>
+      </div></details>}
+    </>}
+    {error && <div role="alert" className="space-y-2 text-sm"><p>{error}</p>{uncertain ? <Button type="button" variant="outline" disabled={busy} onClick={checkSave}>Conferir gravação</Button> : <Button type="button" variant="outline" disabled={busy} onClick={reload}>{conflict ? "Recarregar ficha" : "Tentar novamente"}</Button>}</div>}
+    {message && <p role="status" className="text-sm text-primary">{message}</p>}
   </section>
+}
+
+function TechnicalSummary({ value }: { value: CatalogProfileData }) {
+  return <div className="min-w-0 space-y-3">
+    <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 text-sm sm:grid-cols-3">{[["Fabricante", value.manufacturer], ["Modelo do fabricante", value.manufacturerModel], ["Nome no catálogo", value.catalogProductName], ["Grupo corporal", value.muscleGroup], ["Categoria técnica", value.technicalCategory], ["Peso", value.weight], ["Bateria de pesos", value.weightStack], ["Dimensões (C × L × A)", `${value.dimensionsMm.join(" × ")} mm`], ["Área de treino publicada", value.liveArea]].map(([label, content]) => <div key={label} className="min-w-0 [overflow-wrap:anywhere]"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-medium">{content || "Não informado"}</dd></div>)}</dl>
+    {value.description && <details className="min-w-0 border-t pt-2"><summary className="cursor-pointer text-sm font-medium">Descrição do equipamento</summary><p className="mt-2 whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{value.description}</p></details>}
+    {!!value.catalogSources?.length && <div className="min-w-0 space-y-1 border-t pt-2 text-xs"><p className="font-medium">Fontes do catálogo</p>{value.catalogSources.map((source, index) => <p key={index} className="[overflow-wrap:anywhere]">{catalogSourceLink(source.url) ? <a className="text-primary underline underline-offset-4" href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a> : source.title}{source.pdfPage && ` · PDF pág. ${source.pdfPage}`}{source.printedPage && ` · impressa pág. ${source.printedPage}`}</p>)}</div>}
+  </div>
 }

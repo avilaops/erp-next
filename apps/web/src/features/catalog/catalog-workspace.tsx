@@ -154,7 +154,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       setDraft(recoveredDraft ? { ...data, ...recoveredDraft.draft } : data); setBaseline(recoveredDraft?.baseline || JSON.stringify(data)); setEtag(recoveredDraft?.etag || serverEtag)
       setError(changedRevision ? "O produto mudou no servidor. Sua edição foi recuperada; confira os dados antes de recarregar o cadastro." : recoveredDraft?.conflict ? "A gravação anterior precisa ser conferida. Sua edição foi recuperada; recarregue o cadastro para conferir o estado do servidor." : "")
       setConflict(changedRevision || !!recoveredDraft?.conflict); setUncertain(!!recoveredDraft?.uncertain)
-    }).catch(reason => { if (!controller.signal.aborted) { setSnapshot(null); setError(reason.message) } })
+    }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [id, retry, storageKey, view])
@@ -226,14 +226,15 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
             <div className="grid min-w-0 grid-cols-2 gap-3">
               {([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores dos braços"]] as const).map(([field, label]) => <label key={field} className="grid min-w-0 gap-1">{label}<textarea rows={2} maxLength={1951} className="catalog-finishing-input w-full min-w-0 rounded-lg border border-input bg-background text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder="Uma cor por linha" /></label>)}
             </div>
+            <fieldset className="min-w-0 border-t pt-2"><legend className="px-1 text-sm font-medium">Anilheiro — opções no fechamento</legend><div className="mt-1 flex flex-wrap gap-x-5 gap-y-2">{(["Standard", "Olímpico"] as const).map(type => <label key={type} className="inline-flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" checked={(draft.plateHolderTypes || []).includes(type)} onChange={event => { const checked = event.target.checked; setDraft(previous => { const selected = new Set(previous.plateHolderTypes || []); if (checked) selected.add(type); else selected.delete(type); return { ...previous, plateHolderTypes: ["Standard", "Olímpico"].filter(value => selected.has(value)) } }) }} />{type}</label>)}</div><p className="mt-1 text-xs text-muted-foreground">As opções marcadas ficam disponíveis no pedido e na proposta. Sem opções marcadas: Não se aplica.</p></fieldset>
           </fieldset></details>
           {uncertain && <p role="status">A confirmação está pendente. Conferir repetirá o mesmo comando, sem criar outro produto.</p>}
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
-        {view && id && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} />}
         {view && <ProductCategory value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
         {view && <details className="min-w-0 space-y-3 rounded-lg border p-3"><summary className="cursor-pointer font-medium">Acabamentos disponíveis</summary><div className="grid min-w-0 grid-cols-2 gap-3">{([["Estrutura", snapshot.data.structureColors], ["Braços", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label} className="min-w-0 space-y-2"><p className="text-xs text-muted-foreground">{label}</p>{colors?.length ? <CatalogColorPhotos label={label} options={colors} palette={catalogPaletteFor(snapshot.data.structureColors)} readOnly /> : <p className="text-sm">Sem opções cadastradas</p>}</div>)}</div></details>}
       </>}
+      {id && snapshot && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} canEdit={snapshot.canEdit} edit={!view} />}
     </section>
   </div>
 }

@@ -66,6 +66,8 @@ export async function forwardErp(request: Request, resource: string) {
   const posResource = resource.startsWith("/pos/")
   if (posResource && !(request.method === "GET" && posReadResource || request.method === "POST" && posWriteResource)) return Response.json({ title: "Operação de caixa inválida" }, { status: 405 })
   if (documentEmailResource && !["GET", "POST"].includes(request.method)) return Response.json({ title: "Método inválido" }, { status: 405 })
+  const productExportResource = resource === "/products/export"
+  if (productExportResource && request.method !== "GET") return Response.json({ title: "Método de exportação inválido" }, { status: 405 })
   const productTransferResource = /^\/products\/(?:import|export)(?:\/[a-f0-9-]{36}\/confirm|\/[a-f0-9-]{36})?$/i.test(resource)
   const returnResource = /^\/orders\/[a-f0-9-]{36}\/(?:cancel-completed|cancellations)$|^\/purchase-receipts\/[a-f0-9-]{36}\/(?:reverse|reversals)$/i.test(resource)
   if (returnResource && (resource.endsWith("/cancellations") || resource.endsWith("/reversals") ? request.method !== "GET" : request.method !== "POST")) return Response.json({ title: "Método inválido" }, { status: 405 })
@@ -81,6 +83,7 @@ export async function forwardErp(request: Request, resource: string) {
     if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ title: "Origem não autorizada" }, { status: 403 })
     if (request.method !== "GET" && resource !== "/companies" && resource !== "/company-registration/lookup" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
     const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, ...(session.tenantId && resource !== "/companies" ? { "X-Tenant-Id": session.tenantId } : {}), Accept: "application/json" })
+    if (productExportResource) headers.set("Accept", "text/csv")
     let body: string | undefined
     const bodylessProductConfirm = productTransferResource && resource.endsWith("/confirm")
     if ((request.method === "PUT" || request.method === "POST") && !bodylessProductConfirm) {
@@ -190,9 +193,12 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(documentEmailResource ? 25000 : invitationResource || accountResource ? 20000 : 10000) })
+    const timeout = AbortSignal.timeout(documentEmailResource ? 25000 : invitationResource || accountResource ? 20000 : 10000)
+    const signal = productExportResource ? AbortSignal.any([request.signal, timeout]) : timeout
+    const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal })
     // ETag is the backend revision used by If-Match; proxy encoding must not rewrite it.
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
+    if (productExportResource && response.ok) { const disposition = response.headers.get("content-disposition"); if (disposition) output.set("Content-Disposition", disposition) }
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }
     return new Response(response.status === 204 ? null : await response.text(), { status: response.status, headers: output })
   } catch { return Response.json({ title: "Serviço do ERP indisponível. Sua edição foi preservada" }, { status: 503, headers: { "Cache-Control": "no-store" } }) }

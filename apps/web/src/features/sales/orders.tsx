@@ -31,6 +31,7 @@ import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 import { OrderDetailCommercial } from "./order-detail-commercial"
 import { OrderEmail } from "./order-email"
 import type { CheckoutSnapshot } from "./commercial-payment-model"
+import { OrderWeightSummary } from "./order-weight-summary"
 
 type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean; checkout?: CheckoutSnapshot | null }
 type Listing = Schema<"OrderList">
@@ -219,8 +220,18 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
   return <><PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Pedidos", href: "/vendas/pedidos" }, ...(initial ? [{ label: orderNumber(initial.data.number), href: `/vendas/pedidos/${initial.data.id}` }] : []), { label: initial ? "Editar" : "Novo" }]} title={initial ? "Editar pedido" : "Novo pedido"} description="Selecione o cliente, adicione os produtos e informe o vencimento." />
     <section className="form-section min-w-0 space-y-3 sm:space-y-5">
         <Link className={linkClass} href={initial ? `/vendas/pedidos/${initial.data.id}` : "/vendas/pedidos"} onClick={event => { if ((dirty || command.uncertain) && !window.confirm("Sair sem confirmar as alterações deste rascunho?")) event.preventDefault() }}>Voltar aos pedidos</Link>
-        <div className="grid min-w-0 gap-2 sm:gap-4 lg:grid-cols-2"><Lookup compact endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value.id === originalCustomer?.id ? originalCustomer : value); setDirty(true) }} /><Lookup compact endpoint="products" label="produto" searchOnly disabled={frozen || items.length >= 100} choose={value => {
-          if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade no item existente."); return }
+        <div className="grid min-w-0 gap-2 sm:gap-4 lg:grid-cols-2"><Lookup compact endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value.id === originalCustomer?.id ? originalCustomer : value); setDirty(true) }} /><Lookup compact endpoint="products" label="produto" searchOnly disabled={frozen} choose={value => {
+          const existing = items.find(item => item.id === value.id)
+          if (existing) {
+            const normalized = quantity(existing.quantity)
+            if (!normalized) { setError("Informe uma quantidade válida para acrescentar uma unidade."); return }
+            const [whole, fraction] = normalized.split(".")
+            if (whole === "999999999999") { setError("A quantidade máxima deste item foi atingida."); return }
+            const nextQuantity = `${Number(whole) + 1}.${fraction}`.replace(/\.?0+$/, "")
+            setItems(previous => previous.map(item => item.id === value.id ? { ...item, quantity: nextQuantity } : item))
+            setDirty(true); setError(""); return
+          }
+          if (items.length >= 100) { setError("O pedido aceita até 100 produtos diferentes."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
           setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
@@ -239,6 +250,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
               <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p></details>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>
+          <OrderWeightSummary tenantId={tenantId} items={items.map(item => ({ productId: item.id, quantity: item.quantity }))} />
           {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
           {command.uncertain && <p role="status">Confirmação pendente. A repetição usa o mesmo comando.</p>}
           {command.stale && <Button type="button" variant="outline" onClick={() => { if (!dirty || window.confirm("Recarregar e descartar as alterações locais deste rascunho?")) { command.reset(); reload() } }}>Recarregar rascunho</Button>}

@@ -10,6 +10,7 @@ import { money, percent, approvalLabels, type Sale, type Director, type Simulati
 import type { Simulation as LegacySimulation } from "@/features/commercial-settings/simulator-model"
 import type { CheckoutSnapshot } from "./commercial-payment-model"
 import { CommercialCheckoutSummary } from "./commercial-checkout-summary"
+import { OrderWeightSummary } from "./order-weight-summary"
 
 type Order = Schema<"OrderSnapshot"> & { checkout?: CheckoutSnapshot | null }
 type Quote = { tenantId: string; data: { sale: Sale; input: SimulationInput; version: number } | null; director?: Director | null; approvalStatus?: string; checkout?: CheckoutSnapshot | null }
@@ -129,6 +130,7 @@ export function OrderDetailCommercial({ order, permissions }: { order: Order; pe
       ["Total de tabela sem IPI", amount(tableTotal)], ["Desconto", amount(discount)], ["IPI total", amount(sale?.ipiCents ?? legacy?.sale.ipiCents)], ["Total negociado com IPI", amount(total)],
       ["Total registrado no pedido", commercialMoney(order.data.amount)], ["Entrada negociada", amount(entry)], ["Saldo negociado", total !== undefined && entry !== undefined ? money(total - entry) : undefined], ["Validade da proposta", undefined]
     ]} /></section>
+    <OrderWeightSummary tenantId={order.tenantId} items={order.items} />
     {(director || legacyDirector) && <section className="space-y-3 border-t pt-4" aria-label="Análise da diretoria"><h2 className="font-semibold">Diretoria · custos, impostos e resultado</h2><Fields values={[
       ["Custo dos equipamentos", amount(director?.equipmentCostCents ?? legacyDirector?.equipmentCostCents)], ["Impostos e taxas", director ? money(director.taxesCents) : undefined], ["DIFAL / FCP", director ? money(director.difalCents) : undefined],
       ["Taxa fixa", amount(director?.fixedFeeCents ?? legacyDirector?.fixedFeeCents)], ["Resultado antes do IR", amount(director?.profitBeforeIncomeTaxCents ?? legacyDirector?.profitBeforeIncomeTaxCents)], ["IRPJ + CSLL", amount(director?.incomeTaxCents ?? legacyDirector?.incomeTaxCents)],

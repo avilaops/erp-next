@@ -91,6 +91,64 @@ test.beforeEach(() => {
   malformedSettings = false
 })
 
+const legacyAddresses = () => [
+  { label: "Comercial", postalCode: "01001-000", state: "SP", city: "Sao Paulo", street: "Rua manual", number: "81", district: "Centro", complement: null, primary: false },
+  { label: "Entrega", postalCode: "11010000", state: "SP", city: "Santos", street: "Outra rua", number: "295", district: "Centro", complement: "ap 12", primary: true },
+]
+
+function cepReply(postalCode: string) {
+  return { tenantId: tenant, kind: "cep", value: postalCode, status: "found", expiresAt: "2099-01-01T00:00:00Z", data: { fields: { postalCode, state: "SP", city: postalCode === "01001000" ? "São Paulo" : "Santos", municipalityCode: postalCode === "01001000" ? "3550308" : "3548500" } } }
+}
+
+test("cadastro completa o IBGE de cada endereço e conserva os códigos ao salvar", async ({ page, context }) => {
+  data = { ...blank(), personType: "fisica", taxId: "52998224725", addresses: legacyAddresses() }
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant } } }))
+  await page.route("**/api/erp/registry-lookups", route => {
+    const input = route.request().postDataJSON()
+    expect(input).toMatchObject({ kind: "cep", context: "party" })
+    return route.fulfill({ json: cepReply(input.value) })
+  })
+  await page.goto(`/cadastros/clientes-fornecedores/${id}/editar`)
+  await page.getByLabel("Endereço 1: CEP", { exact: true }).waitFor()
+  await expect(page.getByLabel("Endereço 1: Código IBGE", { exact: true })).toHaveValue("3550308")
+  await expect(page.getByLabel("Endereço 2: Código IBGE", { exact: true })).toHaveValue("3548500")
+  await expect(page.getByLabel("Endereço 2: Complemento", { exact: true })).toHaveValue("ap 12")
+  await page.getByRole("button", { name: "Adicionar endereço", exact: true }).click()
+  for (const [label, value] of [["Identificação", "Novo endereço"], ["CEP", "01001000"], ["UF", "SP"], ["Cidade", "São Paulo"], ["Rua", "Rua nova"], ["Número", "3"], ["Bairro", "Centro"]]) {
+    await page.getByLabel(`Endereço 3: ${label}`, { exact: true }).fill(value)
+  }
+  await expect(page.getByLabel("Endereço 3: Código IBGE", { exact: true })).toHaveValue("3550308")
+  await page.getByRole("button", { name: "Salvar pessoa", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: "Pessoa salva" })).toBeVisible()
+  expect(data.addresses.map(address => address.municipalityCode)).toEqual(["3550308", "3548500", "3550308"])
+  expect(data.addresses.map(address => address.primary)).toEqual([false, true, false])
+})
+
+test("consulta atrasada do IBGE preserva edição manual e alterações nos outros endereços", async ({ page, context }) => {
+  data = { ...blank(), personType: "fisica", taxId: "52998224725", addresses: legacyAddresses() }
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  let started = false
+  await context.addCookies([cookie()])
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant } } }))
+  await page.route("**/api/erp/registry-lookups", async route => {
+    const input = route.request().postDataJSON()
+    if (input.value === "01001000") { started = true; await gate }
+    await route.fulfill({ json: cepReply(input.value) })
+  })
+  try {
+    await page.goto(`/cadastros/clientes-fornecedores/${id}/editar`)
+    await expect.poll(() => started).toBe(true)
+    await page.getByLabel("Endereço 1: Código IBGE", { exact: true }).fill("3548500")
+    await page.getByLabel("Endereço 2: Número", { exact: true }).fill("999")
+    release()
+    await expect(page.getByLabel("Endereço 2: Código IBGE", { exact: true })).toHaveValue("3548500")
+    await expect(page.getByLabel("Endereço 1: Código IBGE", { exact: true })).toHaveValue("3548500")
+    await expect(page.getByLabel("Endereço 2: Número", { exact: true })).toHaveValue("999")
+  } finally { release() }
+})
+
 test("party editor adds, reads and removes structured addresses and contacts without losing rejected edits", async ({
   page,
   context

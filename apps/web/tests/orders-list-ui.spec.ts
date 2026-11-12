@@ -167,6 +167,114 @@ test("novo pedido mantém cliente e produto em buscas compactas até pesquisar",
   await expect(page.getByRole("button", { name: "Selecionar Produto disponível · PROD-1", exact: true })).toHaveCount(0)
 })
 
+test("selecionar novamente um produto acrescenta uma unidade e preserva acabamentos no pedido", async ({ page }, info) => {
+  const product = { id: "33333333-3333-4333-8333-333333333333", name: "Hack 45° Para Agachamento", sku: "LD-WH034", unit: "UN", basePrice: "16865.42", upholsteryConfigurable: false }
+  const snapshot = { tenantId: tenant, canEdit: true, data: { ...order, customerId: record, revision: 1 }, items: [] }
+  let sent: unknown
+  await page.route(/\/api\/erp\/orders\?/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 0, data: [] } }))
+  await page.route(/\/api\/erp\/parties\?/, route => route.fulfill({ json: { tenantId: tenant, total: 1, data: [{ id: record, legalName: "Cliente disponível" }] } }))
+  await page.route(/\/api\/erp\/products\?/, route => route.fulfill({ json: { tenantId: tenant, total: 1, data: [product] } }))
+  await page.route(`**/api/erp/products/${product.id}`, route => route.fulfill({ json: { tenantId: tenant, data: product } }))
+  await page.route(`**/api/erp/products/${product.id}/catalog`, route => route.fulfill({ json: { tenantId: tenant, data: { weight: "180,5 kg" } } }))
+  await page.route(`**/api/erp/orders/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: snapshot }))
+  await page.route("**/api/erp/orders", route => {
+    sent = route.request().postDataJSON()
+    return route.fulfill({ status: 201, headers: { ETag: '"1"' }, json: snapshot })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/vendas/pedidos/novo")
+  await page.getByRole("button", { name: "Pesquisar cliente", exact: true }).click()
+  await page.getByRole("button", { name: "Selecionar Cliente disponível", exact: true }).click()
+  const search = page.getByRole("button", { name: "Pesquisar produto", exact: true })
+  const select = page.getByRole("button", { name: `Selecionar ${product.name} · ${product.sku}`, exact: true })
+  await search.click()
+  await select.click()
+  const item = page.getByRole("group", { name: `Item do pedido: ${product.name}`, exact: true })
+  const quantity = item.getByLabel(`Quantidade de ${product.name}`, { exact: true })
+  await expect(quantity).toHaveValue("1")
+  await item.locator("summary").click()
+  await item.getByLabel(`Tipo de anilheiro de ${product.name}`, { exact: true }).selectOption("Olímpico")
+  await search.click()
+  await select.click()
+  await expect(quantity).toHaveValue("2")
+  await expect(page.getByRole("region", { name: "Peso do pedido", exact: true })).toContainText("361 kg")
+  await expect(item).toHaveCount(1)
+  await expect(item.getByLabel(`Tipo de anilheiro de ${product.name}`, { exact: true })).toHaveValue("Olímpico")
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(0)
+  for (const [current, next] of [["1,5", "2.5"], ["999999999998,999999", "999999999999.999999"], ["5", "6"]]) {
+    await quantity.fill(current)
+    await search.click()
+    await select.click()
+    await expect(quantity).toHaveValue(next)
+  }
+  await page.getByLabel("Vencimento da conta a receber", { exact: true }).fill("2026-12-30")
+  await expect(page.getByRole("region", { name: "Peso do pedido", exact: true })).toContainText("1.083 kg")
+  await page.screenshot({ path: info.outputPath("order-repeated-product-390.png"), fullPage: true })
+  await page.getByRole("button", { name: "Criar pedido", exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${record}$`))
+  expect(sent).toMatchObject({ customerId: record, dueDate: "2026-12-30", items: [{ productId: product.id, quantity: "6.000000", plateHolderType: "Olímpico" }] })
+  expect((sent as { items: unknown[] }).items).toHaveLength(1)
+})
+
+test("pedido com cem produtos permite acrescentar unidade sem abrir uma nova linha", async ({ page }) => {
+  const items = Array.from({ length: 100 }, (_, index) => ({ productId: `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`, name: `Equipamento ${index}`, sku: `EQ-${index}`, unit: "UN", quantity: "1.000000", unitPrice: "10.00", amount: "10.00" }))
+  const extra = { id: "44444444-4444-4444-8444-444444444444", name: "Equipamento adicional", sku: "EXTRA" }
+  await page.route(`**/api/erp/orders/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: true, data: { ...order, customerId: record }, items } }))
+  await page.route(/\/api\/erp\/products\/[0-9a-f-]+$/, route => route.fulfill({ json: { tenantId: tenant, data: { hasPhoto: false } } }))
+  await page.route(/\/api\/erp\/products\?/, route => route.fulfill({ json: { tenantId: tenant, total: 2, data: [{ id: items[0].productId, name: items[0].name, sku: items[0].sku }, extra] } }))
+  await page.goto(`/vendas/pedidos/${record}/editar`)
+  const search = page.getByRole("button", { name: "Pesquisar produto", exact: true })
+  await expect(search).toBeEnabled()
+  await search.click()
+  await page.getByRole("button", { name: "Selecionar Equipamento 0 · EQ-0", exact: true }).click()
+  await expect(page.getByLabel("Quantidade de Equipamento 0", { exact: true })).toHaveValue("2")
+  await search.click()
+  await page.getByRole("button", { name: "Selecionar Equipamento adicional · EXTRA", exact: true }).click()
+  await expect(page.getByRole("group", { name: /^Item do pedido:/ })).toHaveCount(100)
+  await expect(page.locator("main").getByRole("alert")).toContainText("100 produtos diferentes")
+})
+
+test("pedido mostra peso bruto de todos os equipamentos também na impressão", async ({ page }) => {
+  await page.route(`**/api/erp/orders/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: order, items: [
+    { productId: record, name: "Hack", sku: "HACK", unit: "UN", quantity: "6.000000", unitPrice: "10.00", amount: "60.00", equipmentWeight: "180,5 kg" },
+    { productId: "33333333-3333-4333-8333-333333333333", name: "Remada", sku: "REM", unit: "UN", quantity: "2.000000", unitPrice: "10.00", amount: "20.00", equipmentWeight: "90.25 KG" },
+  ] } }))
+  await page.goto(`/vendas/pedidos/${record}`)
+  const weight = page.getByRole("region", { name: "Peso do pedido", exact: true })
+  await expect(weight).toContainText("1.263,5 kg")
+  await page.emulateMedia({ media: "print" })
+  await expect(weight).toBeVisible()
+  await expect(weight).toContainText("1.263,5 kg")
+})
+
+test("peso faltante deixa o total do pedido incompleto sem apresentar uma soma parcial", async ({ page }) => {
+  await page.route(`**/api/erp/orders/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: order, items: [
+    { productId: record, name: "Hack", sku: "HACK", unit: "UN", quantity: "1.000000", unitPrice: "10.00", amount: "10.00", equipmentWeight: "180 kg" },
+    { productId: "33333333-3333-4333-8333-333333333333", name: "Remada", sku: "REM", unit: "UN", quantity: "1.000000", unitPrice: "10.00", amount: "10.00", equipmentWeight: null },
+  ] } }))
+  await page.goto(`/vendas/pedidos/${record}`)
+  const weight = page.getByRole("region", { name: "Peso do pedido", exact: true })
+  await expect(weight).toContainText("Incompleto")
+  await expect(weight).toContainText("1 equipamento(s)")
+  await expect(weight).not.toContainText("180 kg")
+})
+
+test("consulta de peso descarta outra empresa e permite recuperar o total", async ({ page }) => {
+  let correctTenant = false
+  await page.route(`**/api/erp/orders/${record}`, route => route.fulfill({ headers: { ETag: '"1"' }, json: { tenantId: tenant, canEdit: false, data: order, items: [
+    { productId: record, name: "Hack", sku: "HACK", unit: "UN", quantity: "2.000000", unitPrice: "10.00", amount: "20.00" },
+  ] } }))
+  await page.route(`**/api/erp/products/${record}/catalog`, route => route.fulfill({ json: { tenantId: correctTenant ? tenant : record, data: { weight: correctTenant ? "180 kg" : "999 kg" } } }))
+  await page.goto(`/vendas/pedidos/${record}`)
+  const weight = page.getByRole("region", { name: "Peso do pedido", exact: true })
+  await expect(weight).toContainText("Não foi possível consultar todos os pesos.")
+  await expect(weight).not.toContainText("1.998 kg")
+  correctTenant = true
+  await weight.getByRole("button", { name: "Consultar pesos novamente", exact: true }).click()
+  await expect(weight).toContainText("360 kg")
+  await expect(weight).not.toContainText("Incompleto")
+})
+
 test("falha de pesquisa mantém os filtros e permite repetir em modo de consulta", async ({ page }) => {
   let failing = false
   await page.route(/\/api\/erp\/orders\?/, route => route.fulfill(failing ? { status: 503, json: { title: "Consulta temporariamente indisponível" } } : { json: { tenantId: tenant, canEdit: false, total: 1, data: [order] } }))

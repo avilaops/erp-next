@@ -20,6 +20,7 @@ import type { Opportunity } from "./opportunities"
 import { commercialTableReturn, type CommercialSelection } from "./commercial-navigation-model"
 import { CommercialCheckout, type CheckoutHandle } from "./commercial-checkout"
 import type { CheckoutInput } from "./commercial-payment-model"
+import { OrderWeightSummary } from "./order-weight-summary"
 
 type Selected = { productId: string; quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const selectClass = "h-9 min-h-9 min-w-0 rounded-lg border bg-background px-2"
@@ -171,6 +172,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
         <div className="flex min-w-0 flex-wrap gap-2"><select aria-label="Equipamento da tabela" className={`${selectClass} w-full flex-1`} value={product} onChange={e => setProduct(e.target.value)}><option value="">Selecione um equipamento</option>{choices.map(i => <option key={i.productId} value={i.productId}>{i.sku} · {i.name}</option>)}</select><Button type="button" variant="outline" disabled={!product || items.length >= 100} onClick={() => { if (items.some(i => i.productId === product)) return; setItems([...items, { productId: product, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }]); setProduct(""); change() }}>Adicionar</Button></div>
         {items.length ? <DataTable aria-label="Equipamentos da simulação" className="table-fixed"><thead><tr className="border-b text-xs text-muted-foreground"><th scope="col" className="py-2 font-medium">Equipamento</th><th scope="col" className="w-20 px-1 py-2 font-medium">Qtd.</th><th scope="col" className="w-11 py-2"><span className="sr-only">Ações</span></th></tr></thead><tbody>{items.map((item, index) => <SelectedProduct key={item.productId} item={item} name={table.data!.items.find(i => i.productId === item.productId)?.name || item.productId} sku={table.data!.items.find(i => i.productId === item.productId)?.sku || ""} tenant={table.tenantId} update={next => { setItems(items.map((i, n) => n === index ? next : i)); change() }} remove={() => { setItems(items.filter((_, n) => n !== index)); change() }} />)}</tbody></DataTable> : <p className="text-xs text-muted-foreground">Adicione equipamentos para iniciar.</p>}
         {!!items.length && <p className="text-xs text-muted-foreground">{items.length} equipamento{items.length !== 1 ? "s" : ""} · Cores e tipo de anilheiro em Acabamentos.</p>}
+        <OrderWeightSummary tenantId={table.tenantId} items={items.map(item => ({ ...item, quantity: /^\d{1,7}$/.test(item.quantity) && Number(item.quantity) >= 1 && Number(item.quantity) <= 1_000_000 ? String(Number(item.quantity)) : "" }))} />
       </fieldset>
       <fieldset disabled={frozen} className="form-section min-w-0 space-y-2 !p-3">
         <h2 id="simulator-conditions" tabIndex={-1} className={sectionHeadingClass}>Condições comerciais</h2>

@@ -23,7 +23,7 @@ export const referenceConfigs = {
   },
   "categorias-produtos": {
     title: "Categorias de produtos", singular: "categoria de produtos", endpoint: "product-categories",
-    description: "Hierarquia do catálogo da empresa. O vínculo de produtos às categorias será integrado em uma próxima etapa.",
+    description: "Organize o catálogo em categorias e subcategorias. Os produtos usam esta classificação para consulta e edição.",
     defaults: { code: "", name: "", status: "active", notes: null, parentId: null, sortOrder: 0 },
   },
   "categorias-financeiras": {

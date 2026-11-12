@@ -54,11 +54,16 @@ export function useAllowNextUnload() {
   return useContext(NavigationGuardContext).allowNextUnload
 }
 
-export function GuardedLink({ onNavigate, ...props }: ComponentProps<typeof NextLink>) {
-  const confirmNavigation = useConfirmNavigation()
+export function useListNavigationHref() {
   const pathname = usePathname()
   const search = useSearchParams()
-  const href = typeof props.href === "string" ? listNavigationHref(props.href, pathname, search.toString()) : props.href
+  return (href: string) => listNavigationHref(href, pathname, search.toString())
+}
+
+export function GuardedLink({ onNavigate, ...props }: ComponentProps<typeof NextLink>) {
+  const confirmNavigation = useConfirmNavigation()
+  const listHref = useListNavigationHref()
+  const href = typeof props.href === "string" ? listHref(props.href) : props.href
   return <NextLink {...props} href={href} onNavigate={event => {
     if (!confirmNavigation()) { event.preventDefault(); return }
     onNavigate?.(event)

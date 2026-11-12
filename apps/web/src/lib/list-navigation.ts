@@ -1,4 +1,4 @@
-const listRoute = /^\/(?:cadastros\/[^/]+|vendas\/(?:pedidos|propostas|funil)|compras\/pedidos|financeiro\/(?:contas-pagar|contas-receber)|servicos\/ordens)(?=\/|$)/
+const listRoute = /^\/(?:cadastros\/[^/]+|estoque\/depositos|vendas\/(?:pedidos|propostas|funil)|compras\/pedidos|financeiro\/(?:contas-pagar|contas-receber)|servicos\/ordens)(?=\/|$)/
 
 /** Carry a list's URL through its records without changing unrelated navigation. */
 export function listNavigationHref(href: string, pathname: string, search: string) {

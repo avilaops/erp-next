@@ -1,5 +1,7 @@
 "use client"
 
+import { useRegistryQuery } from "@/features/records/use-registry-query"
+import { useResource } from "@/hooks/use-operation"
 import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
 import { lookupMunicipalityCode } from "@/lib/municipality-code"
@@ -9,7 +11,7 @@ import type { Schema } from "@/lib/api/types"
 
 import { AccessLink } from "@/components/feedback/session-recovery"
 
-import { GuardedLink as Link, useNavigationGuard } from "@/components/shell/navigation-guard"
+import { GuardedLink as Link, useNavigationGuard, useListNavigationHref } from "@/components/shell/navigation-guard"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { DataTable } from "@/components/workspace/data-table"
@@ -40,41 +42,27 @@ const fiscalLabels = { "1": "Contribuinte do ICMS", "2": "Contribuinte isento de
 function relationship(party: Pick<PartyInput, "isCustomer" | "isSupplier">) { return party.isCustomer && party.isSupplier ? "Cliente e fornecedor" : party.isCustomer ? "Cliente" : "Fornecedor" }
 
 export function PartyList() {
-  const [query, setQuery] = useState({ q: "", role: "", status: "", offset: 0 })
-  const [result, setResult] = useState<Page | null>(null)
-  const [error, setError] = useState("")
-  const [responseStatus, setResponseStatus] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [retry, setRetry] = useState(0)
-  useEffect(() => {
-    const controller = new AbortController()
-    let requestStatus = 0
-    const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
-    if (query.role) params.set("role", query.role)
-    if (query.status) params.set("status", query.status)
-    erpFetch(`/api/erp/parties?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
-      requestStatus = response.status
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
-      if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
-    return () => controller.abort()
-  }, [query, retry])
+  const { query, navigate } = useRegistryQuery("party")
+  const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
+  if (query.role) params.set("role", query.role)
+  if (query.status) params.set("status", query.status)
+  const resource = useResource<Page>(`/api/erp/parties?${params}`)
+  const { value: result, loading, error, status: responseStatus } = resource
+  function search(value: typeof query) { if (!navigate(value)) resource.reload() }
 
   return <>
 
     <section className="compact-records form-section min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Pessoas cadastradas</h2>{result?.canEdit && <Link className={linkClass} href="/cadastros/clientes-fornecedores/novo">Nova pessoa</Link>}</div>
       <form className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
-        setQuery({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
+        event.preventDefault(); const form = new FormData(event.currentTarget)
+        search({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2"><label className="min-w-0 space-y-1">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Documento sem máscara" /></label><Button className="h-9 px-3" type="submit" disabled={loading}>Buscar</Button></div>
-        <label className="min-w-0 space-y-1">Relacionamento<select name="role" className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
-        <label className="min-w-0 space-y-1">Situação<select name="status" className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
+        <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2"><label className="min-w-0 space-y-1">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; search({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" defaultValue={query.q} maxLength={160} placeholder="Documento sem máscara" /></label><Button className="h-9 px-3" type="submit" disabled={loading}>Buscar</Button></div>
+        <label className="min-w-0 space-y-1">Relacionamento<select key={query.role} name="role" defaultValue={query.role} className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
+        <label className="min-w-0 space-y-1">Situação<select key={query.status} name="status" defaultValue={query.status} className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
       </form>
-      {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de clientes e fornecedores" tabIndex={0}><DataTable aria-label="Clientes e fornecedores" className="table-fixed lg:table-auto">
           <thead><tr><th scope="col" className="w-[55%] lg:w-auto">Nome</th><th scope="col" className="hidden lg:table-cell">CPF / CNPJ</th><th scope="col" className="hidden lg:table-cell">Relacionamento</th><th scope="col">Contato</th><th scope="col" className="hidden lg:table-cell">Situação</th></tr></thead>
@@ -83,7 +71,7 @@ export function PartyList() {
             <td className="hidden whitespace-nowrap lg:table-cell">{party.taxId}</td><td className="hidden lg:table-cell">{relationship(party)}</td><td className="align-top [overflow-wrap:anywhere]">{party.email && <p>{party.email}</p>}{party.phone && <p className="mt-1 text-xs text-muted-foreground">{party.phone}</p>}{!party.email && !party.phone && "Não informado"}</td><td className="hidden lg:table-cell">{party.status === "active" ? "Ativo" : "Arquivado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhuma pessoa encontrada.</p>}
-        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
+        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => search({ ...query, offset })} />
       </>}
     </section>
   </>
@@ -91,6 +79,7 @@ export function PartyList() {
 
 export function PartyEditor({ id, view = false, draftScope, tenantId }: { id?: string; view?: boolean; draftScope: string; tenantId: string }) {
   const router = useRouter()
+  const listHref = useListNavigationHref()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [draft, setDraft] = useState<PartyInput>({ ...blank })
   const [baseline, setBaseline] = useState(JSON.stringify(blank))
@@ -221,7 +210,7 @@ export function PartyEditor({ id, view = false, draftScope, tenantId }: { id?: s
       if (!writePartyDraft(storageKey, null)) setStorageError("Pessoa salva. Não foi possível limpar o rascunho desta aba; confira o cadastro antes de repetir qualquer gravação.")
       setUncertain(false); setConflict(false); setRecovered(false); command.current = null; setDraft(input); setBaseline(JSON.stringify(input)); setSaved(true)
       cnpjProvenance.current = emptyCnpjProvenance()
-      if (!id) router.replace(`/cadastros/clientes-fornecedores/${value.data.id}`)
+      if (!id) router.replace(listHref(`/cadastros/clientes-fornecedores/${value.data.id}`))
       else { setSnapshot(value); setEtag(response.headers.get("etag")!) }
     } catch {
       if (!active.current || !draftSessionActive.current) return

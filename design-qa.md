@@ -28,9 +28,9 @@ Evidências locais em `artifacts/new-order-mobile-{chromium,webkit}/test-results
 
 ## Verificação
 
-- Build de produção com TypeScript e 369 páginas concluída; lint completo sem erros, com oito avisos preexistentes; modelos 130/130.
-- Chromium mobile: 16/16. WebKit mobile: 16/16. Cenários incluem CPF/CNPJ novos, outra UF, pagamento integral e parcelado, datas, limites, falha de cálculo, acesso restrito, preservação do preenchimento e próximos passos após salvar com número.
-- Regressão comercial: 88 de 90 aprovados na rodada completa; as duas expectativas da mensagem de percentual foram corrigidas e os dois cenários completos passaram na repetição focada em 390/1366px, incluindo valores, parcelas e payload. Não se apresenta essa agregação como uma execução única de 90 casos.
+- Build de produção com TypeScript e 369 páginas concluída; lint completo sem erros, com oito avisos preexistentes. Após integrar main e preservar a atualização cadastral/fiscal do PR190, nova build aprovada e modelos 138/138.
+- Chromium mobile: 16/16. WebKit mobile: 16/16, ambos repetidos e aprovados na build integrada com main. Cenários incluem CPF/CNPJ novos, outra UF, pagamento integral e parcelado, datas, limites, falha de cálculo, acesso restrito, preservação do preenchimento e próximos passos após salvar com número.
+- Regressão comercial: 90/90 aprovados em uma execução completa na build integrada. Inclui cliente existente/novo, autorização, consulta e falha, repetição incerta, troca de empresa, parcelas editadas, valores em centavos e payload, além das larguras de 320px até desktop.
 - Revisões independentes de cliente, checkout, ramo completo e última alteração visual concluídas. Sem achados P0/P1/P2 residuais conhecidos dentro do escopo implementado.
 
 ## Limites

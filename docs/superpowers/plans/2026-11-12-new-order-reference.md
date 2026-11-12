@@ -32,10 +32,10 @@
 
 **Interfaces:** componente expõe ref `read()` para validar draft e `save()` para obter `{id,stateRegistration}`; usa os endpoints existentes de parties, RegistryLookup e município. Recebe tenant, permissão, disabled e callbacks de UF/contribuinte/dirty.
 
-- [ ] Cobrir payload, campos obrigatórios, preservação de campos adicionais e cliente existente sem mudanças com testes de modelo.
-- [ ] Reproduzir ausência do formulário de referência na rota atual.
-- [ ] Implementar campos, busca/seleção, consulta CNPJ/CEP e salvamento idempotente seguro, preservando cadastro selecionado e ETag.
-- [ ] Verificar tenant, respostas antigas, edição manual, falha de gravação e retry sem duplicação.
+- [x] Cobrir payload, campos obrigatórios, preservação de campos adicionais e cliente existente sem mudanças com testes de modelo.
+- [x] Reproduzir ausência do formulário de referência na rota atual.
+- [x] Implementar campos, busca/seleção, consulta CNPJ/CEP e salvamento idempotente seguro, preservando cadastro selecionado e ETag.
+- [x] Verificar tenant, respostas antigas, edição manual, falha de gravação e retry sem duplicação.
 
 ### Task 2: Apresentação completa de pedido
 
@@ -43,17 +43,17 @@
 
 **Interfaces:** apresentação reutiliza estados/ações comerciais e `CommercialCheckout` com variante de pedido; cliente é validado antes de salvar e cadastrado somente após conferir preço e condições.
 
-- [ ] Acrescentar teste de navegador RED para composição vazia, responsividade e fluxo completo com dados sintéticos.
-- [ ] Implementar equipamentos no topo e colunas cliente/pagamento versus desconto/totais/ação; atualizar resultados por simulação sem permitir respostas stale.
-- [ ] Acrescentar variante do checkout com entrada, parcelas, fabricação/unidade e observações nas seções correspondentes, mantendo o modo simulador.
-- [ ] Usar novo modo como padrão em `/novo`, preservando catálogo em `?modo=catalogo` e atualizando links/testes legados explicitamente.
-- [ ] Verificar controles completos, adição repetida, limites, alçadas, parcelas editadas e estados de erro/consulta.
+- [x] Acrescentar teste de navegador RED para composição vazia, responsividade e fluxo completo com dados sintéticos.
+- [x] Implementar equipamentos no topo e colunas cliente/pagamento versus desconto/totais/ação; atualizar resultados por simulação sem permitir respostas stale.
+- [x] Acrescentar variante do checkout com entrada, parcelas, fabricação/unidade e observações nas seções correspondentes, mantendo o modo simulador.
+- [x] Usar novo modo como padrão em `/novo`, preservando catálogo em `?modo=catalogo` e atualizando links/testes legados explicitamente.
+- [x] Verificar controles completos, adição repetida, limites, alçadas, parcelas editadas e estados de erro/consulta.
 
 ### Task 3: Verificação, revisão e entrega
 
 **Files:** testes comerciais/cadastro pertinentes, configuração Playwright existente, `design-qa.md` e evidências locais.
 
-- [ ] Executar modelos, lint, TypeScript e build de produção; corrigir somente falhas pertinentes.
-- [ ] Testar navegador com fixtures, capturar e comparar referência nos tamanhos solicitados e temas, sem escrita real.
-- [ ] Obter revisão independente, corrigir achados e repetir verificações afetadas.
+- [x] Executar modelos, lint, TypeScript e build de produção; corrigir somente falhas pertinentes.
+- [x] Testar navegador com fixtures, capturar e comparar referência nos tamanhos solicitados e temas, sem escrita real.
+- [x] Obter revisão independente, corrigir achados e repetir verificações afetadas.
 - [ ] Commit/push, CI do candidato, integração e publicação autorizada com hashes/rollback/health, preservando escopo da PR #186 e registrando pendências herdadas de arquitetura/contexto.

@@ -35,3 +35,7 @@ Comparações conjuntas inspecionadas: `artifacts/new-order-comparison-desktop.p
 Sem achados P0/P1/P2 residuais. Diferenças de marca, paleta, família tipográfica, navegação e controles exigidos pelo ERP são adaptações explícitas da spec. Limite: esta revisão visual não inclui envio de e-mail, criação de pedido real ou transmissão fiscal. O épico AVL-432 permanece mais amplo que esta tela.
 
 Follow-up P3: nenhum ajuste necessário para aceite desta entrega.
+
+## Conferência após integrar main
+
+Build integrada com main8d71dc9 concluída (TypeScript e369páginas). Capturas finais em `artifacts/new-order-integrated/test-results/`; comparações conjuntas reabertas em `artifacts/new-order-comparison-payment-final.png` (viewport1854px em ambos) e `artifacts/new-order-comparison-narrow-final.png` (649px em ambos), com os mesmos resultados de layout. Os seis estados vazios passaram com assert de ausência de console.error e pageerror. Os seis cenários preenchidos/normalização também passaram na build integrada. Lint completo:0erros,8avisos preexistentes. Modelos:113/113. Sem novos achados P0/P1/P2.

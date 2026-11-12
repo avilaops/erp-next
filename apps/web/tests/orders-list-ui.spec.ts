@@ -119,7 +119,7 @@ test("pedidos usam tabela e pesquisa no servidor, preservando filtro ao paginar"
   await expect(page.getByText("Indicadores de vendas", { exact: true })).toHaveCount(0)
   await expect(page.getByText("Rascunho, reserva e conclusão comercial com geração de conta a receber. Não emite documento fiscal.")).toHaveCount(0)
   await expect(page.getByRole("navigation", { name: "Caminho de navegação" })).toHaveCount(0)
-  await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveAttribute("href", "/vendas/pedidos/novo")
+  await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveAttribute("href", "/vendas/simulador")
   const table = page.getByRole("table", { name: "Pedidos de venda" })
   await expect(table.getByRole("columnheader")).toHaveText(["Pedido", "Cliente", "Situação", "Vencimento", "Valor"])
   await expect(table.getByRole("link", { name: "PV-000017", exact: true })).toHaveAttribute("href", `/vendas/pedidos/${record}`)

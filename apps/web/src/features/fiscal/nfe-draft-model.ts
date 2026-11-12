@@ -2,6 +2,7 @@ import { emptyRetentions, emptyTransport, type FiscalExtras } from "./nfe-extras
 import type { TaxProfile, FiscalScenario } from "./settings/tax-profile-model"
 
 import type { Schema } from "@/lib/api/types"
+import type { PartyFiscal } from "../parties/party-cnpj"
 export type Exportation = Schema<"Exportation">
 export type ExportDetail = Schema<"ExportDetail">
 export type DraftItem = Schema<"DraftItem"> & { insuranceAmount?: string | null; otherAmount?: string | null; taxableUnit?: string | null; taxableQuantity?: string | null; taxableUnitPrice?: string | null; exportDetails?: ExportDetail[]; referencedDfe?: { accessKey: string; itemNumber?: number | null } | null }
@@ -21,11 +22,18 @@ export type DraftInput = Omit<Schema<"DraftInput">, "taxDeclaration" | "ibpt" | 
 export type NfeDraft = Schema<"Draft">
 export type FiscalReadiness = Schema<"Readiness"> & { crt?: number | null; series?: number | null; nextNumber?: number | null }
 type TaxBooleanField = "recipientTaxpayer" | "finalConsumer" | "ipiInIcmsBase" | "icmsOutOfContributions"
-export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & Record<TaxBooleanField, boolean | null>
+export type TaxDeclaration = Omit<Schema<"TaxDeclaration">, TaxBooleanField> & Record<TaxBooleanField, boolean | null> & { recipientTaxpayerIndicator?: "1" | "2" | "9" | null }
 
 export const blankItem = (): DraftItem => ({ code: "", description: "", unit: "", ncm: "", cfop: "", quantity: "1.0000", unitPrice: "", grossTotal: "0.00", origin: -1, icmsCst: null, csosn: null, pisCst: "", cofinsCst: "" })
 export const blankDraft = (): DraftInput => ({ environment: "homologation", model: 55, purpose: 1, operationNature: "", taxRuleReference: "", recipient: { taxId: "", legalName: "", state: "", municipalityCode: "", postalCode: "", street: "", number: "", district: "" }, items: [blankItem()], productsTotal: "0.00" })
 export const blankTaxDeclaration = (): TaxDeclaration => ({ recipientTaxpayer: null, recipientStateRegistration: null, finalConsumer: null, icmsRate: null, pisRate: null, cofinsRate: null, ipiCst: null, ipiFrameCode: null, ipiRate: null, ipiInIcmsBase: null, icmsOutOfContributions: null, ibsCbs: { cst: "", classCode: "", ibsStateRate: "", ibsCityRate: "", cbsRate: "" } })
+export function applyRecipientFiscal(draft: DraftInput, fiscal: PartyFiscal | null, crt: number | null): DraftInput {
+  if (crt !== 3) return draft
+  if (!fiscal && !draft.taxDeclaration) return draft
+  const declaration = { ...blankTaxDeclaration(), ...draft.taxDeclaration }
+  if (draft.model === 65) return { ...draft, taxDeclaration: { ...declaration, recipientTaxpayerIndicator: "9", recipientTaxpayer: false, recipientStateRegistration: null } }
+  return { ...draft, taxDeclaration: { ...declaration, recipientTaxpayerIndicator: fiscal?.taxpayerIndicator, recipientTaxpayer: fiscal ? fiscal.taxpayerIndicator !== "9" : null, recipientStateRegistration: fiscal?.stateRegistration || null } }
+}
 export const blankIbptItem = (): IbptDraftItem => ({ ex: "", origin: "", version: null })
 
 export function fixed(value: string, scale: number, wholeDigits: number): string {
@@ -161,6 +169,6 @@ export function applyTaxProfile(draft: DraftInput, profile: TaxProfile, revision
  return { ...draft, operationNature: profile.operationNature, taxRuleReference: `${profile.name} · revisão ${revision}`, ...(rules ? { additionalInformation: rules.additionalInformation } : {}),
    items: draft.items.map(item => ({ ...item, ...(rules ? { icmsCst: rules.icmsCst, csosn: null, pisCst: rules.pisCst, cofinsCst: rules.cofinsCst } : { ...(!item.icmsCst && !item.csosn && defaults.icmsCst ? { icmsCst: defaults.icmsCst } : {}), ...(!item.pisCst && defaults.pisCst ? { pisCst: defaults.pisCst } : {}), ...(!item.cofinsCst && defaults.cofinsCst ? { cofinsCst: defaults.cofinsCst } : {}) }), ...(cfop ? { cfop } : {}) })),
    taxDeclaration: { ...taxes, pisRate: profile.pisRate, cofinsRate: profile.cofinsRate,
-     ...(rules ? { icmsRate: rules.icmsRate, ipiRate: rules.ipiRate, ipiCst: rules.ipiCst, ipiFrameCode: rules.ipiFrameCode, finalConsumer: rules.finalConsumer, ipiInIcmsBase: rules.ipiInIcmsBase, icmsOutOfContributions: rules.icmsOutOfContributions, ...(scenario && scenario !== "sameState" ? { recipientTaxpayer: scenario === "interstateTaxpayer", ...(scenario === "interstateNonTaxpayer" ? { recipientStateRegistration: null } : {}) } : {}) } : { ipiCst: taxes.ipiCst || defaults.ipiCst || null, ipiFrameCode: taxes.ipiFrameCode || defaults.ipiFrameCode || null, finalConsumer: taxes.finalConsumer ?? defaults.finalConsumer ?? null, ipiInIcmsBase: taxes.ipiInIcmsBase ?? defaults.ipiInIcmsBase ?? null, icmsOutOfContributions: taxes.icmsOutOfContributions ?? defaults.icmsOutOfContributions ?? null }),
+     ...(rules ? { icmsRate: rules.icmsRate, ipiRate: rules.ipiRate, ipiCst: rules.ipiCst, ipiFrameCode: rules.ipiFrameCode, finalConsumer: rules.finalConsumer, ipiInIcmsBase: rules.ipiInIcmsBase, icmsOutOfContributions: rules.icmsOutOfContributions, ...(scenario && scenario !== "sameState" ? { recipientTaxpayer: scenario === "interstateTaxpayer", recipientTaxpayerIndicator: scenario === "interstateNonTaxpayer" ? "9" : taxes.recipientTaxpayerIndicator === "2" ? "2" : "1", ...(scenario === "interstateNonTaxpayer" ? { recipientStateRegistration: null } : {}) } : {}) } : { ipiCst: taxes.ipiCst || defaults.ipiCst || null, ipiFrameCode: taxes.ipiFrameCode || defaults.ipiFrameCode || null, finalConsumer: taxes.finalConsumer ?? defaults.finalConsumer ?? null, ipiInIcmsBase: taxes.ipiInIcmsBase ?? defaults.ipiInIcmsBase ?? null, icmsOutOfContributions: taxes.icmsOutOfContributions ?? defaults.icmsOutOfContributions ?? null }),
      ibsCbs: { ...taxes.ibsCbs, cst: profile.ibsCbsCst, classCode: profile.classCode, ...(rules ? { ibsStateRate: rules.ibsStateRate, ibsCityRate: rules.ibsCityRate, cbsRate: rules.cbsRate } : { ibsStateRate: taxes.ibsCbs.ibsStateRate || defaults.ibsStateRate || "", ibsCityRate: taxes.ibsCbs.ibsCityRate || defaults.ibsCityRate || "", cbsRate: taxes.ibsCbs.cbsRate || defaults.cbsRate || "" }) } } }
 }

@@ -2,7 +2,8 @@ import type { Schema } from "@/lib/api/types"
 import { municipalityMatchesAddress } from "../../lib/municipality-code.ts"
 import type { PartyAddress } from "./party-complements"
 
-export type PartyDraft = Omit<Schema<"PartyInput">, "addresses"> & { addresses: PartyAddress[]; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
+export type PartyFiscal = { taxpayerIndicator: "1" | "2" | "9"; stateRegistration: string | null }
+export type PartyDraft = Omit<Schema<"PartyInput">, "addresses" | "fiscal"> & { fiscal?: PartyFiscal | null; addresses: PartyAddress[]; contacts: NonNullable<Schema<"PartyInput">["contacts"]> }
 const contactFields = ["legalName", "tradeName", "email", "phone"] as const
 type ContactField = typeof contactFields[number]
 export type PartyCnpjProvenance = { fields: Partial<Record<ContactField, string>>; address: PartyAddress | null }

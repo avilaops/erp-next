@@ -10,7 +10,7 @@ for (const scenario of ["saved", "legacy", "wrong-city", "wrong-state", "expired
   let switched = false
   await page.route("**/api/erp/me", r => r.fulfill({ json: { tenant: { id: switched ? "other-tenant" : tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read"] } }))
   await page.route("**/api/erp/parties?*", r => r.fulfill({ json: { tenantId: tenant, data: [{ id: "22222222-2222-4222-8222-222222222222", taxId: "11222333000181", legalName: "Cliente IBGE" }] } }))
-  await page.route("**/api/erp/parties/22222222-2222-4222-8222-222222222222", r => r.fulfill({ json: { tenantId: tenant, data: { taxId: "11222333000181", legalName: "Cliente IBGE", addresses: [{ primary: true, state: "SP", city: "São Paulo", postalCode: "01001-000", street: "Praça da Sé", number: "1", district: "Sé", ...(scenario === "saved" ? { municipalityCode: "3550308" } : {}) }] } } }))
+  await page.route("**/api/erp/parties/22222222-2222-4222-8222-222222222222", r => r.fulfill({ json: { tenantId: tenant, data: { id: "22222222-2222-4222-8222-222222222222", isCustomer: true, status: "active", taxId: "11222333000181", legalName: "Cliente IBGE", addresses: [{ primary: true, state: "SP", city: "São Paulo", postalCode: "01001-000", street: "Praça da Sé", number: "1", district: "Sé", ...(scenario === "saved" ? { municipalityCode: "3550308" } : {}) }] } } }))
   await page.route("**/api/erp/registry-lookups", async r => {
    lookupCount++
    expect(r.request().postDataJSON()).toEqual({ kind: "cep", context: "party", value: "01001000" })
@@ -47,6 +47,26 @@ for (const scenario of ["saved", "legacy", "wrong-city", "wrong-state", "expired
 }
 const id = "22222222-2222-4222-8222-222222222222"
 const pending = "33333333-3333-4333-8333-333333333333"
+
+for (const indicator of ["1", "2", "9", "unknown"] as const) test(`destinatário reutiliza classificação fiscal declarada: ${indicator}`, async ({ page }) => {
+ await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read"] } }))
+ await page.route("**/api/erp/fiscal/readiness", route => route.fulfill({ json: { tenantId: tenant, environment: "homologation", crt: 3, blockers: [] } }))
+ await page.route("**/api/erp/fiscal/config", route => route.fulfill({ json: { tenantId: tenant, data: { crt: 3 } } }))
+ await page.route("**/api/erp/parties?*", route => route.fulfill({ json: { tenantId: tenant, data: [{ id, legalName: "Cliente fiscal", taxId: "11222333000181" }] } }))
+ await page.route(`**/api/erp/parties/${id}`, route => route.fulfill({ json: { tenantId: tenant, data: { id, isCustomer: true, status: "active", legalName: "Cliente fiscal", taxId: "11222333000181", addresses: [], fiscal: indicator === "unknown" ? null : { taxpayerIndicator: indicator, stateRegistration: indicator === "1" ? "110042490114" : null } } } }))
+ await page.goto("/fiscal/notas-saida/nova")
+ await page.getByRole("button", { name: "2. Destinatário", exact: true }).click()
+ await page.getByLabel("Buscar cliente cadastrado", { exact: true }).fill("Cliente")
+ await page.getByRole("button", { name: "Buscar cliente", exact: true }).click()
+ await page.getByRole("button", { name: "Usar Cliente fiscal · 11222333000181", exact: true }).click()
+ await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Cliente fiscal")
+ await page.getByRole("button", { name: "4. Tributação", exact: true }).click()
+ if (indicator === "unknown") await page.getByRole("button", { name: "Adicionar declaração tributária CRT 3", exact: true }).click()
+ await expect(page.getByRole("combobox", { name: "Classificação ICMS do destinatário", exact: true })).toHaveValue(indicator === "unknown" ? "" : indicator)
+ await expect(page.getByLabel("Inscrição estadual do destinatário", { exact: true })).toHaveValue(indicator === "1" ? "110042490114" : "")
+ await expect(page.getByRole("combobox", { name: "Operação para consumidor final", exact: true })).toHaveValue("")
+ await expect(page.getByLabel("Alíquota do ICMS (%)", { exact: true })).toHaveValue("")
+})
 
 test("IBGE do destinatário: pedido legado consulta CEP e preserva edição manual posterior", async ({ page }) => {
  let calls = 0
@@ -161,7 +181,7 @@ test("editor em etapas preserva campos e retorna à pendência ao salvar", async
 test("destinatário reaproveita o cadastro e deixa o IBGE explícito para conferência", async ({ page }) => {
  await page.route("**/api/erp/me", r => r.fulfill({ json: { tenant: { id: tenant }, permissions: ["fiscal.nfe.read", "fiscal.nfe.manage", "catalog.parties.read"] } }))
  await page.route("**/api/erp/parties?*", r => r.fulfill({ json: { tenantId: tenant, data: [{ id, taxId: "11222333000181", legalName: "Cliente do cadastro" }] } }))
- await page.route(`**/api/erp/parties/${id}`, r => r.fulfill({ json: { tenantId: tenant, data: { id, taxId: "11222333000181", legalName: "Cliente do cadastro", addresses: [{ primary: true, state: "SP", postalCode: "01001-000", street: "Praça da Sé", number: "1", district: "Sé" }] } } }))
+ await page.route(`**/api/erp/parties/${id}`, r => r.fulfill({ json: { tenantId: tenant, data: { id, isCustomer: true, status: "active", taxId: "11222333000181", legalName: "Cliente do cadastro", addresses: [{ primary: true, state: "SP", postalCode: "01001-000", street: "Praça da Sé", number: "1", district: "Sé" }] } } }))
  await page.route("**/api/erp/fiscal/settings/operation-natures", r => r.fulfill({ json: { tenantId: tenant, revision: 1, data: { items: [] } } }))
  await page.route("**/api/erp/registration-settings/tax-profiles", r => r.fulfill({ json: { tenantId: tenant, revision: 1, data: { profiles: [] } } }))
  await page.goto("/fiscal/notas-saida/nova")

@@ -9,7 +9,7 @@ test.beforeEach(async ({ context }) => installFrontendFixture(context))
 test("falha de consulta preserva orientação e nova tentativa nos editores", async ({ page }) => {
   for (const [route, heading] of [
     ["/compras/pedidos/novo", "Novo pedido de compra"],
-    ["/vendas/pedidos/novo", "Novo pedido de venda"],
+    ["/vendas/pedidos/novo?modo=catalogo", "Novo pedido de venda"],
     ["/financeiro/contas-pagar/" + record, "Conta a pagar"],
     ["/servicos/contratos/" + record, "Detalhes do contrato"],
     ["/vendas/pedidos/" + record + "/contratos/novo", "Gerar contrato"],

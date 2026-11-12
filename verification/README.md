@@ -29,7 +29,7 @@ produção, emissão NF-e em homologação e entrada fiscal. Uma sequência decl
 documenta os comandos e suas dependências; continua sem comprovar execução ou
 publicação. Os demais grupos mantêm `actions_mapped`.
 
-O catálogo cobre 222 operações API, incluindo `GET /openapi.json`, e 195 métodos
+O catálogo cobre 374 operações API, incluindo `GET /openapi.json`, e 333 métodos
 de handlers BFF. Despachos `[action]` e `[...resource]` enumeram destinos
 explícitos, ligados a uma ficha API; um destino sem ficha ou que aponte para
 outra operação impede a verificação. A emissão é implementada somente para

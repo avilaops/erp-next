@@ -27,7 +27,7 @@ Preparar um orçamento, acompanhar sua decisão e preservar as versões negociad
 
 Para enviar, abra **Enviar por e-mail**, confira destinatário, assunto e mensagem e confirme o envio com anexo. O servidor precisa estar configurado para e-mail. O anexo atual é um documento HTML da proposta; o PDF pode ser salvo pela impressão do navegador.
 
-Marcar como enviada registra uma situação interna; isso não envia um e-mail. Se o envio ficar sem confirmação, consulte o histórico antes de reenviar. Uma proposta não movimenta estoque nem contas a receber. A conversão cria um pedido que ainda segue suas etapas de confirmação.
+Marcar como enviada registra uma situação interna; isso não envia um e-mail. Se o envio ficar sem confirmação, não faça um novo envio: consulte o histórico e o resultado da mesma solicitação e confira a situação com o provedor de e-mail. Um envio pendente bloqueia novas mensagens para evitar duplicação. Uma proposta não movimenta estoque nem contas a receber. A conversão cria um pedido que ainda segue suas etapas de confirmação.
 
 ## O que ainda precisa de atenção
 

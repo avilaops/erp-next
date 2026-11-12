@@ -32,6 +32,13 @@ for(const width of [320,360,393,1280]) test(`categorias mostram hierarquia sem r
  const region=page.getByRole("region",{name:"Lista de Categorias de produtos",exact:true})
  expect(await region.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true)
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  expect(await page.locator("main form").first().evaluate(form => {
+   const bounds = form.getBoundingClientRect()
+   return Array.from(form.querySelectorAll("input, select, button")).every(control => {
+    const rect = control.getBoundingClientRect()
+    return rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
+   })
+  })).toBe(true)
  await page.screenshot({path:info.outputPath(`registry-categories-${width}.png`),fullPage:true})
 })
 

@@ -1,7 +1,7 @@
 # Plano: hierarquia e navegação dos cadastros
 
 Spec: docs/superpowers/specs/2026-11-12-registry-hierarchy-navigation.md
-Base: dff8f41ead9846e026951560166ddedb8534ba30; PR190 ainda em CI. Worktree isolada a9e9.
+Base inicial: dff8f41ead9846e026951560166ddedb8534ba30. Integração final sobre main 4c865d0, preservando PR190, PR191 e PR192. Worktree isolada a9e9.
 
 ## Global constraints
 Não preencher linha nacional/Core nem cadastrar os dez modelos excluídos. Não alterar preços, estoque, status ou atribuições comerciais em produção. Não perder WIP ou parar os serviços do usuário. Publicação já autorizada. Somente uma revisão independente deste pacote, sem agentes implementadores.
@@ -26,3 +26,8 @@ Expected: funcionalidades publicadas e registros de produção preservados.
 
 ## Review focus
 Busca repetida e Back/Forward, parâmetros inválidos, parentId descendente, troca de natureza financeira, carregamento parcial/troca de empresa, categorias arquivadas e falhas preservando vínculo, tabelas longas no móvel, permissões e nenhum dado pessoal persistido para funcionários.
+
+## Evidência de implementação
+143 testes de modelo passaram após incorporar a main. Build de produção passou nas 369 rotas; lint completo sem erros, com oito avisos preexistentes. A bateria de navegador cobriu 93 cenários distintos de catálogo, pessoas, equipe, referências, navegação e permissões. Cinco expectativas antigas de suprimentos foram atualizadas para os novos textos e a ausência de rolagem horizontal; os cinco cenários passaram novamente.
+
+A revisão independente encontrou perda de returnTo após salvar referências e criar pessoas/equipe. Os três testes reproduziram a falha no build anterior e passaram após aplicar a função compartilhada aos redirecionamentos. A conferência visual de 320 px acrescentou uma asserção de contenção dos filtros e identificou um ajuste no grid; validação final dos quatro tamanhos é registrada no ledger e nos artefatos. Não há alterações de schema nem de dados comerciais neste pacote.

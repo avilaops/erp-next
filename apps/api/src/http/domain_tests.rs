@@ -141,6 +141,27 @@ async fn catalog_profiles_preserve_prices_enforce_revisions_and_hide_other_tenan
         );
     }
     input["mainMediaId"] = json!(main);
+    let mut without_media_field = input.clone();
+    without_media_field
+        .as_object_mut()
+        .unwrap()
+        .remove("mainMediaId");
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            "editor",
+            Some("\"1\""),
+            None,
+            without_media_field
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let unchanged = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    assert_eq!(unchanged.2["data"]["mainMediaId"], json!(main));
     assert_eq!(
         call(
             &router,
@@ -216,6 +237,258 @@ async fn catalog_profiles_preserve_prices_enforce_revisions_and_hide_other_tenan
         .0,
         StatusCode::NOT_FOUND
     );
+    cleanup(&admin, app, server, &role).await;
+}
+
+fn technical_profile_input() -> Value {
+    json!({"collection":"premium","muscleGroup":"Abdômen","technicalCategory":"Bateria de pesos","dimensionsMm":[1200,900,1800],"description":"Ficha original do equipamento","weight":"280 kg","weightStack":"95 kg","mainMediaId":null})
+}
+
+async fn technical_profile_permissions(admin: &PgPool, role: &str) {
+    permissions(admin).await;
+    sqlx::raw_sql(&format!("GRANT USAGE ON SCHEMA system_config TO {role}; GRANT SELECT ON system_config.files TO {role}"))
+        .execute(admin).await.unwrap();
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn technical_profile_creation_without_media_preserves_prices_and_metadata(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    technical_profile_permissions(&admin, &role).await;
+    let id = create(&router).await;
+    let uri = format!("/api/v1/products/{id}/catalog");
+    let empty = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    assert_eq!(empty.0, StatusCode::OK, "{}", empty.2);
+    assert_eq!(empty.1["etag"], "\"0\"");
+    assert!(empty.2["data"].is_null());
+    assert_eq!(empty.2["defaultCollection"], "core");
+    assert_eq!(empty.2["mediaConfigured"], false);
+
+    let mut input = technical_profile_input();
+    input["manufacturer"] = json!("DHZ Fitness");
+    input["manufacturerModel"] = json!("SM5014");
+    input["catalogProductName"] = json!("Abdominal Crunch");
+    input["liveArea"] = json!("3.1 × 2.8 m");
+    input["catalogSources"] = json!([{"title":"Hammer S-FORCE","url":"https://drive.google.com/file/d/source/view#page=6","pdfPage":6,"printedPage":10}]);
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &uri,
+            "reader",
+            Some("\"0\""),
+            None,
+            input.clone()
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(&router, "PUT", &uri, "editor", None, None, input.clone())
+            .await
+            .0,
+        StatusCode::PRECONDITION_REQUIRED
+    );
+    let saved = call(
+        &router,
+        "PUT",
+        &uri,
+        "editor",
+        Some("\"0\""),
+        None,
+        input.clone(),
+    )
+    .await;
+    assert_eq!(saved.0, StatusCode::OK, "{}", saved.2);
+    assert_eq!(saved.2["revision"], 1);
+    assert!(saved.2["mainMediaId"].is_null());
+    assert_eq!(
+        call(&router, "PUT", &uri, "editor", Some("\"0\""), None, input)
+            .await
+            .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    let read = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    assert_eq!(read.2["data"]["manufacturerModel"], "SM5014");
+    assert_eq!(read.2["data"]["catalogSources"][0]["pdfPage"], 6);
+    let path = read.2["data"]["publicPath"].as_str().unwrap();
+    assert_eq!(path, format!("/loja/product-{id}/"));
+
+    let mut legacy = technical_profile_input();
+    legacy["description"] = json!("Descrição atualizada sem os novos campos");
+    assert_eq!(
+        call(&router, "PUT", &uri, "editor", Some("\"1\""), None, legacy)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let read = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    for (field, expected) in [
+        ("manufacturer", "DHZ Fitness"),
+        ("manufacturerModel", "SM5014"),
+        ("catalogProductName", "Abdominal Crunch"),
+        ("liveArea", "3.1 × 2.8 m"),
+    ] {
+        assert_eq!(read.2["data"][field], expected);
+    }
+    assert_eq!(read.2["data"]["catalogSources"][0]["printedPage"], 10);
+    let product = call(
+        &router,
+        "GET",
+        &format!("/api/v1/products/{id}"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(product.2["data"]["basePrice"], "0.33");
+    assert_eq!(product.2["data"]["revision"], 1);
+    assert_eq!(product.2["data"]["hasPhoto"], false);
+    assert!(product.2["data"]["photoUrl"].is_null());
+    let list = call(
+        &router,
+        "GET",
+        "/api/v1/products?q=industrial-001",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(list.2["data"][0]["hasPhoto"], false);
+    let audits:i64=sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE tenant_id=$1 AND entity_id=$2 AND action IN ('catalog.profile.created','catalog.profile.updated')")
+        .bind(Uuid::parse_str(TENANT).unwrap()).bind(&id).fetch_one(&admin).await.unwrap();
+    assert_eq!(audits, 2);
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn technical_profile_rejects_unsafe_sources_and_foreign_creation(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    technical_profile_permissions(&admin, &role).await;
+    let id = create(&router).await;
+    let uri = format!("/api/v1/products/{id}/catalog");
+    let mut cases = Vec::new();
+    for url in [
+        "javascript:alert(1)",
+        "http://example.test/catalog.pdf",
+        "https://user:password@example.test/catalog.pdf",
+    ] {
+        cases.push(json!([{"title":"Catálogo","url":url,"pdfPage":1}]));
+    }
+    for page in [0, 10001] {
+        cases.push(
+            json!([{"title":"Catálogo","url":"https://example.test/catalog.pdf","pdfPage":page}]),
+        );
+    }
+    cases.push(json!([{"title":"x".repeat(161),"url":"https://example.test/catalog.pdf"}]));
+    cases.push(json!(vec![
+        json!({"title":"Catálogo","url":"https://example.test/catalog.pdf"});
+        11
+    ]));
+    for sources in cases {
+        let mut input = technical_profile_input();
+        input["catalogSources"] = sources;
+        assert_eq!(
+            call(&router, "PUT", &uri, "editor", Some("\"0\""), None, input)
+                .await
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    let foreign = Uuid::now_v7();
+    sqlx::query("INSERT INTO products(tenant_id,id,sku,name,unit,price_cents,status) VALUES('22222222-2222-4222-8222-222222222222',$1,'FOREIGN-TECH','Outro produto','UN',999,'active')")
+        .bind(foreign).execute(&admin).await.unwrap();
+    let foreign_uri = format!("/api/v1/products/{foreign}/catalog");
+    assert_eq!(
+        call(
+            &router,
+            "PUT",
+            &foreign_uri,
+            "editor",
+            Some("\"0\""),
+            None,
+            technical_profile_input()
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(
+            &router,
+            "GET",
+            &foreign_uri,
+            "reader",
+            None,
+            None,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    let empty = call(&router, "GET", &uri, "reader", None, None, Value::Null).await;
+    assert!(empty.2["data"].is_null());
+    cleanup(&admin, app, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn technical_profile_without_media_keeps_existing_product_photo(admin: PgPool) {
+    let (router, app, server, role) = setup(&admin).await;
+    technical_profile_permissions(&admin, &role).await;
+    let mut input = product();
+    let photo = "data:image/jpeg;base64,/9j/2Q==";
+    input["photoDataUrl"] = json!(photo);
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/products",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        input,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let id = created.2["data"]["id"].as_str().unwrap();
+    let uri = format!("/api/v1/products/{id}/catalog");
+    let saved = call(
+        &router,
+        "PUT",
+        &uri,
+        "editor",
+        Some("\"0\""),
+        None,
+        technical_profile_input(),
+    )
+    .await;
+    assert_eq!(saved.0, StatusCode::OK, "{}", saved.2);
+    let product = call(
+        &router,
+        "GET",
+        &format!("/api/v1/products/{id}"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(product.2["data"]["photoDataUrl"], photo);
+    assert_eq!(product.2["data"]["hasPhoto"], true);
+    assert!(product.2["data"]["photoUrl"].is_null());
+    let preview = call(
+        &router,
+        "GET",
+        "/api/v1/catalog-publication",
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(preview.2["products"], json!([]));
     cleanup(&admin, app, server, &role).await;
 }
 

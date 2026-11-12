@@ -10,24 +10,27 @@ type NavigationGuard = { register: (guard: Guard) => () => void; confirmNavigati
 const NavigationGuardContext = createContext<NavigationGuard>({ register: () => () => {}, confirmNavigation: () => true, allowNextUnload: () => () => {} })
 
 export function NavigationGuardProvider({ children }: { children: ReactNode }) {
-  const activeGuard = useRef<Guard | null>(null)
+  const activeGuards = useRef(new Set<Guard>())
   const approvedUnload = useRef(false)
   const allowNextUnload = useCallback(() => {
     approvedUnload.current = true
     return () => { approvedUnload.current = false }
   }, [])
   const register = useCallback((guard: Guard) => {
-    activeGuard.current = guard
-    return () => { if (activeGuard.current === guard) activeGuard.current = null }
+    activeGuards.current.add(guard)
+    return () => { activeGuards.current.delete(guard) }
   }, [])
   const confirmNavigation = useCallback(() => {
-    const message = activeGuard.current?.()
-    return !message || window.confirm(message)
+    for (const guard of activeGuards.current) {
+      const message = guard()
+      if (message) return window.confirm(message)
+    }
+    return true
   }, [])
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (approvedUnload.current) { approvedUnload.current = false; return }
-      if (activeGuard.current?.()) { event.preventDefault(); event.returnValue = "" }
+      if ([...activeGuards.current].some(guard => !!guard())) { event.preventDefault(); event.returnValue = "" }
     }
     window.addEventListener("beforeunload", beforeUnload)
     return () => window.removeEventListener("beforeunload", beforeUnload)

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { AppShell } from "@/components/shell/app-shell";
 import { ThemeProvider } from "@/components/shell/theme-provider";
 import "./globals.css";
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body><ThemeProvider><AppShell>{children}</AppShell></ThemeProvider></body>
+      <body><Script id="erp-history-guard" strategy="beforeInteractive">{`if(!window.__erpHistoryBootstrapped){window.__erpHistoryBootstrapped=true;window.addEventListener('popstate',function(event){if(window.__erpHistoryGuard)window.__erpHistoryGuard(event)},true)}`}</Script><ThemeProvider><AppShell>{children}</AppShell></ThemeProvider></body>
     </html>
   );
 }

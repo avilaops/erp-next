@@ -22,6 +22,29 @@ function preparation(): any {
   };
 }
 
+test("explicit taxpayer indicators preserve exempt status and non-taxpayer IE in signed XML", async () => {
+  for (const [indicator, taxpayer, registration] of [["1", true, "110042490114"], ["2", true, null], ["9", false, null], ["9", false, "123456"]] as const) {
+    const input = preparation();
+    Object.assign(input.draft.taxDeclaration, { recipientTaxpayerIndicator: indicator, recipientTaxpayer: taxpayer, recipientStateRegistration: registration, finalConsumer: !taxpayer });
+    const xml = String((await dispatch("prepare", input)).signedXml);
+    const destination = xml.match(/<dest>([\s\S]*?)<\/dest>/)![1];
+    assert.ok(destination.includes(`<indIEDest>${indicator}</indIEDest>`));
+    if (registration) assert.ok(destination.includes(`<IE>${registration}</IE>`));
+    else assert.doesNotMatch(destination, /<IE>/);
+  }
+});
+
+test("explicit taxpayer indicator refuses unknown values, inconsistent booleans and IE on exempt recipients", () => {
+  for (const patch of [
+    { recipientTaxpayerIndicator: "3" }, { recipientTaxpayerIndicator: "9" },
+    { recipientTaxpayerIndicator: "2" }, { recipientTaxpayerIndicator: "1", recipientStateRegistration: null },
+    { recipientTaxpayerIndicator: "9", recipientTaxpayer: false, recipientStateRegistration: "ISENTO", finalConsumer: true },
+  ]) {
+    const input = preparation(); Object.assign(input.draft.taxDeclaration, patch);
+    assert.throws(() => mapDraft(input));
+  }
+});
+
 test("CRT3 explicit declaration generates signed XSD-valid ICMS/PIS/COFINS/IPI and IBS/CBS totals", async () => {
   const result = await dispatch("prepare", preparation());
   const xml = String(result.signedXml);

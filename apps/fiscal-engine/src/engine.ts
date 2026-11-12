@@ -263,13 +263,16 @@ export function mapDraft(value: unknown): NfeInput {
   if ((normal ? !["00", "40", "41", "50"].includes(String(first.icmsCst)) || first.csosn != null : !["102", "103", "300", "400"].includes(String(first.csosn)) || first.icmsCst != null) || !contributionCodes.includes(String(first.pisCst)) || !contributionCodes.includes(String(first.cofinsCst))) refuse("Classificação fora do recorte: exige regras ou alíquotas ainda não informadas no rascunho", "tax_rule_scope");
   if (!normal && draft.taxDeclaration != null) refuse("Declaração tributária disponível para emitente SP no CRT 3", "tax_rule_scope");
   if (normal && draft.taxDeclaration == null) refuse("CRT 3 exige declaração tributária explícita conforme a instrução do responsável fiscal", "tax_rule_scope");
-  const declaration = normal ? declaredObject(draft.taxDeclaration, ["destinationIcmsRate", "destinationFcpRate", "recipientTaxpayer", "recipientStateRegistration", "finalConsumer", "icmsRate", "pisRate", "cofinsRate", "ipiCst", "ipiFrameCode", "ipiRate", "ipiInIcmsBase", "icmsOutOfContributions", "ibsCbs"]) : null;
+  const declaration = normal ? declaredObject(draft.taxDeclaration, ["destinationIcmsRate", "destinationFcpRate", "recipientTaxpayerIndicator", "recipientTaxpayer", "recipientStateRegistration", "finalConsumer", "icmsRate", "pisRate", "cofinsRate", "ipiCst", "ipiFrameCode", "ipiRate", "ipiInIcmsBase", "icmsOutOfContributions", "ibsCbs"]) : null;
   const taxpayer = declaration ? declaredBoolean(declaration, "recipientTaxpayer") : false;
+  const taxpayerIndicator = declaration?.recipientTaxpayerIndicator == null ? taxpayer ? "1" : "9" : text(declaration.recipientTaxpayerIndicator, "Indicador ICMS", 1);
+  if (!["1", "2", "9"].includes(taxpayerIndicator) || taxpayer !== (taxpayerIndicator !== "9")) refuse("Indicador ICMS incompatível com a declaração de contribuinte");
   const finalConsumer = declaration ? declaredBoolean(declaration, "finalConsumer") : true;
   if (model === 65 && !finalConsumer) refuse("NFC-e modelo 65 exige operação com consumidor final", "tax_rule_scope");
   const stateRegistration = declaration?.recipientStateRegistration == null ? null : text(declaration.recipientStateRegistration, "IE do destinatário", 14);
-  if (taxpayer ? !stateRegistration || !/^\d{2,14}$/.test(stateRegistration) : stateRegistration !== null || !foreign && purpose !== 5 && purpose !== 6 && !finalConsumer || first.icmsCst === "50") refuse("Declaração de contribuinte, inscrição estadual ou consumidor final incompatível");
-  if (foreign && taxpayer) refuse("Destinatário exterior não pode declarar IE brasileira");
+  if (stateRegistration !== null && !/^\d{2,14}$/.test(stateRegistration) || taxpayerIndicator === "1" && !stateRegistration || taxpayerIndicator === "2" && stateRegistration !== null || !taxpayer && (!foreign && purpose !== 5 && purpose !== 6 && !finalConsumer || first.icmsCst === "50")) refuse("Declaração de contribuinte, inscrição estadual ou consumidor final incompatível");
+  if (foreign && (taxpayer || stateRegistration)) refuse("Destinatário exterior não pode declarar IE brasileira");
+  if (model === 65 && (taxpayerIndicator !== "9" || stateRegistration !== null)) refuse("NFC-e exige não contribuinte sem inscrição estadual");
   const icmsRate = declaration ? rate(declaration.icmsRate, first.icmsCst === "00") : 0;
   const interstate = !foreign && state !== "SP";
   if (normal && interstate && first.icmsCst === "00" && ![0.04, 0.07, 0.12].includes(icmsRate)) refuse("ICMS interestadual tributado exige alíquota declarada de 4%, 7% ou 12%");
@@ -383,6 +386,7 @@ export function mapDraft(value: unknown): NfeInput {
     items, icmsRate, destination: { internalIcms: destinationIcms, fcp: destinationFcp },
     payments, software: "ERP Next 0.1",
   };
+  mapped.recipient.taxpayerIndicator = taxpayerIndicator as "1" | "2" | "9";
   const optionalText = (value: unknown, label: string, max = 60) => value == null ? null : text(value, label, max);
   if (draft.transport != null) {
     const transport = declaredObject(draft.transport, ["carrierTaxId", "carrierName", "stateRegistration", "address", "city", "state", "plate", "vehicleState", "rntc", "volumes", "volumeKind", "volumeNumber", "brand", "netWeight", "grossWeight"]);

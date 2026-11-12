@@ -3,7 +3,8 @@
 import NextLink from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { listNavigationHref } from "@/lib/list-navigation"
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react"
+import { guardBrowserHistory } from "./history-navigation-guard"
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, type ComponentProps, type ReactNode } from "react"
 
 type Guard = () => string | null
 type NavigationGuard = { register: (guard: Guard) => () => void; confirmNavigation: () => boolean; allowNextUnload: () => () => void }
@@ -27,6 +28,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
     }
     return true
   }, [])
+  useLayoutEffect(() => guardBrowserHistory(confirmNavigation), [confirmNavigation])
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (approvedUnload.current) { approvedUnload.current = false; return }
@@ -41,7 +43,7 @@ export function NavigationGuardProvider({ children }: { children: ReactNode }) {
 
 export function useNavigationGuard(message: string | null) {
   const { register } = useContext(NavigationGuardContext)
-  useEffect(() => register(() => message), [message, register])
+  useLayoutEffect(() => register(() => message), [message, register])
 }
 
 export function useConfirmNavigation() {

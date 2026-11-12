@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react"
 import { LogOut } from "lucide-react"
 import { useAllowNextUnload, useConfirmNavigation } from "./navigation-guard"
+import { endPartyDraftSession } from "@/lib/party-draft-session"
 
 export function LogoutButton({ label = "Sair", className = "flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60" }: { label?: string; className?: string }) {
   const confirmNavigation = useConfirmNavigation()
@@ -32,6 +33,7 @@ export function LogoutButton({ label = "Sair", className = "flex min-h-11 items-
           : "Não foi possível confirmar a saída. Tente novamente.")
       }
       // Full navigation uses the verified flow without following a form redirect.
+      endPartyDraftSession()
       restoreUnload = allowNextUnload()
       window.location.assign(new URL("/api/auth/logout/central", window.location.origin).href)
     } catch (reason) {

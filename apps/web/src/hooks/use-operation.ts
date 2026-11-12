@@ -49,11 +49,12 @@ export function useCommand() {
   const [error, setError] = useState("")
   const [status, setStatus] = useState(0)
 
-  async function send<T>(url: string, tenant: string, body: object, etag = "", method: "POST" | "PUT" = "POST"): Promise<T | null> {
+  async function send<T>(url: string, tenant: string, body: object, etag = "", method: "POST" | "PUT" = "POST", confirm?: (reply: T) => boolean): Promise<T | null> {
     if (running.current || stale) return null
     running.current = true; setBusy(true); setError(""); setStatus(0)
     if (!uncertain) current.current = { url, tenant, body: JSON.stringify(body), etag, key: crypto.randomUUID(), method }
     const command = current.current!
+    const wasUncertain = uncertain
     try {
       const response = await erpFetch(command.url, {
         method: command.method,
@@ -63,11 +64,12 @@ export function useCommand() {
       setStatus(response.status)
       const value = await readJson(response)
       if (!response.ok) {
-        setUncertain(response.status >= 500); setStale(response.status === 412)
+        setUncertain(wasUncertain || response.status >= 500); setStale(!wasUncertain && response.status === 412)
         setError(message(value, "Operação recusada"))
         return null
       }
       if (!response.headers.get("etag")) throw new Error("Confirmação sem revisão")
+      if (confirm && !confirm(value as T)) throw new Error("Confirmação incompleta ou de outra empresa")
       current.current = null; setUncertain(false)
       return value as T
     } catch {

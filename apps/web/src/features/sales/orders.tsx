@@ -84,7 +84,7 @@ export function ColorChoice({ label, options = [], value, onChange, catalog, pal
   </div>
 }
 
-export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, selectedName, compact = false }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void; searchOnly?: boolean; selectedName?: string; compact?: boolean }) {
+export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, selectedName, compact = false, placeholder, hideLabel = false }: { endpoint: string; label: string; disabled: boolean; choose: (value: Choice) => void; searchOnly?: boolean; selectedName?: string; compact?: boolean; placeholder?: string; hideLabel?: boolean }) {
   const [query, setQuery] = useState({ q: "", offset: 0 })
   const [showResults, setShowResults] = useState(!searchOnly)
   const section = useRef<HTMLElement>(null)
@@ -116,7 +116,7 @@ export function Lookup({ endpoint, label, disabled, choose, searchOnly = false, 
       event.preventDefault()
       submitSearch()
     }}>
-      <label className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-2"}`}>Buscar {label}<SearchInput className={compact ? "h-9 min-h-9" : undefined} aria-expanded={searchOnly ? showResults : undefined} aria-controls={searchOnly && showResults ? resultsId : undefined} onSearch={q => { setQuery({ q, offset: 0 }); if (!searchOnly || section.current?.contains(document.activeElement)) setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="button" className={compact ? "h-9 min-h-9 px-3" : undefined} aria-label={`Pesquisar ${label}`} onClick={submitSearch} disabled={disabled || result.loading}>{compact ? "Buscar" : `Pesquisar ${label}`}</Button>
+      <label className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-2"}`}><span className={hideLabel ? "sr-only" : undefined}>Buscar {label}</span><SearchInput placeholder={placeholder} className={compact ? "h-9 min-h-9" : undefined} aria-expanded={searchOnly ? showResults : undefined} aria-controls={searchOnly && showResults ? resultsId : undefined} onSearch={q => { setQuery({ q, offset: 0 }); if (!searchOnly || section.current?.contains(document.activeElement)) setShowResults(true) }} onChange={() => { if (searchOnly) setShowResults(false) }} name="q" maxLength={160} disabled={disabled} /></label><Button type="button" className={compact ? "h-9 min-h-9 px-3" : undefined} aria-label={`Pesquisar ${label}`} onClick={submitSearch} disabled={disabled || result.loading}>{compact ? "Buscar" : `Pesquisar ${label}`}</Button>
     </div>
     {selectedName && <p role="status" className="mt-3 break-words text-sm font-medium text-primary">Cliente selecionado: {selectedName}</p>}
     {showResults && <div id={resultsId} aria-label={`Resultados de ${label}`} className={searchOnly ? "absolute inset-x-0 top-full z-40 mt-2 max-h-[min(20rem,40dvh)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl" : "space-y-3"}>{result.loading ? <p role="status">Consultando {label}…</p> : result.error ? <p role="alert"><RequestError message={result.error} status={result.status} /></p> : <>
@@ -141,8 +141,8 @@ function OrderList() {
   if (query.q) params.set("q", query.q)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
   return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><PageTitle>Pedidos de venda</PageTitle><div className="flex flex-wrap gap-2">{result.value && <Link className={buttonVariants({ variant: "outline" })} href="/vendas/tabela-precos">Tabela de preços</Link>}{result.value?.canEdit && <>
-    <Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos/novo">Pedido pelo catálogo</Link>
-    <Link className={buttonVariants()} href="/vendas/simulador">Novo pedido</Link>
+    <Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos/novo?modo=catalogo">Pedido pelo catálogo</Link>
+    <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>
   </>}</div></div>
     <section className="min-w-0 space-y-3" aria-label="Pedidos de venda">
       <div className="flex flex-wrap items-end justify-between gap-4">

@@ -17,7 +17,10 @@ export function SalesWorkspace() {
   const proposals = useResource<Schema<"ProposalList">>("/api/erp/proposals?limit=5")
   const orders = useResource<Schema<"OrderList">>("/api/erp/orders?limit=5")
   return <>
-    <PageHeader eyebrow="Operação comercial" title="Vendas" description="Prepare o orçamento, registre a decisão do cliente e acompanhe o pedido da empresa ativa." />
+    <PageHeader eyebrow="Operação comercial" title="Vendas" description="Consulte a tabela, negocie as condições e acompanhe as propostas e os pedidos da empresa ativa." actions={orders.value && <>
+      <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href="/vendas/tabela-precos">Tabela de preços</Link>
+      {orders.value.canEdit && <Link className={buttonVariants({ className: "h-9 px-3" })} href="/vendas/simulador">Novo pedido</Link>}
+    </>} />
     <div className="grid min-w-0 gap-6">
       <section className="min-w-0 space-y-3" aria-labelledby="sales-proposals-title">
         <h2 id="sales-proposals-title" className="text-sm font-semibold">Orçamentos e propostas</h2>
@@ -40,7 +43,7 @@ export function SalesWorkspace() {
         <h2 id="sales-orders-title" className="text-sm font-semibold">Pedidos de venda</h2>
         {orders.loading ? <p role="status">Carregando pedidos…</p> : orders.error ? <div role="alert"><RequestError message={orders.error} status={orders.status} /><Button variant="outline" onClick={orders.reload}>Tentar consultar pedidos novamente</Button></div> : orders.value && <>
           <p className="text-xs text-muted-foreground">{orders.value.total} pedido(s) cadastrado(s)</p>
-          <div className="flex flex-wrap items-center gap-2 text-sm"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>{orders.value.canEdit && <Link className={buttonVariants({ className: "h-9 px-3" })} href="/vendas/pedidos/novo">Novo pedido</Link>}</div>
+          <div className="flex flex-wrap items-center gap-2 text-sm"><Link className={linkClass} href="/vendas/pedidos">Consultar pedidos</Link>{orders.value.canEdit && <Link className={buttonVariants({ variant: "outline", className: "h-9 px-3" })} href="/vendas/pedidos/novo">Pedido pelo catálogo</Link>}</div>
           {orders.value.data.length === 0 ? <p>Nenhum pedido cadastrado nesta empresa.</p> : <div className="max-w-full overflow-x-auto rounded-lg border" role="region" aria-label="Pedidos recentes" tabIndex={0}>
             <DataTable className="table-fixed text-xs sm:table-auto sm:text-sm"><caption className="sr-only">Pedidos recentes</caption>
               <thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="hidden p-3 sm:table-cell">Pedido</th><th scope="col" className="w-[64%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="w-[36%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>

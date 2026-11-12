@@ -139,9 +139,9 @@ function OrderList() {
   const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
   if (query.q) params.set("q", query.q)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><PageTitle>Pedidos de venda</PageTitle><div className="flex flex-wrap gap-2">{result.value?.canEdit && <>
-    <Link className={buttonVariants({ variant: "outline" })} href="/vendas/simulador">Simular pedido</Link>
-    <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>
+  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><PageTitle>Pedidos de venda</PageTitle><div className="flex flex-wrap gap-2">{result.value && <Link className={buttonVariants({ variant: "outline" })} href="/vendas/tabela-precos">Tabela de preços</Link>}{result.value?.canEdit && <>
+    <Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos/novo">Pedido pelo catálogo</Link>
+    <Link className={buttonVariants()} href="/vendas/simulador">Novo pedido</Link>
   </>}</div></div>
     <section className="min-w-0 space-y-3" aria-label="Pedidos de venda">
       <div className="flex flex-wrap items-end justify-between gap-4">

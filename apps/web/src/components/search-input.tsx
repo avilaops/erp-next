@@ -17,7 +17,8 @@ export function SearchInput({ onSearch, onChange, onCompositionStart, onComposit
   useEffect(() => { callback.current = onSearch }, [onSearch])
   useEffect(() => {
     if (defaultValue !== undefined && String(defaultValue) !== submitted.current && input.current) {
-      input.current.value = String(defaultValue)
+      // URL normalization must not eat the space before the next search word.
+      if (document.activeElement !== input.current || String(defaultValue).trim() !== submitted.current.trim()) input.current.value = String(defaultValue)
       submitted.current = String(defaultValue)
     }
   }, [defaultValue])

@@ -1,5 +1,7 @@
 "use client"
 
+import { useRegistryQuery } from "@/features/records/use-registry-query"
+import { useResource } from "@/hooks/use-operation"
 import { Pagination } from "@/components/workspace/pagination"
 import { erpFetch } from "@/lib/api/client"
 
@@ -7,7 +9,7 @@ import type { Schema } from "@/lib/api/types"
 
 import { AccessLink } from "@/components/feedback/session-recovery"
 
-import Link from "next/link"
+import { GuardedLink as Link, useNavigationGuard, useListNavigationHref } from "@/components/shell/navigation-guard"
 import Image from "next/image"
 import { DataTable } from "@/components/workspace/data-table"
 import { staffAssignment } from "./staff-assignment"
@@ -36,42 +38,27 @@ function values(staff: Staff): StaffInput {
 export type StaffKind = "funcionarios"
 
 export function StaffList({ kind }: { kind: StaffKind }) {
-  const [query, setQuery] = useState({ q: "", role: "", status: "", offset: 0 })
-  const [result, setResult] = useState<Page | null>(null)
-  const [error, setError] = useState("")
-  const [responseStatus, setResponseStatus] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [retry, setRetry] = useState(0)
-  useEffect(() => {
-    const controller = new AbortController()
-    let requestStatus = 0
-    const search = query.q.trim() === "%%" ? "" : query.q
-    const params = new URLSearchParams({ q: search, offset: String(query.offset), limit: "25" })
-    if (query.role) params.set("role", query.role)
-    if (query.status) params.set("status", query.status)
-    erpFetch(`/api/erp/staff?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
-      requestStatus = response.status
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.title || "Cadastros indisponíveis")
-      if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
-    return () => controller.abort()
-  }, [query, retry])
+  const { query, navigate } = useRegistryQuery("staff")
+  const params = new URLSearchParams({ q: query.q.trim() === "%%" ? "" : query.q, offset: String(query.offset), limit: "25" })
+  if (query.role) params.set("role", query.role)
+  if (query.status) params.set("status", query.status)
+  const resource = useResource<Page>(`/api/erp/staff?${params}`)
+  const { value: result, loading, error, status: responseStatus } = resource
+  function search(value: typeof query) { if (!navigate(value)) resource.reload() }
 
   return <>
 
     <section className="compact-records form-section min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Equipe cadastrada</h2>{result?.canEdit && <Link className={linkClass} href={`/cadastros/${kind}/novo`}>Novo cadastro</Link>}</div>
       <form className="grid min-w-0 grid-cols-[minmax(0,1fr)_7rem_auto] items-end gap-2" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget); setLoading(true)
-        setQuery({ q: String(form.get("q") || ""), role: "", status: String(form.get("status") || ""), offset: 0 })
+        event.preventDefault(); const form = new FormData(event.currentTarget)
+        search({ q: String(form.get("q") || ""), role: query.role, status: String(form.get("status") || ""), offset: 0 })
       }}>
-        <label className="col-span-2 min-w-0 space-y-1 lg:col-span-1">Buscar nome, código ou cargo<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; setLoading(true); setQuery({ q, role: "", status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" maxLength={160} placeholder="Nome, código ou cargo" /></label>
+        <label className="col-span-2 min-w-0 space-y-1 lg:col-span-1">Buscar nome, código ou cargo<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; search({ q, role: query.role, status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" defaultValue={query.q} maxLength={160} placeholder="Nome, código ou cargo" /></label>
         <Button className="h-9 px-3 lg:order-3" type="submit" disabled={loading}>Buscar</Button>
-        <label className="col-span-3 min-w-0 space-y-1 lg:col-span-1 lg:order-2">Situação<select aria-label="Filtrar por situação" name="status" className={`${selectClass} max-w-44`}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
+        <label className="col-span-3 min-w-0 space-y-1 lg:col-span-1 lg:order-2">Situação<select key={query.status} defaultValue={query.status} aria-label="Filtrar por situação" name="status" className={`${selectClass} max-w-44`}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Desligados</option></select></label>
       </form>
-      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
+      {loading ? <p role="status">Carregando equipe…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button></div> : result && <>
         <p className="text-sm text-muted-foreground">{result.total} cadastro(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
         {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de funcionários" tabIndex={0}><DataTable aria-label="Funcionários" className="table-fixed lg:table-auto">
           <thead><tr><th scope="col" className="hidden lg:table-cell">Código</th><th scope="col" className="w-[55%] lg:w-auto">Nome</th><th scope="col" className="hidden lg:table-cell">Cargo</th><th scope="col">Contato</th><th scope="col" className="hidden lg:table-cell">Situação</th></tr></thead>
@@ -83,7 +70,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
             <td className="hidden lg:table-cell">{staff.status === "active" ? "Ativo" : "Desligado"}</td>
           </tr>)}</tbody>
         </DataTable></div> : <p>Nenhum cadastro encontrado.</p>}
-        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
+        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => search({ ...query, offset })} />
       </>}
     </section>
   </>
@@ -91,6 +78,7 @@ export function StaffList({ kind }: { kind: StaffKind }) {
 
 export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: string; view?: boolean }) {
   const router = useRouter()
+  const listHref = useListNavigationHref()
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [draft, setDraft] = useState<StaffInput>(blank())
   const [baseline, setBaseline] = useState(JSON.stringify(blank()))
@@ -105,6 +93,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
   const pending = useRef(false)
   const command = useRef<{ key: string; body: string } | null>(null)
   const dirty = JSON.stringify(draft) !== baseline
+  useNavigationGuard(!view && (dirty || uncertain || saving) ? "Há uma edição da equipe pendente. Sair sem confirmar a gravação?" : null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -122,11 +111,6 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
     return () => controller.abort()
   }, [id, retry, kind])
 
-  useEffect(() => {
-    const prevent = (event: BeforeUnloadEvent) => { if (dirty || uncertain) event.preventDefault() }
-    window.addEventListener("beforeunload", prevent)
-    return () => window.removeEventListener("beforeunload", prevent)
-  }, [dirty, uncertain])
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
@@ -151,7 +135,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
       if (!response.headers.get("etag") || !value.data?.id) throw new Error("Confirmação incompleta")
       const input = values(value.data)
       setUncertain(false); command.current = null; setDraft(input); setBaseline(JSON.stringify(input)); setSaved(true)
-      if (!id) router.replace(`/cadastros/${kind}/${value.data.id}`)
+      if (!id) router.replace(listHref(`/cadastros/${kind}/${value.data.id}`))
       else { setSnapshot(value); setEtag(response.headers.get("etag")!) }
     } catch {
       setError("Não foi possível confirmar a gravação. Sua edição foi preservada.")
@@ -171,7 +155,7 @@ export function StaffEditor({ kind, id, view = false }: { kind: StaffKind; id?: 
       ...(id ? [{ label: snapshot?.data?.name || "Funcionário", href: `/cadastros/funcionarios/${id}` }] : []),
       ...(!view ? [{ label: id ? "Editar funcionário" : "Novo funcionário" }] : []),
     ]} title={view ? snapshot?.data?.name || "Cadastro" : id ? "Editar cadastro" : "Novo cadastro"} description="Dados pessoais, contatos e cargo da equipe." />
-    <Link className={linkClass} href={`/cadastros/${kind}`} onClick={event => { if ((dirty || uncertain) && !window.confirm("Sair sem confirmar esta edição?")) event.preventDefault() }}>Voltar à listagem</Link>
+    <Link className={linkClass} href={`/cadastros/${kind}`}>Voltar à listagem</Link>
     <section className="compact-records form-section mt-2 min-w-0 space-y-3">
       {loading ? <p role="status">Carregando cadastro…</p> : !snapshot ? <><p role="alert">{error}</p><Button onClick={reload}>Tentar novamente</Button></> : <>
         <RecordCompany key={snapshot.tenantId} tenantId={snapshot.tenantId} />

@@ -12,7 +12,7 @@ entregue código funcional, testes e evidências de implantação.
 - Código local: `D:\Projetos\SaaS\erp-next\experiments`.
 - Leia as instruções do checkout, `README.md`, `API.md`, `src/types.ts`,
   `src/lab/` e `examples/path-policy.mjs` antes de editar. A arquitetura do ERP
-  também pode estar em `docs/.old/architecture.md`; confirme a localização.
+  também pode estar em `docs/historico/legado/architecture.md`; confirme a localização.
 - Preserve alterações existentes no ERP, versões 0.1/0.2/0.3 empacotadas,
   relatórios e diretórios por runId. Não sobrescreva artefatos publicados ou antigos.
 - O núcleo é 0.3.0, privado e UNLICENSED. A extensão HTTP está no código de trabalho.

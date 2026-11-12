@@ -65,4 +65,4 @@ As imagens usam somente dados dos testes:
 - `screenshots/erp-estoque-mobile-persistente.png`.
 - `screenshots/erp-home-mobile-sem-dados-ficticios.png`.
 
-O contrato e os comandos estão em `docs/ESTOQUE-PERSISTENTE.md`.
+O contrato e os comandos estão em `docs/telas/estoque/saldos/referencias/ESTOQUE-PERSISTENTE.md`.

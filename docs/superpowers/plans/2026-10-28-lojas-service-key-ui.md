@@ -70,7 +70,7 @@
 - Modify: `apps/web/src/features/integrations/integrations-catalog.tsx`
 - Modify: `apps/web/src/app/preferencias/integracoes/[provider]/page.tsx`
 - Create: `apps/web/src/features/integrations/lojas-service-keys.tsx`
-- Modify: `docs/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md`
+- Modify: `docs/telas/preferencias/integracoes/referencias/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md`
 
 **Interfaces:**
 
@@ -87,7 +87,7 @@
 
 **Files:**
 
-- Modify: `docs/STATUS-ERP.md`
+- Modify: `docs/historico/registros/STATUS-ERP.md`
 
 **Interfaces:**
 

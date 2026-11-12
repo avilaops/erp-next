@@ -18,7 +18,7 @@
         ],
         "nextStep": "Conferir a versão implantada com usuários autorizados; CI e merge não comprovam aceite em produção.",
         "additionalSources": [
-          "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+          "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
         ],
         "journey": [
           {
@@ -57,7 +57,7 @@
         ],
         "nextStep": "Conferir a versão publicada e o isolamento da empresa; consulta não altera registros.",
         "additionalSources": [
-          "docs/DADOS-REAIS-ERP.md"
+          "docs/telas/inicio/visao-geral/referencias/DADOS-REAIS-ERP.md"
         ]
       },
       {
@@ -73,7 +73,7 @@
         ],
         "nextStep": "Publicar a revisão validada e conferir acesso com os papéis autorizados; catálogo não comprova produção.",
         "additionalSources": [
-          "docs/sales-proposals.md"
+          "docs/telas/vendas/propostas/referencias/sales-proposals.md"
         ]
       },
       {
@@ -89,7 +89,7 @@
         ],
         "nextStep": "Validar fontes na versão publicada; CNPJ.ws permanece desabilitado até confirmar uso permitido no ERP multiempresa.",
         "additionalSources": [
-          "docs/CONSULTAS-CADASTRAIS-AVL-113-114.md"
+          "docs/telas/cadastros/clientes-fornecedores/referencias/CONSULTAS-CADASTRAIS-AVL-113-114.md"
         ]
       },
       {
@@ -105,7 +105,7 @@
         ],
         "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e conferir o DANFE no renderizador operacional. Snapshot/XML implementados não concluem o aceite real da AVL-115.",
         "additionalSources": [
-          "docs/IBPT-AVL-115.md",
+          "docs/telas/fiscal/configuracoes/referencias/IBPT-AVL-115.md",
           "apps/api/src/domains/fiscal/ibpt_document.rs",
           "apps/fiscal-engine/src/engine.ts",
           "apps/fiscal-engine/src/lib/fiscal/nfe.ts",
@@ -142,7 +142,7 @@
         ],
         "nextStep": "Validar central de leitura em CI; integrar conferência individual e vínculos de frete; homologar com empresa/papel autorizados antes de liberar cobertura.",
         "additionalSources": [
-          "docs/CTE-DISTRIBUICAO-AVL-111.md",
+          "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md",
           "apps/api/src/domains/fiscal/cte_distribution_worker.rs"
         ]
       },
@@ -255,7 +255,7 @@
         ],
         "nextStep": "Configurar credenciais e validar com contas de teste do Mercado Pago; catálogo não comprova operação ou publicação.",
         "additionalSources": [
-          "docs/COMPANY-ACCOUNT.md"
+          "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
         ]
       },
       {
@@ -274,8 +274,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -324,9 +324,9 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md",
-          "docs/FISCAL-VALORES-COMERCIAIS.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md",
+          "docs/telas/fiscal/nfe/referencias/FISCAL-VALORES-COMERCIAIS.md"
         ],
         "journey": [
           {
@@ -374,8 +374,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -420,8 +420,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -465,8 +465,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -504,7 +504,7 @@
         ],
         "nextStep": "Conferir gravação, revisão e preenchimento dos dois formulários financeiros.",
         "additionalSources": [
-          "docs/CONFIGURACOES-FINANCEIRAS.md"
+          "docs/telas/preferencias/financeiro/referencias/CONFIGURACOES-FINANCEIRAS.md"
         ],
         "journey": [
           {
@@ -532,7 +532,7 @@
         ],
         "nextStep": "Validar cadastro, cálculo e publicação com empresa autorizada na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -561,7 +561,7 @@
         ],
         "nextStep": "Conferir soma e vigência com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -590,7 +590,7 @@
         ],
         "nextStep": "Conferir custos com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -620,7 +620,7 @@
         ],
         "nextStep": "Conferir prévia e publicação com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -650,7 +650,7 @@
         "nextStep": "Conferir gravação e bloqueios sem reserva ou recebíveis em ambiente isolado; observar a versão publicada separadamente.",
         "additionalSources": [
           "docs/superpowers/plans/2026-11-01-sales-settings.md",
-          "docs/PREFERENCIAS-PENDENTES.md"
+          "docs/telas/preferencias/vendas/referencias/PREFERENCIAS-PENDENTES.md"
         ],
         "journey": [
           {
@@ -678,7 +678,7 @@
         ],
         "nextStep": "Conferir criação, arquivamento, revisão e uso nos cadastros autorizados.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -708,7 +708,7 @@
         ],
         "nextStep": "Conferir criação, compartilhamento, revisão e isolamento das definições autorizadas.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -738,7 +738,7 @@
         ],
         "nextStep": "Conferir criação, edição, revisão, limites físicos e isolamento dos modelos.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -768,7 +768,7 @@
         ],
         "nextStep": "Conferir criação, revisão, publicação imutável, arquivamento e isolamento das definições.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql",
           "migrations/202611050003_workflow_revisions.sql"
         ],
@@ -796,7 +796,7 @@
         "actionGroups": ["system-files"],
         "dependencies": ["company_onboarding"],
         "nextStep": "Conferir filtros, isolamento, download legado e arquivamento revisionado; upload atual depende de storage explicitamente configurado.",
-        "additionalSources": ["docs/MODULOS-CONFIGURAVEIS-ERP.md","docs/product-media.md","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql"],
+        "additionalSources": ["docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md","docs/telas/cadastros/produtos/referencias/product-media.md","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql"],
         "journey": [{
           "id": "manage",
           "title": "Consultar, baixar legado e arquivar metadados",
@@ -818,7 +818,7 @@
         ],
         "nextStep": "Conferir consulta, filtros, paginação e autorização na versão publicada.",
         "additionalSources": [
-          "docs/SEGURANCA-AUDITORIA.md"
+          "docs/telas/preferencias/seguranca/referencias/SEGURANCA-AUDITORIA.md"
         ],
         "journey": [
           {
@@ -846,7 +846,7 @@
         ],
         "nextStep": "Conferir persistência por usuário/empresa, revisão e aplicação da paginação sem prometer idioma, formatos ou notificações.",
         "additionalSources": [
-          "docs/PREFERENCIAS-SISTEMA.md"
+          "docs/telas/preferencias/sistema/referencias/PREFERENCIAS-SISTEMA.md"
         ],
         "journey": [
           {
@@ -893,7 +893,7 @@
         ],
         "nextStep": "Acompanhar o primeiro convite real até o acesso do convidado e a delegação de outro convite.",
         "additionalSources": [
-          "docs/CONVITES-USUARIOS.md"
+          "docs/telas/preferencias/usuarios-permissoes/referencias/CONVITES-USUARIOS.md"
         ],
         "journey": [
           {
@@ -980,7 +980,7 @@
         ],
         "nextStep": "Validar o fluxo publicado com identidade real após a release pelo CI.",
         "additionalSources": [
-          "docs/ASSISTANT.md"
+          "docs/telas/inicio/assistente-ajuda/referencias/ASSISTANT.md"
         ]
       },
       {
@@ -1063,7 +1063,7 @@
           "parties"
         ],
         "nextStep": "Conferir perfis tributários e seus padrões opcionais, snapshots, valores por item, alíquotas do destino e vínculo comercial antes do comando separado de emissão. Aceite SEFAZ continua não observado.",
-        "additionalSources": ["docs/FISCAL-PERFIS-TRIBUTARIOS.md"]
+        "additionalSources": ["docs/telas/fiscal/perfis-tributarios/referencias/FISCAL-PERFIS-TRIBUTARIOS.md"]
       },
       {
         "id": "me",
@@ -1301,7 +1301,7 @@
         ],
         "nextStep": "Definir a extensão de recebimento por XML e as demais decisões pendentes de compras.",
         "additionalSources": [
-          "docs/COMPRAS-CONTAS-PAGAR-INTERFACE.md"
+          "docs/telas/compras/pedidos/referencias/COMPRAS-CONTAS-PAGAR-INTERFACE.md"
         ],
         "journey": [
           {
@@ -1372,7 +1372,7 @@
         "actionGroups": ["warranties"],
         "dependencies": ["orders", "products", "parties"],
         "nextStep": "Completar peças, logística reversa, quarentena e efeitos financeiros somente com contratos aprovados.",
-        "additionalSources": ["docs/AVL-319-GARANTIAS-ASSISTENCIA.md"],
+        "additionalSources": ["docs/telas/vendas/garantias/referencias/AVL-319-GARANTIAS-ASSISTENCIA.md"],
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
 {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id", "post-api-v1-warranty-cases-id-assignment"], "authRefs": [], "externalSystems": []},
@@ -1405,7 +1405,7 @@
         ],
         "nextStep": "Validar gravação e aplicação na interface publicada; catálogo não comprova execução.",
         "additionalSources": [
-          "docs/CADASTROS-E-PERFIS-TRIBUTARIOS.md"
+          "docs/telas/preferencias/cadastros/referencias/CADASTROS-E-PERFIS-TRIBUTARIOS.md"
         ],
         "journey": [
           {
@@ -1433,7 +1433,7 @@
         ],
         "nextStep": "Conferir persistência na versão publicada; emissão NFC-e e produção NF-e têm validação separada.",
         "additionalSources": [
-          "docs/PREFERENCIAS-FISCAIS.md"
+          "docs/telas/fiscal/configuracoes/referencias/PREFERENCIAS-FISCAIS.md"
         ],
         "journey": [
           {
@@ -1463,7 +1463,7 @@
         ],
         "nextStep": "Validar CI, migração e comportamento autenticado; catálogo não comprova implantação.",
         "additionalSources": [
-          "docs/AVL-432-IMPLEMENTACAO.md"
+          "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
         ]
       },
       {
@@ -1481,7 +1481,7 @@
         ],
         "nextStep": "Validar migração, CI e jornada autenticada; o catálogo não comprova implantação.",
         "additionalSources": [
-          "docs/AVL-432-IMPLEMENTACAO.md"
+          "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
         ]
       },
       {
@@ -1521,6 +1521,24 @@
         "nextStep": "Conferir isolamento e integração do gerador na versão publicada; arquivo de XML não comprova autorização consultada na SEFAZ.",
         "additionalSources": [
           "apps/api/src/domains/fiscal/outgoing_import.rs"
+        ]
+      },
+      {
+        "id": "pos",
+        "title": "PDV, fechamento e histórico",
+        "goal": "Abrir sessão, registrar vendas e movimentos internos, conferir fechamento e consultar histórico por empresa.",
+        "kind": "product",
+        "actionGroups": [
+          "pos"
+        ],
+        "dependencies": [
+          "products",
+          "financial-accounts",
+          "price-tables"
+        ],
+        "nextStep": "Conferir operação autenticada e extensões; mapeamento não comprova venda real, liquidação bancária ou autorização de NFC-e.",
+        "additionalSources": [
+          "docs/telas/vendas/pdv/README.md"
         ]
       }
     ]
@@ -1850,7 +1868,7 @@
         "apps/api/src/domains/sales/pricing.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1944,7 +1962,7 @@
         "apps/api/src/domains/sales/pricing_model.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2042,7 +2060,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2133,7 +2151,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2232,7 +2250,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3618,7 +3636,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/ibpt.rs",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "docs/IBPT-AVL-115.md"
+        "docs/telas/fiscal/configuracoes/referencias/IBPT-AVL-115.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4752,7 +4770,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4848,7 +4866,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4940,7 +4958,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5031,7 +5049,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5122,7 +5140,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7011,7 +7029,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7110,7 +7128,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7208,7 +7226,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7307,7 +7325,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7406,7 +7424,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7498,7 +7516,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7697,7 +7715,7 @@
         "apps/api/src/domains/fiscal/production_events.rs",
         "apps/web/src/features/fiscal/purchase-match.tsx",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+        "docs/telas/fiscal/monitor/referencias/RECEBIMENTO-NFE-AVL-91-94-97.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7802,7 +7820,7 @@
         "apps/api/src/domains/purchasing.rs",
         "migrations/202611010003_fiscal_incoming.sql",
         "apps/web/src/features/fiscal/purchase-match.tsx",
-        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+        "docs/telas/fiscal/monitor/referencias/RECEBIMENTO-NFE-AVL-91-94-97.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26277,7 +26295,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26378,7 +26396,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26468,7 +26486,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26572,7 +26590,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26679,7 +26697,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26781,7 +26799,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26889,7 +26907,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -27866,7 +27884,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -27959,7 +27977,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28061,7 +28079,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28153,7 +28171,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28258,7 +28276,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28348,7 +28366,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28446,7 +28464,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28529,7 +28547,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28616,7 +28634,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28712,7 +28730,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28813,7 +28831,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -30369,12 +30387,20 @@
       },
       "recovery": "Conferir empresa e permissão antes de repetir.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada sem BFF ou interface de e-mail mapeados."
+        "pages": [
+          "/vendas/propostas/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/proposals/[id]/email"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/sales/proposal_email.rs",
-        "apps/api/src/domains/sales/proposals.rs"
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/web/src/app/api/erp/proposals/[id]/email/route.ts",
+        "apps/web/src/features/sales/proposal-email.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -30464,12 +30490,1228 @@
       },
       "recovery": "Consultar o recibo após resultado incerto; repetir mesma chave e corpo sem reenviar SMTP; ausência de configuração retorna 503 sem escrita.",
       "ui": {
-        "pages": [],
-        "gap": "API implementada sem BFF ou interface de e-mail mapeados."
+        "pages": [
+          "/vendas/propostas/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/proposals/[id]/email"
+        },
+        "gap": null
       },
       "sources": [
         "apps/api/src/domains/sales/proposal_email.rs",
-        "apps/api/src/domains/sales/proposals.rs"
+        "apps/api/src/domains/sales/proposals.rs",
+        "apps/web/src/app/api/erp/proposals/[id]/email/route.ts",
+        "apps/web/src/features/sales/proposal-email.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-orders-id-email",
+      "flow": "orders",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/orders/{id}/email"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, autorização e isolamento por tenant.",
+        "Pedido da empresa; consulta destinatário, configuração SMTP e até 50 entregas."
+      ],
+      "transition": {
+        "from": "Pedido e histórico de envios",
+        "to": "Disponibilidade e histórico consultados, sem mutação"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Resultado HTTP 200 não comprova entrega ao destinatário; falha ou incerteza permanece explícita."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Consulta sem If-Match ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          503
+        ],
+        "action": "Consultar disponibilidade e histórico de e-mails do pedido"
+      },
+      "recovery": "Conferir empresa e permissão antes de repetir.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/orders/[id]/email"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/order_email.rs",
+        "apps/api/src/domains/sales.rs",
+        "apps/web/src/app/api/erp/orders/[id]/email/route.ts",
+        "apps/web/src/features/sales/order-email.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-orders-id-email",
+      "flow": "orders",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/orders/{id}/email"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.orders.read",
+        "sales.orders.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/sales/order_email.rs",
+          "type": "OrderEmailInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Pedido da empresa, não cancelado, com revisão atual e permissão de gestão.",
+        "Destinatário, assunto e mensagem válidos; SMTP configurado; sem entrega anterior uncertain.",
+        "Anexo HTML gerado do snapshot comercial no servidor."
+      ],
+      "transition": {
+        "from": "Pedido e histórico de envios",
+        "to": "Entrega sent, failed ou uncertain; situação comercial do pedido preservada"
+      },
+      "effects": {
+        "writes": [
+          "Intenção uncertain e comando persistidos antes do SMTP; resultado e auditoria registrados depois."
+        ],
+        "external": [
+          "Envio SMTP com anexo do snapshot comercial capturado."
+        ],
+        "excludes": [
+          "Resultado HTTP 200 não comprova entrega ao destinatário; falha ou incerteza permanece explícita."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match atual e chave idempotente; replay consulta recibo persistido e nunca reenvia a mensagem."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Enviar pedido por e-mail"
+      },
+      "recovery": "Consultar o recibo após resultado incerto; repetir mesma chave e corpo sem reenviar SMTP; ausência de configuração retorna 503 sem escrita.",
+      "ui": {
+        "pages": [
+          "/vendas/pedidos/[id]"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/orders/[id]/email"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/sales/order_email.rs",
+        "apps/api/src/domains/sales.rs",
+        "apps/web/src/app/api/erp/orders/[id]/email/route.ts",
+        "apps/web/src/features/sales/order-email.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-products",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/products"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "destination e taxpayer obrigatórios; search até 200 caracteres, offset e limit."
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "UF e condição de contribuinte explícitas. Preço calculado pela política comercial; disponibilidade desconta reservas."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar produtos e preços para o PDV"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/products"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/products/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-sessions",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/sessions"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "status open/closed, register, startDate/endDate ordenados, offset e limit."
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Listar sessões de caixa"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/sessions"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-sessions-current",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/sessions/current"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "register opcional."
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Retorna data null quando não houver sessão aberta correspondente."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar sessão aberta"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/sessions/current"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/current/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-sessions-id",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/sessions/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar sessão, movimentos e totais"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/sessions/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/[id]/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-sales",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/sales"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [],
+        "body": null,
+        "query": "status completed/cancelled, sessionId, offset e limit."
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar histórico de vendas"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/sales"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sales/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "get-api-v1-pos-sales-id",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "GET",
+        "path": "/api/v1/pos/sales/{id}"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant."
+      ],
+      "transition": {
+        "from": "Registros de PDV da empresa",
+        "to": "Consulta sem alteração de estado"
+      },
+      "effects": {
+        "writes": [],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": false,
+        "rule": "Leitura sem revisão ou chave de comando."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          422,
+          503
+        ],
+        "action": "Consultar venda e sua sessão"
+      },
+      "recovery": "Repetir a consulta após conferir acesso; falha não comprova ausência de registros.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "GET",
+          "path": "/api/erp/pos/sales/[id]"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sales/[id]/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-pos-sessions",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/pos/sessions"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read",
+        "sales.pos.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [],
+        "body": {
+          "source": "apps/api/src/domains/pos.rs",
+          "type": "OpenInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Identificação de 1 a 80 caracteres; conta caixa ativa da empresa.",
+        "Fundo de abertura não excede saldo financeiro; registro e conta não podem ter outra sessão aberta."
+      ],
+      "transition": {
+        "from": "Caixa sem sessão aberta",
+        "to": "Sessão open com fundo de abertura registrado"
+      },
+      "effects": {
+        "writes": [
+          "Sessão, comando, auditoria e outbox na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": false,
+        "idempotency": true,
+        "rule": "Mesma chave e corpo retornam o resultado persistido sem repetir efeitos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          401,
+          403,
+          404,
+          409,
+          422,
+          428,
+          503
+        ],
+        "action": "Abrir sessão de caixa"
+      },
+      "recovery": "Em resultado incerto, repetir a mesma chave e corpo; em revisão desatualizada, consultar a sessão antes de uma nova decisão.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/pos/sessions"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-pos-sessions-id-movements",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/pos/sessions/{id}/movements"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read",
+        "sales.pos.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/pos.rs",
+          "type": "MovementInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Sessão aberta com revisão atual; valor positivo e motivo.",
+        "Contas ativas distintas e saldo de origem suficiente; contraparte não pertence a outro caixa aberto.",
+        "Sangria não excede o dinheiro esperado da sessão."
+      ],
+      "transition": {
+        "from": "Sessão open",
+        "to": "Sessão open com movimento registrado e revisão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Transferência e lançamentos financeiros internos vinculados ao movimento; revisão da sessão, comando, auditoria e outbox."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match refere-se à revisão da sessão, inclusive no cancelamento da venda. Mesma chave e corpo retornam o resultado persistido sem repetir efeitos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Registrar suprimento ou sangria"
+      },
+      "recovery": "Em resultado incerto, repetir a mesma chave e corpo; em revisão desatualizada, consultar a sessão antes de uma nova decisão.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/pos/sessions/[id]/movements"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/[id]/movements/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-pos-sessions-id-sales",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/pos/sessions/{id}/sales"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read",
+        "sales.pos.manage"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/pos.rs",
+          "type": "CheckoutInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Sessão aberta com revisão atual; 1 a 100 produtos distintos e 1 a 20 pagamentos.",
+        "Cliente, quando informado, ativo e da empresa; UF e contribuinte explícitos.",
+        "Preço recalculado e total esperado iguais; soma dos pagamentos coincide com total.",
+        "Estoque disponível suficiente, preservando reservas; conta ativa e dinheiro na conta caixa da sessão."
+      ],
+      "transition": {
+        "from": "Sessão open e itens conferidos",
+        "to": "Venda completed e revisão da sessão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Venda e snapshots de itens/preços/pagamentos; saída de estoque e lançamentos financeiros internos.",
+          "Revisão da sessão, comando, auditoria e outbox confirmados na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match refere-se à revisão da sessão, inclusive no cancelamento da venda. Mesma chave e corpo retornam o resultado persistido sem repetir efeitos."
+      },
+      "response": {
+        "successStatuses": [
+          201
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Concluir venda no PDV"
+      },
+      "recovery": "Em resultado incerto, repetir a mesma chave e corpo; em revisão desatualizada, consultar a sessão antes de uma nova decisão.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/pos/sessions/[id]/sales"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/[id]/sales/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-pos-sessions-id-close",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/pos/sessions/{id}/close"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read",
+        "sales.pos.close"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/pos.rs",
+          "type": "CloseInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Sessão aberta com revisão atual; valor contado válido.",
+        "Divergência entre contado e esperado exige justificativa."
+      ],
+      "transition": {
+        "from": "Sessão open",
+        "to": "Sessão closed, mantendo eventual diferença registrada"
+      },
+      "effects": {
+        "writes": [
+          "Situação closed, valor contado, motivo e revisão da sessão; comando, auditoria e outbox."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match refere-se à revisão da sessão, inclusive no cancelamento da venda. Mesma chave e corpo retornam o resultado persistido sem repetir efeitos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Fechar sessão de caixa"
+      },
+      "recovery": "Em resultado incerto, repetir a mesma chave e corpo; em revisão desatualizada, consultar a sessão antes de uma nova decisão.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/pos/sessions/[id]/close"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sessions/[id]/close/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": [
+          "interface",
+          "request",
+          "authorization",
+          "domain",
+          "persistence",
+          "effects",
+          "failure",
+          "response"
+        ]
+      }
+    },
+    {
+      "id": "post-api-v1-pos-sales-id-cancel",
+      "flow": "pos",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/pos/sales/{id}/cancel"
+      },
+      "actor": "active_tenant_member",
+      "permissions": [
+        "sales.pos.read",
+        "sales.pos.cancel"
+      ],
+      "input": {
+        "headers": [
+          "Authorization",
+          "X-Tenant-Id",
+          "If-Match",
+          "Idempotency-Key"
+        ],
+        "pathParameters": [
+          "id"
+        ],
+        "body": {
+          "source": "apps/api/src/domains/pos.rs",
+          "type": "CancelInput"
+        },
+        "query": null
+      },
+      "preconditions": [
+        "Empresa ativa, identidade autorizada e isolamento por tenant.",
+        "Venda completed da empresa; sessão correspondente ainda aberta e revisão da sessão atual.",
+        "Motivo obrigatório; dinheiro esperado e saldos das contas suficientes para os estornos."
+      ],
+      "transition": {
+        "from": "Venda completed em sessão aberta",
+        "to": "Venda cancelled uma única vez e revisão da sessão incrementada"
+      },
+      "effects": {
+        "writes": [
+          "Entrada de estoque vinculada aos movimentos originais e débitos financeiros internos de estorno.",
+          "Venda cancelled, revisão da sessão, comando, auditoria e outbox na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não transmite NFC-e nem executa liquidação em banco, adquirente ou gateway."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "If-Match refere-se à revisão da sessão, inclusive no cancelamento da venda. Mesma chave e corpo retornam o resultado persistido sem repetir efeitos."
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "errorStatuses": [
+          400,
+          401,
+          403,
+          404,
+          409,
+          412,
+          422,
+          428,
+          503
+        ],
+        "action": "Cancelar e estornar venda de PDV"
+      },
+      "recovery": "Em resultado incerto, repetir a mesma chave e corpo; em revisão desatualizada, consultar a sessão antes de uma nova decisão.",
+      "ui": {
+        "pages": [
+          "/vendas/pdv",
+          "/vendas/pdv/fechamento",
+          "/vendas/pdv/historico"
+        ],
+        "bff": {
+          "method": "POST",
+          "path": "/api/erp/pos/sales/[id]/cancel"
+        },
+        "gap": null
+      },
+      "sources": [
+        "apps/api/src/domains/pos.rs",
+        "apps/web/src/app/api/erp/pos/sales/[id]/cancel/route.ts",
+        "apps/web/src/features/pos/pos-access.tsx"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -30573,7 +31815,7 @@
       "intent": "Exclusões, arquivos, relatórios, etiquetas, transições e campos customizados observados nas capturas do usuário.",
       "proposedEndpoints": [],
       "openDecisions": [
-        "Definir retenção, permissões, modelos e uso operacional de cada recurso. Fonte da fila: docs/PREFERENCIAS-PENDENTES.md; acompanhamento AVL-372."
+        "Definir retenção, permissões, modelos e uso operacional de cada recurso. Fonte da fila: docs/telas/preferencias/vendas/referencias/PREFERENCIAS-PENDENTES.md; acompanhamento AVL-372."
       ],
       "requiredFields": [
         "actor",
@@ -30923,9 +32165,9 @@
     },
     {
       "id": "pending-11",
-      "title": "PDV",
+      "title": "PDV — extensões e aceite operacional",
       "status": "needs_definition",
-      "intent": "Abrir caixa/sessão, registrar venda, confirmar meios, cancelar/estornar e fechar",
+      "intent": "Conferir a operação publicada e definir extensões além dos contratos de sessão, venda, estorno e fechamento já mapeados.",
       "proposedEndpoints": [
         "/api/v1/pos/sessions",
         "/api/v1/pos/sales"

@@ -93,5 +93,5 @@ atualiza a descrição de `sales.orders.manage`; não concede permissões adicio
 
 A estrutura de ML, `verification/` e `experiments/` ficam com o outro agente.
 O fiscal e os serviços externos não receberam implementação neste lote.
-A [fila por dependência](../docs/EXECUCAO-RELATORIOS.md) mantém cadastros
+A [fila por dependência](../docs/historico/registros/EXECUCAO-RELATORIOS.md) mantém cadastros
 auxiliares, compras, extensões de pessoas/estoque/financeiro e implantação pendentes.

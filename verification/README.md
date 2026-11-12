@@ -18,7 +18,7 @@ O relatório mostra a cobertura contratual separada do resultado de execução.
 Este catálogo documenta os tipos Rust existentes em vez de duplicar seus campos
 em outro schema. Os testes conferem que as referências de tipos e fontes existem.
 As oito dimensões de aceite não são resultados de testes. Veja o
-[escopo e a matriz de ações](../docs/CONTRATOS-ACOES-P0.md).
+[escopo e a matriz de ações](../docs/tecnica/CONTRATOS-ACOES-P0.md).
 
 ## Contexto por funcionalidade
 
@@ -29,7 +29,7 @@ produção, emissão NF-e em homologação e entrada fiscal. Uma sequência decl
 documenta os comandos e suas dependências; continua sem comprovar execução ou
 publicação. Os demais grupos mantêm `actions_mapped`.
 
-O catálogo cobre 222 operações API, incluindo `GET /openapi.json`, e 195 métodos
+O catálogo cobre 374 operações API, incluindo `GET /openapi.json`, e 333 métodos
 de handlers BFF. Despachos `[action]` e `[...resource]` enumeram destinos
 explícitos, ligados a uma ficha API; um destino sem ficha ou que aponte para
 outra operação impede a verificação. A emissão é implementada somente para
@@ -73,7 +73,7 @@ ele não deve receber `erp-product-context/1` como se fossem o mesmo contrato.
 O exportador `context:erp:mcp` prepara índice e capturas para as ferramentas
 `erp_contexto_listar` e `erp_contexto_obter` do MCP central. A importação no n8n
 é uma operação separada e confirmada por leitura; o comando não atualiza as
-tabelas automaticamente. Veja o [contrato de consumo](../docs/CONTEXTO-FUNCIONALIDADES.md).
+tabelas automaticamente. Veja o [contrato de consumo](../docs/tecnica/CONTEXTO-FUNCIONALIDADES.md).
 
 Com as dependências web já instaladas:
 

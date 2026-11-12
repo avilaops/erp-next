@@ -20,7 +20,7 @@ continue responsável pelo mesmo checkout. As alterações foram preservadas.
   atualizado de 0,98 para 1,00 sobre um título de 0,99.
 - `apps/web/tests/operations-persistence.spec.ts`: novo cenário móvel com resposta
   perdida, recebimentos de 0,33 e 0,66 e estorno específico; rótulos atualizados.
-- `docs/PEDIDOS-FINANCEIRO.md`: novo contrato e limites dos recebimentos.
+- `docs/telas/vendas/pedidos/referencias/PEDIDOS-FINANCEIRO.md`: novo contrato e limites dos recebimentos.
 
 ## Estado da verificação
 

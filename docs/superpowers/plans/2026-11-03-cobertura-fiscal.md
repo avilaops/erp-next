@@ -54,7 +54,7 @@ Arquivos exclusivos:
   para endpoint fixo de homologação e indicação do intervalo mínimo.
 - `apps/fiscal-engine/tests/cte-distribution-client.test.ts`: contrato interno,
   A1 fictício, bloqueio de produção e autenticação HTTP.
-- `docs/CTE-DISTRIBUICAO-AVL-111.md`: contrato, fontes e evidências da etapa.
+- `docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md`: contrato, fontes e evidências da etapa.
 
 Mudanças nos arquivos existentes do motor: `engine.ts`, `server.ts` e `README.md`.
 

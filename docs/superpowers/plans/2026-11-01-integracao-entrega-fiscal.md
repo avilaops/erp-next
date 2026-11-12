@@ -22,7 +22,7 @@ fiscal real nesta verificação.
 
 A publicação e o resultado do CI remoto serão registrados no PR e no Linear.
 As evidências locais estão em
-[VERIFICACAO-INTEGRACAO-20261101.md](../../VERIFICACAO-INTEGRACAO-20261101.md).
+[VERIFICACAO-INTEGRACAO-20261101.md](../../historico/registros/VERIFICACAO-INTEGRACAO-20261101.md).
 
 ## Verificação
 

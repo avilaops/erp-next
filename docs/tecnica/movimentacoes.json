@@ -1,0 +1,583 @@
+{
+  "baseCommit": "e065b0d5191abd8f176ef4c1310b3e1ffc9c4c3a",
+  "scope": "Reorganização de documentação; não altera cadastros ou operações do ERP.",
+  "files": [
+    {
+      "previous": "docs/.old/README.md",
+      "current": "docs/historico/legado/README.md",
+      "originalSha256": "5aab53bbb6d07fd3aad74beee85d69f36e29e9d39851871ce50d88d0008a3b29",
+      "organizedSha256": "f15d92818a690f76cf5bfeba008a2040ddf14332839afe0090d605dd13514bce"
+    },
+    {
+      "previous": "docs/.old/ROADMAP.md",
+      "current": "docs/historico/legado/ROADMAP.md",
+      "originalSha256": "7840ac2d8feefc10682dfaecb230ea045d567eb7e7106ded556dee04dff70e8b",
+      "organizedSha256": "7840ac2d8feefc10682dfaecb230ea045d567eb7e7106ded556dee04dff70e8b"
+    },
+    {
+      "previous": "docs/.old/architecture-conformance.md",
+      "current": "docs/historico/legado/architecture-conformance.md",
+      "originalSha256": "a0db5bcbe28c369568f24d415bda4f30341d7cf2e91d10891e492114dfc038be",
+      "organizedSha256": "9ea5a280bb2611e0b542b0f97b5ad94f02a3613842464610a4eadf9f0d2f5a26"
+    },
+    {
+      "previous": "docs/.old/architecture.md",
+      "current": "docs/historico/legado/architecture.md",
+      "originalSha256": "017d1de72694996f09d020fbfd1f5a7f551b1b3efce875932cb9169a11b2b663",
+      "organizedSha256": "017d1de72694996f09d020fbfd1f5a7f551b1b3efce875932cb9169a11b2b663"
+    },
+    {
+      "previous": "docs/.old/bling-ui-gap-analysis.md",
+      "current": "docs/historico/legado/bling-ui-gap-analysis.md",
+      "originalSha256": "feeaa401f65fbf44cc6d57b68365b3aa9ddebf5165a9714152a2fc5bb99b92b6",
+      "organizedSha256": "feeaa401f65fbf44cc6d57b68365b3aa9ddebf5165a9714152a2fc5bb99b92b6"
+    },
+    {
+      "previous": "docs/.old/conventions.md",
+      "current": "docs/historico/legado/conventions.md",
+      "originalSha256": "0508d8c63cb8703cf2139039d9ff5aeff8948026a9bf16271a25ddb343a3db27",
+      "organizedSha256": "0508d8c63cb8703cf2139039d9ff5aeff8948026a9bf16271a25ddb343a3db27"
+    },
+    {
+      "previous": "docs/.old/domains.md",
+      "current": "docs/historico/legado/domains.md",
+      "originalSha256": "90b3e993d48d9c1b674461331e14bf8e830cc0d09e7a2ef57ab738b0fad2ecdb",
+      "organizedSha256": "90b3e993d48d9c1b674461331e14bf8e830cc0d09e7a2ef57ab738b0fad2ecdb"
+    },
+    {
+      "previous": "docs/.old/frontend-erp-roadmap.md",
+      "current": "docs/historico/legado/frontend-erp-roadmap.md",
+      "originalSha256": "d93ca395a7e9ed5c266772023caa13a2a9657949e81d69b5667363b8b4e255dc",
+      "organizedSha256": "2ba6b2a9b2b5d731861ecb326d5a50e1b625766fe579993584451103a48b24f6"
+    },
+    {
+      "previous": "docs/.old/frontend-preferences-roadmap.md",
+      "current": "docs/historico/legado/frontend-preferences-roadmap.md",
+      "originalSha256": "27a8b3f977b5fd9459ec833dba80fa3e3c035b134f5eb0ac267d469a524405dc",
+      "organizedSha256": "27a8b3f977b5fd9459ec833dba80fa3e3c035b134f5eb0ac267d469a524405dc"
+    },
+    {
+      "previous": "docs/.old/modules-assinaturas-fiscal-garantias.md",
+      "current": "docs/historico/legado/modules-assinaturas-fiscal-garantias.md",
+      "originalSha256": "fdf5a9934274267c93cb3308654f755632c27ab8f9c1992e1b7d25cd822933d4",
+      "organizedSha256": "fdf5a9934274267c93cb3308654f755632c27ab8f9c1992e1b7d25cd822933d4"
+    },
+    {
+      "previous": "docs/.old/openapi.json",
+      "current": "docs/historico/legado/openapi.json",
+      "originalSha256": "1e2b1470facbfa5d6edfd388aec56feac22826e76cd168c1b8a277b4c4244d5e",
+      "organizedSha256": "1e2b1470facbfa5d6edfd388aec56feac22826e76cd168c1b8a277b4c4244d5e"
+    },
+    {
+      "previous": "docs/AGENTE-3-PREFERENCIAS-INTEGRACOES.md",
+      "current": "docs/historico/registros/AGENTE-3-PREFERENCIAS-INTEGRACOES.md",
+      "originalSha256": "117d1d3f07f0be211c4656126a949eae3d1775b31ca1da296cded5bcd24b999a",
+      "organizedSha256": "117d1d3f07f0be211c4656126a949eae3d1775b31ca1da296cded5bcd24b999a"
+    },
+    {
+      "previous": "docs/AGENTE-4-STATUS.md",
+      "current": "docs/historico/registros/AGENTE-4-STATUS.md",
+      "originalSha256": "7e55028f4312e25acc64ac2e6b76fa5ba1a81a3c9f4fff15fd48f034b25556dd",
+      "organizedSha256": "7e55028f4312e25acc64ac2e6b76fa5ba1a81a3c9f4fff15fd48f034b25556dd"
+    },
+    {
+      "previous": "docs/API-ACESSOS.md",
+      "current": "docs/telas/preferencias/usuarios-permissoes/referencias/API-ACESSOS.md",
+      "originalSha256": "8471394f689b9da626f18f7b9fa32484cfe4c08d6c96d93a21a0bfc4a4ba14b3",
+      "organizedSha256": "8471394f689b9da626f18f7b9fa32484cfe4c08d6c96d93a21a0bfc4a4ba14b3"
+    },
+    {
+      "previous": "docs/ASSISTANT.md",
+      "current": "docs/telas/inicio/assistente-ajuda/referencias/ASSISTANT.md",
+      "originalSha256": "aa4f1642a9aa75b6731ed306282b1e64b0698436dc711e4797bc9deefdea5b81",
+      "organizedSha256": "aa4f1642a9aa75b6731ed306282b1e64b0698436dc711e4797bc9deefdea5b81"
+    },
+    {
+      "previous": "docs/AUDITORIA-FISCAL-AVL-69-20261103.md",
+      "current": "docs/historico/registros/AUDITORIA-FISCAL-AVL-69-20261103.md",
+      "originalSha256": "7191b6e12e66d7d93c92bab8e4d75c598c3a60e1fc67ad6de09da4e88580dfac",
+      "organizedSha256": "8a3733645d71a3510b3e75666a3cf7585666c634510b8b2996ca0a5313c4b50d"
+    },
+    {
+      "previous": "docs/AVL-319-GARANTIAS-ASSISTENCIA.md",
+      "current": "docs/telas/vendas/garantias/referencias/AVL-319-GARANTIAS-ASSISTENCIA.md",
+      "originalSha256": "61b418c0ee374cf18300a79e648d5f420642e40ec3589fc374c7a900a6556dff",
+      "organizedSha256": "61b418c0ee374cf18300a79e648d5f420642e40ec3589fc374c7a900a6556dff"
+    },
+    {
+      "previous": "docs/AVL-432-IMPLEMENTACAO.md",
+      "current": "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md",
+      "originalSha256": "4d7ffba69a6ca902e6fbaa7a523b93168fa817c7d5db7e50a7f11e314dcbfa23",
+      "organizedSha256": "4d7ffba69a6ca902e6fbaa7a523b93168fa817c7d5db7e50a7f11e314dcbfa23"
+    },
+    {
+      "previous": "docs/CADASTRO-AUTONOMO-EMPRESAS.md",
+      "current": "docs/telas/preferencias/empresa/referencias/CADASTRO-AUTONOMO-EMPRESAS.md",
+      "originalSha256": "8b69d5cde909e0c606ac453c273f82d1eb228598588cfc8030101c4e93e10410",
+      "organizedSha256": "8b69d5cde909e0c606ac453c273f82d1eb228598588cfc8030101c4e93e10410"
+    },
+    {
+      "previous": "docs/CADASTRO-CNPJ-2026-11-05.md",
+      "current": "docs/telas/cadastros/clientes-fornecedores/referencias/CADASTRO-CNPJ-2026-11-05.md",
+      "originalSha256": "40b1da43bedb87a4d69228ffe449097d25f21e1c11ea3350d6b9ec9a40cfa2f0",
+      "organizedSha256": "40b1da43bedb87a4d69228ffe449097d25f21e1c11ea3350d6b9ec9a40cfa2f0"
+    },
+    {
+      "previous": "docs/CADASTROS-AUXILIARES.md",
+      "current": "docs/telas/cadastros/categorias-produtos/referencias/CADASTROS-AUXILIARES.md",
+      "originalSha256": "edd9cafa96a409bf3136f6a692afcd0ab26976737c5b657322075d101bd9d38b",
+      "organizedSha256": "edd9cafa96a409bf3136f6a692afcd0ab26976737c5b657322075d101bd9d38b"
+    },
+    {
+      "previous": "docs/CADASTROS-E-PERFIS-TRIBUTARIOS.md",
+      "current": "docs/telas/preferencias/cadastros/referencias/CADASTROS-E-PERFIS-TRIBUTARIOS.md",
+      "originalSha256": "77a7825f44bd728e827205416fc6ec68d1e36715e3f050f7650f8fa12b42ef03",
+      "organizedSha256": "77a7825f44bd728e827205416fc6ec68d1e36715e3f050f7650f8fa12b42ef03"
+    },
+    {
+      "previous": "docs/CADEIA-COMPRA-PAGAMENTO.md",
+      "current": "docs/telas/compras/pedidos/referencias/CADEIA-COMPRA-PAGAMENTO.md",
+      "originalSha256": "a841dfabff99c1feff1f550b55ad8f2af133bb14bc1e038e41ae114110d2000d",
+      "organizedSha256": "a841dfabff99c1feff1f550b55ad8f2af133bb14bc1e038e41ae114110d2000d"
+    },
+    {
+      "previous": "docs/CERTIFICADO-DIGITAL-A1.md",
+      "current": "docs/telas/fiscal/certificado/referencias/CERTIFICADO-DIGITAL-A1.md",
+      "originalSha256": "64cb8efadd80d594ea6e187971908316d4367381247af152657033bd1a1ac250",
+      "organizedSha256": "64cb8efadd80d594ea6e187971908316d4367381247af152657033bd1a1ac250"
+    },
+    {
+      "previous": "docs/COMISSOES-PRODUCAO-E-FISCAL.md",
+      "current": "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md",
+      "originalSha256": "4f512c183a0ce871f77114ce13a3184a1f546c1ac7b648f840fe91f7248e5eeb",
+      "organizedSha256": "9cb3b903204d62345bf7955e2fdf205409dca228904c2bc70dc45762198f01e8"
+    },
+    {
+      "previous": "docs/COMPANY-ACCOUNT.md",
+      "current": "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md",
+      "originalSha256": "a72bf73c1e965066a542ce230b35b241a32b070bb7b6d6d75248784c6413c791",
+      "organizedSha256": "a72bf73c1e965066a542ce230b35b241a32b070bb7b6d6d75248784c6413c791"
+    },
+    {
+      "previous": "docs/COMPRAS-CONTAS-PAGAR-INTERFACE.md",
+      "current": "docs/telas/compras/pedidos/referencias/COMPRAS-CONTAS-PAGAR-INTERFACE.md",
+      "originalSha256": "f4fdd079a9f6ad73d7bc84af2237a27b6c84a7d1544495bbf5e8bc24799baa2f",
+      "organizedSha256": "f4fdd079a9f6ad73d7bc84af2237a27b6c84a7d1544495bbf5e8bc24799baa2f"
+    },
+    {
+      "previous": "docs/CONFIGURACOES-FINANCEIRAS.md",
+      "current": "docs/telas/preferencias/financeiro/referencias/CONFIGURACOES-FINANCEIRAS.md",
+      "originalSha256": "f9763d6f1b1e8a99f11257b6c424af136c4b6f58e5472d0566c4276c8f8fdc49",
+      "organizedSha256": "f9763d6f1b1e8a99f11257b6c424af136c4b6f58e5472d0566c4276c8f8fdc49"
+    },
+    {
+      "previous": "docs/CONSULTAS-CADASTRAIS-AVL-113-114.md",
+      "current": "docs/telas/cadastros/clientes-fornecedores/referencias/CONSULTAS-CADASTRAIS-AVL-113-114.md",
+      "originalSha256": "3fcff3bf95647a000a6586d2aed94f00acd3080da35c86743ebe12e8405ba8d7",
+      "organizedSha256": "3fcff3bf95647a000a6586d2aed94f00acd3080da35c86743ebe12e8405ba8d7"
+    },
+    {
+      "previous": "docs/CONTEUDO-E-CONTRATOS.md",
+      "current": "docs/tecnica/CONTEUDO-E-CONTRATOS.md",
+      "originalSha256": "73ebad8b46b4396f3f1e5ce8664154d6e974318455d85e58a5d7d90c3b03ab31",
+      "organizedSha256": "73ebad8b46b4396f3f1e5ce8664154d6e974318455d85e58a5d7d90c3b03ab31"
+    },
+    {
+      "previous": "docs/CONTEXTO-FUNCIONALIDADES.md",
+      "current": "docs/tecnica/CONTEXTO-FUNCIONALIDADES.md",
+      "originalSha256": "e005e8456cc66c481095d4975c7a189a8d7ac1e4fc0acf669294a7f3a33a3170",
+      "organizedSha256": "a4e5fabf2dd2e89197d2b976afb18460a9fce1990a72b66b17322e4b515787ab"
+    },
+    {
+      "previous": "docs/CONTRATOS-ACOES-P0.md",
+      "current": "docs/tecnica/CONTRATOS-ACOES-P0.md",
+      "originalSha256": "9d7530f68395df4ef3068410d9e9eb54dc0078443b328e66eda5f9cd19626184",
+      "organizedSha256": "8452886d519b58940ae1dd1b5654ce28b75b034035c099230e922c39c9e1ccbf"
+    },
+    {
+      "previous": "docs/CONTRATOS-FISCAL-RECEBIDAS.md",
+      "current": "docs/telas/fiscal/monitor/referencias/CONTRATOS-FISCAL-RECEBIDAS.md",
+      "originalSha256": "d2054aa49550d0e426261db75efd5aa470f928a1093ea771bf4343b529c1e7dd",
+      "organizedSha256": "e838be561d78319ec22633f61c51fac0a7a7c84c6879e10a7af54ed5ece9d22b"
+    },
+    {
+      "previous": "docs/CONVITES-USUARIOS.md",
+      "current": "docs/telas/preferencias/usuarios-permissoes/referencias/CONVITES-USUARIOS.md",
+      "originalSha256": "8e16096c65437955e00ecf82acfdaca5d81a2f30d14e79cbcc977747c0c1034a",
+      "organizedSha256": "8e16096c65437955e00ecf82acfdaca5d81a2f30d14e79cbcc977747c0c1034a"
+    },
+    {
+      "previous": "docs/CORES-EQUIPAMENTOS.md",
+      "current": "docs/telas/cadastros/produtos/referencias/CORES-EQUIPAMENTOS.md",
+      "originalSha256": "60e83824e07832c29fd7bc85744b0f9d71f6f84036782b45afc03030b8040b01",
+      "organizedSha256": "60e83824e07832c29fd7bc85744b0f9d71f6f84036782b45afc03030b8040b01"
+    },
+    {
+      "previous": "docs/CTE-DISTRIBUICAO-AVL-111.md",
+      "current": "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md",
+      "originalSha256": "512abfb51275905f89d144a433b75e949bce42aa9299d9b9e47ad3f68f6d1f13",
+      "organizedSha256": "512abfb51275905f89d144a433b75e949bce42aa9299d9b9e47ad3f68f6d1f13"
+    },
+    {
+      "previous": "docs/DADOS-REAIS-ERP.md",
+      "current": "docs/telas/inicio/visao-geral/referencias/DADOS-REAIS-ERP.md",
+      "originalSha256": "7b4244a16458789d54f585f96fac4821ac62a57c82aa1ead22312d5f288a4b2f",
+      "organizedSha256": "7b4244a16458789d54f585f96fac4821ac62a57c82aa1ead22312d5f288a4b2f"
+    },
+    {
+      "previous": "docs/DANFE-CONTINUACAO.md",
+      "current": "docs/historico/registros/DANFE-CONTINUACAO.md",
+      "originalSha256": "6598ec3749d9786a013009fff435dad070cc594d2114806c081a4e0b2ae6c453",
+      "organizedSha256": "3cedc731dff35f5dec974ac59d6b6ef73e8ecdec6377ab02466e5db040036b07"
+    },
+    {
+      "previous": "docs/DANFE-XML-AUTORIZADO.md",
+      "current": "docs/telas/fiscal/danfe/referencias/DANFE-XML-AUTORIZADO.md",
+      "originalSha256": "dbe0dfb48ada750eff8d3996a242b5163bf5fa81bba87ec5c6978cb221bfbc7a",
+      "organizedSha256": "7d379587f76f34a82bb75fd223986fbddbbd1464967e79ae4d2ddb9d4793cbd7"
+    },
+    {
+      "previous": "docs/ENDERECOS-CONTATOS-PESSOAS.md",
+      "current": "docs/telas/cadastros/clientes-fornecedores/referencias/ENDERECOS-CONTATOS-PESSOAS.md",
+      "originalSha256": "e8477cb8fa42963170b1466b43e7052815a552d62fafabf06f142b86d1496405",
+      "organizedSha256": "e8477cb8fa42963170b1466b43e7052815a552d62fafabf06f142b86d1496405"
+    },
+    {
+      "previous": "docs/ESTOQUE-PERSISTENTE.md",
+      "current": "docs/telas/estoque/saldos/referencias/ESTOQUE-PERSISTENTE.md",
+      "originalSha256": "2b228766aa2a797db40339c0026eba60e09295b159224d51deb5fc34d947c960",
+      "organizedSha256": "84fad31a5ca698131c82f1c6111bdddc6a6bf288983da07bd39798f60e4b0fe9"
+    },
+    {
+      "previous": "docs/EXECUCAO-RELATORIOS.md",
+      "current": "docs/historico/registros/EXECUCAO-RELATORIOS.md",
+      "originalSha256": "734dfa6463db6c2acb82aa7946c53370a161d4f022b3923494f5c684ad04ceb8",
+      "organizedSha256": "8e3187a23642942777b3347285dd97e6e5c47cf7b9a73b216ebd23e23a7c36ff"
+    },
+    {
+      "previous": "docs/FISCAL-AMBIENTES.md",
+      "current": "docs/telas/fiscal/nfe/referencias/FISCAL-AMBIENTES.md",
+      "originalSha256": "9b25f8d838a4474b4ad4d9396241eeaeeab154343fdc4d9e7736dae2fe0756e3",
+      "organizedSha256": "9b25f8d838a4474b4ad4d9396241eeaeeab154343fdc4d9e7736dae2fe0756e3"
+    },
+    {
+      "previous": "docs/FISCAL-NFE-HOMOLOGACAO.md",
+      "current": "docs/historico/registros/FISCAL-NFE-HOMOLOGACAO.md",
+      "originalSha256": "66af277b02526b8bf65e01d56124edf85c7decd92acdff939a618381f34d384f",
+      "organizedSha256": "9d5e9a6fc68f10ad953f6e65875763cff2eaadd3aeaf1733f101e482daaf4693"
+    },
+    {
+      "previous": "docs/FISCAL-PERFIS-TRIBUTARIOS.md",
+      "current": "docs/telas/fiscal/perfis-tributarios/referencias/FISCAL-PERFIS-TRIBUTARIOS.md",
+      "originalSha256": "51a74a236815c098db547fe4dd60a1b71e013934305182e1e1c7e62f2f0e991f",
+      "organizedSha256": "51a74a236815c098db547fe4dd60a1b71e013934305182e1e1c7e62f2f0e991f"
+    },
+    {
+      "previous": "docs/FISCAL-VALORES-COMERCIAIS.md",
+      "current": "docs/telas/fiscal/nfe/referencias/FISCAL-VALORES-COMERCIAIS.md",
+      "originalSha256": "a00af32908e462357e7ad0f0d751269d82abf2e1fa17ba92b8fc62a1f88e8f8b",
+      "organizedSha256": "a00af32908e462357e7ad0f0d751269d82abf2e1fa17ba92b8fc62a1f88e8f8b"
+    },
+    {
+      "previous": "docs/FRONTEND-AUTH-RETURN.md",
+      "current": "docs/telas/inicio/acesso/referencias/FRONTEND-AUTH-RETURN.md",
+      "originalSha256": "e970f0b4ba16a60db7e28ae6fb27e85293e120ff9fe807f43d99bcdcc1c1680b",
+      "organizedSha256": "e970f0b4ba16a60db7e28ae6fb27e85293e120ff9fe807f43d99bcdcc1c1680b"
+    },
+    {
+      "previous": "docs/FRONTEND-LOTE-2.md",
+      "current": "docs/historico/registros/FRONTEND-LOTE-2.md",
+      "originalSha256": "7351adb5560ab3ac83c3d1288dddab1438da671b999cf60a870b63af6cc72eda",
+      "organizedSha256": "7351adb5560ab3ac83c3d1288dddab1438da671b999cf60a870b63af6cc72eda"
+    },
+    {
+      "previous": "docs/FRONTEND-LOTE-3.md",
+      "current": "docs/historico/registros/FRONTEND-LOTE-3.md",
+      "originalSha256": "5a2245190b30532b2df4047aa091870538503e501fa0828f31587bbe7e7ff4df",
+      "organizedSha256": "5a2245190b30532b2df4047aa091870538503e501fa0828f31587bbe7e7ff4df"
+    },
+    {
+      "previous": "docs/FRONTEND-LOTE-4.md",
+      "current": "docs/historico/registros/FRONTEND-LOTE-4.md",
+      "originalSha256": "ef2af7b5b089e1b1311a60b1439d6d952cdbb3d7d775aa958a7b26d8e5288d38",
+      "organizedSha256": "ef2af7b5b089e1b1311a60b1439d6d952cdbb3d7d775aa958a7b26d8e5288d38"
+    },
+    {
+      "previous": "docs/FRONTEND-P1.md",
+      "current": "docs/historico/registros/FRONTEND-P1.md",
+      "originalSha256": "4f10dd78f98ff206e6b08c226cd59d22eb4ade581ee2e6cdc10804aae8832cf0",
+      "organizedSha256": "4f10dd78f98ff206e6b08c226cd59d22eb4ade581ee2e6cdc10804aae8832cf0"
+    },
+    {
+      "previous": "docs/FRONTEND-RETORNO-AUTH-AVL-384.md",
+      "current": "docs/historico/registros/FRONTEND-RETORNO-AUTH-AVL-384.md",
+      "originalSha256": "94c50ce2d585af6fe3e5e1b39ade6de15e84b1201d681d04d452a209329483c6",
+      "organizedSha256": "94c50ce2d585af6fe3e5e1b39ade6de15e84b1201d681d04d452a209329483c6"
+    },
+    {
+      "previous": "docs/FRONTEND-ROUTE-STATES.csv",
+      "current": "docs/historico/registros/FRONTEND-ROUTE-STATES.csv",
+      "originalSha256": "3eda61d88fa7e2aff5105a14dca87be501f2b63549170ab8456d6a28fac741c9",
+      "organizedSha256": "3eda61d88fa7e2aff5105a14dca87be501f2b63549170ab8456d6a28fac741c9"
+    },
+    {
+      "previous": "docs/FUNCIONARIOS-E-PAGAMENTOS.md",
+      "current": "docs/telas/financeiro/contas-pagar/referencias/FUNCIONARIOS-E-PAGAMENTOS.md",
+      "originalSha256": "37d53fcc3cde32bc4e43ea24d44cf27f52a718605665d31e8e14296ec7a7179e",
+      "organizedSha256": "37d53fcc3cde32bc4e43ea24d44cf27f52a718605665d31e8e14296ec7a7179e"
+    },
+    {
+      "previous": "docs/FUNCIONARIOS-VENDEDORES.md",
+      "current": "docs/telas/cadastros/funcionarios/referencias/FUNCIONARIOS-VENDEDORES.md",
+      "originalSha256": "38e093138c9eac41696c367cb3c7a60d6fafb06673dc22c163e977a1362bf964",
+      "organizedSha256": "38e093138c9eac41696c367cb3c7a60d6fafb06673dc22c163e977a1362bf964"
+    },
+    {
+      "previous": "docs/IBPT-AVL-115.md",
+      "current": "docs/telas/fiscal/configuracoes/referencias/IBPT-AVL-115.md",
+      "originalSha256": "33ee79c0035184cb9083391889a2c37e78d2f03135dc9bf78adea5e7f2f72ba4",
+      "organizedSha256": "33ee79c0035184cb9083391889a2c37e78d2f03135dc9bf78adea5e7f2f72ba4"
+    },
+    {
+      "previous": "docs/IMPORTACAO-FOTOS-LEGADO.md",
+      "current": "docs/historico/registros/IMPORTACAO-FOTOS-LEGADO.md",
+      "originalSha256": "097cfe37eb3d2655c12b93ecff89ba9257a9113d0d6bc3bcaabc62d9ed23f392",
+      "organizedSha256": "097cfe37eb3d2655c12b93ecff89ba9257a9113d0d6bc3bcaabc62d9ed23f392"
+    },
+    {
+      "previous": "docs/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md",
+      "current": "docs/telas/preferencias/integracoes/referencias/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md",
+      "originalSha256": "67a5aa9a87429bb30431bea769ab6a9329da74303a25c726c28f60a7e26cdbf0",
+      "organizedSha256": "67a5aa9a87429bb30431bea769ab6a9329da74303a25c726c28f60a7e26cdbf0"
+    },
+    {
+      "previous": "docs/LANGFUSE.md",
+      "current": "docs/tecnica/LANGFUSE.md",
+      "originalSha256": "1170bede8357638b79a33b5da9b3f9a83121e40173eee4c9fe0135af58ede170",
+      "organizedSha256": "1170bede8357638b79a33b5da9b3f9a83121e40173eee4c9fe0135af58ede170"
+    },
+    {
+      "previous": "docs/LEGACY-EVOLUTION-IMPLEMENTATION.md",
+      "current": "docs/historico/registros/LEGACY-EVOLUTION-IMPLEMENTATION.md",
+      "originalSha256": "16088ba7e3184302e6bd73f03e22376df2e39e338f989c0d315fbbf321941254",
+      "organizedSha256": "16088ba7e3184302e6bd73f03e22376df2e39e338f989c0d315fbbf321941254"
+    },
+    {
+      "previous": "docs/LEGACY-STRUCTURE-QUERY-AUDIT-20261104.md",
+      "current": "docs/historico/registros/LEGACY-STRUCTURE-QUERY-AUDIT-20261104.md",
+      "originalSha256": "afe1724c311d81e9ba1435319d34b3a8dac94c3bdbc2e3f8421fd8596c75e958",
+      "organizedSha256": "afe1724c311d81e9ba1435319d34b3a8dac94c3bdbc2e3f8421fd8596c75e958"
+    },
+    {
+      "previous": "docs/LUDUS-CATALOGO-PUBLICACAO.md",
+      "current": "docs/telas/cadastros/produtos/referencias/LUDUS-CATALOGO-PUBLICACAO.md",
+      "originalSha256": "eb66aa55cbe96413cdc734b99e6d66ad576620f2cc77becf3fdf59dcb378b0f2",
+      "organizedSha256": "eb66aa55cbe96413cdc734b99e6d66ad576620f2cc77becf3fdf59dcb378b0f2"
+    },
+    {
+      "previous": "docs/MATRIZ-CAPACIDADES-FISCAIS-AVL-69.md",
+      "current": "docs/historico/registros/MATRIZ-CAPACIDADES-FISCAIS-AVL-69.md",
+      "originalSha256": "78aa0c878744c46687e4c10cb6edf9b6472488c7c291057b4f31236b6f5636ba",
+      "organizedSha256": "a5ba42fc825d870b3a7346089cc2b122214a998df8a9a7e60542d39123e95337"
+    },
+    {
+      "previous": "docs/MIGRACAO-LEGADO-20261028.md",
+      "current": "docs/historico/registros/MIGRACAO-LEGADO-20261028.md",
+      "originalSha256": "c8de3be076b75b5aa51285795b9202fe607d69f5e7dad03395a83535758ee1a5",
+      "organizedSha256": "c8de3be076b75b5aa51285795b9202fe607d69f5e7dad03395a83535758ee1a5"
+    },
+    {
+      "previous": "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+      "current": "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
+      "originalSha256": "ec2f433fbc110918398d174b941d395c09a4e9d7547b3bdd151fab60a39d3180",
+      "organizedSha256": "ec2f433fbc110918398d174b941d395c09a4e9d7547b3bdd151fab60a39d3180"
+    },
+    {
+      "previous": "docs/MONITOR-FISCAL-CANONICO.md",
+      "current": "docs/telas/fiscal/monitor/referencias/MONITOR-FISCAL-CANONICO.md",
+      "originalSha256": "fd9146b27d5edc0e25845f9f3cba2b1f2cb69a433509f30c4ae968611a08a038",
+      "organizedSha256": "fd9146b27d5edc0e25845f9f3cba2b1f2cb69a433509f30c4ae968611a08a038"
+    },
+    {
+      "previous": "docs/MONITOR-FISCAL-PRODUCAO.md",
+      "current": "docs/historico/registros/MONITOR-FISCAL-PRODUCAO.md",
+      "originalSha256": "4023fec861664fabe95eac4abbb037bc6025f5c61342ab82e5f272b76c999a6b",
+      "organizedSha256": "4023fec861664fabe95eac4abbb037bc6025f5c61342ab82e5f272b76c999a6b"
+    },
+    {
+      "previous": "docs/NAVEGACAO-AVILA-ERP.md",
+      "current": "docs/telas/inicio/navegacao/referencias/NAVEGACAO-AVILA-ERP.md",
+      "originalSha256": "6973e38114fef2d9d36add1a112bd7977337131423cceb6f7f599efec95ac271",
+      "organizedSha256": "6973e38114fef2d9d36add1a112bd7977337131423cceb6f7f599efec95ac271"
+    },
+    {
+      "previous": "docs/NFE-SEFAZ-RECOVERY.md",
+      "current": "docs/telas/fiscal/nfe/referencias/NFE-SEFAZ-RECOVERY.md",
+      "originalSha256": "7076a03efe09e81336cf0962a62debd926bae0e34e4db1de3b62a0ba5ed75f31",
+      "organizedSha256": "7076a03efe09e81336cf0962a62debd926bae0e34e4db1de3b62a0ba5ed75f31"
+    },
+    {
+      "previous": "docs/OPENAPI-CI.md",
+      "current": "docs/tecnica/OPENAPI-CI.md",
+      "originalSha256": "443dada604d9203e9d01cb31fe8c066f47b437a9ddcd9dc407160607b17e592a",
+      "organizedSha256": "443dada604d9203e9d01cb31fe8c066f47b437a9ddcd9dc407160607b17e592a"
+    },
+    {
+      "previous": "docs/PARAMETROS-COMERCIAIS-2026-11-04.md",
+      "current": "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md",
+      "originalSha256": "15663c83ded2f4fd44c0d80fd08201c485178326944d0306e464608ac5ac9669",
+      "organizedSha256": "15663c83ded2f4fd44c0d80fd08201c485178326944d0306e464608ac5ac9669"
+    },
+    {
+      "previous": "docs/PEDIDOS-FINANCEIRO.md",
+      "current": "docs/telas/vendas/pedidos/referencias/PEDIDOS-FINANCEIRO.md",
+      "originalSha256": "48a1f2be47340608df139d51d989f910ee7d9a8b6911c75496d9a935a7072be9",
+      "organizedSha256": "48a1f2be47340608df139d51d989f910ee7d9a8b6911c75496d9a935a7072be9"
+    },
+    {
+      "previous": "docs/PESSOAS-PERSISTENTES.md",
+      "current": "docs/telas/cadastros/clientes-fornecedores/referencias/PESSOAS-PERSISTENTES.md",
+      "originalSha256": "00aaa146cd129b2bde734c8895ea3840632081c508f71ba1a9dfc3064cfeb895",
+      "organizedSha256": "00aaa146cd129b2bde734c8895ea3840632081c508f71ba1a9dfc3064cfeb895"
+    },
+    {
+      "previous": "docs/PLANO-OPERACOES-ERP.mdx",
+      "current": "docs/tecnica/PLANO-OPERACOES-ERP.mdx",
+      "originalSha256": "981f73be0d799c5b9fa76e8f1fd6cca1aa6ffda2d70a5b7137453cd1715d15db",
+      "organizedSha256": "981f73be0d799c5b9fa76e8f1fd6cca1aa6ffda2d70a5b7137453cd1715d15db"
+    },
+    {
+      "previous": "docs/PLATFORM-DATABASE-20261104.md",
+      "current": "docs/historico/registros/PLATFORM-DATABASE-20261104.md",
+      "originalSha256": "0236cab04c1911da2c873865a842e0e3e14cc3b2e269906ce2b7252001d34413",
+      "organizedSha256": "0236cab04c1911da2c873865a842e0e3e14cc3b2e269906ce2b7252001d34413"
+    },
+    {
+      "previous": "docs/PLATFORM-TENANT-ADMINISTRATION.md",
+      "current": "docs/tecnica/PLATFORM-TENANT-ADMINISTRATION.md",
+      "originalSha256": "231b221fe6dd880ee6ff901f60b88f385b9f1ac3b2d0cd8a53dd14ee6ceb9643",
+      "organizedSha256": "231b221fe6dd880ee6ff901f60b88f385b9f1ac3b2d0cd8a53dd14ee6ceb9643"
+    },
+    {
+      "previous": "docs/PREFERENCIAS-FISCAIS.md",
+      "current": "docs/telas/fiscal/configuracoes/referencias/PREFERENCIAS-FISCAIS.md",
+      "originalSha256": "d03397656dcaac6de68280be29620b8fd71b0be4b2be3df00ef06d02ab915906",
+      "organizedSha256": "d03397656dcaac6de68280be29620b8fd71b0be4b2be3df00ef06d02ab915906"
+    },
+    {
+      "previous": "docs/PREFERENCIAS-PENDENTES.md",
+      "current": "docs/telas/preferencias/vendas/referencias/PREFERENCIAS-PENDENTES.md",
+      "originalSha256": "81cd232f6afb6b178f9d4ff2f826e65c48058ed1562edf68b2f2aba4615b6a88",
+      "organizedSha256": "81cd232f6afb6b178f9d4ff2f826e65c48058ed1562edf68b2f2aba4615b6a88"
+    },
+    {
+      "previous": "docs/PREFERENCIAS-SISTEMA.md",
+      "current": "docs/telas/preferencias/sistema/referencias/PREFERENCIAS-SISTEMA.md",
+      "originalSha256": "5287bf5a53374979f92f13f15e1226bd090f6a29123056dd180238582b1bcc57",
+      "organizedSha256": "5287bf5a53374979f92f13f15e1226bd090f6a29123056dd180238582b1bcc57"
+    },
+    {
+      "previous": "docs/RASTREABILIDADE-AGENTE-2.md",
+      "current": "docs/historico/registros/RASTREABILIDADE-AGENTE-2.md",
+      "originalSha256": "91bcf12c4bce069848cd585737e5c89426a4ee90663711e9b6b577f3f2f17bf9",
+      "organizedSha256": "91bcf12c4bce069848cd585737e5c89426a4ee90663711e9b6b577f3f2f17bf9"
+    },
+    {
+      "previous": "docs/RECEBIMENTO-NFE-AVL-91-94-97.md",
+      "current": "docs/telas/fiscal/monitor/referencias/RECEBIMENTO-NFE-AVL-91-94-97.md",
+      "originalSha256": "fc852d35ad6b3cf7d444fd937efc68a6e4e863b55ffafd3361651ec8fe6cdbfe",
+      "organizedSha256": "fc852d35ad6b3cf7d444fd937efc68a6e4e863b55ffafd3361651ec8fe6cdbfe"
+    },
+    {
+      "previous": "docs/RESULTADO-MIGRACAO-20261028.md",
+      "current": "docs/historico/registros/RESULTADO-MIGRACAO-20261028.md",
+      "originalSha256": "1ae6f760fcb15340ccfb96bcb51c3338ca30d04d636a167488446a40d1fd99aa",
+      "organizedSha256": "1ae6f760fcb15340ccfb96bcb51c3338ca30d04d636a167488446a40d1fd99aa"
+    },
+    {
+      "previous": "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+      "current": "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+      "originalSha256": "f104dd87d9c347a81f5b8f3c9fd2d77fba02a59834bb28e636672b03d18d72e3",
+      "organizedSha256": "a31a64f63d8590863a2311f6d1dd7958709937a01e88f14f237bef516bb9aaca"
+    },
+    {
+      "previous": "docs/SEGURANCA-AUDITORIA.md",
+      "current": "docs/telas/preferencias/seguranca/referencias/SEGURANCA-AUDITORIA.md",
+      "originalSha256": "edd361a745d4daf55abecdba38cb30aef28aec5d617a070edff40d25398f40ee",
+      "organizedSha256": "edd361a745d4daf55abecdba38cb30aef28aec5d617a070edff40d25398f40ee"
+    },
+    {
+      "previous": "docs/SIMULADOR-COMERCIAL-2026-11-05.md",
+      "current": "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md",
+      "originalSha256": "03a2715bd1293c9dd134f4fe4579782d5d1eb365c2dd72582aba82cbb9511736",
+      "organizedSha256": "03a2715bd1293c9dd134f4fe4579782d5d1eb365c2dd72582aba82cbb9511736"
+    },
+    {
+      "previous": "docs/STATUS-ERP.md",
+      "current": "docs/historico/registros/STATUS-ERP.md",
+      "originalSha256": "edef8f7d351bf16defc102742c3a17cc610de77eb2fcaab6d84f6329afc44618",
+      "organizedSha256": "618739e3e729c779bc57dd22d466ff500952bc9d3f057d086a5ab6ac34a18449"
+    },
+    {
+      "previous": "docs/SUPRIMENTOS-PREFERENCIAS.md",
+      "current": "docs/telas/preferencias/suprimentos/referencias/SUPRIMENTOS-PREFERENCIAS.md",
+      "originalSha256": "cf9bea3ca9ff6c3364d9921f35c67945bbc94a3c4d794d584305525393bf7211",
+      "organizedSha256": "cf9bea3ca9ff6c3364d9921f35c67945bbc94a3c4d794d584305525393bf7211"
+    },
+    {
+      "previous": "docs/VERIFICACAO-CONTINUIDADE-20261031.md",
+      "current": "docs/historico/registros/VERIFICACAO-CONTINUIDADE-20261031.md",
+      "originalSha256": "76f856742776fdad13a6af9e1eb33e154afa8f28bf5ea3d13f0891c83192ccfc",
+      "organizedSha256": "a55cfe5254f3f5d089fd0075447c71992baea723c55334413a98e34b982fd53a"
+    },
+    {
+      "previous": "docs/VERIFICACAO-INTEGRACAO-20261101.md",
+      "current": "docs/historico/registros/VERIFICACAO-INTEGRACAO-20261101.md",
+      "originalSha256": "8aaaaea46979f3944f9a40cb3385429ea0b4b38c112db2c74855b65d4521f4c0",
+      "organizedSha256": "8aaaaea46979f3944f9a40cb3385429ea0b4b38c112db2c74855b65d4521f4c0"
+    },
+    {
+      "previous": "docs/VERIFICACAO-RETORNOS-FISCAL-20261031.md",
+      "current": "docs/historico/registros/VERIFICACAO-RETORNOS-FISCAL-20261031.md",
+      "originalSha256": "2c20f3e2c8fb95add01dea9d40620120ba910b067113bff24b550f6411adc3c4",
+      "organizedSha256": "85a99c6a170f24f18f6cc0940535e68eaae310b35a5244e58240d70eb4dfaa5a"
+    },
+    {
+      "previous": "docs/commercial-contracts.md",
+      "current": "docs/telas/servicos/contratos/referencias/commercial-contracts.md",
+      "originalSha256": "b56db4aa75b4d91fcf9073a47db485c25b5a0573a83cfa8f3d7c1981e9b32517",
+      "organizedSha256": "b56db4aa75b4d91fcf9073a47db485c25b5a0573a83cfa8f3d7c1981e9b32517"
+    },
+    {
+      "previous": "docs/contract-template-editor.md",
+      "current": "docs/telas/servicos/contratos/referencias/contract-template-editor.md",
+      "originalSha256": "041dd730a7e788b6b337da09ba8a65bae172f2eb4aadd89fa7800493acfb8096",
+      "organizedSha256": "041dd730a7e788b6b337da09ba8a65bae172f2eb4aadd89fa7800493acfb8096"
+    },
+    {
+      "previous": "docs/product-media.md",
+      "current": "docs/telas/cadastros/produtos/referencias/product-media.md",
+      "originalSha256": "318868f3d75720a17b3438f8f4ad895b5a00640d27ba15cba6d9261081fa0b55",
+      "organizedSha256": "318868f3d75720a17b3438f8f4ad895b5a00640d27ba15cba6d9261081fa0b55"
+    },
+    {
+      "previous": "docs/sales-order-numbers.md",
+      "current": "docs/telas/vendas/pedidos/referencias/sales-order-numbers.md",
+      "originalSha256": "288d0cebfa5536ba030aadb65ba677f37ff3d2cef541ef192dff01d2a8d52783",
+      "organizedSha256": "288d0cebfa5536ba030aadb65ba677f37ff3d2cef541ef192dff01d2a8d52783"
+    },
+    {
+      "previous": "docs/sales-proposals.md",
+      "current": "docs/telas/vendas/propostas/referencias/sales-proposals.md",
+      "originalSha256": "c2b894ee249259aeeb4b4d874c1b97f24a24e1e1f3129dc456ea1848308dcb6d",
+      "organizedSha256": "c2b894ee249259aeeb4b4d874c1b97f24a24e1e1f3129dc456ea1848308dcb6d"
+    },
+    {
+      "previous": "docs/siscomex-local-evaluation.md",
+      "current": "docs/tecnica/siscomex-local-evaluation.md",
+      "originalSha256": "fddad6b5157421f10e01e0d139942443af67a0d17fc5b010c554b503db0f6633",
+      "organizedSha256": "fddad6b5157421f10e01e0d139942443af67a0d17fc5b010c554b503db0f6633"
+    }
+  ],
+  "hashEncoding": "SHA-256 dos bytes UTF-8 com quebras de linha LF; diferenças CRLF do checkout não alteram conteúdo."
+}

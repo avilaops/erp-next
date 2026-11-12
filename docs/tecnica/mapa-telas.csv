@@ -1,0 +1,229 @@
+rota,tela,guia,fonte
+/ajuda,Assistente e ajuda,docs/telas/inicio/assistente-ajuda/README.md,apps/web/src/app/ajuda/page.tsx
+/aplicativos,"Eventos, notificações e aplicativos",docs/telas/inicio/central-trabalho/README.md,apps/web/src/app/aplicativos/page.tsx
+/assistente,Assistente e ajuda,docs/telas/inicio/assistente-ajuda/README.md,apps/web/src/app/assistente/page.tsx
+/cadastro/empresa,Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/cadastro/empresa/page.tsx
+/cadastros/categorias-financeiras/[id]/editar,Categorias financeiras,docs/telas/cadastros/categorias-financeiras/README.md,apps/web/src/app/cadastros/categorias-financeiras/[id]/editar/page.tsx
+/cadastros/categorias-financeiras/[id],Categorias financeiras,docs/telas/cadastros/categorias-financeiras/README.md,apps/web/src/app/cadastros/categorias-financeiras/[id]/page.tsx
+/cadastros/categorias-financeiras/novo,Categorias financeiras,docs/telas/cadastros/categorias-financeiras/README.md,apps/web/src/app/cadastros/categorias-financeiras/novo/page.tsx
+/cadastros/categorias-financeiras,Categorias financeiras,docs/telas/cadastros/categorias-financeiras/README.md,apps/web/src/app/cadastros/categorias-financeiras/page.tsx
+/cadastros/categorias-produtos/[id]/editar,Categorias e subcategorias de produtos,docs/telas/cadastros/categorias-produtos/README.md,apps/web/src/app/cadastros/categorias-produtos/[id]/editar/page.tsx
+/cadastros/categorias-produtos/[id],Categorias e subcategorias de produtos,docs/telas/cadastros/categorias-produtos/README.md,apps/web/src/app/cadastros/categorias-produtos/[id]/page.tsx
+/cadastros/categorias-produtos/novo,Categorias e subcategorias de produtos,docs/telas/cadastros/categorias-produtos/README.md,apps/web/src/app/cadastros/categorias-produtos/novo/page.tsx
+/cadastros/categorias-produtos,Categorias e subcategorias de produtos,docs/telas/cadastros/categorias-produtos/README.md,apps/web/src/app/cadastros/categorias-produtos/page.tsx
+/cadastros/clientes-fornecedores/[id]/contratos,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/cadastros/clientes-fornecedores/[id]/contratos/page.tsx
+/cadastros/clientes-fornecedores/[id]/editar,Clientes e fornecedores,docs/telas/cadastros/clientes-fornecedores/README.md,apps/web/src/app/cadastros/clientes-fornecedores/[id]/editar/page.tsx
+/cadastros/clientes-fornecedores/[id],Clientes e fornecedores,docs/telas/cadastros/clientes-fornecedores/README.md,apps/web/src/app/cadastros/clientes-fornecedores/[id]/page.tsx
+/cadastros/clientes-fornecedores/novo,Clientes e fornecedores,docs/telas/cadastros/clientes-fornecedores/README.md,apps/web/src/app/cadastros/clientes-fornecedores/novo/page.tsx
+/cadastros/clientes-fornecedores,Clientes e fornecedores,docs/telas/cadastros/clientes-fornecedores/README.md,apps/web/src/app/cadastros/clientes-fornecedores/page.tsx
+/cadastros/contas-financeiras/[id]/editar,Contas financeiras,docs/telas/cadastros/contas-financeiras/README.md,apps/web/src/app/cadastros/contas-financeiras/[id]/editar/page.tsx
+/cadastros/contas-financeiras/[id],Contas financeiras,docs/telas/cadastros/contas-financeiras/README.md,apps/web/src/app/cadastros/contas-financeiras/[id]/page.tsx
+/cadastros/contas-financeiras/novo,Contas financeiras,docs/telas/cadastros/contas-financeiras/README.md,apps/web/src/app/cadastros/contas-financeiras/novo/page.tsx
+/cadastros/contas-financeiras,Contas financeiras,docs/telas/cadastros/contas-financeiras/README.md,apps/web/src/app/cadastros/contas-financeiras/page.tsx
+/cadastros/formas-pagamento/[id]/editar,Formas de pagamento,docs/telas/cadastros/formas-pagamento/README.md,apps/web/src/app/cadastros/formas-pagamento/[id]/editar/page.tsx
+/cadastros/formas-pagamento/[id],Formas de pagamento,docs/telas/cadastros/formas-pagamento/README.md,apps/web/src/app/cadastros/formas-pagamento/[id]/page.tsx
+/cadastros/formas-pagamento/novo,Formas de pagamento,docs/telas/cadastros/formas-pagamento/README.md,apps/web/src/app/cadastros/formas-pagamento/novo/page.tsx
+/cadastros/formas-pagamento,Formas de pagamento,docs/telas/cadastros/formas-pagamento/README.md,apps/web/src/app/cadastros/formas-pagamento/page.tsx
+/cadastros/funcionarios/[id]/editar,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/funcionarios/[id]/editar/page.tsx
+/cadastros/funcionarios/[id],Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/funcionarios/[id]/page.tsx
+/cadastros/funcionarios/novo,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/funcionarios/novo/page.tsx
+/cadastros/funcionarios/pagamentos,Contas a pagar e pagamentos de funcionários,docs/telas/financeiro/contas-pagar/README.md,apps/web/src/app/cadastros/funcionarios/pagamentos/page.tsx
+/cadastros/funcionarios,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/funcionarios/page.tsx
+/cadastros/grupos-produtos/[id]/editar,Grupos de produtos,docs/telas/cadastros/grupos-produtos/README.md,apps/web/src/app/cadastros/grupos-produtos/[id]/editar/page.tsx
+/cadastros/grupos-produtos/[id],Grupos de produtos,docs/telas/cadastros/grupos-produtos/README.md,apps/web/src/app/cadastros/grupos-produtos/[id]/page.tsx
+/cadastros/grupos-produtos/novo,Grupos de produtos,docs/telas/cadastros/grupos-produtos/README.md,apps/web/src/app/cadastros/grupos-produtos/novo/page.tsx
+/cadastros/grupos-produtos,Grupos de produtos,docs/telas/cadastros/grupos-produtos/README.md,apps/web/src/app/cadastros/grupos-produtos/page.tsx
+/cadastros/grupos-tags/[id]/editar,Grupos de tags,docs/telas/cadastros/grupos-tags/README.md,apps/web/src/app/cadastros/grupos-tags/[id]/editar/page.tsx
+/cadastros/grupos-tags/[id],Grupos de tags,docs/telas/cadastros/grupos-tags/README.md,apps/web/src/app/cadastros/grupos-tags/[id]/page.tsx
+/cadastros/grupos-tags/novo,Grupos de tags,docs/telas/cadastros/grupos-tags/README.md,apps/web/src/app/cadastros/grupos-tags/novo/page.tsx
+/cadastros/grupos-tags,Grupos de tags,docs/telas/cadastros/grupos-tags/README.md,apps/web/src/app/cadastros/grupos-tags/page.tsx
+/cadastros/listas-precos/[id]/editar,Listas de preços,docs/telas/cadastros/listas-precos/README.md,apps/web/src/app/cadastros/listas-precos/[id]/editar/page.tsx
+/cadastros/listas-precos/[id],Listas de preços,docs/telas/cadastros/listas-precos/README.md,apps/web/src/app/cadastros/listas-precos/[id]/page.tsx
+/cadastros/listas-precos/novo,Listas de preços,docs/telas/cadastros/listas-precos/README.md,apps/web/src/app/cadastros/listas-precos/novo/page.tsx
+/cadastros/listas-precos,Listas de preços,docs/telas/cadastros/listas-precos/README.md,apps/web/src/app/cadastros/listas-precos/page.tsx
+/cadastros,Menu e navegação,docs/telas/inicio/navegacao/README.md,apps/web/src/app/cadastros/page.tsx
+/cadastros/produtos/[id]/custos,Custos e linha comercial,docs/telas/cadastros/custos/README.md,apps/web/src/app/cadastros/produtos/[id]/custos/page.tsx
+/cadastros/produtos/[id]/editar,Produtos,docs/telas/cadastros/produtos/README.md,apps/web/src/app/cadastros/produtos/[id]/editar/page.tsx
+/cadastros/produtos/[id],Produtos,docs/telas/cadastros/produtos/README.md,apps/web/src/app/cadastros/produtos/[id]/page.tsx
+/cadastros/produtos/novo,Produtos,docs/telas/cadastros/produtos/README.md,apps/web/src/app/cadastros/produtos/novo/page.tsx
+/cadastros/produtos,Produtos,docs/telas/cadastros/produtos/README.md,apps/web/src/app/cadastros/produtos/page.tsx
+/cadastros/tags/[id]/editar,Tags,docs/telas/cadastros/tags/README.md,apps/web/src/app/cadastros/tags/[id]/editar/page.tsx
+/cadastros/tags/[id],Tags,docs/telas/cadastros/tags/README.md,apps/web/src/app/cadastros/tags/[id]/page.tsx
+/cadastros/tags/novo,Tags,docs/telas/cadastros/tags/README.md,apps/web/src/app/cadastros/tags/novo/page.tsx
+/cadastros/tags,Tags,docs/telas/cadastros/tags/README.md,apps/web/src/app/cadastros/tags/page.tsx
+/cadastros/vendedores/[id]/editar,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/vendedores/[id]/editar/page.tsx
+/cadastros/vendedores/[id],Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/vendedores/[id]/page.tsx
+/cadastros/vendedores/novo,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/vendedores/novo/page.tsx
+/cadastros/vendedores,Funcionários,docs/telas/cadastros/funcionarios/README.md,apps/web/src/app/cadastros/vendedores/page.tsx
+/compras/notas-entrada/[id],Monitor fiscal e XML recebidos,docs/telas/fiscal/monitor/README.md,apps/web/src/app/compras/notas-entrada/[id]/page.tsx
+/compras/notas-entrada,Monitor fiscal e XML recebidos,docs/telas/fiscal/monitor/README.md,apps/web/src/app/compras/notas-entrada/page.tsx
+/compras,Pedidos de compra,docs/telas/compras/pedidos/README.md,apps/web/src/app/compras/page.tsx
+/compras/pedidos/[id]/editar,Pedidos de compra,docs/telas/compras/pedidos/README.md,apps/web/src/app/compras/pedidos/[id]/editar/page.tsx
+/compras/pedidos/[id],Pedidos de compra,docs/telas/compras/pedidos/README.md,apps/web/src/app/compras/pedidos/[id]/page.tsx
+/compras/pedidos/novo,Pedidos de compra,docs/telas/compras/pedidos/README.md,apps/web/src/app/compras/pedidos/novo/page.tsx
+/compras/pedidos,Pedidos de compra,docs/telas/compras/pedidos/README.md,apps/web/src/app/compras/pedidos/page.tsx
+/compras/recebimentos/[id],Check-in de recebimentos,docs/telas/compras/recebimentos/README.md,apps/web/src/app/compras/recebimentos/[id]/page.tsx
+/compras/recebimentos,Check-in de recebimentos,docs/telas/compras/recebimentos/README.md,apps/web/src/app/compras/recebimentos/page.tsx
+/compras/sugestoes/[id],Sugestões de compra,docs/telas/compras/sugestoes/README.md,apps/web/src/app/compras/sugestoes/[id]/page.tsx
+/compras/sugestoes,Sugestões de compra,docs/telas/compras/sugestoes/README.md,apps/web/src/app/compras/sugestoes/page.tsx
+/dashboard,Visão geral e dashboards,docs/telas/inicio/visao-geral/README.md,apps/web/src/app/dashboard/page.tsx
+/dashboards/[kind],Visão geral e dashboards,docs/telas/inicio/visao-geral/README.md,apps/web/src/app/dashboards/[kind]/page.tsx
+/dashboards,Visão geral e dashboards,docs/telas/inicio/visao-geral/README.md,apps/web/src/app/dashboards/page.tsx
+/empresas,Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/empresas/page.tsx
+/entrar,Entrar e retomar o acesso,docs/telas/inicio/acesso/README.md,apps/web/src/app/entrar/page.tsx
+/estoque/depositos/[id]/editar,Depósitos,docs/telas/estoque/depositos/README.md,apps/web/src/app/estoque/depositos/[id]/editar/page.tsx
+/estoque/depositos/[id],Depósitos,docs/telas/estoque/depositos/README.md,apps/web/src/app/estoque/depositos/[id]/page.tsx
+/estoque/depositos/novo,Depósitos,docs/telas/estoque/depositos/README.md,apps/web/src/app/estoque/depositos/novo/page.tsx
+/estoque/depositos,Depósitos,docs/telas/estoque/depositos/README.md,apps/web/src/app/estoque/depositos/page.tsx
+/estoque/inventarios/[id]/contagem,Conferência de estoque,docs/telas/estoque/inventarios/README.md,apps/web/src/app/estoque/inventarios/[id]/contagem/page.tsx
+/estoque/inventarios/[id],Conferência de estoque,docs/telas/estoque/inventarios/README.md,apps/web/src/app/estoque/inventarios/[id]/page.tsx
+/estoque/inventarios/novo,Conferência de estoque,docs/telas/estoque/inventarios/README.md,apps/web/src/app/estoque/inventarios/novo/page.tsx
+/estoque/inventarios,Conferência de estoque,docs/telas/estoque/inventarios/README.md,apps/web/src/app/estoque/inventarios/page.tsx
+/estoque/lancamentos/[id],Lançamentos de estoque,docs/telas/estoque/lancamentos/README.md,apps/web/src/app/estoque/lancamentos/[id]/page.tsx
+/estoque/lancamentos/novo,Lançamentos de estoque,docs/telas/estoque/lancamentos/README.md,apps/web/src/app/estoque/lancamentos/novo/page.tsx
+/estoque/lancamentos,Lançamentos de estoque,docs/telas/estoque/lancamentos/README.md,apps/web/src/app/estoque/lancamentos/page.tsx
+/estoque/ordens-producao/[id]/executar,Ordens de produção,docs/telas/estoque/producao/README.md,apps/web/src/app/estoque/ordens-producao/[id]/executar/page.tsx
+/estoque/ordens-producao/[id],Ordens de produção,docs/telas/estoque/producao/README.md,apps/web/src/app/estoque/ordens-producao/[id]/page.tsx
+/estoque/ordens-producao/novo,Ordens de produção,docs/telas/estoque/producao/README.md,apps/web/src/app/estoque/ordens-producao/novo/page.tsx
+/estoque/ordens-producao,Ordens de produção,docs/telas/estoque/producao/README.md,apps/web/src/app/estoque/ordens-producao/page.tsx
+/estoque,Estoque e saldos,docs/telas/estoque/saldos/README.md,apps/web/src/app/estoque/page.tsx
+/estoque/saldos,Estoque e saldos,docs/telas/estoque/saldos/README.md,apps/web/src/app/estoque/saldos/page.tsx
+/eventos/[id],"Eventos, notificações e aplicativos",docs/telas/inicio/central-trabalho/README.md,apps/web/src/app/eventos/[id]/page.tsx
+/eventos,"Eventos, notificações e aplicativos",docs/telas/inicio/central-trabalho/README.md,apps/web/src/app/eventos/page.tsx
+/financeiro/caixas-bancos,Caixas e bancos,docs/telas/financeiro/caixas-bancos/README.md,apps/web/src/app/financeiro/caixas-bancos/page.tsx
+/financeiro/comissoes,Comissões,docs/telas/financeiro/comissoes/README.md,apps/web/src/app/financeiro/comissoes/page.tsx
+/financeiro/conta-digital,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/conta-digital/page.tsx
+/financeiro/contador,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/contador/page.tsx
+/financeiro/contas-pagar/[id],Contas a pagar e pagamentos de funcionários,docs/telas/financeiro/contas-pagar/README.md,apps/web/src/app/financeiro/contas-pagar/[id]/page.tsx
+/financeiro/contas-pagar,Contas a pagar e pagamentos de funcionários,docs/telas/financeiro/contas-pagar/README.md,apps/web/src/app/financeiro/contas-pagar/page.tsx
+/financeiro/contas-receber/[id],Contas a receber,docs/telas/financeiro/contas-receber/README.md,apps/web/src/app/financeiro/contas-receber/[id]/page.tsx
+/financeiro/contas-receber,Contas a receber,docs/telas/financeiro/contas-receber/README.md,apps/web/src/app/financeiro/contas-receber/page.tsx
+/financeiro/controle-caixa,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/controle-caixa/page.tsx
+/financeiro/faturamento-agrupado,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/faturamento-agrupado/page.tsx
+/financeiro/ficha-financeira,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/ficha-financeira/page.tsx
+/financeiro,Visão geral financeira,docs/telas/financeiro/visao-geral/README.md,apps/web/src/app/financeiro/page.tsx
+/financeiro/relatorios,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/financeiro/relatorios/page.tsx
+/financeiro/remessas-retornos,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/remessas-retornos/page.tsx
+/financeiro/tributos,Outras áreas financeiras,docs/telas/financeiro/outros-recursos/README.md,apps/web/src/app/financeiro/tributos/page.tsx
+/fiscal/ctes,CT-e recebidos,docs/telas/fiscal/cte/README.md,apps/web/src/app/fiscal/ctes/page.tsx
+/fiscal/danfe,DANFE de XML autorizado,docs/telas/fiscal/danfe/README.md,apps/web/src/app/fiscal/danfe/page.tsx
+/fiscal/guias/[id],Guias tributárias,docs/telas/fiscal/guias/README.md,apps/web/src/app/fiscal/guias/[id]/page.tsx
+/fiscal/guias/nova,Guias tributárias,docs/telas/fiscal/guias/README.md,apps/web/src/app/fiscal/guias/nova/page.tsx
+/fiscal/guias,Guias tributárias,docs/telas/fiscal/guias/README.md,apps/web/src/app/fiscal/guias/page.tsx
+/fiscal/monitor/[id],Monitor fiscal e XML recebidos,docs/telas/fiscal/monitor/README.md,apps/web/src/app/fiscal/monitor/[id]/page.tsx
+/fiscal/monitor,Monitor fiscal e XML recebidos,docs/telas/fiscal/monitor/README.md,apps/web/src/app/fiscal/monitor/page.tsx
+/fiscal/nfce/[id],NFC-e,docs/telas/fiscal/nfce/README.md,apps/web/src/app/fiscal/nfce/[id]/page.tsx
+/fiscal/nfce,NFC-e,docs/telas/fiscal/nfce/README.md,apps/web/src/app/fiscal/nfce/page.tsx
+/fiscal/nfses,NFS-e recebidas,docs/telas/fiscal/nfse/README.md,apps/web/src/app/fiscal/nfses/page.tsx
+/fiscal/notas-saida/[id],NF-e de saída,docs/telas/fiscal/nfe/README.md,apps/web/src/app/fiscal/notas-saida/[id]/page.tsx
+/fiscal/notas-saida/importadas/[id],Importação de NF-e de saída,docs/telas/fiscal/importar-nfe-saida/README.md,apps/web/src/app/fiscal/notas-saida/importadas/[id]/page.tsx
+/fiscal/notas-saida/importar,Importação de NF-e de saída,docs/telas/fiscal/importar-nfe-saida/README.md,apps/web/src/app/fiscal/notas-saida/importar/page.tsx
+/fiscal/notas-saida/nova,NF-e de saída,docs/telas/fiscal/nfe/README.md,apps/web/src/app/fiscal/notas-saida/nova/page.tsx
+/fiscal/notas-saida,NF-e de saída,docs/telas/fiscal/nfe/README.md,apps/web/src/app/fiscal/notas-saida/page.tsx
+/fiscal,Visão geral fiscal,docs/telas/fiscal/visao-geral/README.md,apps/web/src/app/fiscal/page.tsx
+/historico,Histórico importado,docs/telas/inicio/historico/README.md,apps/web/src/app/historico/page.tsx
+/logistica/checkout/[id],Checkout de pedidos,docs/telas/logistica/checkout/README.md,apps/web/src/app/logistica/checkout/[id]/page.tsx
+/logistica/checkout,Checkout de pedidos,docs/telas/logistica/checkout/README.md,apps/web/src/app/logistica/checkout/page.tsx
+/logistica/envios/[id],Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/envios/[id]/page.tsx
+/logistica/envios/nova,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/envios/nova/page.tsx
+/logistica/envios,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/envios/page.tsx
+/logistica/etiquetas/[id],Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/etiquetas/[id]/page.tsx
+/logistica/etiquetas/nova,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/etiquetas/nova/page.tsx
+/logistica/etiquetas,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/etiquetas/page.tsx
+/logistica,Objetos de postagem,docs/telas/logistica/postagens/README.md,apps/web/src/app/logistica/page.tsx
+/logistica/postagens/[id],Objetos de postagem,docs/telas/logistica/postagens/README.md,apps/web/src/app/logistica/postagens/[id]/page.tsx
+/logistica/postagens/novo,Objetos de postagem,docs/telas/logistica/postagens/README.md,apps/web/src/app/logistica/postagens/novo/page.tsx
+/logistica/postagens,Objetos de postagem,docs/telas/logistica/postagens/README.md,apps/web/src/app/logistica/postagens/page.tsx
+/logistica/reversa/[id],Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/reversa/[id]/page.tsx
+/logistica/reversa/nova,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/reversa/nova/page.tsx
+/logistica/reversa,Etiquetas e logística reversa,docs/telas/logistica/etiquetas-reversa/README.md,apps/web/src/app/logistica/reversa/page.tsx
+/notificacoes,"Eventos, notificações e aplicativos",docs/telas/inicio/central-trabalho/README.md,apps/web/src/app/notificacoes/page.tsx
+/novidades,"Eventos, notificações e aplicativos",docs/telas/inicio/central-trabalho/README.md,apps/web/src/app/novidades/page.tsx
+/,Visão geral e dashboards,docs/telas/inicio/visao-geral/README.md,apps/web/src/app/page.tsx
+/preferencias/aprovacao-comercial,Regras de aprovação comercial,docs/telas/preferencias/aprovacao-comercial/README.md,apps/web/src/app/preferencias/aprovacao-comercial/page.tsx
+/preferencias/cadastros/clientes-fornecedores,Configurações de cadastros,docs/telas/preferencias/cadastros/README.md,apps/web/src/app/preferencias/cadastros/clientes-fornecedores/page.tsx
+/preferencias/cadastros/perfis-tributarios,Perfis tributários,docs/telas/fiscal/perfis-tributarios/README.md,apps/web/src/app/preferencias/cadastros/perfis-tributarios/page.tsx
+/preferencias/cadastros/produtos,Configurações de cadastros,docs/telas/preferencias/cadastros/README.md,apps/web/src/app/preferencias/cadastros/produtos/page.tsx
+/preferencias/cadastros/tipos-contatos,Configurações de cadastros,docs/telas/preferencias/cadastros/README.md,apps/web/src/app/preferencias/cadastros/tipos-contatos/page.tsx
+/preferencias/certificado-digital,Certificado digital,docs/telas/fiscal/certificado/README.md,apps/web/src/app/preferencias/certificado-digital/page.tsx
+/preferencias/comercial,Parâmetros comerciais,docs/telas/preferencias/comercial/README.md,apps/web/src/app/preferencias/comercial/page.tsx
+/preferencias/dados/exportacao,Exportação de produtos,docs/telas/preferencias/exportacao/README.md,apps/web/src/app/preferencias/dados/exportacao/page.tsx
+/preferencias/dados/importacao,Importação de produtos,docs/telas/preferencias/importacao/README.md,apps/web/src/app/preferencias/dados/importacao/page.tsx
+/preferencias/despesas-fixas,Despesas fixas,docs/telas/preferencias/despesas-fixas/README.md,apps/web/src/app/preferencias/despesas-fixas/page.tsx
+/preferencias/empresa/conta/[section],Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/preferencias/empresa/conta/[section]/page.tsx
+/preferencias/empresa/dados,Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/preferencias/empresa/dados/page.tsx
+/preferencias/empresa,Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/preferencias/empresa/page.tsx
+/preferencias/financeiro,Configurações financeiras,docs/telas/preferencias/financeiro/README.md,apps/web/src/app/preferencias/financeiro/page.tsx
+/preferencias/fiscal/correcoes,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/correcoes/page.tsx
+/preferencias/fiscal/delivery,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/delivery/page.tsx
+/preferencias/fiscal/inutilizacoes,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/inutilizacoes/page.tsx
+/preferencias/fiscal/naturezas,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/naturezas/page.tsx
+/preferencias/fiscal/nfce,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/nfce/page.tsx
+/preferencias/fiscal,Configurações fiscais,docs/telas/fiscal/configuracoes/README.md,apps/web/src/app/preferencias/fiscal/page.tsx
+/preferencias/integracoes/[provider],Integrações e chaves de serviço,docs/telas/preferencias/integracoes/README.md,apps/web/src/app/preferencias/integracoes/[provider]/page.tsx
+/preferencias/integracoes/lojas,Integrações e chaves de serviço,docs/telas/preferencias/integracoes/README.md,apps/web/src/app/preferencias/integracoes/lojas/page.tsx
+/preferencias/integracoes,Integrações e chaves de serviço,docs/telas/preferencias/integracoes/README.md,apps/web/src/app/preferencias/integracoes/page.tsx
+/preferencias,Menu e navegação,docs/telas/inicio/navegacao/README.md,apps/web/src/app/preferencias/page.tsx
+/preferencias/papeis,"Usuários, papéis e permissões",docs/telas/preferencias/usuarios-permissoes/README.md,apps/web/src/app/preferencias/papeis/page.tsx
+/preferencias/plano,Empresa e conta,docs/telas/preferencias/empresa/README.md,apps/web/src/app/preferencias/plano/page.tsx
+/preferencias/seguranca,"Segurança, atividades e exclusões",docs/telas/preferencias/seguranca/README.md,apps/web/src/app/preferencias/seguranca/page.tsx
+/preferencias/sistema/arquivos,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/arquivos/page.tsx
+/preferencias/sistema/campos-customizados,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/campos-customizados/page.tsx
+/preferencias/sistema/etiquetas-customizadas,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/etiquetas-customizadas/page.tsx
+/preferencias/sistema/exclusoes,"Segurança, atividades e exclusões",docs/telas/preferencias/seguranca/README.md,apps/web/src/app/preferencias/sistema/exclusoes/page.tsx
+/preferencias/sistema,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/page.tsx
+/preferencias/sistema/relatorios-customizados,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/relatorios-customizados/page.tsx
+/preferencias/sistema/transicoes,Sistema e ferramentas,docs/telas/preferencias/sistema/README.md,apps/web/src/app/preferencias/sistema/transicoes/page.tsx
+/preferencias/suprimentos/compras,Configurações de estoque e compras,docs/telas/preferencias/suprimentos/README.md,apps/web/src/app/preferencias/suprimentos/compras/page.tsx
+/preferencias/suprimentos/estoque,Configurações de estoque e compras,docs/telas/preferencias/suprimentos/README.md,apps/web/src/app/preferencias/suprimentos/estoque/page.tsx
+/preferencias/tabela-precos,Tabela de preços e publicação,docs/telas/preferencias/publicar-tabela/README.md,apps/web/src/app/preferencias/tabela-precos/page.tsx
+/preferencias/usuarios/[id],"Usuários, papéis e permissões",docs/telas/preferencias/usuarios-permissoes/README.md,apps/web/src/app/preferencias/usuarios/[id]/page.tsx
+/preferencias/usuarios/novo,"Usuários, papéis e permissões",docs/telas/preferencias/usuarios-permissoes/README.md,apps/web/src/app/preferencias/usuarios/novo/page.tsx
+/preferencias/usuarios,"Usuários, papéis e permissões",docs/telas/preferencias/usuarios-permissoes/README.md,apps/web/src/app/preferencias/usuarios/page.tsx
+/preferencias/vendas,Configurações de vendas,docs/telas/preferencias/vendas/README.md,apps/web/src/app/preferencias/vendas/page.tsx
+/relatorios/auditoria,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/auditoria/page.tsx
+/relatorios/estoque,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/estoque/page.tsx
+/relatorios/executivo,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/executivo/page.tsx
+/relatorios/financeiro,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/financeiro/page.tsx
+/relatorios,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/page.tsx
+/relatorios/servicos,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/servicos/page.tsx
+/relatorios/vendas,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/relatorios/vendas/page.tsx
+/servicos/cobrancas,Contas a receber,docs/telas/financeiro/contas-receber/README.md,apps/web/src/app/servicos/cobrancas/page.tsx
+/servicos/contratos/[id],Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/servicos/contratos/[id]/page.tsx
+/servicos/contratos/modelos/[id],Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/servicos/contratos/modelos/[id]/page.tsx
+/servicos/contratos/modelos,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/servicos/contratos/modelos/page.tsx
+/servicos/contratos,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/servicos/contratos/page.tsx
+/servicos/cte,CT-e recebidos,docs/telas/fiscal/cte/README.md,apps/web/src/app/servicos/cte/page.tsx
+/servicos/notas,NFS-e recebidas,docs/telas/fiscal/nfse/README.md,apps/web/src/app/servicos/notas/page.tsx
+/servicos/ordens,Garantias e assistência,docs/telas/vendas/garantias/README.md,apps/web/src/app/servicos/ordens/page.tsx
+/servicos,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/servicos/page.tsx
+/servicos/relatorios,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/servicos/relatorios/page.tsx
+/vendas/anuncios/[id]/editar,"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/anuncios/[id]/editar/page.tsx
+/vendas/anuncios/[id],"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/anuncios/[id]/page.tsx
+/vendas/anuncios/novo,"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/anuncios/novo/page.tsx
+/vendas/anuncios,"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/anuncios/page.tsx
+/vendas/funil/[id],Visão geral de vendas,docs/telas/vendas/visao-geral/README.md,apps/web/src/app/vendas/funil/[id]/page.tsx
+/vendas/funil/nova,Visão geral de vendas,docs/telas/vendas/visao-geral/README.md,apps/web/src/app/vendas/funil/nova/page.tsx
+/vendas/funil,Visão geral de vendas,docs/telas/vendas/visao-geral/README.md,apps/web/src/app/vendas/funil/page.tsx
+/vendas/garantias/[id],Garantias e assistência,docs/telas/vendas/garantias/README.md,apps/web/src/app/vendas/garantias/[id]/page.tsx
+/vendas/garantias/novo,Garantias e assistência,docs/telas/vendas/garantias/README.md,apps/web/src/app/vendas/garantias/novo/page.tsx
+/vendas/garantias,Garantias e assistência,docs/telas/vendas/garantias/README.md,apps/web/src/app/vendas/garantias/page.tsx
+/vendas/importacao,"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/importacao/page.tsx
+/vendas/loja-virtual,"Loja virtual, anúncios e importação de pedidos",docs/telas/vendas/canais/README.md,apps/web/src/app/vendas/loja-virtual/page.tsx
+/vendas,Visão geral de vendas,docs/telas/vendas/visao-geral/README.md,apps/web/src/app/vendas/page.tsx
+/vendas/pdv/fechamento,"PDV, fechamento e histórico",docs/telas/vendas/pdv/README.md,apps/web/src/app/vendas/pdv/fechamento/page.tsx
+/vendas/pdv/historico,"PDV, fechamento e histórico",docs/telas/vendas/pdv/README.md,apps/web/src/app/vendas/pdv/historico/page.tsx
+/vendas/pdv,"PDV, fechamento e histórico",docs/telas/vendas/pdv/README.md,apps/web/src/app/vendas/pdv/page.tsx
+/vendas/pedidos/[id]/contratos/novo,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/vendas/pedidos/[id]/contratos/novo/page.tsx
+/vendas/pedidos/[id]/contratos,Contratos e modelos,docs/telas/servicos/contratos/README.md,apps/web/src/app/vendas/pedidos/[id]/contratos/page.tsx
+/vendas/pedidos/[id]/editar,Pedidos de venda,docs/telas/vendas/pedidos/README.md,apps/web/src/app/vendas/pedidos/[id]/editar/page.tsx
+/vendas/pedidos/[id],Pedidos de venda,docs/telas/vendas/pedidos/README.md,apps/web/src/app/vendas/pedidos/[id]/page.tsx
+/vendas/pedidos/novo,Pedidos de venda,docs/telas/vendas/pedidos/README.md,apps/web/src/app/vendas/pedidos/novo/page.tsx
+/vendas/pedidos,Pedidos de venda,docs/telas/vendas/pedidos/README.md,apps/web/src/app/vendas/pedidos/page.tsx
+/vendas/propostas/[id]/editar,Propostas comerciais,docs/telas/vendas/propostas/README.md,apps/web/src/app/vendas/propostas/[id]/editar/page.tsx
+/vendas/propostas/[id],Propostas comerciais,docs/telas/vendas/propostas/README.md,apps/web/src/app/vendas/propostas/[id]/page.tsx
+/vendas/propostas/novo,Propostas comerciais,docs/telas/vendas/propostas/README.md,apps/web/src/app/vendas/propostas/novo/page.tsx
+/vendas/propostas,Propostas comerciais,docs/telas/vendas/propostas/README.md,apps/web/src/app/vendas/propostas/page.tsx
+/vendas/relatorios,Relatórios,docs/telas/relatorios/relatorios/README.md,apps/web/src/app/vendas/relatorios/page.tsx
+/vendas/simulador,Simulador comercial,docs/telas/vendas/simulador/README.md,apps/web/src/app/vendas/simulador/page.tsx
+/vendas/tabela-precos,Tabela publicada,docs/telas/vendas/tabela-publicada/README.md,apps/web/src/app/vendas/tabela-precos/page.tsx

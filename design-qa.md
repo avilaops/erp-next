@@ -1,41 +1,40 @@
-# QA visual — novo pedido
+# QA visual — auditoria mobile do novo pedido
 
 final result: passed
 
-## Referência e evidências
+## Fontes e comparação
 
-Fonte visual: imagens do usuário em `C:/Users/nicol/AppData/Local/Temp/`, prefixo `codex-clipboard-`: `XPKR1K.png` (1525×966), `DRXB2C.png` (1526×962), `Mwb9Gc.png` (1854×1011), `mV2zt5.png` (649×909), `8NL3QK.png` (650×826) e `dipxnI.png` (647×787).
+Auditoria P0/P1/P2 fornecida pelo usuário e sete capturas em `C:/Users/nicol/Downloads/`: `WhatsApp Image 2026-11-12 at 4.43.42 PM.jpeg`, `4.43.42 PM (1).jpeg`, `4.43.43 PM.jpeg` e `4.43.43 PM (1–4).jpeg`, todos com o mesmo prefixo. Cada imagem mede 738×1600 pixels; o conteúdo equivale a aproximadamente 369 CSS px com densidade 2. As capturas são parciais, com posições diferentes de rolagem e interface nativa do iPhone.
 
-Implementação: `/vendas/pedidos/novo`, build de produção local, Chrome/Playwright, fixtures sintéticas, escala de dispositivo 1. Capturas em `artifacts/new-order-visual-review/test-results/` e `artifacts/new-order-same-width/test-results/`. Vazio em 390/640/1440px claro e 649/1525/1854px escuro; preenchido em 390/640/1440px escuro. Viewport com altura de 1000 CSS px; screenshots fullPage preservam pixels CSS (ex.: 1854×2409 e 649×3178).
+Implementação em `/vendas/pedidos/novo`, build de produção local, fixtures sintéticas. Chromium com perfil Pixel 7 e WebKit com perfil iPhone 13, viewport 369×800 CSS px, escala 1; estado inicial também em 369×653, temas claro e escuro. Não houve gravação de cliente, pedido ou título real, envio de e-mail ou transmissão fiscal.
 
-Comparações conjuntas inspecionadas: `artifacts/new-order-comparison-desktop.png`, `artifacts/new-order-comparison-payment.png` e `artifacts/new-order-comparison-narrow.png`. As duas primeiras recortam conteúdo de 1264/1280px e pagamento de 888/904px, sem redimensionamento; a última compara conteúdo escuro vazio na mesma largura de 649px. Referências são capturas parciais com rolagem e browser/taskbar; implementação inclui navegação ERP. Esses elementos externos foram excluídos dos recortes. Não se afirma equivalência pixel a pixel de canvas ou de posição de rolagem.
+Evidências locais em `artifacts/new-order-mobile-{chromium,webkit}/test-results/` e relatórios JSON nas mesmas pastas. Comparações conjuntas inspecionadas em `artifacts/new-order-mobile-audit/comparison-initial-webkit.png` e `comparison-final-date.png`. A inicial recorta a interface externa do iPhone e normaliza a fonte para 369px; a data compara apenas a região correspondente, com o campo vazio nos dois lados. O contexto financeiro difere porque a implementação contém um equipamento sintético. Não se afirma equivalência de posições de rolagem ou renderização pixel a pixel.
 
 ## Resultado por superfície
 
-- **Layout e ritmo:** equipamentos em toda a largura; cliente/endereço/entrega e pagamento à esquerda; desconto/totais/salvar em lateral de 360px no desktop. Cartões separados por 16px, campos com agrupamento equivalente à referência. CEP/endereço e número/complemento em 1:2; bairro/cidade/UF em três colunas. Pagamento com entrada/percentual/forma, data abaixo e configuração do saldo em linha. Abaixo do breakpoint, seções seguem em coluna; em 390px os campos também empilham. Tabela preenchida tem rolagem interna, sem ampliar o documento.
-- **Fontes e tipografia:** família e escala 18/14/12 do ERP preservadas deliberadamente, conforme spec. Títulos em caixa alta e peso forte mantêm hierarquia; a fonte condensada LUDUS não substitui a identidade Avila. Campos e textos de ajuda continuam legíveis e não colidem. Conteúdo e controles adicionais do ERP aumentam a altura em relação ao protótipo.
-- **Cores e tokens:** superfícies, bordas, inputs, foco e ações usam temas existentes do ERP. Tema escuro neutro substitui o verde escuro LUDUS; tema claro também verificado. Status de falta de equipamento/aprovação em âmbar, liberação em verde e limite de alçada na barra com contraste entre faixas. Valores reais da política prevalecem sobre exemplos do mockup.
-- **Imagens e ícones:** referência vazia não requer imagem de produto; não foram criados rasters ou marcas substitutas. Marca/navegação Avila existentes preservadas. Busca e quantidade usam biblioteca de ícones já instalada; nenhum desenho artesanal substitui logo ou produto.
-- **Texto e conteúdo:** seções e campos solicitados presentes. Instruções refletem persistência real, prazo de fabricação e recebimento previsto. Formas de pagamento, IPI e alçadas vêm do contrato atual. Campos obrigatórios têm indicação; salvar permanece desabilitado sem itens e condições válidas. Não há textos de implementação no fluxo.
+- **Layout e hierarquia:** cabeçalho compacto com retorno para Pedidos; atalhos em uma linha rolável, na ordem Equipamentos → Cliente → Entrega → Desconto → Pagamento → Revisão. Rótulo da tabela separado da quantidade e versão nos detalhes. Busca com rótulo persistente, dica curta e ação Adicionar equipamento. Cliente existente tem resumo e ações explícitas; cadastro aparece quando solicitado. A ação de editar informa que altera o cadastro compartilhado.
+- **Negociação e revisão:** desconto precede pagamento, com percentual, efeito em reais, valor negociado com IPI e status efetivo de aprovação. Referência de alçada do perfil fica nos detalhes. Frete por conta da empresa é identificado como custo, sem somar ao total cobrado. UF explicita origem no endereço, padrão da tabela ou alteração manual. Resumo fixo mostra total e acesso à revisão; estado vazio pede equipamentos em vez de listar valores fictícios.
+- **Validação e ação:** pendências por seção levam ao campo correspondente, com mensagem e associação acessível local. Salvar valida e explica o bloqueio. O texto diferencia criação numerada e confirmação posterior, que reserva estoque e gera recebimentos previstos. Envio duplicado, repetição incerta, troca de empresa e navegação preservam os comandos e proteções existentes. Nenhum rascunho com dados pessoais foi acrescentado ao armazenamento local.
+- **Pagamento e datas:** entrada calculada fica legível e pode ser alterada. Forma e vencimento aparecem quando há entrada; campo vazio indica Na confirmação do pedido e calendário. Entrada e saldo têm contexto próprio. A geração explica a data-base, mostra intervalo apenas para múltiplas parcelas, preserva a confirmação ao substituir parcelas editadas e confere a soma em centavos. Datas da entrada e das parcelas usam o mesmo controle nativo com padding zero; borda e espaçamento pertencem ao contêiner.
+- **Tipografia, cores e ícones:** família e escala 18/14/12 do ERP preservadas, campos mobile com 16px, controles e alvos principais com pelo menos 44px. Temas existentes, foco visível e mensagens textuais de erro/aprovação; cor não é o único sinal. Ícones vêm da biblioteca instalada. Não foram criadas imagens, marcas ou dependências.
+- **Teclado e largura:** resumo fixo respeita safe-area, sai da área visível quando VisualViewport indica teclado e os campos têm margem de rolagem. Documento permanece dentro da viewport; tabela de equipamentos mantém rolagem interna. Cidade e UF ficam agrupadas quando a largura permite.
 
-## Histórico de ajustes
+## Ajustes encontrados durante QA
 
-1. **P2 — endereço/pagamento sem proporções da referência:** corrigidas grades de endereço, entrada e parcelas; prazo/unidade ao lado do frete. Eliminados padding duplicado e densidade excessiva do cartão vazio. Evidência posterior: capturas finais vazias desktop/649px e comparação focada de pagamento.
-2. **P2 — tabela preenchida ampliava documento em 390px:** labels acessíveis posicionados absolutamente escapavam do contêiner. Adicionado `position: relative` em `.order-equipment-scroll`, mantendo tabela e labels na área rolável. Antes: documento 737px para viewport 390px (`artifacts/new-order-overflow-diagnosis.json`). Depois: assert de largura aprovado em 390/640px preenchidos e capturas finais correspondentes. Todos os 10 casos então existentes da tela passaram na build corrigida.
-3. **Comportamento — retorno cadastral atrasado/retry incerto/valores equivalentes:** revisão independente e casos RED→GREEN confirmam preservação de endereço, chave/payload, cliente já salvo e totais quando `2→02` não muda a negociação. Respostas de outra empresa não confirmam pedido. Nenhuma gravação real usada como teste.
+1. **Cabeçalho e navegação altos:** a primeira comparação escondia a busca no estado inicial. Reduzidas margens e descrição redundante no celular; atalhos passaram de duas linhas para uma. Comparação final mostra busca, ação de adicionar e total rápido em 369×653.
+2. **Data nativa do iPhone:** a fonte mostrava campo vazio ultrapassando a borda. O padding do próprio input foi removido e transferido ao contêiner. O [bug WebKit 301648](https://bugs.webkit.org/show_bug.cgi?id=301648) documenta esse problema no iOS, sem reproduzi-lo no desktop. Testes conferem padding zero, limites do cartão e edição tanto da entrada quanto das parcelas; a imagem final mostra indicação e calendário dentro do cartão.
+3. **Revisão de código:** três problemas materiais corrigidos: entrada inválida não pode desaparecer da lista quando a simulação perde o resultado; usuário sem gestão cadastral precisa ser levado à busca; desconto, valor negociado e frete precisam apontar ao próprio campo e erro. Revisão independente confirmou os três e não encontrou regressão material residual.
+4. **Contrato dos testes:** atualizadas as expectativas para a mensagem precisa de entrada entre 0% e 100% e para a renumeração acessível das parcelas após remoção. Sem enfraquecer validação de soma, escrita, foco ou payload.
 
-## Verificação e checklist
+## Verificação
 
-- [x] Fonte e implementação abertas, comparações conjuntas e regiões de endereço/pagamento inspecionadas.
-- [x] Estrutura vazia, formulário preenchido, quantidade repetida, CEP/IBGE, cliente existente sem escrita e cliente novo verificados com fixtures.
-- [x] Parcela editada, soma em centavos, consulta de preço e confirmação incerta/retry verificados no navegador.
-- [x] Sem overflow do documento em 390/640px; equipamentos preservam rolagem horizontal interna.
-- [x] Revisão independente e correções dos achados materiais concluídas.
+- Build de produção com TypeScript e 369 páginas concluída; lint completo sem erros, com oito avisos preexistentes; modelos 130/130.
+- Chromium mobile: 16/16. WebKit mobile: 16/16. Cenários incluem CPF/CNPJ novos, outra UF, pagamento integral e parcelado, datas, limites, falha de cálculo, acesso restrito, preservação do preenchimento e próximos passos após salvar com número.
+- Regressão comercial: 88 de 90 aprovados na rodada completa; as duas expectativas da mensagem de percentual foram corrigidas e os dois cenários completos passaram na repetição focada em 390/1366px, incluindo valores, parcelas e payload. Não se apresenta essa agregação como uma execução única de 90 casos.
+- Revisões independentes de cliente, checkout, ramo completo e última alteração visual concluídas. Sem achados P0/P1/P2 residuais conhecidos dentro do escopo implementado.
 
-Sem achados P0/P1/P2 residuais. Diferenças de marca, paleta, família tipográfica, navegação e controles exigidos pelo ERP são adaptações explícitas da spec. Limite: esta revisão visual não inclui envio de e-mail, criação de pedido real ou transmissão fiscal. O épico AVL-432 permanece mais amplo que esta tela.
+## Limites
 
-Follow-up P3: nenhum ajuste necessário para aceite desta entrega.
+WebKit automatizado no Windows não equivale a Safari em iPhone físico. Não foram executados VoiceOver nem teclado físico do aparelho: o teste de teclado simula redução de VisualViewport. A combinação real de safe-area, teclado e zoom precisa de conferência no dispositivo. Ver [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport) e [env/safe-area](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/env).
 
-## Conferência após integrar main
-
-Build integrada com main8d71dc9 concluída (TypeScript e369páginas). Capturas finais em `artifacts/new-order-integrated/test-results/`; comparações conjuntas reabertas em `artifacts/new-order-comparison-payment-final.png` (viewport1854px em ambos) e `artifacts/new-order-comparison-narrow-final.png` (649px em ambos), com os mesmos resultados de layout. Os seis estados vazios passaram com assert de ausência de console.error e pageerror. Os seis cenários preenchidos/normalização também passaram na build integrada. Lint completo:0erros,8avisos preexistentes. Modelos:113/113. Sem novos achados P0/P1/P2.
+Erros HTTP 503/405 esperados nas fixtures de falha e nas rotas auxiliares não representam erro de produção. Nenhuma exceção JavaScript não tratada foi observada nas rodadas finais. Nenhuma consulta ou gravação de negócio foi feita em produção como teste. O épico AVL-432 permanece mais amplo que esta entrega.

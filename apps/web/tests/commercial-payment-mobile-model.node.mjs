@@ -29,6 +29,14 @@ test("missing balance method and generation are separately actionable", () => {
   assert.deepEqual(validateCheckout(draft({ balanceMethod: "", rows: [] })).issues.map(issue => issue.field), ["checkout.balance-method", "checkout.generate"]);
 });
 
+test("invalid entry percentage reports its allowed range consistently in both checkout modes", () => {
+  for (const orderMode of [true, false]) {
+    const result = validateCheckout(draft({ orderMode, invalidPercent: true }));
+    assert.deepEqual(result.issues, [{ field: "checkout.entry-percent", section: "payment", message: "A entrada deve estar entre 0% e 100%." }]);
+    assert.equal(result.value, null);
+  }
+});
+
 test("invalid raw entry remains actionable while negotiation has no priced result", () => {
   const input = draft({ totalCents: null, entryCents: null, entryRaw: "abc", rows: [] });
   const snapshot = structuredClone(input);

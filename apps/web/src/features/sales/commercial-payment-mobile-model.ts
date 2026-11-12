@@ -30,7 +30,7 @@ export function validateCheckout(draft: CheckoutDraft): { issues: OrderIssue[]; 
   const entryIssue = checkoutEntryIssue(draft.totalCents, draft.entryRaw)
   if (entryIssue) issues.push(entryIssue)
   else if (balance === null || balance < 0) issue("entry", "Simule a negociação para conferir a entrada e o saldo.")
-  if (draft.invalidPercent) issue("entry-percent", "Confira o percentual da entrada antes de criar o pedido.")
+  if (draft.invalidPercent) issue("entry-percent", "A entrada deve estar entre 0% e 100%.")
   if (draft.entryCents !== null && draft.entryCents > 0 && !hasMethod(draft.entryMethod)) issue("entry-method", "Escolha a forma de pagamento da entrada.")
   if (draft.entryDate && (!draft.orderMode || draft.entryCents !== null && draft.entryCents > 0)) {
     try { addPaymentDays(draft.entryDate, 0) } catch { issue("entry-date", "Informe uma data válida para a entrada.") }

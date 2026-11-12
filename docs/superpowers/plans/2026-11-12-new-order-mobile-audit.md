@@ -27,41 +27,41 @@
 Files: criar order-progress.ts e order-mobile-navigation.tsx; modificar commercial-order-layout.tsx/CSS e commercial-simulator.tsx; testes new-order-mobile-ui.spec.ts e order-progress-model.node.mjs.
 Interfaces: `OrderStepId = equipment|customer|delivery|discount|payment|review`; `OrderIssue = {field:string;section:OrderStepId;message:string}`. Cliente reporta `{issues:OrderIssue[];addressState:string}` via `onProgressChange?`; checkout reporta `OrderIssue[]` via `onProgressChange?`; handles expõem `focus(field:string):void` além de read/save. Root agrega, renderiza links, chama focus e mantém bloqueios operacionais. IDs estáveis order-{step}.
 
-- [ ] RED modelo de seções/priorização e browser para revisão/total/ordem/data; reproduzir em WebKit baseline.
-- [ ] Implementar modelo, navegação, total fixo, teclado/safe-area, validação sem escrita e CTA contexto.
-- [ ] Melhorar equipamentos/tabela/desconto/alçada/frete/UF, cabeçalho e revisão, preservando motor.
-- [ ] Verificar modelo e browser focado, atualizar testes com labels/fluxo novos.
+- [x] RED modelo de seções/priorização e browser para revisão/total/ordem/data; reproduzir em WebKit baseline.
+- [x] Implementar modelo, navegação, total fixo, teclado/safe-area, validação sem escrita e CTA contexto.
+- [x] Melhorar equipamentos/tabela/desconto/alçada/frete/UF, cabeçalho e revisão, preservando motor.
+- [x] Verificar modelo e browser focado, atualizar testes com labels/fluxo novos.
 
 ### Task2: Cliente compacto e pendências (agente)
 
 Files exclusivos: order-customer-form.tsx, order-customer-model.ts, order-customer-model.node.mjs. Pode criar order-customer-mobile.css. Não editar root/CSS geral/tests browser compartilhados.
 Interfaces: consumir OrderIssue de ./order-progress; prop `onProgressChange?: (value:{issues:OrderIssue[];addressState:string})=>void`; handle `focus(field:string):void` abre formulário e foca input. fields sem prefixo do modelo (taxId,etc). Sections customer para identificação/contato/endereço. Reusar validação, exportar `orderCustomerIssues(draft):OrderCustomerIssue[]` e validate retorna primeira. Root roteia pelo prefixo? `field` da issue é `customer.taxId`, handle recebe taxId.
 
-- [ ] RED modelos: todos erros/ordem, cadastro preservado, formatação normaliza sem perder dados, readonly existente.
-- [ ] UI Buscar/Cadastrar, resumo selecionado, Trocar/Editar cadastro, grupos, IE/isento, rótulo CNPJ consulta, mensagens inline.
-- [ ] Reportar pendências sem loops e expor focus; preservar consulta segura/command/ETag.
-- [ ] Modelos/scoped lint e revisão de tarefa.
+- [x] RED modelos: todos erros/ordem, cadastro preservado, formatação normaliza sem perder dados, readonly existente.
+- [x] UI Buscar/Cadastrar, resumo selecionado, Trocar/Editar cadastro, grupos, IE/isento, rótulo CNPJ consulta, mensagens inline.
+- [x] Reportar pendências sem loops e expor focus; preservar consulta segura/command/ETag.
+- [x] Modelos/scoped lint e revisão de tarefa.
 
 ### Task3: Pagamento/entrega mobile (agente)
 
 Files exclusivos: commercial-checkout.tsx, novo order-date-field.tsx e order-payment-mobile.css. Testes próprios opcionais em commercial-payment-mobile-model.node.mjs. Não editar CSS geral/simulator/customer/testbrowser compartilhado.
 Interfaces: prop `onProgressChange?: (issues:OrderIssue[])=>void`; handle focus(field) usa data-checkout-field. Issues checkout.{field}, sections payment/delivery. Prop `deliveryMethodNote?:string` entra no deliveryNotes junto prazo. Somente orderMode/renderOrder recebe novo layout/copy; preservar variante simulador normal.
 
-- [ ] Reproduzir data baseline em WebKit via root; testes focados requisitos pagamento se extrair modelo.
-- [ ] Corrigir date com calendário/estado Na confirmação, largura/border-box/padding e rótulo vencimento; entrada calculada legível e editável, saldo/base/intervalo/requisitos/somas.
-- [ ] Reportar todos erros com mesmo validador de read, exibir inline após tentativa/focus, preservar parcelas editadas/confirmação e idempotência do pai.
-- [ ] Dica fabricação junto campo, modalidade na entrega persistida, regressões de checkout verificadas com root.
+- [x] Reproduzir data baseline em WebKit via root; testes focados requisitos pagamento se extrair modelo.
+- [x] Corrigir date com calendário/estado Na confirmação, largura/border-box/padding e rótulo vencimento; entrada calculada legível e editável, saldo/base/intervalo/requisitos/somas.
+- [x] Reportar todos erros com mesmo validador de read, exibir inline após tentativa/focus, preservar parcelas editadas/confirmação e idempotência do pai.
+- [x] Dica fabricação junto campo, modalidade na entrega persistida, regressões de checkout verificadas com root.
 
 ### Task4: Verificação, revisão e publicação
 
-- [ ] Modelos/lint/types/build local, browser Chromium+WebKit com fixtures; revisar capturas/teclado/overflow/foco e estados de falha.
-- [ ] Revisão independente de spec/código e ramo inteiro, corrigir achados, design-qa.md atualizado com fonte e evidências.
+- [x] Modelos/lint/types/build local, browser Chromium+WebKit com fixtures; revisar capturas/teclado/overflow/foco e estados de falha.
+- [x] Revisão independente de spec/código e ramo inteiro, corrigir achados, design-qa.md atualizado com fonte e evidências.
 - [ ] Commit/push/PR relacionada AVL432, gate obrigatório; integração exata, artefato local e deploy somente web com rollback/health/hash; manter Git limpo e local funcionando.
 
 ### Task5: Limpeza de deploys antigos após validar a publicação
 
 Pedido adicional explícito do usuário: excluir deploys antigos para liberar espaço no servidor.
 
-- [ ] Inventariar espaço, diretórios de releases/source e imagens ERP, identificando referências dos serviços ativos e rollback imediato.
+- [x] Inventariar espaço, diretórios de releases/source e imagens ERP, identificando referências dos serviços ativos e rollback imediato.
 - [ ] Após publicar e validar, remover somente releases/fontes/imagens ERP obsoletos com caminhos canônicos validados. Preservar versão ativa, rollback imediato, artefatos e imagens usados por API/fiscal, bancos, volumes, configurações privadas, backups e recursos de outros projetos.
 - [ ] Conferir espaço recuperado, health e quatro serviços saudáveis. Registrar lista/bytes e retenção em artefato local, sem expor configurações privadas.

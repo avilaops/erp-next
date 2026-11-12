@@ -37,14 +37,18 @@ test.beforeEach(async ({ context, page, baseURL }) => {
 })
 
 for (const theme of ["light", "dark"]) test(`pendências explicam salvar e levam ao primeiro campo sem gravar: ${theme}`, async ({ page }, info) => {
+  await page.setViewportSize({ width: 369, height: 653 })
   await page.addInitScript(theme => localStorage.setItem("erp-theme", theme), theme)
   await fixture(page)
   const writes: string[] = []
   page.on("request", request => { if (request.method() !== "GET" && /\/api\/erp\/(parties|commercial\/orders)(?:\?|$)/.test(request.url())) writes.push(request.url()) })
   await page.goto("/vendas/pedidos/novo")
   await expect(page.getByRole("heading", { name: "Novo pedido", exact: true })).toBeVisible({ timeout: 20000 })
-  await expect(page.getByRole("navigation", { name: "Seções do pedido" })).toBeVisible()
-  await expect(page.getByRole("region", { name: "Resumo rápido do pedido" })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Seções do pedido" })).toBeVisible({ timeout: 20000 })
+  await expect(page.getByRole("region", { name: "Resumo rápido do pedido" })).toBeVisible({ timeout: 20000 })
+  await page.screenshot({ path: info.outputPath(`mobile-empty-${theme}.png`) })
+  await page.getByRole("button", { name: "Revisar pedido", exact: true }).click()
+  await page.screenshot({ path: info.outputPath(`mobile-empty-review-${theme}.png`) })
   await page.getByRole("button", { name: "Salvar pedido", exact: true }).click()
   await expect(page.getByRole("region", { name: "Pendências do pedido" })).toContainText("Equipamentos")
   await expect(page.getByLabel("Buscar equipamento", { exact: true })).toBeFocused()
@@ -91,10 +95,40 @@ test("vencimento nativo cabe no cartão e indica confirmação sem data", async 
   expect(geometry.right).toBeLessThanOrEqual(geometry.sectionRight - 8)
   expect(geometry.left).toBeGreaterThanOrEqual(geometry.sectionLeft)
   expect(geometry.document).toBeLessThanOrEqual(geometry.viewport)
+  expect(await input.evaluate(element => getComputedStyle(element).paddingLeft)).toBe("0px")
+  expect(await input.evaluate(element => getComputedStyle(element).paddingRight)).toBe("0px")
   await expect(page.getByText("Na confirmação do pedido", { exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath("mobile-entry-date-empty.png") })
   await input.fill("2026-12-10")
   await expect(input).toHaveValue("2026-12-10")
   await page.screenshot({ path: info.outputPath("mobile-entry-date.png") })
+})
+
+test("vencimentos das parcelas cabem no celular e preservam a edição", async ({ page }, info) => {
+  await fixture(page)
+  await page.goto("/vendas/pedidos/novo")
+  await addEquipment(page)
+  await page.getByLabel("Forma da entrada", { exact: true }).selectOption(pix)
+  await page.getByLabel("Forma do saldo", { exact: true }).selectOption(boleto)
+  await page.getByLabel("Parcelas", { exact: true }).fill("2")
+  await page.getByRole("button", { name: "Gerar parcelas", exact: true }).click()
+  for (const number of [1, 2]) {
+    const input = page.getByLabel(`Vencimento da parcela ${number}`, { exact: true })
+    if (number === 2) await page.getByText("Parcela 2 de 2", { exact: true }).click()
+    await input.scrollIntoViewIfNeeded()
+    expect(await input.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const card = element.closest(".order-section")!.getBoundingClientRect()
+      const style = getComputedStyle(element)
+      return rect.left >= card.left && rect.right <= card.right - 8 &&
+        style.paddingLeft === "0px" && style.paddingRight === "0px" &&
+        document.documentElement.scrollWidth <= innerWidth
+    })).toBe(true)
+    await input.fill(`2027-01-${number === 1 ? "10" : "20"}`)
+    await expect(input).toHaveValue(`2027-01-${number === 1 ? "10" : "20"}`)
+  }
+  await expect(page.getByText(/Soma conferida/)).toBeVisible()
+  await page.screenshot({ path: info.outputPath("mobile-installment-dates.png") })
 })
 
 test("atalhos preservam desconto, frete e total sem confundir teto com aprovação", async ({ page }, info) => {
@@ -179,7 +213,7 @@ for (const value of ["abc", "2000,00"]) test(`entrada inválida ${value} mantém
   await addEquipment(page)
   await page.getByLabel("Entrada (R$)", { exact: true }).fill(value)
   const pending = page.getByRole("region", { name: "Pendências do pedido", exact: true })
-  await expect(pending.getByRole("button", { name: /entrada/i })).toBeVisible()
+  await expect(pending.getByRole("button", { name: /entrada/i }).first()).toBeVisible()
   await pending.getByRole("button", { name: /entrada/i }).first().click()
   await expect(page.getByLabel("Entrada (R$)", { exact: true })).toBeFocused()
   await expect(page.getByLabel("Entrada (R$)", { exact: true })).toHaveAttribute("aria-invalid", "true")
@@ -211,4 +245,19 @@ test("acesso sem gestão de clientes leva à busca de cadastro existente", async
   await page.getByRole("button", { name: "Salvar pedido", exact: true }).click()
   await expect(page.getByLabel("Buscar cliente", { exact: true })).toBeFocused()
   await expect(page.getByLabel("CNPJ", { exact: true })).toHaveCount(0)
+})
+
+test("percentual da entrada explica o limite e mantém o foco ao usar Tab", async ({ page }) => {
+  await fixture(page)
+  await page.goto("/vendas/pedidos/novo")
+  await addEquipment(page)
+  const percent = page.getByLabel("Entrada (%)", { exact: true })
+  await percent.fill("101")
+  await percent.press("Tab")
+  await expect(percent).toHaveAccessibleDescription("A entrada deve estar entre 0% e 100%.")
+  await expect(percent).toHaveAttribute("aria-invalid", "true")
+  await expect(page.getByLabel("Forma da entrada", { exact: true })).toBeFocused()
+  await percent.fill("70,00")
+  await percent.press("Tab")
+  await expect(percent).not.toHaveAttribute("aria-invalid", "true")
 })

@@ -5,19 +5,29 @@
   box-sizing: border-box;
 }
 .order-date-field { display: grid; align-content: start; gap: 4px; }
-.order-date-control { display: block; position: relative; }
-.order-date-control .order-native-date {
+.order-date-control {
   display: block;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
+  position: relative;
   min-height: 44px;
   height: 44px;
   padding: 8px 36px 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--background);
+}
+.order-date-control input.order-native-date[type="date"] {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
   color: var(--foreground);
   font: inherit;
   font-size: 16px;
@@ -32,8 +42,8 @@
 .order-date-empty { position: absolute; left: 10px; right: 34px; top: 50%; transform: translateY(-50%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); pointer-events: none; font-size: 12px; }
 .order-date-control:focus-within .order-date-empty { visibility: hidden; }
 .order-date-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; pointer-events: none; color: var(--muted-foreground); }
-.order-native-date:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-.order-native-date[aria-invalid="true"] { border-color: var(--destructive); }
+.order-date-control:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
+.order-date-control:has(.order-native-date[aria-invalid="true"]) { border-color: var(--destructive); }
 .order-native-date:disabled { opacity: .5; cursor: not-allowed; }
 .order-payment-grid .order-payment-full { grid-column: 1 / -1; min-width: 0; }
 .order-payment-grid .order-payment-action { display: grid; align-content: start; gap: 6px; }

@@ -9,28 +9,33 @@ import type { Schema } from "@/lib/api/types"
 import { RegistryLookup } from "@/features/records/registry-lookup"
 import { states } from "@/features/commercial-settings/commercial-parameters"
 import { Lookup, type Choice } from "./orders"
+import type { OrderIssue } from "./order-progress"
+import "./order-customer-mobile.css"
 import {
   applyOrderCustomerLookup, buildOrderCustomerPayload, clearOrderCustomerGenerated, emptyOrderCustomerDraft,
-  normalizeOrderCustomerDocument, orderCustomerDraft, orderCustomerPayloadEqual, validateOrderCustomer, writeOrderCustomer,
-  type OrderCustomerCommand, type OrderCustomerDraft, type OrderCustomerField, type OrderCustomerIssue, type OrderCustomerParty,
+  formatOrderCustomerValue, normalizeOrderCustomerDocument, orderCustomerDraft, orderCustomerIssues, orderCustomerPayloadEqual, writeOrderCustomer,
+  type OrderCustomerCommand, type OrderCustomerDraft, type OrderCustomerField, type OrderCustomerParty,
 } from "./order-customer-model"
 
 export type OrderCustomerHandle = {
   read: () => { stateRegistration: string | null }
   save: () => Promise<{ id: string; stateRegistration: string | null } | null>
+  focus: (field: string) => void
 }
 type Props = {
   ref?: Ref<OrderCustomerHandle>; tenantId: string; disabled: boolean; canManage: boolean; onDirty: () => void
   onDestinationChange: (state: string) => void; onTaxpayerChange: (value: boolean) => void
   onBusyChange: (value: boolean) => void; onUncertainChange: (value: boolean) => void
+  onProgressChange?: (value: { issues: OrderIssue[]; addressState: string }) => void
 }
 type ConfirmedCustomer = { id: string; tenantId: string; etag: string; party: OrderCustomerParty }
 const selectClass = "h-9 min-h-9 w-full min-w-0 rounded-lg border bg-background px-2"
 const addressFields: OrderCustomerField[] = ["postalCode", "state", "city", "street", "number", "district", "complement", "municipalityCode"]
 const required = <span aria-hidden="true"> *</span>
 
-export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty, onDestinationChange, onTaxpayerChange, onBusyChange, onUncertainChange }: Props) {
+export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty, onDestinationChange, onTaxpayerChange, onBusyChange, onUncertainChange, onProgressChange }: Props) {
   const region = useRef<HTMLElement>(null)
+  const searchRegion = useRef<HTMLDivElement>(null)
   const issueId = useId()
   const [draft, setDraft] = useState(emptyOrderCustomerDraft)
   const currentDraft = useRef(draft)
@@ -44,7 +49,11 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
   const [uncertain, setUncertain] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [error, setError] = useState("")
-  const [issue, setIssue] = useState<OrderCustomerIssue | null>(null)
+  const [focusField, setFocusField] = useState<{ field: string } | null>(null)
+  const [attempted, setAttempted] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(true)
+  const progressCallback = useRef(onProgressChange)
   const [documentEdited, setDocumentEdited] = useState(false)
   const [cepRevision, setCepRevision] = useState(0)
   const [cepRetry, setCepRetry] = useState(0)
@@ -57,6 +66,10 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
   const activeTenant = useRef(tenantId)
   const frozen = disabled || loading || busy || uncertain || conflict
   const editable = canManage && !frozen
+  const issues = !canManage && !selectedName ? [{ field: "selection", message: "Selecione um cliente cadastrado. Seu acesso não permite criar clientes." }] : orderCustomerIssues(draft)
+  const progressSignature = JSON.stringify({ issues: issues.map(issue => ({ ...issue, field: `customer.${issue.field}`, section: "customer" })), addressState: draft.state })
+  useEffect(() => { progressCallback.current = onProgressChange }, [onProgressChange])
+  useEffect(() => { progressCallback.current?.(JSON.parse(progressSignature)) }, [progressSignature])
 
   useEffect(() => { onBusyChange(loading || busy) }, [loading, busy, onBusyChange])
   useEffect(() => { onUncertainChange(uncertain) }, [uncertain, onUncertainChange])
@@ -70,18 +83,26 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     command.current = null
     currentDraft.current = emptyOrderCustomerDraft()
     setDraft(currentDraft.current); setSelectedName(""); setRequestedId(null); setLoading(false)
-    setError("A empresa mudou. Selecione o cliente desta empresa."); setIssue(null); setUncertain(false); setConflict(false)
+    setError("A empresa mudou. Selecione o cliente desta empresa."); setFocusField(null); setAttempted(false); setEditorOpen(false); setSearchOpen(true); setUncertain(false); setConflict(false)
     lookupGenerated.current = {}; setCepRevision(0); setCepMessage(""); setDocumentEdited(false)
   }, [tenantId])
   useEffect(() => {
-    if (!issue) return
+    if (!focusField) return
     const frame = requestAnimationFrame(() => {
-      const field = region.current?.querySelector<HTMLElement>(`[data-order-customer-field="${issue.field}"]`)
+      const field = focusField.field === "selection" ? searchRegion.current?.querySelector<HTMLInputElement>("input") : Array.from(region.current?.querySelectorAll<HTMLElement>("[data-order-customer-field]") || []).find(element => element.dataset.orderCustomerField === focusField.field)
       if (field && !field.matches(":disabled")) { field.focus({ preventScroll: true }); field.scrollIntoView({ block: "center" }) }
-      else region.current?.scrollIntoView({ block: "center" })
+      else { region.current?.focus({ preventScroll: true }); region.current?.scrollIntoView({ block: "center" }) }
     })
     return () => cancelAnimationFrame(frame)
-  }, [issue])
+  }, [focusField, editorOpen, searchOpen])
+
+  function focus(field: string) {
+    setAttempted(true)
+    if (!canManage && !selectedName) field = "selection"
+    if (field === "selection") { setSearchOpen(true); setEditorOpen(false) }
+    else { if (field !== "stateRegistration" || !selectedName) setEditorOpen(true); setSearchOpen(false) }
+    setFocusField({ field })
+  }
 
   function applyDraft(next: OrderCustomerDraft, notify = true) {
     const previous = currentDraft.current
@@ -112,7 +133,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     next = { ...next, [field]: value }
     if (field === "state" || field === "city") { next.municipalityCode = ""; delete lookupGenerated.current.municipalityCode }
     if (field === "personType") next.stateRegistration = ""
-    setIssue(null); setError(""); command.current = null
+    setFocusField(null); setError(""); command.current = null
     applyDraft(next)
     if (field === "postalCode" || field === "state" || field === "city" || changingDocument) setCepRevision(revision => revision + 1)
   }
@@ -123,7 +144,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     const next = applyOrderCustomerLookup(previous, fields)
     const changed = (Object.keys(next) as OrderCustomerField[]).filter(field => previous[field] !== next[field])
     for (const field of changed) lookupGenerated.current[field] = next[field]
-    if (changed.length) { setIssue(null); setError(""); applyDraft(next); if (changed.includes("postalCode") || !next.municipalityCode) setCepRevision(revision => revision + 1) }
+    if (changed.length) { setFocusField(null); setError(""); applyDraft(next); if (changed.includes("postalCode") || !next.municipalityCode) setCepRevision(revision => revision + 1) }
     return changed.length
   }
 
@@ -166,7 +187,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     const controller = new AbortController()
     activeSelection.current = controller
     const selectedGeneration = ++generation.current
-    setRequestedId(value.id); setLoading(true); setError(""); setIssue(null); setConflict(false)
+    setRequestedId(value.id); setLoading(true); setError(""); setFocusField(null); setAttempted(false); setConflict(false)
     setCepRevision(0); lookupGenerated.current = {}
     try {
       const response = await erpFetch(`/api/erp/parties/${value.id}`, { signal: controller.signal })
@@ -179,6 +200,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
       confirmed.current = { id: value.id, tenantId, etag, party }
       command.current = null
       setSelectedName(party.legalName); setUncertain(false); setDocumentEdited(false)
+      setEditorOpen(false); setSearchOpen(false)
       const next = orderCustomerDraft(party)
       applyDraft(next)
       if (next.state) onDestinationChange(next.state)
@@ -191,19 +213,17 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     if (!canManage || frozen || running.current) return
     activeSelection.current?.abort(); generation.current++
     confirmed.current = null; command.current = null; lookupGenerated.current = {}
-    setRequestedId(null); setSelectedName(""); setDocumentEdited(false); setCepRevision(0); setCepMessage(""); setIssue(null); setError("")
+    setRequestedId(null); setSelectedName(""); setDocumentEdited(false); setCepRevision(0); setCepMessage(""); setFocusField(null); setAttempted(false); setError(""); setEditorOpen(true); setSearchOpen(false)
     applyDraft(emptyOrderCustomerDraft())
   }
 
   function read() {
+    setAttempted(true)
     if (loading || requestedId && confirmed.current?.id !== requestedId) throw Error("Selecione novamente o cliente e aguarde a conferência do cadastro.")
     if (conflict) throw Error("Recarregue o cliente para conferir o conflito de revisão antes de continuar.")
-    if (!confirmed.current && !canManage) throw Error("Selecione um cliente cadastrado. Seu acesso não permite criar clientes.")
-    const validation = validateOrderCustomer(currentDraft.current)
-    if (validation) { setIssue(validation); throw Error(validation.message) }
-    for (const field of region.current?.querySelectorAll<HTMLInputElement>("input:not(:disabled)") || []) {
-      if (!field.checkValidity()) { field.reportValidity(); throw Error("Confira os campos do cliente antes de salvar o pedido.") }
-    }
+    if (!confirmed.current && !canManage) { focus("selection"); throw Error("Selecione um cliente cadastrado. Seu acesso não permite criar clientes.") }
+    const validation = orderCustomerIssues(currentDraft.current)[0]
+    if (validation) { focus(validation.field); throw Error(validation.message) }
     return { stateRegistration: currentDraft.current.personType === "juridica" ? currentDraft.current.stateRegistration.trim() || null : null }
   }
 
@@ -233,51 +253,89 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
       setSelectedName(result.party.legalName); setRequestedId(result.id); setDocumentEdited(false)
       lookupGenerated.current = {}; setCepRevision(0)
       const next = { ...orderCustomerDraft(result.party), stateRegistration: currentDraft.current.stateRegistration }
-      currentDraft.current = next; setDraft(next); setUncertain(false); setConflict(false); setIssue(null)
+      currentDraft.current = next; setDraft(next); setUncertain(false); setConflict(false); setFocusField(null); setEditorOpen(false); setSearchOpen(false)
       return { id: result.id, ...terms }
     } finally { running.current = false; setBusy(false) }
   }
 
-  useImperativeHandle(ref, () => ({ read, save }))
+  useImperativeHandle(ref, () => ({ read, save, focus }))
   function validationProps(field: OrderCustomerField) {
-    return { "data-order-customer-field": field, "aria-invalid": issue?.field === field || undefined, "aria-describedby": issue?.field === field ? issueId : undefined }
+    const invalid = attempted && issues.some(issue => issue.field === field)
+    return { "data-order-customer-field": field, "aria-invalid": invalid || undefined, "aria-describedby": invalid ? `${issueId}-${field}` : undefined }
+  }
+  function inlineError(field: OrderCustomerField) {
+    const issue = attempted && issues.find(issue => issue.field === field)
+    return issue ? <span id={`${issueId}-${field}`} className="text-xs text-destructive">{issue.message}</span> : null
+  }
+  function format(field: OrderCustomerField) {
+    if (frozen || running.current) return
+    const previous = currentDraft.current[field]
+    const next = formatOrderCustomerValue(field, previous, currentDraft.current.personType)
+    if (next !== previous) {
+      if (lookupGenerated.current[field] === previous) lookupGenerated.current[field] = next
+      applyDraft({ ...currentDraft.current, [field]: next }, false)
+    }
   }
   function input(field: OrderCustomerField, label: string, maximum: number, mandatory = false, type = "text") {
-    return <label className="grid min-w-0 gap-1"><span>{label}{mandatory && required}</span><Input {...validationProps(field)} aria-label={label} name={`order-customer-${field}`} type={type} required={mandatory} maxLength={maximum} placeholder={field === "stateRegistration" ? "Número ou ISENTO" : undefined} value={draft[field]} disabled={field === "stateRegistration" ? frozen : !editable} onChange={event => change(field, event.target.value)} /></label>
+    return <label className="grid min-w-0 gap-1"><span>{label}{mandatory && required}</span><Input {...validationProps(field)} aria-label={label} name={`order-customer-${field}`} type={type} inputMode={field === "postalCode" ? "numeric" : type === "tel" ? "tel" : type === "email" ? "email" : undefined} required={mandatory} maxLength={maximum} placeholder={field === "stateRegistration" ? "Número ou ISENTO" : undefined} value={draft[field]} disabled={field === "stateRegistration" ? frozen : !editable} onChange={event => change(field, event.target.value)} onBlur={() => format(field)} />{inlineError(field)}</label>
   }
-  const missingFields = (["taxId", "legalName", "responsible", "phone", "email", "postalCode", "street", "number", "district", "city", "state", ...(draft.personType === "juridica" ? ["stateRegistration"] : [])] as OrderCustomerField[]).filter(field => !draft[field].trim()).length
-  const documentField = <label className="grid min-w-0 gap-1"><span>{draft.personType === "juridica" ? "CNPJ" : "CPF"}{required}</span><Input {...validationProps("taxId")} aria-label={draft.personType === "juridica" ? "CNPJ" : "CPF"} name="order-customer-taxId" required maxLength={30} inputMode={draft.personType === "fisica" ? "numeric" : "text"} value={draft.taxId} disabled={!editable} onChange={event => change("taxId", event.target.value)} /></label>
-  return <section ref={region} aria-label="Cliente" className="order-customer-fields min-w-0">
-    <header><h2 className="font-semibold">Cliente</h2><span className="order-customer-completion" role="status">{missingFields ? `Faltam ${missingFields} para fechar` : "Campos preenchidos"}</span></header>
-    <div className={!canManage ? "[&_a]:hidden" : undefined}><Lookup compact hideLabel placeholder="Buscar cliente já cadastrado: nome, CNPJ ou CPF…" endpoint="parties" label="cliente" searchOnly selectedName={selectedName} disabled={disabled || busy || uncertain} choose={value => void selectCustomer(value)} /></div>
-    {canManage && selectedName && <Button type="button" variant="outline" className="w-fit" disabled={frozen} onClick={newCustomer}>Novo cliente</Button>}
+  const registration = draft.personType === "juridica" && <div className="order-customer-registration">
+    {input("stateRegistration", "Inscrição estadual", 40, true)}
+    <label className="order-customer-exempt"><input type="checkbox" checked={draft.stateRegistration.trim().toUpperCase() === "ISENTO"} disabled={frozen} onChange={event => change("stateRegistration", event.target.checked ? "ISENTO" : "")} /><span>Isento de inscrição estadual</span></label>
+    <p className="text-xs text-muted-foreground">IE ou ISENTO será usado nas condições deste pedido.</p>
+  </div>
+  const documentField = <label className="grid min-w-0 gap-1"><span>{draft.personType === "juridica" ? "CNPJ" : "CPF"}{required}</span><Input {...validationProps("taxId")} aria-label={draft.personType === "juridica" ? "CNPJ" : "CPF"} name="order-customer-taxId" required maxLength={30} inputMode={draft.personType === "fisica" ? "numeric" : "text"} autoCapitalize="characters" value={draft.taxId} disabled={!editable} onChange={event => change("taxId", event.target.value)} onBlur={() => format("taxId")} />{inlineError("taxId")}</label>
+  return <section ref={region} tabIndex={-1} aria-label="Cliente" className="order-customer-fields min-w-0">
+    <header><h2 className="font-semibold">Cliente</h2><span className="order-customer-completion" role="status">{!selectedName && !editorOpen ? "Selecione ou cadastre um cliente" : issues.length ? `${issues.length} pendência${issues.length === 1 ? "" : "s"}` : "Dados conferidos"}</span></header>
+    <div className="order-customer-actions">
+      <Button type="button" variant={searchOpen ? "default" : "outline"} disabled={disabled || busy || uncertain || loading} aria-expanded={searchOpen} onClick={() => { setSearchOpen(true); setEditorOpen(false) }}>Buscar cliente</Button>
+      {canManage && <Button type="button" variant={!selectedName && editorOpen ? "default" : "outline"} disabled={frozen} onClick={newCustomer}>Cadastrar cliente</Button>}
+    </div>
+    {searchOpen && <div ref={searchRegion} className={!canManage ? "[&_a]:hidden" : undefined}><Lookup compact hideLabel placeholder="Buscar cliente já cadastrado: nome, CNPJ ou CPF…" endpoint="parties" label="cliente" searchOnly selectedName={selectedName} disabled={disabled || busy || uncertain} choose={value => void selectCustomer(value)} /></div>}
     {loading && <p role="status" className="text-xs">Conferindo cadastro do cliente…</p>}
     {!canManage && <p className="text-xs text-muted-foreground">Selecione um cliente existente. A edição do cadastro exige permissão de gestão de clientes.</p>}
-    <div className="order-person-type" role="group" aria-label="Tipo de cliente"><Button type="button" variant={draft.personType === "juridica" ? "default" : "outline"} aria-pressed={draft.personType === "juridica"} disabled={!editable} onClick={() => change("personType", "juridica")}>Empresa (CNPJ)</Button><Button type="button" variant={draft.personType === "fisica" ? "default" : "outline"} aria-pressed={draft.personType === "fisica"} disabled={!editable} onClick={() => change("personType", "fisica")}>Pessoa física (CPF)</Button></div>
-    <div className="order-field-grid">
-      {draft.personType === "juridica" ? <RegistryLookup key={`${tenantId}:${requestedId || "new"}`} documentField={documentField} kind="cnpj" context="party" tenantId={tenantId} automaticValue={!selectedName || documentEdited ? draft.taxId : undefined} readValue={() => currentDraft.current.taxId} disabled={!editable} onApply={applyLookup} /> : documentField}
-      {draft.personType === "juridica" && input("stateRegistration", "Inscrição estadual", 40, true)}
-      <div className="order-field-full">{input("legalName", draft.personType === "juridica" ? "Razão social" : "Nome completo", 200, true)}</div>
-      {draft.personType === "juridica" && input("tradeName", "Nome fantasia", 200)}
-      {input("responsible", "Nome do responsável", 200, true)}
-      {input("phone", "Celular", 40, true, "tel")}
-      {input("email", "E-mail", 254, true, "email")}
-    </div>
-    <div className="order-address-fields"><h3>Endereço do cliente</h3><div className="order-field-grid">
-      {input("postalCode", "CEP", 10, true)}
-      <div className="order-field-full">{input("street", "Endereço", 200, true)}</div>
-      {input("number", "Número", 40, true)}
-      {input("complement", "Complemento", 200)}
-      {input("district", "Bairro", 200, true)}
-      {input("city", "Cidade", 200, true)}
-      <label className="grid min-w-0 gap-1"><span>UF{required}</span><select {...validationProps("state")} aria-label="UF" name="order-customer-state" required className={selectClass} value={draft.state} disabled={!editable} onChange={event => change("state", event.target.value)}><option value="">Selecione</option>{states.map(state => <option value={state} key={state}>{state}</option>)}</select></label>
-    </div></div>
-    {draft.municipalityCode && <p className="text-xs text-muted-foreground">Código IBGE: {draft.municipalityCode}</p>}
-    {cepPending && <p role="status" className="text-xs">Consultando endereço pelo CEP…</p>}
-    {cepMessage && <p role="status" className="text-xs">{cepMessage}</p>}
-    {editable && draft.postalCode.replace(/\D/g, "").length === 8 && (cepFailed || !cepRevision) && <Button type="button" variant="outline" disabled={cepPending} onClick={() => { setCepRevision(revision => revision + 1); setCepRetry(retry => retry + 1) }}>Consultar CEP</Button>}
-    {issue && <p role="alert" id={issueId} className="text-xs text-destructive">{issue.message}</p>}
-    {!canManage && requestedId && issue && issue.field !== "stateRegistration" && <p className="text-xs">O cadastro selecionado está incompleto para criar este pedido. Solicite o preenchimento dos campos obrigatórios a quem gerencia clientes. <GuardedLink className="text-primary underline" href={`/cadastros/clientes-fornecedores/${requestedId}`} target="_blank" rel="noopener noreferrer">Abrir cadastro do cliente</GuardedLink></p>}
+    {selectedName && <div className="order-customer-selected">
+      <div><p className="font-medium">{draft.legalName || selectedName}</p><p className="text-sm text-muted-foreground">{formatOrderCustomerValue("taxId", draft.taxId, draft.personType)}</p></div>
+      <p className="text-sm">{[draft.responsible, draft.phone, draft.email].filter(Boolean).join(" · ") || "Contato não informado"}</p>
+      <div><p className="text-xs text-muted-foreground">Endereço cadastral</p><p className="text-sm">{[draft.street, draft.number, draft.district, draft.city, draft.state, formatOrderCustomerValue("postalCode", draft.postalCode)].filter(Boolean).join(", ") || "Endereço não informado"}</p></div>
+      <div className="order-customer-actions"><Button type="button" variant="outline" disabled={disabled || busy || uncertain || loading} onClick={() => { setSearchOpen(true); setEditorOpen(false) }}>Trocar</Button>{canManage && <Button type="button" variant="outline" disabled={frozen} aria-expanded={editorOpen} onClick={() => { setEditorOpen(value => !value); setSearchOpen(false) }}>{editorOpen ? "Fechar edição" : "Editar cadastro"}</Button>}</div>
+      {!editorOpen && registration}
+    </div>}
+    {editorOpen && <>
+      {selectedName && <p className="order-customer-edit-note text-sm">Ao salvar o pedido, as alterações serão gravadas no cadastro compartilhado do cliente e valerão para outros pedidos.</p>}
+      {!selectedName && <p className="text-xs text-muted-foreground">O novo cadastro será gravado ao salvar o pedido.</p>}
+      <fieldset className="order-customer-group"><legend>Identificação</legend>
+        <div className="order-person-type" role="group" aria-label="Tipo de cliente"><Button type="button" variant={draft.personType === "juridica" ? "default" : "outline"} aria-pressed={draft.personType === "juridica"} disabled={!editable} onClick={() => change("personType", "juridica")}>Empresa (CNPJ)</Button><Button type="button" variant={draft.personType === "fisica" ? "default" : "outline"} aria-pressed={draft.personType === "fisica"} disabled={!editable} onClick={() => change("personType", "fisica")}>Pessoa física (CPF)</Button></div>
+        <div className="order-field-grid">{documentField}
+          {draft.personType === "juridica" && <RegistryLookup key={`${tenantId}:${requestedId || "new"}`} kind="cnpj" context="party" tenantId={tenantId} automaticValue={!selectedName || documentEdited ? draft.taxId : undefined} readValue={() => currentDraft.current.taxId} disabled={!editable} onApply={applyLookup} />}
+          <div className="order-field-full">{input("legalName", draft.personType === "juridica" ? "Razão social" : "Nome completo", 200, true)}</div>
+          {draft.personType === "juridica" && input("tradeName", "Nome fantasia", 200)}
+          {registration}
+        </div>
+      </fieldset>
+      <fieldset className="order-customer-group"><legend>Contato</legend><div className="order-field-grid">
+        {input("responsible", "Nome do responsável", 200, true)}
+        {input("phone", "Celular", 40, true, "tel")}
+        {input("email", "E-mail", 254, true, "email")}
+      </div></fieldset>
+      <fieldset className="order-customer-group order-address-fields"><legend>Endereço cadastral do cliente</legend><p className="text-xs text-muted-foreground">Confira o destino e a modalidade na seção Entrega. A consulta do CEP preenche somente campos vazios.</p><div className="order-field-grid">
+        {input("postalCode", "CEP", 10, true)}
+        <div className="order-field-full">{input("street", "Endereço", 200, true)}</div>
+        {input("number", "Número", 40, true)}
+        {input("complement", "Complemento", 200)}
+        {input("district", "Bairro", 200, true)}
+        <div className="order-customer-city-state order-field-full">{input("city", "Cidade", 200, true)}
+          <label className="grid min-w-0 gap-1"><span>UF{required}</span><select {...validationProps("state")} aria-label="UF" name="order-customer-state" required className={selectClass} value={draft.state} disabled={!editable} onChange={event => change("state", event.target.value)}><option value="">Selecione</option>{states.map(state => <option value={state} key={state}>{state}</option>)}</select>{inlineError("state")}</label>
+        </div>
+      </div>
+        {draft.municipalityCode && <p className="text-xs text-muted-foreground">Código IBGE: {draft.municipalityCode}</p>}
+        {cepPending && <p role="status" className="text-xs">Consultando endereço pelo CEP…</p>}
+        {cepMessage && <p role="status" className="text-xs">{cepMessage}</p>}
+        {editable && draft.postalCode.replace(/\D/g, "").length === 8 && (cepFailed || !cepRevision) && <Button type="button" variant="outline" disabled={cepPending} onClick={() => { setCepRevision(revision => revision + 1); setCepRetry(retry => retry + 1) }}>Consultar CEP</Button>}
+      </fieldset>
+    </>}
+    {attempted && issues.length > 0 && <div role="alert" className="order-customer-issues"><p className="font-medium">Confira os dados do cliente</p><ul>{issues.map(issue => <li key={issue.field}><button type="button" className="text-left text-sm text-destructive underline" onClick={() => focus(issue.field)}>{issue.message}</button></li>)}</ul></div>}
+    {!canManage && requestedId && attempted && issues.some(issue => issue.field !== "stateRegistration") && <p className="text-xs">O cadastro selecionado está incompleto para criar este pedido. Solicite o preenchimento dos campos obrigatórios a quem gerencia clientes. <GuardedLink className="text-primary underline" href={`/cadastros/clientes-fornecedores/${requestedId}`} target="_blank" rel="noopener noreferrer">Abrir cadastro do cliente</GuardedLink></p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {uncertain && <p role="status" className="text-xs">Cadastro com confirmação pendente. Salvar pedido novamente confere o mesmo comando antes de criar o pedido.</p>}
     {conflict && requestedId && <Button type="button" variant="outline" disabled={loading || busy} onClick={() => void selectCustomer({ id: requestedId, legalName: selectedName })}>Recarregar cliente e descartar esta edição</Button>}

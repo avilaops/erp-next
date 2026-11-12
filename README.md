@@ -1,5 +1,7 @@
 # ERP
 
+[Documentação por tela do ERP](docs/README.md) — produtos, pessoas, vendas, financeiro e fiscal.
+
 ERP modular da Ávila Ops, mantido em `avilaops/erp-next`. O sistema nasce separado do ERP legado e usa um monólito modular para preservar transações, contratos entre domínios e rastreabilidade.
 
 O [mapa de organização](architecture/README.md) explica cada pasta, os limites
@@ -42,13 +44,13 @@ O primeiro ciclo comercial conecta produtos, clientes e fornecedores, estoque,
 pedidos e contas a receber. Confirmar um pedido reserva saldo; concluí-lo registra
 a saída e origina o título na mesma transação. Recebimentos integrais e estornos
 são declarações manuais, sem integração bancária. Os contratos estão em
-[pessoas](docs/PESSOAS-PERSISTENTES.md),
-[estoque](docs/ESTOQUE-PERSISTENTE.md) e
-[pedidos e financeiro](docs/PEDIDOS-FINANCEIRO.md).
+[pessoas](docs/telas/cadastros/clientes-fornecedores/referencias/PESSOAS-PERSISTENTES.md),
+[estoque](docs/telas/estoque/saldos/referencias/ESTOQUE-PERSISTENTE.md) e
+[pedidos e financeiro](docs/telas/vendas/pedidos/referencias/PEDIDOS-FINANCEIRO.md).
 
 Usuários existentes podem ter a associação e os papéis alterados com controle
 de revisão. Papéis oferecem criação idempotente, alteração e exclusão autorizadas.
-Os [contratos e limites de acessos](docs/API-ACESSOS.md) detalham as operações,
+Os [contratos e limites de acessos](docs/telas/preferencias/usuarios-permissoes/referencias/API-ACESSOS.md) detalham as operações,
 a proteção do último administrador e a pendência de convites no Auth.
 
 Para a web, use as variáveis de `apps/web/.env.example` no ambiente do Next.js
@@ -56,10 +58,11 @@ Para a web, use as variáveis de `apps/web/.env.example` no ambiente do Next.js
 processo: copiar um arquivo `.env` não as exporta automaticamente para o Cargo.
 Nunca publique os segredos como variáveis `NEXT_PUBLIC_`.
 
-O [estado atual e as pendências](docs/STATUS-ERP.md) distinguem frontend
-demonstrativo, persistência testada e integração com serviços reais.
+Consulte a [documentação por tela](docs/README.md) para entender os fluxos atuais.
+O [registro histórico de implementação](docs/historico/registros/STATUS-ERP.md)
+preserva os resultados e as pendências das etapas anteriores.
 
-A [continuidade fiscal e devoluções](docs/RETORNOS-E-CONTINUIDADE-FISCAL.md)
+A [continuidade fiscal e devoluções](docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md)
 acrescenta cancelamento comercial, estorno de recebimentos de compra, emissão e
 eventos NF-e 55/SP em homologação com adaptador interno, distribuição DF-e,
 manifestação e conversão de XML em compra. O recorte de regras fiscais e a
@@ -67,13 +70,13 @@ configuração do motor estão documentados; não há inferência de tributaçã
 Mantenha `NFE_PRODUCTION_ENABLED=false`. Testes locais não substituem homologação
 com certificado real nem publicam a funcionalidade em produção.
 
-A [segunda etapa de reconciliação](docs/COMISSOES-PRODUCAO-E-FISCAL.md) adiciona
+A [segunda etapa de reconciliação](docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md) adiciona
 comissões sobre recebimentos, produção com consumo declarado e reconciliação
 atômica de cancelamentos. Também amplia a declaração fiscal para CRT 3 interno
 SP e prepara a imagem/overlay privado do motor. Percentuais e decisões fiscais
 continuam explícitos, sem preenchimento presumido.
 
-O [monitor fiscal canônico](docs/MONITOR-FISCAL-CANONICO.md) acrescenta coleta
+O [monitor fiscal canônico](docs/telas/fiscal/monitor/referencias/MONITOR-FISCAL-CANONICO.md) acrescenta coleta
 incremental com cursor por empresa, XML original e manifestação explícita do
 destinatário. Usa o cofre A1 existente e permanece desativado por padrão, sem
 alterar emissão, estoque ou financeiro.
@@ -89,7 +92,7 @@ Plataforma, Cadastros, Comercial, Estoque, Financeiro, Fiscal, Logística e Serv
 
 ## Conteúdo e contratos
 
-A integração de tipos OpenAPI na web, a ajuda MDX e o layout pessoal estão descritos em [Conteúdo e contratos](docs/CONTEUDO-E-CONTRATOS.md).
+A integração de tipos OpenAPI na web, a ajuda MDX e o layout pessoal estão descritos em [Conteúdo e contratos](docs/tecnica/CONTEUDO-E-CONTRATOS.md).
 
 Os [exemplos fiscais HTTP, n8n e MCP](docs/integrations/FISCAL-N8N-MCP.md)
 reutilizam a API Rust e documentam credenciais, idempotência, acompanhamento de

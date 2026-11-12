@@ -18,7 +18,7 @@
         ],
         "nextStep": "Conferir a versão implantada com usuários autorizados; CI e merge não comprovam aceite em produção.",
         "additionalSources": [
-          "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+          "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
         ],
         "journey": [
           {
@@ -57,7 +57,7 @@
         ],
         "nextStep": "Conferir a versão publicada e o isolamento da empresa; consulta não altera registros.",
         "additionalSources": [
-          "docs/DADOS-REAIS-ERP.md"
+          "docs/telas/inicio/visao-geral/referencias/DADOS-REAIS-ERP.md"
         ]
       },
       {
@@ -73,7 +73,7 @@
         ],
         "nextStep": "Publicar a revisão validada e conferir acesso com os papéis autorizados; catálogo não comprova produção.",
         "additionalSources": [
-          "docs/sales-proposals.md"
+          "docs/telas/vendas/propostas/referencias/sales-proposals.md"
         ]
       },
       {
@@ -89,7 +89,7 @@
         ],
         "nextStep": "Validar fontes na versão publicada; CNPJ.ws permanece desabilitado até confirmar uso permitido no ERP multiempresa.",
         "additionalSources": [
-          "docs/CONSULTAS-CADASTRAIS-AVL-113-114.md"
+          "docs/telas/cadastros/clientes-fornecedores/referencias/CONSULTAS-CADASTRAIS-AVL-113-114.md"
         ]
       },
       {
@@ -105,7 +105,7 @@
         ],
         "nextStep": "Obter tabela vigente autorizada, validar conversão e amostras reais e conferir o DANFE no renderizador operacional. Snapshot/XML implementados não concluem o aceite real da AVL-115.",
         "additionalSources": [
-          "docs/IBPT-AVL-115.md",
+          "docs/telas/fiscal/configuracoes/referencias/IBPT-AVL-115.md",
           "apps/api/src/domains/fiscal/ibpt_document.rs",
           "apps/fiscal-engine/src/engine.ts",
           "apps/fiscal-engine/src/lib/fiscal/nfe.ts",
@@ -142,7 +142,7 @@
         ],
         "nextStep": "Validar central de leitura em CI; integrar conferência individual e vínculos de frete; homologar com empresa/papel autorizados antes de liberar cobertura.",
         "additionalSources": [
-          "docs/CTE-DISTRIBUICAO-AVL-111.md",
+          "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md",
           "apps/api/src/domains/fiscal/cte_distribution_worker.rs"
         ]
       },
@@ -255,7 +255,7 @@
         ],
         "nextStep": "Configurar credenciais e validar com contas de teste do Mercado Pago; catálogo não comprova operação ou publicação.",
         "additionalSources": [
-          "docs/COMPANY-ACCOUNT.md"
+          "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
         ]
       },
       {
@@ -274,8 +274,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -324,9 +324,9 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md",
-          "docs/FISCAL-VALORES-COMERCIAIS.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md",
+          "docs/telas/fiscal/nfe/referencias/FISCAL-VALORES-COMERCIAIS.md"
         ],
         "journey": [
           {
@@ -374,8 +374,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -420,8 +420,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -465,8 +465,8 @@
         ],
         "nextStep": "Conferir jornada publicada com dados autorizados; definições estáticas não comprovam execução.",
         "additionalSources": [
-          "docs/RETORNOS-E-CONTINUIDADE-FISCAL.md",
-          "docs/COMISSOES-PRODUCAO-E-FISCAL.md"
+          "docs/telas/fiscal/nfe/referencias/RETORNOS-E-CONTINUIDADE-FISCAL.md",
+          "docs/telas/estoque/producao/referencias/COMISSOES-PRODUCAO-E-FISCAL.md"
         ],
         "journey": [
           {
@@ -504,7 +504,7 @@
         ],
         "nextStep": "Conferir gravação, revisão e preenchimento dos dois formulários financeiros.",
         "additionalSources": [
-          "docs/CONFIGURACOES-FINANCEIRAS.md"
+          "docs/telas/preferencias/financeiro/referencias/CONFIGURACOES-FINANCEIRAS.md"
         ],
         "journey": [
           {
@@ -532,7 +532,7 @@
         ],
         "nextStep": "Validar cadastro, cálculo e publicação com empresa autorizada na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -561,7 +561,7 @@
         ],
         "nextStep": "Conferir soma e vigência com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -590,7 +590,7 @@
         ],
         "nextStep": "Conferir custos com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -620,7 +620,7 @@
         ],
         "nextStep": "Conferir prévia e publicação com dados reais na versão implantada.",
         "additionalSources": [
-          "docs/PARAMETROS-COMERCIAIS-2026-11-04.md"
+          "docs/telas/preferencias/comercial/referencias/PARAMETROS-COMERCIAIS-2026-11-04.md"
         ],
         "journey": [
           {
@@ -650,7 +650,7 @@
         "nextStep": "Conferir gravação e bloqueios sem reserva ou recebíveis em ambiente isolado; observar a versão publicada separadamente.",
         "additionalSources": [
           "docs/superpowers/plans/2026-11-01-sales-settings.md",
-          "docs/PREFERENCIAS-PENDENTES.md"
+          "docs/telas/preferencias/vendas/referencias/PREFERENCIAS-PENDENTES.md"
         ],
         "journey": [
           {
@@ -678,7 +678,7 @@
         ],
         "nextStep": "Conferir criação, arquivamento, revisão e uso nos cadastros autorizados.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -708,7 +708,7 @@
         ],
         "nextStep": "Conferir criação, compartilhamento, revisão e isolamento das definições autorizadas.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -738,7 +738,7 @@
         ],
         "nextStep": "Conferir criação, edição, revisão, limites físicos e isolamento dos modelos.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql"
         ],
         "journey": [
@@ -768,7 +768,7 @@
         ],
         "nextStep": "Conferir criação, revisão, publicação imutável, arquivamento e isolamento das definições.",
         "additionalSources": [
-          "docs/MODULOS-CONFIGURAVEIS-ERP.md",
+          "docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md",
           "migrations/202611040002_system_configuration.sql",
           "migrations/202611050003_workflow_revisions.sql"
         ],
@@ -796,7 +796,7 @@
         "actionGroups": ["system-files"],
         "dependencies": ["company_onboarding"],
         "nextStep": "Conferir filtros, isolamento, download legado e arquivamento revisionado; upload atual depende de storage explicitamente configurado.",
-        "additionalSources": ["docs/MODULOS-CONFIGURAVEIS-ERP.md","docs/product-media.md","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql"],
+        "additionalSources": ["docs/telas/preferencias/sistema/referencias/MODULOS-CONFIGURAVEIS-ERP.md","docs/telas/cadastros/produtos/referencias/product-media.md","migrations/202611040002_system_configuration.sql","migrations/202611050004_file_revisions.sql"],
         "journey": [{
           "id": "manage",
           "title": "Consultar, baixar legado e arquivar metadados",
@@ -818,7 +818,7 @@
         ],
         "nextStep": "Conferir consulta, filtros, paginação e autorização na versão publicada.",
         "additionalSources": [
-          "docs/SEGURANCA-AUDITORIA.md"
+          "docs/telas/preferencias/seguranca/referencias/SEGURANCA-AUDITORIA.md"
         ],
         "journey": [
           {
@@ -846,7 +846,7 @@
         ],
         "nextStep": "Conferir persistência por usuário/empresa, revisão e aplicação da paginação sem prometer idioma, formatos ou notificações.",
         "additionalSources": [
-          "docs/PREFERENCIAS-SISTEMA.md"
+          "docs/telas/preferencias/sistema/referencias/PREFERENCIAS-SISTEMA.md"
         ],
         "journey": [
           {
@@ -893,7 +893,7 @@
         ],
         "nextStep": "Acompanhar o primeiro convite real até o acesso do convidado e a delegação de outro convite.",
         "additionalSources": [
-          "docs/CONVITES-USUARIOS.md"
+          "docs/telas/preferencias/usuarios-permissoes/referencias/CONVITES-USUARIOS.md"
         ],
         "journey": [
           {
@@ -980,7 +980,7 @@
         ],
         "nextStep": "Validar o fluxo publicado com identidade real após a release pelo CI.",
         "additionalSources": [
-          "docs/ASSISTANT.md"
+          "docs/telas/inicio/assistente-ajuda/referencias/ASSISTANT.md"
         ]
       },
       {
@@ -1063,7 +1063,7 @@
           "parties"
         ],
         "nextStep": "Conferir perfis tributários e seus padrões opcionais, snapshots, valores por item, alíquotas do destino e vínculo comercial antes do comando separado de emissão. Aceite SEFAZ continua não observado.",
-        "additionalSources": ["docs/FISCAL-PERFIS-TRIBUTARIOS.md"]
+        "additionalSources": ["docs/telas/fiscal/perfis-tributarios/referencias/FISCAL-PERFIS-TRIBUTARIOS.md"]
       },
       {
         "id": "me",
@@ -1301,7 +1301,7 @@
         ],
         "nextStep": "Definir a extensão de recebimento por XML e as demais decisões pendentes de compras.",
         "additionalSources": [
-          "docs/COMPRAS-CONTAS-PAGAR-INTERFACE.md"
+          "docs/telas/compras/pedidos/referencias/COMPRAS-CONTAS-PAGAR-INTERFACE.md"
         ],
         "journey": [
           {
@@ -1372,7 +1372,7 @@
         "actionGroups": ["warranties"],
         "dependencies": ["orders", "products", "parties"],
         "nextStep": "Completar peças, logística reversa, quarentena e efeitos financeiros somente com contratos aprovados.",
-        "additionalSources": ["docs/AVL-319-GARANTIAS-ASSISTENCIA.md"],
+        "additionalSources": ["docs/telas/vendas/garantias/referencias/AVL-319-GARANTIAS-ASSISTENCIA.md"],
         "journey": [
           {"id": "policy", "title": "Consultar e cadastrar políticas de cobertura.", "actionIds": ["get-api-v1-warranty-policies", "post-api-v1-warranty-policies"], "authRefs": [], "externalSystems": []},
 {"id": "case", "title": "Abrir e consultar protocolo de garantia.", "actionIds": ["get-api-v1-warranty-cases", "post-api-v1-warranty-cases", "get-api-v1-warranty-cases-id", "post-api-v1-warranty-cases-id-assignment"], "authRefs": [], "externalSystems": []},
@@ -1405,7 +1405,7 @@
         ],
         "nextStep": "Validar gravação e aplicação na interface publicada; catálogo não comprova execução.",
         "additionalSources": [
-          "docs/CADASTROS-E-PERFIS-TRIBUTARIOS.md"
+          "docs/telas/preferencias/cadastros/referencias/CADASTROS-E-PERFIS-TRIBUTARIOS.md"
         ],
         "journey": [
           {
@@ -1433,7 +1433,7 @@
         ],
         "nextStep": "Conferir persistência na versão publicada; emissão NFC-e e produção NF-e têm validação separada.",
         "additionalSources": [
-          "docs/PREFERENCIAS-FISCAIS.md"
+          "docs/telas/fiscal/configuracoes/referencias/PREFERENCIAS-FISCAIS.md"
         ],
         "journey": [
           {
@@ -1463,7 +1463,7 @@
         ],
         "nextStep": "Validar CI, migração e comportamento autenticado; catálogo não comprova implantação.",
         "additionalSources": [
-          "docs/AVL-432-IMPLEMENTACAO.md"
+          "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
         ]
       },
       {
@@ -1481,7 +1481,7 @@
         ],
         "nextStep": "Validar migração, CI e jornada autenticada; o catálogo não comprova implantação.",
         "additionalSources": [
-          "docs/AVL-432-IMPLEMENTACAO.md"
+          "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
         ]
       },
       {
@@ -1850,7 +1850,7 @@
         "apps/api/src/domains/sales/pricing.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -1944,7 +1944,7 @@
         "apps/api/src/domains/sales/pricing_model.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2042,7 +2042,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2133,7 +2133,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -2232,7 +2232,7 @@
         "apps/api/src/domains/sales/pricing_orders.rs",
         "apps/web/src/features/commercial-settings/simulator.tsx",
         "apps/web/src/features/commercial-settings/order-pricing.tsx",
-        "docs/SIMULADOR-COMERCIAL-2026-11-05.md"
+        "docs/telas/vendas/simulador/referencias/SIMULADOR-COMERCIAL-2026-11-05.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -3618,7 +3618,7 @@
       "sources": [
         "apps/api/src/domains/fiscal/ibpt.rs",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "docs/IBPT-AVL-115.md"
+        "docs/telas/fiscal/configuracoes/referencias/IBPT-AVL-115.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4752,7 +4752,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4848,7 +4848,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -4940,7 +4940,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5031,7 +5031,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -5122,7 +5122,7 @@
         "apps/api/src/domains/fiscal/cte_distribution.rs",
         "apps/api/src/domains/fiscal/cte_distribution_store.rs",
         "migrations/202611030003_cte_distribution.sql",
-        "docs/CTE-DISTRIBUICAO-AVL-111.md"
+        "docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7011,7 +7011,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7110,7 +7110,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7208,7 +7208,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7307,7 +7307,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7406,7 +7406,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7498,7 +7498,7 @@
         "apps/api/src/platform/subscriptions/provider.rs",
         "apps/api/src/platform/subscriptions/catalog.rs",
         "migrations/202611010006_company_subscriptions.sql",
-        "docs/COMPANY-ACCOUNT.md"
+        "docs/telas/preferencias/empresa/referencias/COMPANY-ACCOUNT.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7697,7 +7697,7 @@
         "apps/api/src/domains/fiscal/production_events.rs",
         "apps/web/src/features/fiscal/purchase-match.tsx",
         "apps/web/src/server/bff/erp-fiscal-proxy.ts",
-        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+        "docs/telas/fiscal/monitor/referencias/RECEBIMENTO-NFE-AVL-91-94-97.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -7802,7 +7802,7 @@
         "apps/api/src/domains/purchasing.rs",
         "migrations/202611010003_fiscal_incoming.sql",
         "apps/web/src/features/fiscal/purchase-match.tsx",
-        "docs/RECEBIMENTO-NFE-AVL-91-94-97.md"
+        "docs/telas/fiscal/monitor/referencias/RECEBIMENTO-NFE-AVL-91-94-97.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26277,7 +26277,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26378,7 +26378,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26468,7 +26468,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26572,7 +26572,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26679,7 +26679,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26781,7 +26781,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -26889,7 +26889,7 @@
         "apps/api/src/domains/sales/proposals.rs",
         "apps/api/src/domains/sales/proposal_rules.rs",
         "apps/web/src/features/sales/proposals.tsx",
-        "docs/sales-proposals.md"
+        "docs/telas/vendas/propostas/referencias/sales-proposals.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -27866,7 +27866,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -27959,7 +27959,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28061,7 +28061,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28153,7 +28153,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28258,7 +28258,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28348,7 +28348,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28446,7 +28446,7 @@
       "sources": [
         "apps/api/src/domains/sales/negotiation.rs",
         "apps/api/src/domains/sales/negotiation_model.rs",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28529,7 +28529,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28616,7 +28616,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28712,7 +28712,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -28813,7 +28813,7 @@
       "sources": [
         "apps/api/src/domains/sales/opportunities.rs",
         "apps/web/src/features/sales/opportunities.tsx",
-        "docs/AVL-432-IMPLEMENTACAO.md"
+        "docs/telas/preferencias/comercial/referencias/AVL-432-IMPLEMENTACAO.md"
       ],
       "verification": {
         "status": "not_verified_by_catalog",
@@ -30573,7 +30573,7 @@
       "intent": "Exclusões, arquivos, relatórios, etiquetas, transições e campos customizados observados nas capturas do usuário.",
       "proposedEndpoints": [],
       "openDecisions": [
-        "Definir retenção, permissões, modelos e uso operacional de cada recurso. Fonte da fila: docs/PREFERENCIAS-PENDENTES.md; acompanhamento AVL-372."
+        "Definir retenção, permissões, modelos e uso operacional de cada recurso. Fonte da fila: docs/telas/preferencias/vendas/referencias/PREFERENCIAS-PENDENTES.md; acompanhamento AVL-372."
       ],
       "requiredFields": [
         "actor",

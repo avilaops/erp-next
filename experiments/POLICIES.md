@@ -77,7 +77,7 @@ Em 27/10/2026, a importação explícita foi conferida no domínio real: o catá
 passou a 16 fichas na revisão 2. A [evidência](evidencias/inventario-produtos-20261027.md)
 registra backup, preservação das fichas e reimportação sem mudanças.
 
-As fontes iniciais do ERP foram lidas em `docs/.old/architecture.md` e
+As fontes iniciais do ERP foram lidas em `docs/historico/legado/architecture.md` e
 `apps/api/src/platform/access.rs` do checkout local. As regras do laboratório
 apontam para seus avaliadores e para o exportador público. Nenhuma ficha inicial
 é marcada como verificada. Responsáveis ainda precisam ser atribuídos pela equipe.

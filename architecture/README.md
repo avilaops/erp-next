@@ -2,7 +2,8 @@
 
 Cada pasta responde a duas perguntas: qual responsabilidade tem e a quem pertence
 o assunto. Esta é a estrutura do código, não um indicador de funcionalidades
-prontas. O estado funcional continua em `docs/STATUS-ERP.md` e nas evidências.
+prontas. O comportamento das telas está no [manual do ERP](../docs/README.md);
+os registros das etapas anteriores ficam no [histórico](../docs/historico/README.md).
 
 As regras estão no [Ávila Experiments](https://ml.avilaops.com/experiments/policies),
 nas fichas `ERP-STRUCTURE-001`, `ERP-STRUCTURE-002` e `ERP-STRUCTURE-003`.

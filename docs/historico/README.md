@@ -1,0 +1,37 @@
+# Histórico de entregas e migrações
+
+[Voltar às telas](../README.md)
+
+Estes arquivos preservam o contexto das etapas anteriores. Expressões como “pendente”, “não implementado” e “esta entrega” se referem à data de cada registro. Para entender uma tela hoje, comece pelo [manual por tela](../README.md).
+
+## Registros de execução
+
+- [AGENTE-3-PREFERENCIAS-INTEGRACOES](registros/AGENTE-3-PREFERENCIAS-INTEGRACOES.md)
+- [AGENTE-4-STATUS](registros/AGENTE-4-STATUS.md)
+- [AUDITORIA-FISCAL-AVL-69-20261103](registros/AUDITORIA-FISCAL-AVL-69-20261103.md)
+- [DANFE-CONTINUACAO](registros/DANFE-CONTINUACAO.md)
+- [EXECUCAO-RELATORIOS](registros/EXECUCAO-RELATORIOS.md)
+- [FISCAL-NFE-HOMOLOGACAO](registros/FISCAL-NFE-HOMOLOGACAO.md)
+- [FRONTEND-LOTE-2](registros/FRONTEND-LOTE-2.md)
+- [FRONTEND-LOTE-3](registros/FRONTEND-LOTE-3.md)
+- [FRONTEND-LOTE-4](registros/FRONTEND-LOTE-4.md)
+- [FRONTEND-P1](registros/FRONTEND-P1.md)
+- [FRONTEND-RETORNO-AUTH-AVL-384](registros/FRONTEND-RETORNO-AUTH-AVL-384.md)
+- [FRONTEND-ROUTE-STATES.csv](registros/FRONTEND-ROUTE-STATES.csv)
+- [IMPORTACAO-FOTOS-LEGADO](registros/IMPORTACAO-FOTOS-LEGADO.md)
+- [LEGACY-EVOLUTION-IMPLEMENTATION](registros/LEGACY-EVOLUTION-IMPLEMENTATION.md)
+- [LEGACY-STRUCTURE-QUERY-AUDIT-20261104](registros/LEGACY-STRUCTURE-QUERY-AUDIT-20261104.md)
+- [MATRIZ-CAPACIDADES-FISCAIS-AVL-69](registros/MATRIZ-CAPACIDADES-FISCAIS-AVL-69.md)
+- [MIGRACAO-LEGADO-20261028](registros/MIGRACAO-LEGADO-20261028.md)
+- [MONITOR-FISCAL-PRODUCAO](registros/MONITOR-FISCAL-PRODUCAO.md)
+- [PLATFORM-DATABASE-20261104](registros/PLATFORM-DATABASE-20261104.md)
+- [RASTREABILIDADE-AGENTE-2](registros/RASTREABILIDADE-AGENTE-2.md)
+- [RESULTADO-MIGRACAO-20261028](registros/RESULTADO-MIGRACAO-20261028.md)
+- [STATUS-ERP](registros/STATUS-ERP.md)
+- [VERIFICACAO-CONTINUIDADE-20261031](registros/VERIFICACAO-CONTINUIDADE-20261031.md)
+- [VERIFICACAO-INTEGRACAO-20261101](registros/VERIFICACAO-INTEGRACAO-20261101.md)
+- [VERIFICACAO-RETORNOS-FISCAL-20261031](registros/VERIFICACAO-RETORNOS-FISCAL-20261031.md)
+
+## Documentação do legado
+
+Os arquivos antes guardados em `docs/.old` estão em [legado](legado/README.md). O conteúdo foi preservado, com os caminhos internos ajustados quando necessário.

@@ -46,7 +46,7 @@ Não tentar fechar as outras 28 famílias da AVL-359 dentro desta integração f
 
 ## T1 — Fechar fichas de ações e ligações UI/BFF/domínio
 
-**Files:** criar `docs/CONTRATOS-FISCAL-RECEBIDAS.md`; após integração do PR #4, atualizar `verification/contracts.json` e `docs/CONTRATOS-ACOES-P0.md` no formato existente.
+**Files:** criar `docs/telas/fiscal/monitor/referencias/CONTRATOS-FISCAL-RECEBIDAS.md`; após integração do PR #4, atualizar `verification/contracts.json` e `docs/tecnica/CONTRATOS-ACOES-P0.md` no formato existente.
 **Interfaces:** produz fichas com ator, permissão, entrada, precondição, transição, efeitos, idempotência, erro e recuperação. Não cria rotas de runtime.
 
 - [ ] Registrar as oito operações do desenho: credenciais GET/POST/DELETE; importação POST; serviço GET lista/XML/DANFE; health GET.
@@ -134,7 +134,7 @@ Store recebe transação tenant já autorizada, ReceivedMetadata, bytes/hash e c
 
 ## T7 — Revisão de ramo, CI e evidências
 
-**Files:** atualizar README.md, docs/STATUS-ERP.md, docs/CONTRATOS-FISCAL-RECEBIDAS.md e catálogo P0 conforme disponibilidade; criar `evidencias/avl-360-fiscal-vertical.md`.
+**Files:** atualizar README.md, docs/historico/registros/STATUS-ERP.md, docs/telas/fiscal/monitor/referencias/CONTRATOS-FISCAL-RECEBIDAS.md e catálogo P0 conforme disponibilidade; criar `evidencias/avl-360-fiscal-vertical.md`.
 **Interfaces:** entrega PR revisável com SHA e evidências; não entrega produção automaticamente.
 
 - [ ] Executar checks existentes de Rust, web e verificador exclusivamente GitHub CI. Registrar duração e resultados por SHA; nenhum check cancelado/ausente será chamado aprovado.

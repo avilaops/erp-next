@@ -86,9 +86,9 @@ protects the Lojas contract. The existing XML inspector and DANFE client are reu
 
 **Files:**
 
-- Create: `docs/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md`
-- Modify: `docs/STATUS-ERP.md`
-- Modify: `docs/DANFE-CONTINUACAO.md`
+- Create: `docs/telas/preferencias/integracoes/referencias/INTEGRACAO-LOJAS-NOTAS-RECEBIDAS.md`
+- Modify: `docs/historico/registros/STATUS-ERP.md`
+- Modify: `docs/historico/registros/DANFE-CONTINUACAO.md`
 
 1. Document key provisioning, Lojas environment variables, import workflow, response contract,
    validation boundaries, rotation/revocation, and deferred capabilities.

@@ -53,5 +53,5 @@ entrega reaplicada em `6ef6571` após resolver audit/retornos no router e proxy.
 Implementação desta etapa pronta para revisão. Rust: 180 testes aprovados e um
 ignorado; motor: 42; modelo web: dois; navegador: 19 cenários únicos aprovados.
 Build, lint, rustfmt e Clippy aprovados. Registro detalhado em
-`docs/VERIFICACAO-CONTINUIDADE-20261031.md`. A empresa padrão não possui perfil
+`docs/historico/registros/VERIFICACAO-CONTINUIDADE-20261031.md`. A empresa padrão não possui perfil
 fiscal/A1 cadastrados; publicação e homologação reais continuam pendentes.

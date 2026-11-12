@@ -60,7 +60,7 @@ Bearer, JSON e `environment: "homologation"`. O campo `certificate` contém
   não agenda nem repete consultas. A integração Rust e seu worker opcional
   passaram no CI com a central de leitura no commit `a19dc38`; conferência
   individual, vínculos de frete e homologação externa continuam pendentes. Consulte
-  [o contrato e as limitações CT-e](../../docs/CTE-DISTRIBUICAO-AVL-111.md).
+  [o contrato e as limitações CT-e](../../docs/telas/fiscal/cte/referencias/CTE-DISTRIBUICAO-AVL-111.md).
 
 `POST /v1/inspect-nfse` é uma inspeção privada de arquivo nacional recebido.
 Exige o mesmo Bearer e somente `{ xml, recipientTaxId }`, sem certificado ou

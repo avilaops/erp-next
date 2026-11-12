@@ -27,7 +27,7 @@ Alternativas consideradas:
 - apps/api/src/domains/fiscal/danfe.rs já inspeciona nfeProc 4.00, namespace,
   chave, protocolo e vínculo empresarial. Sua inspeção estrutural não comprova
   assinatura, XSD ou situação atual na SEFAZ.
-- docs/DANFE-XML-AUTORIZADO.md documenta validação MCP de XSD, assinatura e
+- docs/telas/fiscal/danfe/referencias/DANFE-XML-AUTORIZADO.md documenta validação MCP de XSD, assinatura e
   renderização, com até 50 segundos mais encerramento.
 - Lojas src/lib/erp-fiscal.ts, blob e1d79ec0a5b1d9b09dd74c92291d6a010d56712b:
   só envia Bearer, espera IDs numéricos, {notas, pendencias}, e downloads em

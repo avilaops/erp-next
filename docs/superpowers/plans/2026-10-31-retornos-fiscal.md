@@ -80,5 +80,5 @@ interno da Task 2 para `distribute` e `manifest`. Conversão usa domínio de com
 
 Primeira entrega pronta para revisão no recorte documentado, sem publicação.
 AVL-396 em `In Review`. Resultados reproduzíveis e pendências operacionais em
-`docs/VERIFICACAO-RETORNOS-FISCAL-20261031.md`. Paridade integral de produção,
+`docs/historico/registros/VERIFICACAO-RETORNOS-FISCAL-20261031.md`. Paridade integral de produção,
 comissões e cobertura tributária não é declarada por esta entrega.

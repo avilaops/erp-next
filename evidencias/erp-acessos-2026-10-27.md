@@ -80,7 +80,7 @@ telas de acesso evita que a navegação móvel cubra os controles finais.
 - `apps/web/tests/access-persistence.spec.ts`, `catalog-persistence.spec.ts`
   e adaptação das verificações gerais ao estado atual do checkout.
 - `scripts/verify-company.mjs`, configurações Playwright e alias `test:access`.
-- `docs/API-ACESSOS.md`, `docs/STATUS-ERP.md`, README e exclusões de build no lint.
+- `docs/telas/preferencias/usuarios-permissoes/referencias/API-ACESSOS.md`, `docs/historico/registros/STATUS-ERP.md`, README e exclusões de build no lint.
 
 Capturas sintéticas da verificação atual:
 [desktop](screenshots/erp-access-desktop.png) e

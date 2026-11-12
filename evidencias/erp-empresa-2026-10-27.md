@@ -81,7 +81,7 @@ Capturas geradas:
 As credenciais do cliente ERP no Auth e uma empresa com associação real não
 estavam configuradas nos arquivos de ambiente deste checkout. Para fechar essa
 validação externa, é necessário o callback registrado e o provisionamento
-descrito em [STATUS-ERP.md](../docs/STATUS-ERP.md).
+descrito em [STATUS-ERP.md](../docs/historico/registros/STATUS-ERP.md).
 
 A migração foi adicionada ao código e aplicada apenas a bases de teste. O
 workflow CI recebeu PostgreSQL para que os testes SQLx possam executar; nenhum

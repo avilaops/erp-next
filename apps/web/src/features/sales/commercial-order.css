@@ -140,8 +140,8 @@
 .order-quick-summary[hidden] { display: none; }
 @media (max-width: 1099px) {
   .commercial-order-page { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
-  .commercial-order-page :is(input:not([type=range]), select, button) { min-height: 44px; }
-  .commercial-order-page :is(input:not([type=range]), select, textarea) { font-size: 16px; }
+  .commercial-order-page :is(input:not([type=range], [type=checkbox], [type=radio], [type=hidden]), select, button) { min-height: 44px; }
+  .commercial-order-page :is(input:not([type=range], [type=checkbox], [type=radio], [type=hidden]), select, textarea) { font-size: 16px; }
   .order-quantity-control button { width: 44px; min-width: 44px; }
   .order-equipment-table .order-quantity-control { width: 144px; }
   .order-save-area > button { width: 100%; }

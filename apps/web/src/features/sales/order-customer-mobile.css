@@ -7,6 +7,7 @@
 .order-customer-fields .order-customer-exempt { display: flex; min-height: 2.75rem; align-items: center; gap: .625rem; font-size: .875rem; }
 .order-customer-fields .order-customer-exempt > input { width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
 .order-customer-fields .order-customer-city-state { display: grid; min-width: 0; gap: .75rem; grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 6.5rem); }
+.order-customer-fields .order-address-fields .order-field-grid > .order-customer-city-state { grid-column: 1 / -1; }
 .order-customer-fields .order-customer-edit-note { border-inline-start: 3px solid var(--primary); padding-inline-start: .75rem; }
 .order-customer-fields .order-customer-issues { display: grid; gap: .5rem; overflow-wrap: anywhere; }
 .order-customer-fields .order-customer-issues ul { display: grid; gap: .5rem; padding-inline-start: 1rem; list-style: disc; }

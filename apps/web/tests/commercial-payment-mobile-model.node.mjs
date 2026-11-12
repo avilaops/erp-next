@@ -29,6 +29,23 @@ test("missing balance method and generation are separately actionable", () => {
   assert.deepEqual(validateCheckout(draft({ balanceMethod: "", rows: [] })).issues.map(issue => issue.field), ["checkout.balance-method", "checkout.generate"]);
 });
 
+test("invalid raw entry remains actionable while negotiation has no priced result", () => {
+  const input = draft({ totalCents: null, entryCents: null, entryRaw: "abc", rows: [] });
+  const snapshot = structuredClone(input);
+  const result = validateCheckout(input);
+  assert.equal(result.issues[0].field, "checkout.entry");
+  assert.match(result.issues[0].message, /valor válido.*entrada/i);
+  assert.equal(result.value, null);
+  assert.deepEqual(input, snapshot);
+});
+
+test("entry above total explains the invalid amount instead of requesting a simulation", () => {
+  const result = validateCheckout(draft({ entryCents: 20000, entryRaw: "200,00", rows: [] }));
+  assert.equal(result.issues[0].field, "checkout.entry");
+  assert.match(result.issues[0].message, /entrada.*não pode.*total/i);
+  assert.equal(result.value, null);
+});
+
 test("validated checkout preserves cents and records delivery mode, unit and entry anchor without mutating draft", () => {
   const input = draft({ rows: [
     { key: "one", paymentMethodId: "pix", dueOn: "2026-12-12", amount: "23,34" },

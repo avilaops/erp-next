@@ -66,7 +66,7 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
   const paymentKey = `${totalCents}:${entryCents}`
   const balance = totalCents !== null && entryCents !== null ? totalCents - entryCents : null
   const rowsTotal = rows.reduce((sum, row) => sum + (parseAmount(row.amount) ?? 0), 0)
-  const validation = validateCheckout({ orderMode: !!renderOrder, methods, totalCents, entryCents, invalidPercent: invalidPercentForEntry === paymentKey, entryMethod, entryDate, balanceMethod, rows, manufacturing, manufacturingUnit, registration, deliveryNotes, deliveryMethodNote, paymentNotes, notes })
+  const validation = validateCheckout({ orderMode: !!renderOrder, methods, totalCents, entryCents, entryRaw: renderOrder ? entryRaw : undefined, invalidPercent: invalidPercentForEntry === paymentKey, entryMethod, entryDate, balanceMethod, rows, manufacturing, manufacturingUnit, registration, deliveryNotes, deliveryMethodNote, paymentNotes, notes })
   const progressSignature = JSON.stringify(validation.issues)
   const progressCallback = useRef(onProgressChange)
   const reportedSignature = useRef<string | null>(null)
@@ -79,7 +79,7 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
   const today = paymentToday()
   const plan = paymentPlanReadiness({ balance, methods, method: balanceMethod, count, firstDays, interval, entryDate, dueDate, today, rows })
   useEffect(() => {
-    if (!issue || issue.focus === false) return
+    if (!issue || issue.focus === false || disabled) return
     const frame = requestAnimationFrame(() => {
       const field = form.current?.querySelector<HTMLElement>(`[data-checkout-field="${issue.field}"]`)
       if (!field || field.matches(":disabled")) return
@@ -88,7 +88,7 @@ export function CommercialCheckout({ ref, customerId, tenantId, methods, totalCe
       field.scrollIntoView({ block: "center" })
     })
     return () => cancelAnimationFrame(frame)
-  }, [issue])
+  }, [issue, disabled])
   function fieldProps(field: string): FieldValidation {
     const invalid = (attempted || issue?.field === field) && validation.issues.some(item => item.field === `checkout.${field}`)
     return { "data-checkout-field": field, "aria-invalid": invalid || undefined, "aria-describedby": invalid ? `${issueId}-${field}` : undefined }

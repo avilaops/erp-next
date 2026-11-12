@@ -35,6 +35,7 @@ const required = <span aria-hidden="true"> *</span>
 
 export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty, onDestinationChange, onTaxpayerChange, onBusyChange, onUncertainChange, onProgressChange }: Props) {
   const region = useRef<HTMLElement>(null)
+  const searchRegion = useRef<HTMLDivElement>(null)
   const issueId = useId()
   const [draft, setDraft] = useState(emptyOrderCustomerDraft)
   const currentDraft = useRef(draft)
@@ -65,7 +66,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
   const activeTenant = useRef(tenantId)
   const frozen = disabled || loading || busy || uncertain || conflict
   const editable = canManage && !frozen
-  const issues = orderCustomerIssues(draft)
+  const issues = !canManage && !selectedName ? [{ field: "selection", message: "Selecione um cliente cadastrado. Seu acesso não permite criar clientes." }] : orderCustomerIssues(draft)
   const progressSignature = JSON.stringify({ issues: issues.map(issue => ({ ...issue, field: `customer.${issue.field}`, section: "customer" })), addressState: draft.state })
   useEffect(() => { progressCallback.current = onProgressChange }, [onProgressChange])
   useEffect(() => { progressCallback.current?.(JSON.parse(progressSignature)) }, [progressSignature])
@@ -88,7 +89,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
   useEffect(() => {
     if (!focusField) return
     const frame = requestAnimationFrame(() => {
-      const field = Array.from(region.current?.querySelectorAll<HTMLElement>("[data-order-customer-field]") || []).find(element => element.dataset.orderCustomerField === focusField.field)
+      const field = focusField.field === "selection" ? searchRegion.current?.querySelector<HTMLInputElement>("input") : Array.from(region.current?.querySelectorAll<HTMLElement>("[data-order-customer-field]") || []).find(element => element.dataset.orderCustomerField === focusField.field)
       if (field && !field.matches(":disabled")) { field.focus({ preventScroll: true }); field.scrollIntoView({ block: "center" }) }
       else { region.current?.focus({ preventScroll: true }); region.current?.scrollIntoView({ block: "center" }) }
     })
@@ -97,7 +98,8 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
 
   function focus(field: string) {
     setAttempted(true)
-    if (field === "selection") setSearchOpen(true)
+    if (!canManage && !selectedName) field = "selection"
+    if (field === "selection") { setSearchOpen(true); setEditorOpen(false) }
     else { if (field !== "stateRegistration" || !selectedName) setEditorOpen(true); setSearchOpen(false) }
     setFocusField({ field })
   }
@@ -219,7 +221,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
     setAttempted(true)
     if (loading || requestedId && confirmed.current?.id !== requestedId) throw Error("Selecione novamente o cliente e aguarde a conferência do cadastro.")
     if (conflict) throw Error("Recarregue o cliente para conferir o conflito de revisão antes de continuar.")
-    if (!confirmed.current && !canManage) throw Error("Selecione um cliente cadastrado. Seu acesso não permite criar clientes.")
+    if (!confirmed.current && !canManage) { focus("selection"); throw Error("Selecione um cliente cadastrado. Seu acesso não permite criar clientes.") }
     const validation = orderCustomerIssues(currentDraft.current)[0]
     if (validation) { focus(validation.field); throw Error(validation.message) }
     return { stateRegistration: currentDraft.current.personType === "juridica" ? currentDraft.current.stateRegistration.trim() || null : null }
@@ -289,7 +291,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
       <Button type="button" variant={searchOpen ? "default" : "outline"} disabled={disabled || busy || uncertain || loading} aria-expanded={searchOpen} onClick={() => { setSearchOpen(true); setEditorOpen(false) }}>Buscar cliente</Button>
       {canManage && <Button type="button" variant={!selectedName && editorOpen ? "default" : "outline"} disabled={frozen} onClick={newCustomer}>Cadastrar cliente</Button>}
     </div>
-    {searchOpen && <div className={!canManage ? "[&_a]:hidden" : undefined}><Lookup compact hideLabel placeholder="Buscar cliente já cadastrado: nome, CNPJ ou CPF…" endpoint="parties" label="cliente" searchOnly selectedName={selectedName} disabled={disabled || busy || uncertain} choose={value => void selectCustomer(value)} /></div>}
+    {searchOpen && <div ref={searchRegion} className={!canManage ? "[&_a]:hidden" : undefined}><Lookup compact hideLabel placeholder="Buscar cliente já cadastrado: nome, CNPJ ou CPF…" endpoint="parties" label="cliente" searchOnly selectedName={selectedName} disabled={disabled || busy || uncertain} choose={value => void selectCustomer(value)} /></div>}
     {loading && <p role="status" className="text-xs">Conferindo cadastro do cliente…</p>}
     {!canManage && <p className="text-xs text-muted-foreground">Selecione um cliente existente. A edição do cadastro exige permissão de gestão de clientes.</p>}
     {selectedName && <div className="order-customer-selected">

@@ -57,3 +57,11 @@ Interfaces: prop `onProgressChange?: (issues:OrderIssue[])=>void`; handle focus(
 - [ ] Modelos/lint/types/build local, browser Chromium+WebKit com fixtures; revisar capturas/teclado/overflow/foco e estados de falha.
 - [ ] Revisão independente de spec/código e ramo inteiro, corrigir achados, design-qa.md atualizado com fonte e evidências.
 - [ ] Commit/push/PR relacionada AVL432, gate obrigatório; integração exata, artefato local e deploy somente web com rollback/health/hash; manter Git limpo e local funcionando.
+
+### Task5: Limpeza de deploys antigos após validar a publicação
+
+Pedido adicional explícito do usuário: excluir deploys antigos para liberar espaço no servidor.
+
+- [ ] Inventariar espaço, diretórios de releases/source e imagens ERP, identificando referências dos serviços ativos e rollback imediato.
+- [ ] Após publicar e validar, remover somente releases/fontes/imagens ERP obsoletos com caminhos canônicos validados. Preservar versão ativa, rollback imediato, artefatos e imagens usados por API/fiscal, bancos, volumes, configurações privadas, backups e recursos de outros projetos.
+- [ ] Conferir espaço recuperado, health e quatro serviços saudáveis. Registrar lista/bytes e retenção em artefato local, sem expor configurações privadas.

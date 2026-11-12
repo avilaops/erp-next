@@ -20,6 +20,7 @@ import type { Opportunity } from "./opportunities"
 import { commercialTableReturn, type CommercialSelection } from "./commercial-navigation-model"
 import { CommercialCheckout, type CheckoutHandle } from "./commercial-checkout"
 import { paymentToday, type CheckoutInput } from "./commercial-payment-model"
+import { checkoutEntryIssue } from "./commercial-payment-mobile-model"
 import { OrderWeightSummary } from "./order-weight-summary"
 import { OrderCustomerForm, type OrderCustomerHandle } from "./order-customer-form"
 import { CommercialOrderLayout, OrderEquipmentSearch, OrderSection, OrderTotals } from "./commercial-order-layout"
@@ -134,17 +135,24 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   const orderQuoteSignature = (() => { if (!orderMode) return ""; try { return JSON.stringify(simulationInput()) } catch { return "" } })()
   const result = calculated && calculated.input.versionId === table.data?.id && (!orderMode || JSON.stringify(calculated.input) === orderQuoteSignature) ? calculated : null
   const busy = manualBusy || !!orderQuoteSignature && autoPendingKey === orderQuoteSignature
+  const entryIssue = checkoutEntryIssue(paymentTotal, downPayment)
+  const invalidFreight = ourFreight && parseAmount(freight) === null
+  const invalidDiscount = parseAmount(discount.raw) === null
+  const discountField = discount.kind === "total" ? "discount.total" : "discount.percent"
+  const invalidPricingField = entryIssue || invalidFreight || invalidDiscount || unavailableItems.length || items.some(item => !validOrderQuantity(item.quantity))
   const orderIssues = orderedOrderIssues([
     ...(!items.length ? [{ field: "equipment.search", section: "equipment" as const, message: "Adicione ao menos um equipamento." }] : []),
     ...items.filter(item => !validOrderQuantity(item.quantity)).map(item => ({ field: `equipment.quantity.${item.productId}`, section: "equipment" as const, message: `Confira a quantidade de ${table.data?.items.find(source => source.productId === item.productId)?.name || "equipamento"}.` })),
     ...(unavailableItems.length ? [{ field: "equipment.search", section: "equipment" as const, message: "Remova os equipamentos indisponíveis nesta tabela." }] : []),
     ...customerProgress.issues,
-    ...checkoutIssues.filter(issue => issue.field !== "checkout.entry" || !!result),
-    ...(ourFreight && parseAmount(freight) === null ? [{ field: "delivery.freight", section: "delivery" as const, message: "Informe o custo de frete por nossa conta." }] : []),
-    ...(parseAmount(discount.raw) === null ? [{ field: "discount.percent", section: "discount" as const, message: "Confira o desconto ou valor negociado." }] : []),
-    ...(items.length && !result ? [{ field: "discount.percent", section: "discount" as const, message: quoteStale ? "Atualize a tabela para conferir os valores." : busy ? "Aguarde o cálculo da negociação." : "Confira as condições para calcular o total." }] : []),
+    ...(entryIssue ? [entryIssue] : []),
+    ...checkoutIssues.filter(issue => issue.field !== "checkout.entry" || !!result && !entryIssue),
+    ...(invalidFreight ? [{ field: "delivery.freight", section: "delivery" as const, message: "Informe o custo de frete por nossa conta." }] : []),
+    ...(invalidDiscount ? [{ field: discountField, section: "discount" as const, message: discount.kind === "total" ? "Informe um valor negociado válido, com até duas casas decimais." : "Informe um desconto válido, com até duas casas decimais." }] : []),
+    ...(items.length && !result && !invalidPricingField ? [{ field: discountField, section: "discount" as const, message: quoteStale ? "Atualize a tabela para conferir os valores." : busy ? "Aguarde o cálculo da negociação." : "Confira as condições para calcular o total." }] : []),
   ])
   function focusOrderIssue(issue: OrderIssue) {
+    setAttempted(true)
     if (issue.field.startsWith("customer.")) { customerForm.current?.focus(issue.field.slice(9)); return }
     if (issue.field.startsWith("checkout.")) { checkout.current?.focus(issue.field.slice(9)); return }
     const target = issue.field === "equipment.search" ? document.getElementById("order-equipment-search") : document.querySelector<HTMLElement>(`[data-order-field="${issue.field}"]`)
@@ -277,7 +285,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
         onEntryChange={raw => { setDownPayment(raw); change() }} dueDate={dueDate}
         onDueDateChange={date => { setDueDate(date); markDirty() }} onDirty={markDirty} disabled={frozen}
         onProgressChange={setCheckoutIssues} deliveryMethodNote={deliveryMethodNote}
-        freightField={<OrderFreightFields mode={freightMode} value={freight} onMode={mode => { setFreightMode(mode); setOurFreight(mode === "company"); change() }} onChange={value => { setFreight(value); change() }} />}
+        freightField={<OrderFreightFields mode={freightMode} value={freight} error={attempted ? orderIssues.find(issue => issue.field === "delivery.freight")?.message : undefined} onMode={mode => { setFreightMode(mode); setOurFreight(mode === "company"); change() }} onChange={value => { setFreight(value); change() }} />}
         renderOrder={({ payment, delivery }) => <CommercialOrderLayout
           equipment={<OrderSection id="order-equipment" title="Equipamentos" detail={quantityTotal === null ? "Confira as quantidades" : quantityTotal + " un."}>
             <div className="order-table-context">{lineControl}<details><summary>Detalhes da tabela</summary><p>Versão {table.data!.version} · {table.line === "national" ? "Nacional" : "Importada"}</p><p>Ao trocar a tabela, confira os preços e monte uma nova negociação.</p></details></div>
@@ -310,6 +318,8 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
             onFollowAddress={() => { setDestinationManual(false); setDestination(customerProgress.addressState || table.data!.originState); change() }}
             taxpayer={taxpayer} taxpayerManual={taxpayerManual} onTaxpayerChange={value => { setTaxpayerManual(true); setTaxpayer(value); change() }} />{delivery}</>}
           discount={<OrderDiscountFields sale={sale} discount={discount} pending={busy} hasItems={!!items.length} disabled={frozen}
+            percentError={attempted ? orderIssues.find(issue => issue.field === "discount.percent")?.message : undefined}
+            totalError={attempted ? orderIssues.find(issue => issue.field === "discount.total")?.message : undefined}
             ownLimit={ownLimit} freeLimit={table.data!.freeDiscountBps} authority={table.authority} onAdd={focusSearch}
             onPercent={raw => { setDiscount({ kind: "percent", raw }); change() }}
             onTotal={raw => { setDiscount(raw.trim() ? { kind: "total", raw } : { kind: "percent", raw: "0" }); change() }} />}

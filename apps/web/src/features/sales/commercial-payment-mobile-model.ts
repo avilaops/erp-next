@@ -4,10 +4,19 @@ import type { OrderIssue } from "./order-progress"
 
 export type CheckoutRow = { key: string; paymentMethodId: string; dueOn: string; amount: string; expanded?: boolean }
 type CheckoutDraft = {
-  orderMode: boolean; methods: PaymentMethod[]; totalCents: number | null; entryCents: number | null
+  orderMode: boolean; methods: PaymentMethod[]; totalCents: number | null; entryCents: number | null; entryRaw?: string
   invalidPercent: boolean; entryMethod: string; entryDate: string; balanceMethod: string; rows: CheckoutRow[]
   manufacturing: string; manufacturingUnit: string; registration: string; deliveryNotes: string
   deliveryMethodNote?: string; paymentNotes: string; notes: string
+}
+
+/** Explicit entry errors remain useful even while a new simulation is unavailable. */
+export function checkoutEntryIssue(totalCents: number | null, entryRaw?: string): OrderIssue | null {
+  if (!entryRaw?.trim()) return null
+  const amount = parseAmount(entryRaw)
+  const message = amount === null ? "Informe um valor válido para a entrada, com até duas casas decimais."
+    : totalCents !== null && amount > totalCents ? "A entrada não pode ser maior que o total do pedido." : ""
+  return message ? { field: "checkout.entry", section: "payment", message } : null
 }
 
 /** Read and progress reporting consume the same result; validation never changes the draft. */
@@ -18,7 +27,9 @@ export function validateCheckout(draft: CheckoutDraft): { issues: OrderIssue[]; 
   }
   const hasMethod = (id: string) => draft.methods.some(method => method.id === id)
   const balance = draft.totalCents !== null && draft.entryCents !== null ? draft.totalCents - draft.entryCents : null
-  if (balance === null || balance < 0) issue("entry", "Simule a negociação para conferir a entrada e o saldo.")
+  const entryIssue = checkoutEntryIssue(draft.totalCents, draft.entryRaw)
+  if (entryIssue) issues.push(entryIssue)
+  else if (balance === null || balance < 0) issue("entry", "Simule a negociação para conferir a entrada e o saldo.")
   if (draft.invalidPercent) issue("entry-percent", "Confira o percentual da entrada antes de criar o pedido.")
   if (draft.entryCents !== null && draft.entryCents > 0 && !hasMethod(draft.entryMethod)) issue("entry-method", "Escolha a forma de pagamento da entrada.")
   if (draft.entryDate && (!draft.orderMode || draft.entryCents !== null && draft.entryCents > 0)) {

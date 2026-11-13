@@ -103,6 +103,8 @@ mod registry_tests;
 #[cfg(test)]
 mod returns_tests;
 #[cfg(test)]
+mod sales_acceptance_tests;
+#[cfg(test)]
 mod sales_checkout_tests;
 #[cfg(test)]
 mod sales_settings_tests;

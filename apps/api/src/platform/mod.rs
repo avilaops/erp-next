@@ -13,6 +13,7 @@ pub mod files;
 pub mod invitations;
 pub mod label_templates;
 pub mod mail;
+pub mod mail_settings;
 pub mod onboarding;
 pub mod preferences;
 pub mod price_tables;

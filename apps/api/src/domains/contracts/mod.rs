@@ -548,9 +548,6 @@ pub async fn send_package(
     Path(id): Path<Uuid>,
     Json(_): Json<Value>,
 ) -> Result<Response, DomainError> {
-    let mailer = state.mail.as_ref().ok_or(DomainError::Conflict(
-        "SMTP não configurado para envio de documentos",
-    ))?;
     let key = command_key(&headers)?;
     let (tenant, mut tx, _) = authorized(&state, &headers, &identity, READ, MANAGE, true).await?;
     if !can_send(&mut tx, tenant, &identity).await?
@@ -587,6 +584,11 @@ pub async fn send_package(
         ));
     }
     ensure_active_order(&mut tx, tenant, contract.order_id).await?;
+    let mailer = crate::platform::mail_settings::resolve_in(&state, &mut tx)
+        .await?
+        .ok_or(DomainError::Conflict(
+            "SMTP não configurado para envio de documentos",
+        ))?;
     let package = package::build(&mut tx, &contract, state.danfe.as_ref()).await?;
     let message_sha256 = model::digest(
         format!(

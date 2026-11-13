@@ -4,6 +4,10 @@ import { fiscalApiOrigin } from "@/lib/api/local-fiscal-origin"
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
+  const platformMailResource = resource === "/platform/mail-settings"
+  const orderDocumentResource = /^\/orders\/[a-f0-9-]{36}\/document$/i.test(resource)
+  if (platformMailResource && !["GET", "PUT"].includes(request.method) || orderDocumentResource && request.method !== "GET") return Response.json({ title: "Método inválido" }, { status: 405 })
+  if ((platformMailResource || orderDocumentResource) && new URL(request.url).search) return Response.json({ title: "Consulta inválida" }, { status: 400 })
   const priceListResource = /^\/price-lists(?:\/[a-f0-9-]{36})?$/i.test(resource) && (resource === "/price-lists" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const opportunityResource = /^\/opportunities(?:\/[a-f0-9-]{36})?$/.test(resource) && (resource === "/opportunities" ? ["GET", "POST"] : ["GET", "PUT"]).includes(request.method)
   const metricResource = request.method === "GET" && /^\/commercial\/metrics\/(?:orders|commissions)$/.test(resource)
@@ -75,15 +79,16 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "POST" && (/^\/logistics\/postings$/i.test(resource) || /^\/logistics\/postings\/[a-f0-9-]{36}\/(?:status|packages)$/i.test(resource) || /^\/logistics\/checkouts(?:\/[a-f0-9-]{36}(?:\/(?:complete|labels|lines\/\d+\/check|packages(?:\/[a-f0-9-]{36}\/status)?))?)?$/i.test(resource))
   const purchaseCollection = /^\/(?:purchase-orders|payables|financial-payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables|financial-payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/(?:payables|financial-payables)\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!posResource && !documentEmailResource && !priceListResource && !opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !productCatalogResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!platformMailResource && !orderDocumentResource && !posResource && !documentEmailResource && !priceListResource && !opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !productCatalogResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
-    const session = resource === "/companies" || resource === "/company-registration/lookup" ? await currentIdentitySession() : await currentSession()
+    const session = platformMailResource || resource === "/companies" || resource === "/company-registration/lookup" ? await currentIdentitySession() : await currentSession()
     if (!session) return Response.json({ title: "Entre para acessar os dados da empresa" }, { status: 401, headers: { "Cache-Control": "no-store" } })
     if (request.method !== "GET" && request.headers.get("origin") !== config.origin) return Response.json({ title: "Origem não autorizada" }, { status: 403 })
-    if (request.method !== "GET" && resource !== "/companies" && resource !== "/company-registration/lookup" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
+    if (request.method !== "GET" && !platformMailResource && resource !== "/companies" && resource !== "/company-registration/lookup" && request.headers.get("x-tenant-id") !== session.tenantId) return Response.json({ title: "A empresa da sessão mudou. Sua edição foi preservada" }, { status: 409 })
     const headers = new Headers({ Authorization: `Bearer ${session.accessToken}`, ...(session.tenantId && resource !== "/companies" ? { "X-Tenant-Id": session.tenantId } : {}), Accept: "application/json" })
     if (productExportResource) headers.set("Accept", "text/csv")
+    if (orderDocumentResource) headers.set("Accept", "application/pdf")
     let body: string | undefined
     const bodylessProductConfirm = productTransferResource && resource.endsWith("/confirm")
     if ((request.method === "PUT" || request.method === "POST") && !bodylessProductConfirm) {
@@ -193,13 +198,14 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    const timeout = AbortSignal.timeout(documentEmailResource ? 25000 : invitationResource || accountResource ? 20000 : 10000)
+    const timeout = AbortSignal.timeout(documentEmailResource || orderDocumentResource ? 25000 : invitationResource || accountResource ? 20000 : 10000)
     const signal = productExportResource ? AbortSignal.any([request.signal, timeout]) : timeout
     const response = await fetch(upstream, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal })
     // ETag is the backend revision used by If-Match; proxy encoding must not rewrite it.
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
-    if (productExportResource && response.ok) { const disposition = response.headers.get("content-disposition"); if (disposition) output.set("Content-Disposition", disposition) }
+    if ((productExportResource || orderDocumentResource) && response.ok) { const disposition = response.headers.get("content-disposition"); if (disposition) output.set("Content-Disposition", disposition) }
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }
+    if (orderDocumentResource && response.ok) return new Response(await response.arrayBuffer(), { status: response.status, headers: output })
     const responseBody = response.status === 204 ? "" : await response.text()
     if (registryResource) {
       let valid = false

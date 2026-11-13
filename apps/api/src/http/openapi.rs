@@ -75,6 +75,8 @@ use crate::platform::{
         sales::proposals::approve_order,
         sales::proposals::email::get, sales::proposals::email::send,
         sales::order_email::get, sales::order_email::send,
+        sales::order_document::get,
+        crate::platform::mail_settings::get, crate::platform::mail_settings::put,
         finance::list, finance::get, finance::pay, finance::reverse,
         financial_account_ledger::list, financial_account_ledger::create,
         financial_account_ledger::transfer,
@@ -399,7 +401,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 242);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 244);
         for (path, method) in [
             ("/api/v1/fiscal/outgoing-imports", "get"),
             ("/api/v1/fiscal/outgoing-imports/import", "post"),
@@ -411,6 +413,9 @@ mod tests {
             ("/api/v1/proposals/{id}/email", "post"),
             ("/api/v1/orders/{id}/email", "get"),
             ("/api/v1/orders/{id}/email", "post"),
+            ("/api/v1/orders/{id}/document", "get"),
+            ("/api/v1/platform/mail-settings", "get"),
+            ("/api/v1/platform/mail-settings", "put"),
         ] {
             assert!(doc["paths"][path][method].is_object(), "{method} {path}");
         }

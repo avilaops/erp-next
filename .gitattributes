@@ -13,3 +13,5 @@ migrations/*.sql text eol=lf whitespace=-blank-at-eof
 apps/api/src/http/fixtures/*.xml -text
 # The authorizer matrix and source snapshots are verified by exact SHA-256.
 apps/fiscal-engine/src/lib/fiscal/schemas/nfe-authorizers/** -text
+# Imported bank logos are verified against the sanitized SHA-256 manifest.
+apps/web/public/banks/*.svg text eol=lf whitespace=-trailing-space

@@ -33,7 +33,7 @@ for (const config of resources) {
     if (config.page === "categorias-produtos") await page.getByRole("spinbutton", { name: "Ordem de exibição", exact: true }).fill("7")
     if (config.page === "categorias-financeiras") await page.getByRole("combobox", { name: "Natureza", exact: true }).selectOption("expense")
     if (config.page === "contas-financeiras") {
-      await page.getByRole("textbox", { name: "Banco", exact: true }).fill("Banco declarado de teste")
+      await page.getByRole("combobox", { name: "Banco", exact: true }).fill("Banco declarado de teste")
       await page.getByRole("textbox", { name: "Agência", exact: true }).fill("0001")
       await page.getByRole("textbox", { name: "Número da conta", exact: true }).fill("123-4")
     }

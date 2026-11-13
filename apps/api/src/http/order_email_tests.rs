@@ -13,6 +13,168 @@ const TENANT: &str = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER: &str = "11111111-2222-4333-8444-555555555555";
 const PRODUCT: &str = "11111111-2222-4333-8444-666666666666";
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_document_download_is_authorized_revisioned_binary_and_read_only(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    seed(&admin).await;
+    let created = create(&admin).await;
+    let id = created["data"]["id"].as_str().unwrap();
+    let url = format!("/api/v1/orders/{id}/document");
+    assert_eq!(
+        call(&router, "GET", &url, "editor", None, None, Value::Null)
+            .await
+            .0,
+        StatusCode::PRECONDITION_REQUIRED
+    );
+    assert_eq!(
+        call(&router, "GET", &url, "editor", Some(2), None, Value::Null)
+            .await
+            .0,
+        StatusCode::PRECONDITION_FAILED
+    );
+    assert_eq!(
+        call(&router, "GET", &url, "disabled", Some(1), None, Value::Null)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(&url)
+                .header("x-tenant-id", TENANT)
+                .header("authorization", "Bearer reader")
+                .header("if-match", "\"1\"")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["content-type"], "application/pdf");
+    assert_eq!(response.headers()["cache-control"], "no-store");
+    assert_eq!(response.headers()["etag"], "\"1\"");
+    assert!(
+        response.headers()["content-disposition"]
+            .to_str()
+            .unwrap()
+            .contains(".pdf")
+    );
+    let bytes = to_bytes(response.into_body(), 2_000_000).await.unwrap();
+    assert!(bytes.starts_with(b"%PDF-"));
+    let parsed = lopdf::Document::load_mem(&bytes).unwrap();
+    assert_eq!(parsed.get_pages().len(), 1);
+    let text = parsed.extract_text(&[1]).unwrap();
+    assert!(text.contains("Produto de teste"));
+    assert!(text.contains("49,98"));
+    let state: (i64, String) =
+        sqlx::query_as("SELECT revision,status FROM sales_orders WHERE id=$1::uuid")
+            .bind(id)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(state, (1, "draft".into()));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sales_order_email_deliveries")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn delivery_runtime_grants_restore_preview_without_delete_or_rls_bypass(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    seed(&admin).await;
+    let created = create(&admin).await;
+    let id = created["data"]["id"].as_str().unwrap();
+    let url = format!("/api/v1/orders/{id}/email");
+    assert!(
+        role.chars()
+            .all(|value| value.is_ascii_alphanumeric() || value == '_')
+    );
+    sqlx::raw_sql(&format!(
+        "REVOKE ALL ON sales_order_email_deliveries,sales_proposal_email_deliveries FROM {role}"
+    ))
+    .execute(&admin)
+    .await
+    .unwrap();
+    assert_eq!(
+        call(&router, "GET", &url, "editor", None, None, Value::Null)
+            .await
+            .0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    let grants = include_str!("../../../../deploy/grant-commercial-email.sql")
+        .lines()
+        .filter(|line| !line.starts_with('\\'))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .replace("erp_next_app", &role);
+    sqlx::raw_sql(&grants).execute(&admin).await.unwrap();
+    assert_eq!(
+        call(&router, "GET", &url, "editor", None, None, Value::Null)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    for table in [
+        "sales_order_email_deliveries",
+        "sales_proposal_email_deliveries",
+    ] {
+        for privilege in ["SELECT", "INSERT", "UPDATE"] {
+            assert!(
+                sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,$3)")
+                    .bind(&role)
+                    .bind(table)
+                    .bind(privilege)
+                    .fetch_one(&admin)
+                    .await
+                    .unwrap()
+            );
+        }
+        assert!(
+            !sqlx::query_scalar::<_, bool>("SELECT has_table_privilege($1,$2,'DELETE')")
+                .bind(&role)
+                .bind(table)
+                .fetch_one(&admin)
+                .await
+                .unwrap()
+        );
+        assert!(
+            sqlx::query_scalar::<_, bool>(
+                "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=$1::regclass"
+            )
+            .bind(table)
+            .fetch_one(&admin)
+            .await
+            .unwrap()
+        );
+    }
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user"
+        )
+        .fetch_one(&application)
+        .await
+        .unwrap()
+    );
+    let post = call(&router, "POST", &url, "editor", Some(1), Some(Uuid::now_v7()),
+        json!({"recipient":"cliente@example.test","subject":"Pedido","message":"Confira o documento."})).await;
+    assert_eq!(post.0, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM sales_order_email_deliveries")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        0
+    );
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
+
 async fn call(
     router: &Router,
     method: &str,

@@ -54,6 +54,8 @@ mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
+mod mail_settings_tests;
+#[cfg(test)]
 mod mcp_tests;
 #[cfg(test)]
 mod monitor_tests;
@@ -140,6 +142,14 @@ pub fn router(state: AppState) -> Router {
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
 
     let business = Router::new()
+        .route(
+            "/api/v1/platform/mail-settings",
+            get(crate::platform::mail_settings::get).put(crate::platform::mail_settings::put),
+        )
+        .route(
+            "/api/v1/orders/{id}/document",
+            get(sales::order_document::get),
+        )
         .route(
             "/api/v1/registry-lookups",
             axum::routing::post(crate::domains::registry_lookup::lookup),

@@ -89,10 +89,16 @@ da API exige recriar também `web`, `fiscal-engine` e `fiscal-mcp`, para que tod
 usem a rede da nova API. Recrie os quatro serviços juntos. Depois confira o
 `/api/health` público, a prontidão da API e a resposta do `/mcp`; o estado
 `healthy` de um container antigo não confirma o acesso pela rede atual.
-Quando o pacote documental estiver habilitado, o mesmo `api.env` recebe
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` e `SMTP_FROM`; esses
-valores são secretos do relay e não podem ser copiados para `web.env` ou
-versionados.
+O SMTP é administrado em **Preferências → Sistema → E-mail (SMTP)** por
+administradores da plataforma e compartilhado pelos pedidos, propostas e pacotes
+de documentos. A senha fica cifrada no banco pelo cofre de segredos do servidor,
+nunca é retornada na leitura e não deve ser colocada no `web.env` ou versionada.
+A configuração salva entra em vigor nos próximos envios sem reiniciar a API.
+Desativar essa configuração não reativa um SMTP antigo do ambiente.
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD` e
+`SMTP_FROM` permanecem como compatibilidade enquanto não houver configuração
+salva. Na primeira gravação pela plataforma, informe a senha novamente.
+STARTTLS usa normalmente a porta587; TLS usa normalmente a porta465.
 O workflow de migração também aplica `deploy/grant-commercial-contracts.sql`,
 concedendo ao papel runtime somente `SELECT`, `INSERT` e `UPDATE` na tabela de
 estado do pacote; a API não recebe permissão de exclusão desses registros.

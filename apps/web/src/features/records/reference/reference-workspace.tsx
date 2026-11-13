@@ -5,6 +5,7 @@ import { useRegistryQuery } from "../use-registry-query"
 import "../compact-form.css"
 import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
+import { BankIdentity, BankPicker } from "./bank-picker"
 
 import { RequestError } from "@/components/feedback/session-recovery"
 
@@ -53,7 +54,7 @@ function List({ kind }: { kind: ReferenceKind }) {
     <thead><tr><th scope="col" className="hidden lg:table-cell">Código</th><th scope="col" className="w-[66%] lg:w-auto">Nome</th>{kind === "depositos" && <th scope="col" className="hidden lg:table-cell">Localização</th>}<th scope="col">Situação</th><th scope="col" className="hidden lg:table-cell"><span className="sr-only">Ações</span></th></tr></thead>
     <tbody>{result.value.data.map(item => <tr key={item.id}>
      <td className="hidden font-mono text-xs [overflow-wrap:anywhere] lg:table-cell">{item.code}</td>
-     <th scope="row" className="align-top font-medium [overflow-wrap:anywhere]"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{paths.get(item.id) && paths.get(item.id) !== item.name && <p className="mt-1 text-xs font-normal text-muted-foreground">{paths.get(item.id)}</p>}<div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs font-normal text-muted-foreground lg:hidden"><span>{item.code}</span>{result.value?.canEdit && <Link className="inline-flex min-h-8 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}{kind === "depositos" && <span>{item.location || "Localização não informada"}</span>}</div></th>
+     <th scope="row" className="align-top font-medium [overflow-wrap:anywhere]"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{kind === "contas-financeiras" && item.bank && <div className="mt-1 text-xs font-normal text-muted-foreground"><BankIdentity value={String(item.bank)} /></div>}{paths.get(item.id) && paths.get(item.id) !== item.name && <p className="mt-1 text-xs font-normal text-muted-foreground">{paths.get(item.id)}</p>}<div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs font-normal text-muted-foreground lg:hidden"><span>{item.code}</span>{result.value?.canEdit && <Link className="inline-flex min-h-8 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}{kind === "depositos" && <span>{item.location || "Localização não informada"}</span>}</div></th>
      {kind === "depositos" && <td className="hidden [overflow-wrap:anywhere] lg:table-cell">{item.location || "Não informada"}</td>}
      <td className="align-top"><span className={`inline-flex rounded-full border px-2 py-1 text-xs ${item.status === "active" ? "border-primary/20 bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{item.status === "active" ? "Ativo" : "Arquivado"}</span></td>
      <td className="hidden lg:table-cell">{result.value?.canEdit && <Link className="inline-flex min-h-9 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td>
@@ -90,7 +91,7 @@ function Detail({ kind, value }: { kind: ReferenceKind; value: ReferenceSnapshot
   if (kind === "formas-pagamento") values.push(["Modalidade", modalities[data.modality as keyof typeof modalities]], ["Prazo de referência (dias)", String(data.settlementDays)])
   return <><PageHeader eyebrow={`Cadastros · ${config.title}`} title={data.name} description={config.description} /><Link className={linkClass} href={`${referencePath(kind)}`}>Voltar à listagem</Link><section className="compact-records form-section mt-3 min-w-0 space-y-3">
     <RecordCompany key={value.tenantId} tenantId={value.tenantId} />
-    <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{values.map(([label, text]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words">{text}</dd></div>)}
+    <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{values.map(([label, text]) => <div className="min-w-0" key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words">{kind === "contas-financeiras" && label === "Banco" && data.bank ? <BankIdentity value={String(data.bank)} /> : text}</dd></div>)}
       {(kind === "categorias-produtos" || kind === "categorias-financeiras") && <div><dt className="text-sm text-muted-foreground">Categoria superior</dt><dd className="mt-1">{data.parentId ? <Link className={linkClass} href={`${referencePath(kind)}/${data.parentId}`}><ParentName kind={kind} id={String(data.parentId)} /></Link> : "Nenhuma"}</dd></div>}
       {kind === "tags" && <div><dt className="text-sm text-muted-foreground">Grupo de tags</dt><dd>{data.groupId ? <ParentName kind="grupos-tags" id={String(data.groupId)} /> : "Sem grupo"}</dd></div>}
     </dl>{value.canEdit ? <Link className={linkClass} href={`${referencePath(kind)}/${data.id}/editar`}>Editar cadastro</Link> : <p>Somente consulta.</p>}
@@ -167,7 +168,7 @@ function Editor({ kind, initial, tenantId, etag, reload }: { kind: ReferenceKind
           {kind === "categorias-financeiras" && select("direction", "Natureza", { income: "Receita", expense: "Despesa" })}
           {kind === "contas-financeiras" && <>
             <label className="block min-w-0 space-y-2">Tipo de conta<select className={selectClass} value={String(draft.accountType)} onChange={event => { const accountType = event.target.value; setDraft(previous => ({ ...previous, accountType, ...(accountType !== "bank" ? { bank: null, branch: null, accountNumber: null } : {}) })); setDirty(true) }}>{Object.entries(accountTypes).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
-            {draft.accountType === "bank" && <>{input("bank", "Banco", 100)}{input("branch", "Agência", 30)}{input("accountNumber", "Número da conta", 50)}</>}
+            {draft.accountType === "bank" && <><BankPicker value={draft.bank as string | null} disabled={frozen} onChange={value => change("bank", value)} />{input("branch", "Agência", 30)}{input("accountNumber", "Número da conta", 50)}</>}
           </>}
           {kind === "formas-pagamento" && <>{select("modality", "Modalidade", modalities)}<label className="block min-w-0 space-y-2">Prazo de referência (dias)<Input type="number" min={0} max={365} step={1} required value={draft.settlementDays ?? ""} onChange={event => change("settlementDays", event.target.value === "" ? null : Number(event.target.value))} /></label></>}
           {select("status", "Situação", { active: "Ativo", archived: "Arquivado" })}

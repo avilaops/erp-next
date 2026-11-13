@@ -54,7 +54,7 @@ function OrderEmailComposer({ id, number, tenantId, etag, onReload }: { id: stri
       <label className="block space-y-2">Assunto<Input required maxLength={200} value={subject} onChange={event => setSubject(event.target.value)} /></label>
       <div className="space-y-2"><label htmlFor={messageId} className="block">Mensagem</label><textarea id={messageId} required maxLength={10000} rows={5} className="w-full rounded-lg border border-input bg-background p-3" value={message} onChange={event => setMessage(event.target.value)} /></div>
     </fieldset>
-    <p className="rounded-lg border bg-muted/30 p-3 text-sm">Anexo: documento do pedido em HTML, com cliente, itens, acabamentos e valores registrados. Para enviar o contrato para assinatura, use “Pedido e contratos”.</p>
+    <p className="rounded-lg border bg-muted/30 p-3 text-sm">Anexo: documento do pedido em PDF, com cliente, itens, acabamentos, peso e valores registrados. Para enviar o contrato para assinatura, use “Pedido e contratos”.</p>
     {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
     {command.stale && <Button type="button" variant="outline" onClick={() => { command.reset(); onReload(); resource.reload() }}>Recarregar pedido</Button>}
     {receipt && <p role="status">{deliveryLabels[receipt.status]} · {receipt.recipient}{receipt.status === "sent" ? ". A entrega na caixa do destinatário depende do provedor." : "."}</p>}

@@ -116,6 +116,9 @@ pub fn parse(
         fields.insert("legalName".into(), text(value, "razao_social")?);
         fields.insert("personType".into(), "juridica".into());
         company_fields(ws, value, record, &mut fields);
+        if kind == LookupKind::Cnpj {
+            super::registration_status::fields(ws, record, &mut fields);
+        }
         if ws {
             if let Some(val) = record.get("estado").and_then(|s| text(s, "sigla")) {
                 fields.insert("state".into(), val);

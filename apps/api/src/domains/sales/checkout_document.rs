@@ -38,7 +38,7 @@ pub fn terms(checkout: &CheckoutSnapshot) -> CheckoutDocument {
                 .due_on
                 .as_deref()
                 .map(date)
-                .unwrap_or_else(|| "Na confirmação do pedido".into())
+                .unwrap_or_else(|| "Na geração das parcelas".into())
         )
     } else {
         "Sem entrada negociada".into()

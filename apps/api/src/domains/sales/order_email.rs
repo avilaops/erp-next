@@ -160,6 +160,7 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
         escape(&data.due_date),
         match data.status.as_str() {
             "draft" => "Rascunho",
+            "accepted" => "Encomenda aceita",
             "confirmed" => "Reservado",
             "completed" => "Concluído",
             _ => "Cancelado",

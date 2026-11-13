@@ -258,7 +258,7 @@ for (const width of [320, 390]) test(`criação compacta exige condições expl�
   await page.getByRole("button", { name: "Salvar proposta", exact: true }).click()
   await expect.poll(() => saved).toBeDefined()
   await expect(page).toHaveURL(new RegExp(`/vendas/propostas/${record}$`), { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
-  expect(saved).toEqual({ customerId: customer, validUntil: "2100-01-01", paymentTerms: "À vista", deliveryTerms: "Retirada pelo cliente", notes: "", items: [{ productId: product, quantity: "2.500000", unitPrice: "19.99", structureColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
+  expect(saved).toEqual({ customerId: customer, validUntil: "2100-01-01", paymentTerms: "À vista", deliveryTerms: "Retirada pelo cliente", notes: "", items: [{ productId: product, quantity: "2.500000", unitPrice: "19.99", structureColor: null, swingArmColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
   await page.reload()
   await expect(page.getByText("Total: R$ 49,98", { exact: true })).toBeVisible()
   await page.screenshot({ path: test.info().outputPath("proposal-mobile.png"), fullPage: true })

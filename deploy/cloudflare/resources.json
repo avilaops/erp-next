@@ -1,0 +1,32 @@
+{
+  "account_id": "85b914dcdebf6fa2fce7b819bc542294",
+  "zone_id": "f892de4ea80c3ae2cf2dbc0c1ccf54dd",
+  "hostname": "erp.avilaops.com",
+  "buckets": [
+    { "name": "avilaops-erp-next-assets", "purpose": "public-build-assets", "public": false },
+    { "name": "avilaops-erp-next-files", "purpose": "private-documents", "public": false },
+    { "name": "avilaops-erp-next-backups", "purpose": "future-current-database-backups", "public": false }
+  ],
+  "worker": {
+    "name": "erp-next-edge",
+    "main": "edge-worker.mjs",
+    "compatibility_date": "2026-11-13",
+    "workers_dev": true,
+    "bindings": [
+      { "type": "r2_bucket", "name": "PUBLIC_ASSETS", "bucket_name": "avilaops-erp-next-assets" }
+    ],
+    "vars": {
+      "ASSET_RELEASE": "fa7e1526a7c469843f1a18168ea5c0e558768ac1",
+      "ASSET_CACHE_SECONDS": "60",
+      "APP_MODE": "maintenance"
+    },
+    "observability": {
+      "enabled": true,
+      "redact_query_string": true,
+      "logs": { "enabled": true, "invocation_logs": false, "head_sampling_rate": 0.1 },
+      "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+    }
+  },
+  "production": { "ASSET_CACHE_SECONDS": "31536000" },
+  "route": { "pattern": "erp.avilaops.com/*", "zone_id": "f892de4ea80c3ae2cf2dbc0c1ccf54dd", "enabled": false }
+}

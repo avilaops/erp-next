@@ -9,6 +9,7 @@
   "scripts": {
     "check:architecture": "node scripts/architecture/check.mjs",
     "test:architecture": "node --test scripts/architecture/*.test.mjs",
+    "test:cloudflare": "node --test scripts/cloudflare/*.test.mjs",
     "context:erp": "node verification/product-context-cli.mjs",
     "context:erp:mcp": "node verification/product-context-mcp.mjs",
     "context:erp:publish": "node verification/product-context-publish.mjs",

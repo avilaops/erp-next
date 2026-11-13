@@ -1,5 +1,9 @@
 "use client"
 
+import { useProtectedReload } from "@/features/finance/use-protected-reload"
+
+import { OrderFinancePanel } from "@/features/finance/order-finance"
+
 import type { Schema } from "@/lib/api/types"
 
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -12,13 +16,14 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCommand, useResource } from "@/hooks/use-operation"
-import { contractFieldLabels as fieldLabels, contractFieldGroups, contractFieldGroup } from "./contract-fields"
+import { contractFieldLabels as fieldLabels } from "./contract-fields"
+import { ContractDocumentFields } from "./contract-document-fields"
 
 type Recipient = Schema<"ContractRecipient">
 type ContractSummary = Schema<"ContractSummary">
 type StoredFile = Schema<"ContractFile">
 type Detail = Schema<"ContractDetail"> & { packageStatus?: "sending" | "sent" | "failed" | "unknown"; packageUpdatedAt?: string }
-type Options = Schema<"ContractOptions">
+type Options = Omit<Schema<"ContractOptions">, "templates"> & { templates: (Schema<"ContractOptions">["templates"][number] & { defaults?: Record<string, string>; generationProblem?: string | null })[] }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const selectClass = "block min-h-10 w-full rounded-lg border bg-background px-3 py-2"
 const labels: Record<string, string> = { creation_requested: "Geração em conferência", created: "Pronto para revisão", reviewed: "Revisado", send_requested: "Envio solicitado", sent: "Transmissão confirmada pelo serviço", opened: "Aberto pelo destinatário", completed: "Assinatura concluída", declined: "Assinatura recusada", expired: "Prazo expirado" }
@@ -75,24 +80,27 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
   const command = useCommand()
   const [selected, setSelected] = useState(options.templates[0].id)
   const template = options.templates.find(value => value.id === selected)!
+  const defaults = template.defaults ?? options.defaults
   const [fields, setFields] = useState<Record<string, string>>({})
   const [recipients, setRecipients] = useState<Record<string, Recipient>>({})
   const locked = command.busy || command.uncertain || command.stale
   function recipient(role: string, index: number): Recipient {
     return recipients[role] || { role, name: index === 0 ? options.snapshot.customer.name : "", email: index === 0 ? options.snapshot.customer.email || "" : "" }
   }
-  const missing = template.fields.filter(field => field.required && !(options.defaults[field.name] || fields[field.name] || "").trim())
+  const missing = template.fields.filter(field => field.required && !((Object.hasOwn(defaults, field.name) ? defaults[field.name] : fields[field.name] || "")).trim())
   return <form className="mt-5 space-y-5" onSubmit={async event => {
     event.preventDefault()
+    if (template.generationProblem) return
     const result = await command.send<Detail>("/api/erp/commercial-contracts", options.tenantId, {
       orderId: options.snapshot.order.id, orderRevision: options.snapshot.order.revision,
       templateId: template.id, templateUpdatedAt: template.updatedAt,
       recipients: template.roles.map((role, index) => recipient(role.name, index)),
-      fields: Object.fromEntries(template.fields.map(field => [field.name, options.defaults[field.name] || fields[field.name] || ""])),
+      fields: Object.fromEntries(template.fields.map(field => [field.name, (Object.hasOwn(defaults, field.name) ? defaults[field.name] : fields[field.name] || "")])),
     })
     if (result) router.push(`/vendas/pedidos/${options.snapshot.order.id}/contratos?contrato=${result.data.id}`)
   }}>
     <fieldset disabled={locked} className="space-y-5">
+      {template.generationProblem && <p role="alert">{template.generationProblem}</p>}
       <section className="form-section space-y-4"><h2 className="flex items-center gap-2 font-semibold"><FileText />Modelo e pedido</h2>
         <label className="block space-y-2">Modelo de contrato<select className={selectClass} value={selected} onChange={event => { setSelected(Number(event.target.value)); setFields({}); setRecipients({}) }}>{options.templates.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
         <p><strong>{options.snapshot.company.legalName}</strong> · {options.snapshot.company.taxId}</p>
@@ -104,16 +112,7 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
       <section className="form-section space-y-4"><h2 className="font-semibold">Campos do documento</h2>
         <p className="text-sm text-muted-foreground">Os campos preenchidos pelo pedido ou pela proposta ficam protegidos. Complete os demais campos do modelo abaixo.</p>
         {missing.length > 0 && <p role="status">Faltam {missing.length} campos obrigatórios: {missing.map(field => fieldLabels[field.name] || field.name).join(", ")}.</p>}
-        {contractFieldGroups.map(group => {
-          const grouped = template.fields.filter(field => contractFieldGroup(field.name) === group.key)
-          return grouped.length > 0 && <fieldset key={group.key} className="min-w-0 space-y-3 rounded-xl border p-4">
-            <legend className="px-2 font-medium">{group.title}</legend>
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">{grouped.map(field => <label key={field.name} className={`block min-w-0 space-y-2 ${["itens", "condicoes", "entrega", "observacoes"].includes(field.name) ? "md:col-span-2" : ""}`}>
-              <span>{fieldLabels[field.name] || field.name}{field.required ? " *" : ""}{options.defaults[field.name] ? " · preenchido pelo pedido ou proposta" : ""}</span>
-              <textarea className={`${selectClass} min-h-20 read-only:bg-muted/40`} required={field.required} maxLength={20000} readOnly={Boolean(options.defaults[field.name])} value={options.defaults[field.name] || fields[field.name] || ""} onChange={event => setFields({ ...fields, [field.name]: event.target.value })} />
-            </label>)}</div>
-          </fieldset>
-        })}
+        <ContractDocumentFields fields={template.fields} defaults={defaults} values={fields} onChange={setFields} />
       </section>
       <section className="form-section space-y-4"><h2 className="font-semibold">Destinatários da assinatura</h2>
         {template.roles.map((role, index) => {
@@ -125,19 +124,21 @@ function GeneratorForm({ options, reload }: { options: Options; reload: () => vo
     {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
     {command.uncertain && <p role="status">O resultado será conferido pela mesma referência. A geração não será disparada outra vez.</p>}
     {command.stale && <Button type="button" onClick={() => { command.reset(); reload() }}>Recarregar dados do pedido</Button>}
-    <Button type="submit" disabled={command.busy || command.stale || missing.length > 0}>{command.busy ? "Gerando prévia…" : command.uncertain ? "Conferir geração" : "Gerar prévia para revisão"}</Button>
+    <Button type="submit" disabled={command.busy || command.stale || missing.length > 0 || Boolean(template.generationProblem)}>{command.busy ? "Gerando prévia…" : command.uncertain ? "Conferir geração" : "Gerar prévia para revisão"}</Button>
   </form>
 }
 
 export function ContractDetail({ id, orderId }: { id: string; orderId?: string }) {
-  const result = useResource<Detail>(`/api/erp/commercial-contracts/${id}`)
+  const resource = useResource<Detail>(`/api/erp/commercial-contracts/${id}`)
+  const boundary = useProtectedReload(resource.reload)
+  const result = { ...resource, reload: boundary.reload }
   const command = useCommand()
   const [checkedRevision, setCheckedRevision] = useState("")
   const [notice, setNotice] = useState("")
   const [pendingAction, setPendingAction] = useState("")
   const [selectedFile, setSelectedFile] = useState("")
   async function action(name: string) {
-    if (!result.value) return
+    if (boundary.isLocked() || !result.value) return
     setPendingAction(name); setNotice("")
     const updated = await command.send<Detail>(`/api/erp/commercial-contracts/${id}/${name}`, result.value.tenantId, {}, result.etag)
     if (updated) { setNotice(name === "review" ? "Revisão registrada." : name === "send" ? "Solicitação registrada. Confira abaixo o estado confirmado pelo serviço." : name === "send-package" ? "Pacote enviado por SMTP. Confira abaixo o estado confirmado pelo serviço." : "Andamento consultado no serviço de contratos."); result.reload() }
@@ -147,7 +148,7 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
   const { data: contract, files, canEdit, canSend, emailReady, email, packageStatus } = result.value
   if (orderId && contract.orderId !== orderId) return <section className="form-section space-y-3"><p role="alert">Este contrato não pertence ao pedido consultado.</p><Link className={linkClass} href={`/vendas/pedidos/${orderId}/contratos`}>Voltar aos contratos do pedido</Link></section>
   const currentFile = files.find(file => file.id === selectedFile) || files.find(file => file.kind === (contract.status === "completed" ? "signed" : "preview"))
-  const blocked = command.busy || command.uncertain || command.stale
+  const blocked = boundary.locked || command.busy || command.uncertain || command.stale
   const fileUrl = (file: StoredFile) => `/api/erp/commercial-contracts/${id}/files/${file.id}`
   return <>
     <PageHeader eyebrow="Vendas / Pedido e contrato" title={contract.templateName} description={labels[contract.status] || contract.status} />
@@ -170,7 +171,7 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
           {!emailReady && !contract.sendRequestedAt && <p role="status">O e-mail de assinatura ainda não foi validado. A prévia e a revisão estão disponíveis; o envio está bloqueado.</p>}
           {notice && <p role="status">{notice}</p>}
           {command.error && <p role="alert"><RequestError message={command.error} status={command.status} /></p>}
-          {command.uncertain ? <Button disabled={command.busy} onClick={() => action(pendingAction)}>Conferir resultado da operação</Button> : <Button variant="outline" disabled={blocked} onClick={() => action("sync")}><RefreshCw />Atualizar andamento</Button>}
+          {command.uncertain ? <Button disabled={boundary.locked || command.busy} onClick={() => action(pendingAction)}>Conferir resultado da operação</Button> : <Button variant="outline" disabled={blocked} onClick={() => action("sync")}><RefreshCw />Atualizar andamento</Button>}
           {command.stale && <Button variant="outline" onClick={() => { command.reset(); result.reload() }}>Recarregar contrato</Button>}
           {canEdit && canSend && contract.status === "created" && !contract.problem && <div className="space-y-4 border-t pt-4"><label className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={blocked} checked={checkedRevision === result.etag} onChange={event => setCheckedRevision(event.target.checked ? result.etag : "")} /><span>Conferi o pedido, os documentos, o e-mail e os destinatários desta revisão.</span></label><Button disabled={blocked || checkedRevision !== result.etag} onClick={() => action("review")}><FileCheck2 />Confirmar revisão</Button></div>}
           {canEdit && canSend && contract.status === "reviewed" && <div className="space-y-3 border-t pt-4"><p>O pedido e o link do contrato seguem juntos para os destinatários acima, pelo e-mail configurado no serviço de contratos.</p><Button disabled={blocked || !emailReady || !email} onClick={() => action("send")}>Enviar pedido e contrato</Button>{!email && <p role="status">Atualize a integração antes de enviar o pedido e o contrato juntos.</p>}</div>}
@@ -180,5 +181,6 @@ export function ContractDetail({ id, orderId }: { id: string; orderId?: string }
         <section className="form-section space-y-3"><h2 className="font-semibold">Dados preservados</h2><p>{contract.snapshot.company.legalName}</p><p>{contract.snapshot.customer.name} · {contract.snapshot.customer.taxId}</p><p>R$ {contract.snapshot.order.amount.replace(".", ",")} · Pedido na revisão {contract.snapshot.order.revision}</p><details><summary className="cursor-pointer font-medium">Conferir campos utilizados</summary><dl className="mt-3 space-y-3">{Object.entries(contract.fields).map(([key, value]) => <div key={key}><dt className="text-sm font-medium">{fieldLabels[key] || key}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value || "Não informado"}</dd></div>)}</dl></details><p className="break-all text-xs text-muted-foreground">Contrato {contract.id}{contract.externalId ? ` · Solicitação ${contract.externalId}` : ""}</p></section>
       </aside>
     </div>
+    <div className="mt-5"><OrderFinancePanel orderId={contract.orderId} onLockChange={boundary.setPrimaryLocked} parentBusy={command.busy || command.uncertain || command.stale || result.loading} /></div>
   </>
 }

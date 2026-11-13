@@ -6,6 +6,21 @@ const dashboard = { tenantId: "11111111-1111-4111-8111-111111111111", period: "6
 
 const tenant = "11111111-1111-4111-8111-111111111111"
 const record = "22222222-2222-4222-8222-222222222222"
+
+test("recarregar recebível após revisão antiga não declara recebimento confirmado", async ({ page }) => {
+  const body = { tenantId: tenant, canEdit: true, data: { id: record, orderId: record, customerName: "Cliente fixture", dueDate: "2026-11-20", amount: "100.00", receivedAmount: "0.00", outstandingAmount: "100.00", status: "open", revision: 2, paymentId: null }, payments: [] }
+  await page.route(`**/api/erp/receivables/${record}`, route => route.fulfill({ headers: { ETag: '"2"' }, json: body }))
+  await page.route(`**/api/erp/receivables/${record}/payments`, route => route.fulfill({ status: 412, json: { title: "Revisão antiga" } }))
+  await page.goto(`/financeiro/contas-receber/${record}`)
+  await page.getByLabel(/^Valor declarado/).fill("10")
+  await page.getByLabel("Data do recebimento", { exact: true }).fill("2026-11-13")
+  await page.getByLabel("Referência do recebimento", { exact: true }).fill("Tentativa com revisão antiga")
+  await page.getByRole("button", { name: "Confirmar recebimento declarado", exact: true }).click()
+  await page.getByRole("button", { name: "Recarregar conta", exact: true }).click()
+  await expect(page.getByText("Saldo restante: R$ 100,00", { exact: true })).toBeVisible()
+  await expect(page.getByText("Registro confirmado no servidor.", { exact: true })).toHaveCount(0)
+})
+
 test.beforeEach(async ({ context }) => {
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", createHash("sha256").update(secret).digest(), iv)

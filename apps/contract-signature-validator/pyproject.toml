@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avila-contract-signature-validator"
+version = "0.1.0"
+description = "Restricted PDF signature validation core for individual contract participants"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "pyHanko==0.38.1",
+  "pyhanko-certvalidator==0.33.0",
+  "asn1crypto==1.5.1",
+  "cryptography==50.0.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/contract_signature_validator"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/contract_signature_validator", "pyproject.toml", "uv.lock", "README.md"]

@@ -38,6 +38,8 @@ A obtenção de CRL/OCSP/AIA será restrita a destinos públicos revisados, com 
 
 O núcleo inicial recebe evidências explicitamente e permanece sem rede. O serviço posterior só poderá reunir evidências por um adapter próprio aprovado; a ausência desse adapter não pode habilitar modo permissivo.
 
+O primeiro perfil implementado do núcleo restringe a assinatura nova a um campo invisível, impedindo uma aparência nova de recobrir cláusulas. Timestamp presente retorna `unsupported` até sua política/corpus próprios. Essas restrições não substituem a homologação dos aplicativos pessoais nem a conclusão do fluxo: novos formatos precisam de suporte demonstrado, nunca aceitação permissiva.
+
 ## Estado e acesso no ERP
 
 Novas emissões Ludus exigirão `icp_each_participant`, sem redução por modelo, valor ou JSON. Política e identidades são congeladas antes da primeira criação/convite no provider. O caminho antigo permanece identificado como `legacy_docuseal`, sem validade ICP retroativa.

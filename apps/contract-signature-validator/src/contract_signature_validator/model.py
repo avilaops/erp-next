@@ -62,6 +62,57 @@ class ValidationBinding:
 
 
 @dataclass(frozen=True)
+class PreflightBinding:
+    document_id: UUID
+    base_sha256: str
+    policy_sha256: str
+    trust_bundle_sha256: str
+    checked_at: datetime
+
+    def __post_init__(self):
+        _uuid(self.document_id)
+        for value in (self.base_sha256, self.policy_sha256, self.trust_bundle_sha256):
+            _hash(value)
+        _utc(self.checked_at)
+
+
+@dataclass(frozen=True)
+class SignatureInventoryItem:
+    field_name: str = field(repr=False)
+    cms_sha256: str
+    certificate_sha256: str
+    field_sha256: str
+
+
+@dataclass(frozen=True)
+class BaselineInventory:
+    document_id: UUID
+    base_sha256: str
+    base_size: int
+    policy_sha256: str
+    trust_bundle_sha256: str
+    signatures: tuple[SignatureInventoryItem, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class PreflightReport:
+    binding: PreflightBinding
+    checks: tuple["CheckResult", ...]
+    baseline: BaselineInventory | None = None
+
+    @property
+    def verdict(self):
+        states = {c.verdict for c in self.checks}
+        if Verdict.INVALID in states:
+            return Verdict.INVALID
+        if Verdict.UNSUPPORTED in states:
+            return Verdict.UNSUPPORTED
+        if self.baseline is None or not states or Verdict.INDETERMINATE in states:
+            return Verdict.INDETERMINATE
+        return Verdict.ACCEPTED
+
+
+@dataclass(frozen=True)
 class ExpectedSigner:
     participant_id: UUID
     expected_cpf: str = field(repr=False)
@@ -102,6 +153,13 @@ class ValidationPolicy:
     allowed_signatures: tuple[str, ...] = ("rsassa_pkcs1v15", "rsassa_pss", "ecdsa")
     allowed_curves: tuple[str, ...] = ("secp256r1", "secp384r1", "secp521r1")
     min_rsa_bits: int = 2048
+    max_revisions: int = 64
+    max_signatures: int = 32
+    max_pages: int = 1000
+    max_objects: int = 100000
+    signature_appearance: str = "invisible"
+    document_changes: str = "signatures_only"
+    timestamp_mode: str = "unsupported"
 
     def __post_init__(self):
         if self.version != "contract-icp/1" or self.certificate_requirement != "e_cpf":
@@ -121,6 +179,12 @@ class ValidationPolicy:
                 raise ValueError("unsupported_algorithm_policy")
         if type(self.min_rsa_bits) is not int or self.min_rsa_bits < 2048:
             raise ValueError("unsupported_rsa_policy")
+        for value, limit in ((self.max_revisions, 64), (self.max_signatures, 32),
+                             (self.max_pages, 1000), (self.max_objects, 100000)):
+            if type(value) is not int or not 0 < value <= limit:
+                raise ValueError("unsupported_complexity_limit")
+        if (self.signature_appearance, self.document_changes, self.timestamp_mode) != ("invisible", "signatures_only", "unsupported"):
+            raise ValueError("unsupported_document_policy")
 
     @property
     def sha256(self) -> str:
@@ -187,6 +251,7 @@ class ValidationReport:
     binding: ValidationBinding
     checks: tuple[CheckResult, ...]
     trust_profile: str
+    timestamp_status: str = "absent"
 
     def __post_init__(self):
         if not isinstance(self.binding, ValidationBinding) or not isinstance(self.checks, tuple):
@@ -197,6 +262,8 @@ class ValidationReport:
             raise ValueError("duplicate_report_check")
         if self.trust_profile not in {"icp_brasil", "synthetic_not_icp"}:
             raise ValueError("invalid_trust_profile")
+        if self.timestamp_status not in {"absent", "unsupported", "invalid"}:
+            raise ValueError("unsupported_timestamp_status")
 
     @property
     def verdict(self) -> Verdict:

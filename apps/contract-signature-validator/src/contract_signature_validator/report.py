@@ -26,7 +26,7 @@ def canonical_report_bytes(report: ValidationReport) -> bytes:
              "evidenceHashes": list(check.evidence_hashes)}
             for check in sorted(report.checks, key=lambda c: c.name)
         ],
-        "timestampStatus": "absent",
+        "timestampStatus": report.timestamp_status,
         "longTermValidation": "not_established",
     }
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")

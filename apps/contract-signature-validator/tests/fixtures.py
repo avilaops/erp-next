@@ -149,3 +149,118 @@ def issued_ocsp(cert, issuer, issuer_key, *, status=ocsp.OCSPCertStatus.GOOD, st
     basic["signature"] = key.sign(basic["tbs_response_data"].dump(), padding.PKCS1v15(), hashes.SHA256())
     response["response_bytes"]["response"] = basic
     return response.dump()
+
+
+def unsigned_pdf(text="SYNTHETIC CONTRACT PRICE 100.00", *, encrypted=False):
+    from io import BytesIO
+    from pyhanko.pdf_utils import generic as g, writer
+    document = writer.PdfFileWriter()
+    font = document.add_object(g.DictionaryObject({g.pdf_name("/Type"): g.pdf_name("/Font"),
+        g.pdf_name("/Subtype"): g.pdf_name("/Type1"), g.pdf_name("/BaseFont"): g.pdf_name("/Helvetica")}))
+    stream = document.add_object(g.StreamObject(stream_data=(f"BT /F1 12 Tf 24 720 Td ({text}) Tj ET").encode("ascii")))
+    document.insert_page(writer.PageObject(contents=stream, media_box=(0, 0, 595, 842),
+        resources=g.DictionaryObject({g.pdf_name("/Font"): g.DictionaryObject({g.pdf_name("/F1"): font})})))
+    price = document.add_object(g.DictionaryObject({g.pdf_name("/FT"): g.pdf_name("/Tx"),
+        g.pdf_name("/T"): g.pdf_string("Price"), g.pdf_name("/V"): g.pdf_string("100.00")}))
+    document.root[g.pdf_name("/AcroForm")] = document.add_object(g.DictionaryObject({
+        g.pdf_name("/Fields"): g.ArrayObject([price])}))
+    if encrypted:
+        document.encrypt("synthetic-test-only-password")
+    output = BytesIO()
+    document.write(output)
+    return output.getvalue()
+
+
+def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certify=False, locked=False, visible=False, lock_price=False):
+    from io import BytesIO
+    from asn1crypto import keys, x509 as asn1_x509
+    from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+    from pyhanko.sign import fields, signers
+    from pyhanko_certvalidator.registry import SimpleCertificateStore
+    store = SimpleCertificateStore()
+    for cert in (issuer, root):
+        if cert is not None:
+            store.register(asn1_x509.Certificate.load(der(cert)))
+    signer = signers.SimpleSigner(asn1_x509.Certificate.load(cert_der), keys.PrivateKeyInfo.load(
+        key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())), store)
+    metadata = signers.PdfSignatureMetadata(field_name=field_name, md_algorithm="sha256", certify=certify,
+        docmdp_permissions=fields.MDPPerm.NO_CHANGES if locked else fields.MDPPerm.FILL_FORMS)
+    spec = fields.SigFieldSpec(field_name, box=(0, 0, 595, 842) if visible else None,
+        field_mdp_spec=fields.FieldMDPSpec(fields.FieldMDPAction.INCLUDE, ["Price"]) if lock_price else None)
+    output = BytesIO()
+    signers.PdfSigner(metadata, signer, new_field_spec=spec).sign_pdf(IncrementalPdfFileWriter(BytesIO(parent)), output=output)
+    return output.getvalue()
+
+
+@lru_cache(maxsize=8)
+def sealed_pdf(text="SYNTHETIC CONTRACT PRICE 100.00", *, locked=False, lock_price=False):
+    seal = certificate(policy="2.16.76.1.2.202.999999", attributes=[])
+    return sign_pdf(unsigned_pdf(text), seal, test_key(), "DocuSealTechnicalSeal",
+                    certify=locked, locked=locked, lock_price=lock_price)
+
+
+def append_change(parent, kind):
+    from io import BytesIO
+    from pyhanko.pdf_utils import generic as g
+    from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+    document = IncrementalPdfFileWriter(BytesIO(parent))
+    if kind == "price":
+        field = document.root["/AcroForm"]["/Fields"][0].get_object()
+        field[g.pdf_name("/V")] = g.pdf_string("999999.00")
+        document.update_container(field)
+    elif kind == "remove_signature":
+        form = document.root["/AcroForm"]
+        form[g.pdf_name("/Fields")] = g.ArrayObject(list(form["/Fields"])[:1])
+        document.update_container(form)
+    elif kind in {"signature_contents", "signature_certificate", "remove_locks"}:
+        from asn1crypto import cms, x509 as asn1_x509
+        sig = document.prev.embedded_signatures[0]
+        value = sig.sig_object
+        if kind == "remove_locks":
+            value.pop("/Reference", None)
+            sig.sig_field.pop("/Lock", None)
+            sig.sig_field.pop("/SV", None)
+            document.update_container(sig.sig_field)
+        else:
+            content = cms.ContentInfo.load(bytes(value["/Contents"]))
+            if kind == "signature_contents":
+                old = content["content"]["signer_infos"][0]["signature"].native
+                content["content"]["signer_infos"][0]["signature"] = old[:-1] + bytes([old[-1] ^ 1])
+            else:
+                content["content"]["certificates"] = cms.CertificateSet([
+                    cms.CertificateChoices(name="certificate", value=asn1_x509.Certificate.load(certificate()))])
+            value[g.pdf_name("/Contents")] = g.ByteStringObject(content.dump())
+        document.update_container(value)
+    else:
+        page_ref, _ = document.find_page_for_modification(0)
+        page = page_ref.get_object()
+        if kind == "page":
+            page[g.pdf_name("/MediaBox")] = g.ArrayObject([g.NumberObject(v) for v in (0, 0, 100, 100)])
+        elif kind == "content":
+            page[g.pdf_name("/Contents")] = document.add_object(g.StreamObject(stream_data=b"BT /F1 12 Tf 24 720 Td (PRICE 999999.00) Tj ET"))
+        elif kind == "resources":
+            page["/Resources"]["/Font"][g.pdf_name("/F1")] = document.add_object(g.DictionaryObject({
+                g.pdf_name("/Type"): g.pdf_name("/Font"), g.pdf_name("/Subtype"): g.pdf_name("/Type1"),
+                g.pdf_name("/BaseFont"): g.pdf_name("/Symbol")}))
+        else:
+            raise ValueError("unsupported synthetic mutation")
+        document.mark_update(page_ref)
+    output = BytesIO()
+    document.write(output)
+    return output.getvalue()
+
+
+def add_unsupported_timestamp(candidate):
+    from io import BytesIO
+    from asn1crypto import cms
+    from pyhanko.pdf_utils.reader import PdfFileReader
+    sig = PdfFileReader(BytesIO(candidate)).embedded_signatures[-1]
+    content = cms.ContentInfo.load(bytes(sig.sig_object["/Contents"]))
+    content["content"]["signer_infos"][0]["unsigned_attrs"] = cms.CMSAttributes([
+        cms.CMSAttribute({"type": "signature_time_stamp_token", "values": [cms.ContentInfo({
+            "content_type": "data", "content": b"SYNTHETIC UNSUPPORTED TIMESTAMP"})]})])
+    start, end = sig.byte_range[1], sig.byte_range[2]
+    encoded = content.dump().hex().upper().encode("ascii")
+    assert len(encoded) <= end-start-2
+    gap = b"<" + encoded + b"0" * (end-start-2-len(encoded)) + b">"
+    return candidate[:start] + gap + candidate[end:]

@@ -170,7 +170,7 @@ html { scroll-padding-top: 76px; }
 .erp-navigation-drawer .erp-menu-icon { width: 44px; height: 44px; }
 .erp-drawer-search { display: flex; align-items: center; gap: 8px; margin: 10px 12px 2px; padding-inline: 10px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); }
 .erp-drawer-search:focus-within { outline: 2px solid var(--ring); outline-offset: 1px; }
-.erp-drawer-search input { width: 100%; min-width: 0; min-height: 44px; outline: none; font-size: 16px; }
+.erp-drawer-search input { width: 100%; min-width: 0; min-height: 44px; outline: none; font-size: 18px; }
 .erp-drawer-scroll { overflow-y: auto; min-height: 0; padding: 8px 12px max(16px, env(safe-area-inset-bottom)); overscroll-behavior: contain; }
 .erp-drawer-scroll .erp-home-links { padding-bottom: 6px; margin-bottom: 4px; }
 .erp-drawer-scroll :is(.erp-module-button, .erp-option) { min-height: 44px; padding: 6px 8px; gap: 8px; line-height: 1.3; overflow-wrap: anywhere; }

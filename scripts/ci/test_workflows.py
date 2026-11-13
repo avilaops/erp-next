@@ -65,6 +65,29 @@ class WorkflowTests(unittest.TestCase):
                 if job.get('uses', '').startswith('./'):
                     self.assertTrue((ROOT / job['uses'][2:]).is_file(), job['uses'])
 
+    def test_contract_consumers_receive_both_rust_exports(self):
+        api = self.workflows()['_validate-api.yml']['jobs']['api']
+        export = next(step['run'] for step in api['steps'] if step.get('name') == 'Test and export the exact source contract')
+        self.assertIn('ERP_OPENAPI_OUTPUT=', export)
+        self.assertIn('ERP_COMPANY_CONTRACT_OUTPUT=', export)
+        paths = [step['with']['path'] for step in api['steps']
+                 if step.get('uses', '').startswith('actions/upload-artifact@')
+                 and step['with']['name'].startswith('erp-openapi-')]
+        for contract in ('candidate.json', 'company.json'):
+            self.assertTrue(any(path.rstrip('/') == 'artifacts/contracts'
+                                or f'artifacts/contracts/{contract}' in path.splitlines()
+                                for path in paths), f'{contract} is missing from the shared contract artifact')
+
+    def test_architecture_is_checked_before_release_builds_and_in_pr(self):
+        files = self.workflows()
+        for filename, jobname in (('_validate-project.yml', 'policy'), ('release.yml', 'select')):
+            steps = files[filename]['jobs'][jobname]['steps']
+            self.assertTrue(any('pnpm check:architecture' in step.get('run', '') for step in steps),
+                            f'{filename}/{jobname} does not validate the actual source architecture')
+        select = files['release.yml']['jobs']['select']
+        self.assertTrue(any(step.get('with', {}).get('ref') == '${{ steps.source.outputs.sha }}'
+                            for step in select['steps']), 'Preflight must inspect the selected revision')
+
     def test_yaml_has_literal_on_key_and_unique_artifact_names(self):
         names = []
         for path in (ROOT / '.github/workflows').glob('*.yml'):

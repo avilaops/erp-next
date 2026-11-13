@@ -91,3 +91,61 @@ test('baseline compilation instrumentation never admits a breaking API change', 
   assert.equal(report.compatible, false);
   assert.equal(report.policyDecision.accepted, false);
 });
+
+async function identicalInputsCapture(directory, mutate = () => {}) {
+  const captures = [];
+  for (const [label, file] of [['baseline', 'base.json'], ['candidate', 'candidate.json']]) captures.push({ label, sha256: createHash('sha256').update(await readFile(path.join(directory, file))).digest('hex') });
+  const sources = ['Cargo.lock', 'Cargo.toml', 'apps/api/Cargo.toml', 'apps/api/src/http/openapi.rs',
+    'apps/api/src/http/openapi_export.rs', 'rust-toolchain.toml'].map(name => ({ path: name, sha256: 'a'.repeat(64) }));
+  const capture = {
+    schemaVersion: 'erp-openapi-capture/1', captureMode: 'identical_api_inputs',
+    initialContract: false, baselineInstrumented: false, historicalCompatibilityVerified: false,
+    eventBaseRevision: '1'.repeat(40), baselineRevision: '1'.repeat(40), candidateRevision: '2'.repeat(40),
+    helperSha256: 'a'.repeat(64), baselineSources: structuredClone(sources),
+    eventBaseSources: structuredClone(sources), candidateSources: structuredClone(sources), captures,
+    baselineReuseProof: { schemaVersion: 'erp-identical-api-inputs/1',
+      inputPaths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', '.cargo', '.sqlx', 'apps/api', 'migrations', 'queries', 'deploy'],
+      sourceCount: sources.length,
+      sourcesSha256: createHash('sha256').update(sources.map(row => `${row.sha256}  ${row.path}\n`).join('')).digest('hex'),
+      candidateSha256: captures[1].sha256, inputAudit: 'static-rust-inputs/1' },
+  };
+  mutate(capture);
+  await writeFile(path.join(directory, 'capture.json'), JSON.stringify(capture));
+}
+
+test('identical API inputs retain compatibility checks and explicitly disclose baseline reuse', async () => {
+  const report = await compare(() => {}, { before: directory => identicalInputsCapture(directory) });
+  assert.equal(report.compatible, true);
+  assert.equal(report.policyDecision.accepted, true);
+  assert.equal(report.comparisonScope, 'identical_api_inputs');
+  assert.equal(report.eventBaseCompatibilityVerified, false);
+  assert.equal(report.runtimeVerified, false);
+  assert.equal(report.baselineReuseProof.inputAudit, 'static-rust-inputs/1');
+  assert.ok(report.limitations.some(message => message.includes('not separately executed')));
+  await assert.rejects(compare(() => {}, { before: directory => identicalInputsCapture(directory), executable: '/nonexistent/oasdiff' }), /COMPARATOR_FAILED/);
+});
+
+test('baseline reuse refuses altered, deleted, empty or malformed input evidence', async () => {
+  for (const mutate of [
+    capture => { capture.baselineSources[0].sha256 = 'b'.repeat(64); },
+    capture => { capture.eventBaseSources.pop(); },
+    capture => { capture.candidateSources = []; },
+    capture => { capture.candidateSources.push(capture.candidateSources[0]); },
+    capture => { capture.baselineReuseProof.sourcesSha256 = '0'.repeat(64); },
+    capture => { capture.baselineReuseProof.candidateSha256 = '0'.repeat(64); },
+    capture => { capture.baselineReuseProof.inputPaths = ['apps/api']; },
+    capture => { capture.baselineReuseProof.sourceCount += 1; },
+    capture => { capture.baselineReuseProof.inputAudit = 'unverified'; },
+    capture => { delete capture.baselineReuseProof; },
+    capture => { capture.baselineRevision = '3'.repeat(40); },
+    capture => { capture.initialContract = true; },
+    capture => { capture.baselineInstrumented = true; },
+    capture => { capture.baselineCompilationRepair = baselineRepair; },
+    capture => { capture.historicalCompatibilityVerified = true; },
+    capture => { capture.captureMode = 'historical_rust_test'; },
+  ]) await assert.rejects(compare(() => {}, { before: directory => identicalInputsCapture(directory, mutate) }), /INVALID_IDENTICAL_API_INPUTS_PROOF/);
+});
+
+test('a reused baseline must contain exactly the candidate bytes', async () => {
+  await assert.rejects(compare(document => { document.paths = {}; }, { before: directory => identicalInputsCapture(directory) }), /INVALID_IDENTICAL_API_INPUTS_PROOF/);
+});

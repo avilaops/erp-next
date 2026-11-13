@@ -106,6 +106,9 @@ jobs:
         -- bash --noprofile --norc -e -o pipefail "$script_file"
 
         '
+    - name: Validate the current source architecture
+      run: |
+        python3 scripts/ci/timed.py --label '_validate-project/policy: architecture preflight' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm check:architecture
     - run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT

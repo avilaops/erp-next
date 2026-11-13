@@ -42,11 +42,12 @@
     "services": "Serviços.",
     "staff": "Cadastro pessoal da equipe, propostas e aprovação financeira, recorrência e histórico de pagamentos.",
     "supply": "Configurações operacionais de estoque e compras por empresa.",
-    "workspace": "Aplicativos, eventos e novidades do ambiente."
+    "workspace": "Aplicativos, eventos e novidades do ambiente.",
+    "pos": "Operação do PDV, sessões de caixa, fechamento e histórico, com autorização no backend."
   },
   "routeSurface": {
-    "count": 478,
-    "sha256": "c96c006179b8276267a216aa3c131c1ed53391c4a4e77676a55635f17db89667"
+    "count": 493,
+    "sha256": "b8f0ed3623922203863f2007999b0c04bf4de721590d388282e7f973f4cdd9d3"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",
@@ -87,5 +88,10 @@
     "apps/web/src/components/unavailable-import.tsx",
     "apps/web/src/components/session-recovery.tsx",
     "apps/api/src/platform/financial_settings.rs"
-  ]
+  ],
+  "routeSurfaceReview": {
+    "previousPolicyCommit": "1eadb2043ccb267fb753117047286563ceea8a97",
+    "reviewedMainCommit": "720af1bbc9f8867c4752d4d26c27e2019dc83041",
+    "changes": "15 URLs adicionadas para PDV, documentos e e-mails de pedidos/propostas e configuração de e-mail; nenhum endereço removido. Domínio pos registrado."
+  }
 }

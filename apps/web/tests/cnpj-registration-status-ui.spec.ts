@@ -61,7 +61,7 @@ test("automatic customer lookup preserves typed data and replaces the warning wh
   await page.getByLabel("CPF ou CNPJ", { exact: true }).fill(document)
   await expect(page.getByRole("alert", { name: "Situação cadastral do CNPJ", exact: true })).toContainText("BAIXADA")
   await expect(page.getByLabel("Nome ou razão social", { exact: true })).toHaveValue("Nome digitado")
-  await expect(page.getByLabel("Situação no ERP", { exact: true })).toHaveValue("active")
+  await expect(page.getByRole("combobox", { name: "Situação no ERP", exact: true })).toHaveValue("active")
   await page.getByLabel("CPF ou CNPJ", { exact: true }).fill(secondDocument)
   await expect(page.getByRole("alert", { name: "Situação cadastral do CNPJ", exact: true })).toHaveCount(0)
   await expect(page.getByRole("status", { name: "Situação cadastral do CNPJ", exact: true })).toContainText("ATIVA")
@@ -101,7 +101,7 @@ test("a manual lookup cannot display registration from a different session", asy
 
 test("company manual preview is removed when its uncontrolled CNPJ changes", async ({ page, context }) => {
   const data = { ...Object.fromEntries(companyFields.map(field => [field, ""])) as Record<typeof companyFields[number], string>, legalName: "Empresa digitada", personType: "juridica", taxId: document, taxRegime: "simples", state: "SP", segments: [], substituteRegistrations: [] } as CompanyData
-  await context.route("**/api/erp/company", route => route.fulfill({ json: { tenantId: tenant, revision: 1, canEdit: true, data } }))
+  await context.route("**/api/erp/company", route => route.fulfill({ headers: { ETag: '"revision-1"' }, json: { tenantId: tenant, revision: 1, canEdit: true, data } }))
   await context.route("**/api/erp/registry-lookups", route => {
     const value = route.request().postDataJSON().value.replace(/\D/g, "")
     return route.fulfill({ json: reply(value, value === document ? "2" : "8") })
@@ -110,7 +110,7 @@ test("company manual preview is removed when its uncontrolled CNPJ changes", asy
   await page.getByLabel("Nome fantasia", { exact: true }).fill("Nome manual")
   await page.getByRole("button", { name: "Consultar CNPJ", exact: true }).click()
   await expect(page.getByText("ATIVA", { exact: false }).first()).toBeVisible()
-  await page.getByLabel("CPF ou CNPJ", { exact: true }).fill(secondDocument)
+  await page.getByRole("textbox", { name: /^CPF ou CNPJ/ }).fill(secondDocument)
   await expect(page.getByRole("alert", { name: "Situação cadastral do CNPJ", exact: true })).toContainText("BAIXADA")
   await expect(page.getByText("Situação cadastral do CNPJ: ATIVA", { exact: true })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Preencher campos vazios", exact: true })).toHaveCount(0)

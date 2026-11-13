@@ -144,6 +144,10 @@ pub struct ContractTemplateField {
     #[serde(rename = "type")]
     pub kind: String,
     pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice_group: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub choice_option: Option<String>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

@@ -19,6 +19,18 @@ fn active(names: &HashSet<String>) -> bool {
     names.contains(MARKER) && names.contains("Produto 1 — descrição")
 }
 
+pub(super) fn choice_metadata<'a>(template: &Value, name: &'a str) -> Option<(&'a str, &'a str)> {
+    let fields = template["fields"].as_array()?;
+    if !fields.iter().any(|field| field["name"] == MARKER)
+        || !fields
+            .iter()
+            .any(|field| field["name"] == "Produto 1 — descrição")
+    {
+        return None;
+    }
+    Some((choice_group(name)?, name.rsplit_once(" — ")?.1))
+}
+
 fn currency(cents: i64) -> String {
     let magnitude = cents.unsigned_abs();
     let whole = (magnitude / 100).to_string();

@@ -356,3 +356,25 @@ fn legacy_template_and_decimal_defaults_stay_unchanged_with_many_order_items() {
     assert_eq!(request.fields["itens"].lines().count(), 6);
     assert_eq!(request.fields["condicoes"], "Livre no modelo antigo");
 }
+
+#[test]
+fn choice_metadata_exposes_exact_reviewed_groups_without_changing_legacy_fields() {
+    let fields = editable_fields(&template());
+    assert_eq!(
+        fields
+            .iter()
+            .filter(|field| field["choiceGroup"].is_string())
+            .count(),
+        42
+    );
+    let national = fields
+        .iter()
+        .find(|field| field["name"] == "Disponibilidade 1 — origem — Nacional")
+        .unwrap();
+    assert_eq!(national["choiceGroup"], "Disponibilidade 1 — origem");
+    assert_eq!(national["choiceOption"], "Nacional");
+    let old = json!({"fields":[{"name":"condicoes","type":"text","required":true}]});
+    let old_fields = editable_fields(&old);
+    assert!(old_fields[0]["choiceGroup"].is_null());
+    assert_eq!(old_fields[0]["name"], "condicoes");
+}

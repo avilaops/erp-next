@@ -233,7 +233,10 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
 pub fn editable_fields(template: &Value) -> Vec<Value> {
     template["fields"].as_array().into_iter().flatten()
         .filter(|field| field["type"] != "signature" && field["type"] != "initials")
-        .map(|field| json!({"name":field["name"],"type":field["type"],"required":field["required"].as_bool().unwrap_or(true)})).collect()
+        .map(|field| {
+            let choice = field["name"].as_str().and_then(|name| super::structured::choice_metadata(template, name));
+            json!({"name":field["name"],"type":field["type"],"required":field["required"].as_bool().unwrap_or(true),"choiceGroup":choice.map(|(group,_)|group),"choiceOption":choice.map(|(_,option)|option)})
+        }).collect()
 }
 
 /// Defaults are template-specific: the historical decimal transport and joined

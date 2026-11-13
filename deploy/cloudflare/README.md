@@ -1,5 +1,60 @@
 # Independent ERP edge
 
+## Prepared native application runtime
+
+`runtime-resources.json` is a separate **inactive operator inventory**, not a
+Wrangler/cf configuration or a raw Cloudflare REST request body. It describes the
+runtime to provision after source verification and infrastructure approval. Map
+its worker modules/settings, SQLite-backed Durable Object namespace and native
+`durable_object` scheduling-policy image map to the current deployment API. No
+runtime has been deployed and the existing edge remains in maintenance.
+
+The runtime keeps Rust/SQLx and Next.js in one stateless Linux Container. The API
+listens only on127.0.0.1:8080; web listens on3000 and connects to the API through
+loopback. PostgreSQL is external. The supervisor starts the API, waits for actual
+readiness, then starts web. It does not run migrations. A process failure stops
+its sibling; SIGTERM shuts both down, with a bounded kill deadline. Per-process
+allowlists keep database/SMTP credentials out of web and the session secret out
+of the API. Migration/admin credentials and arbitrary operator environment never
+enter the Container through this runtime bridge.
+
+Build `runtime.Dockerfile` from validated API/web **digest** inputs from the same
+release, not mutable tags. The web image contributes Node and its standalone
+output; the existing API image retains its native/TLS/ICP dependencies. No build
+or durable business state belongs on a runtime instance. The native Container API
+requires a Workers Paid account; preparing this source does not activate a plan.
+
+`runtime-worker.mjs` exports the native Durable Object class and delegates to
+`runtime-core.mjs`. This uses `ctx.container` with a digest-pinned `images.base`,
+bounded idle timeout and real API/web readiness probes. It never forwards a user
+command before readiness and never retries one after forwarding. It preserves
+the original request/response streams, cookies and idempotency key. Concurrent
+cold requests share startup. A running different image returns503 for explicit
+rollout rather than destroying a potentially active business operation.
+
+The runtime fails closed unless RUNTIME_MODE=application, the exact source and
+activation SHA match, recovered-data and auth prerequisites are explicitly
+verified, and required credentials/configuration validate. These operator flags
+record prerequisites; they do not themselves recover data or validate a server.
+The PostgreSQL URL must identify the selected Supabase project and use strict
+TLS/direct or session mode. The managed preflight must separately verify the
+role's actual permissions; a username check is not a privilege audit.
+
+Background workers default off in this inactive declaration. Before activation,
+review payroll/fiscal schedules, choose their real execution strategy and set
+ERP_BACKGROUND_WORKERS_ENABLED explicitly. On-demand Containers can sleep;
+periodic work must not silently depend on user traffic. Fiscal engines, signing
+portal and OIDC issuer are independent service prerequisites. The portal's Redis
+dependency must be preserved or replaced only after actual compatibility tests.
+
+After real runtime verification, configure the existing edge's APP service
+binding and application mode. Its public R2 binding remains PUBLIC_ASSETS only;
+private documents and backups are never attached to the public edge. A runtime
+bridge does not transfer the API's existing bytea documents to R2: preserve them
+until a separate hash-verified storage migration can be completed with the data.
+
+See `../supabase/README.md` for managed database checks and the full restore test.
+
 This Worker serves public Next.js build assets from private R2 storage while the
 ERP application is unavailable. Dynamic requests return an honest `503` with
 `Retry-After: 60`, `Cache-Control: no-store`, HTML for browser navigation and JSON

@@ -39,7 +39,7 @@ rollback = state.get("rollback", "")
 if not isinstance(rollback, str) or not re.fullmatch("[a-f0-9]{40}", rollback): raise SystemExit(1)
 print(rollback)
 ' "$ROOT" "$previous_sha"); then
-      python3 "$staging/release-retention.py" "$previous_sha" "$rollback_sha" --apply ||
+      python3 "$staging/release-retention.py" "$previous_sha" "$rollback_sha" --root "$ROOT" --apply ||
         printf '%s\n' '::warning::Failed release cleanup needs attention.' >&2
     else
       printf '%s\n' '::warning::Prior rollback is unconfirmed; retaining images and releases.' >&2
@@ -250,7 +250,7 @@ os.replace(temporary, root / "deployment-state.json")
 PY
 
 trap - ERR
-if ! python3 "$release/release-retention.py" "$source_sha" "${previous_release##*/}" --apply; then
+if ! python3 "$release/release-retention.py" "$source_sha" "${previous_release##*/}" --root "$ROOT" --apply; then
   printf '%s\n' '::warning::Release is healthy; storage cleanup needs attention.' >&2
 fi
 printf 'ERP deploy completed: %s\n' "$source_sha"

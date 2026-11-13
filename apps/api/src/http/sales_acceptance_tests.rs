@@ -960,3 +960,268 @@ async fn acceptance_confirmation_verifies_every_title_and_rolls_back_failed_rese
     assert_eq!(financial_snapshot(&admin, order).await, before);
     cleanup(&admin, application, server, &role).await;
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_accepted_order_enters_production_without_claiming_finished_stock(
+    admin: PgPool,
+) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    const COMPONENT: &str = "abababab-abab-4bab-8bab-abababababab";
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code LIKE 'production.%' ON CONFLICT DO NOTHING; INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status) VALUES('abababab-abab-4bab-8bab-abababababab','11111111-1111-4111-8111-111111111111','ACCEPT-COMP','Componente real sintético','KG',100,'active'); INSERT INTO stock_balances(tenant_id,product_id,quantity_micros) VALUES('11111111-1111-4111-8111-111111111111','abababab-abab-4bab-8bab-abababababab',2000000)").execute(&admin).await.unwrap();
+    let order = draft(&router).await;
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let made = call(
+        &router,
+        (TENANT, "editor"),
+        "POST",
+        "/api/v1/production/orders",
+        Some(2),
+        Some(Uuid::now_v7()),
+        json!({"orderId":order}),
+    )
+    .await;
+    assert_eq!(made.0, StatusCode::CREATED, "{}", made.2);
+    let job = made.2["data"][0]["id"].as_str().unwrap().to_owned();
+    let uri = format!("/api/v1/production/orders/{job}/consumptions");
+    let shortage = call(&router, (TENANT, "editor"), "POST", &uri, Some(1), Some(Uuid::now_v7()), json!({"productId":COMPONENT,"quantity":"3.000000","unitCost":"1.00","reason":"Componente insuficiente sintético"})).await;
+    assert_eq!(shortage.0, StatusCode::CONFLICT, "{}", shortage.2);
+    let consumed = call(&router, (TENANT, "editor"), "POST", &uri, Some(1), Some(Uuid::now_v7()), json!({"productId":COMPONENT,"quantity":"1.000000","unitCost":"1.00","reason":"Consumo físico sintético conferido"})).await;
+    assert_eq!(consumed.0, StatusCode::OK, "{}", consumed.2);
+    let ready: Uuid = sqlx::query_scalar(
+        "SELECT id FROM production_stages WHERE tenant_id=$1::uuid AND kind='pronta'",
+    )
+    .bind(TENANT)
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    let moved = call(
+        &router,
+        (TENANT, "editor"),
+        "POST",
+        &format!("/api/v1/production/orders/{job}/stage"),
+        Some(2),
+        Some(Uuid::now_v7()),
+        json!({"stageId":ready}),
+    )
+    .await;
+    assert_eq!(moved.0, StatusCode::OK, "{}", moved.2);
+    assert_eq!(
+        physical(&admin).await,
+        (0, 0, 0),
+        "Pronto não registra entrada de máquina"
+    );
+    let cancel_key = Uuid::now_v7();
+    sqlx::query("DELETE FROM role_permissions WHERE permission_code='production.manage'")
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        operation(&router, order, "cancel", 2, cancel_key).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("INSERT INTO role_permissions(role_id,permission_code) VALUES('99999999-9999-4999-8999-999999999999','production.manage')").execute(&admin).await.unwrap();
+    let cancelled = operation(&router, order, "cancel", 2, cancel_key).await;
+    assert_eq!(cancelled.0, StatusCode::OK, "{}", cancelled.2);
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    let component_balance: i64 =
+        sqlx::query_scalar("SELECT quantity_micros FROM stock_balances WHERE product_id=$1::uuid")
+            .bind(COMPONENT)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(component_balance, 2_000_000);
+    let reversal_count: i64 = sqlx::query_scalar("SELECT count(*) FROM stock_movements WHERE production_order_id=$1::uuid AND reverses_id IS NOT NULL").bind(&job).fetch_one(&admin).await.unwrap();
+    assert_eq!(reversal_count, 1);
+    assert_eq!(
+        operation(&router, order, "cancel", 2, cancel_key).await.2,
+        cancelled.2
+    );
+    sqlx::query("DELETE FROM role_permissions WHERE permission_code='production.manage'")
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        operation(&router, order, "cancel", 2, cancel_key).await.0,
+        StatusCode::FORBIDDEN
+    );
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_accepted_order_is_open_in_metrics_and_future_commissions(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    seed_account(&admin).await;
+    sqlx::raw_sql("INSERT INTO staff(id,tenant_id,code,name,is_employee,is_seller,status) VALUES('abababab-abab-4bab-8bab-abababababab','11111111-1111-4111-8111-111111111111','ACCEPT-METRICS','Vendedor sintético',true,true,'active')").execute(&admin).await.unwrap();
+    let order = draft(&router).await;
+    let terms = call(&router,(TENANT,"editor"),"PUT",&format!("/api/v1/orders/{order}/commission"),Some(1),Some(Uuid::now_v7()),json!({"sellerStaffId":"abababab-abab-4bab-8bab-abababababab","commissionRate":"5.0000","ipiRate":"0.0000","paymentDay":10})).await;
+    assert_eq!(terms.0, StatusCode::OK, "{}", terms.2);
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 2, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let metrics = call(
+        &router,
+        (TENANT, "editor"),
+        "GET",
+        "/api/v1/commercial/metrics/orders?month=2026-11",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(metrics.0, StatusCode::OK, "{}", metrics.2);
+    assert_eq!(metrics.2["data"]["openCount"], 1);
+    assert_eq!(metrics.2["data"]["openCents"], 10_000_000);
+    assert_eq!(metrics.2["data"]["completedCount"], 0);
+    assert_eq!(metrics.2["data"]["pendingApprovalCount"], 0);
+    let ids = titles(&admin, order).await;
+    let mut payment_id = Value::Null;
+    for (paid, expected_commission, expected_future) in
+        [(false, 0, 500_000), (true, 250_000, 250_000)]
+    {
+        if paid {
+            let receipt = pay(&router, ids[0], 1, "50000.00").await;
+            payment_id = receipt["payments"][0]["id"].clone();
+        }
+        let commissions = call(
+            &router,
+            (TENANT, "editor"),
+            "GET",
+            "/api/v1/commercial/metrics/commissions?month=2026-11",
+            None,
+            None,
+            Value::Null,
+        )
+        .await;
+        assert_eq!(commissions.0, StatusCode::OK, "{}", commissions.2);
+        assert_eq!(
+            commissions.2["data"]["commissionCents"],
+            expected_commission
+        );
+        assert_eq!(commissions.2["data"]["futureCents"], expected_future);
+        assert_eq!(physical(&admin).await, (0, 0, 0));
+    }
+    let reversed = call(&router,(TENANT,"editor"),"POST",&format!("/api/v1/receivables/{}/reverse-payment",ids[0]),Some(2),Some(Uuid::now_v7()),json!({"paymentId":payment_id,"reason":"Estorno explícito sintético","occurredOn":"2026-11-14"})).await;
+    assert_eq!(reversed.0, StatusCode::OK, "{}", reversed.2);
+    let commissions = call(
+        &router,
+        (TENANT, "editor"),
+        "GET",
+        "/api/v1/commercial/metrics/commissions?month=2026-11",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(commissions.2["data"]["commissionCents"], 0);
+    assert_eq!(commissions.2["data"]["futureCents"], 500_000);
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_accepted_order_does_not_unlock_physical_checkout_nfe_or_cte_sale_options(
+    admin: PgPool,
+) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    seed_account(&admin).await;
+    sqlx::query("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code IN ('logistics.checkout.read','logistics.checkout.manage','fiscal.nfe.read','fiscal.cte.read','catalog.products.read','catalog.parties.read') ON CONFLICT DO NOTHING").execute(&admin).await.unwrap();
+    let order = draft(&router).await;
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    for title in titles(&admin, order).await {
+        pay(&router, title, 1, "50000.00").await;
+    }
+    let money = financial_snapshot(&admin, order).await;
+    let packed = call(
+        &router,
+        (TENANT, "editor"),
+        "POST",
+        "/api/v1/logistics/checkouts",
+        None,
+        Some(Uuid::now_v7()),
+        json!({"orderId":order}),
+    )
+    .await;
+    assert_eq!(packed.0, StatusCode::NOT_FOUND, "{}", packed.2);
+    let fiscal = call(
+        &router,
+        (TENANT, "editor"),
+        "GET",
+        &format!("/api/v1/fiscal/order-preparations/{order}"),
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(fiscal.0, StatusCode::CONFLICT, "{}", fiscal.2);
+    let doc = super::cte_inspection_tests::seed(&admin, "000000000000001").await;
+    let facts: Value =
+        serde_json::from_str(include_str!("fixtures/cte-received-inspection.json")).unwrap();
+    sqlx::query("INSERT INTO fiscal_cte_inspections(tenant_id,id,document_id,source_xml_sha256,inspector_version,schema_release,metadata,inspected_by) VALUES($1::uuid,$2,$3,$4,'cte-received-v1',$5,$6,'editor')")
+        .bind(TENANT).bind(Uuid::now_v7()).bind(doc).bind(facts["xmlSha256"].as_str().unwrap()).bind(facts["profile"].as_str().unwrap()).bind(&facts).execute(&admin).await.unwrap();
+    let options = call(&router,(TENANT,"editor"),"GET",&format!("/api/v1/fiscal/cte-distribution/documents/{doc}/commercial-options?kind=sale&offset=0&limit=10"),None,None,Value::Null).await;
+    assert_eq!(options.0, StatusCode::OK, "{}", options.2);
+    assert_eq!(options.2["total"], 0);
+    assert!(options.2["data"].as_array().unwrap().is_empty());
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    assert_eq!(financial_snapshot(&admin, order).await, money);
+    let effects: (i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM logistics_checkouts),(SELECT count(*) FROM fiscal_nfe_drafts)").fetch_one(&admin).await.unwrap();
+    assert_eq!(effects, (0, 0));
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_accepted_order_reserves_after_actual_purchase_receipt(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let order = draft(&router).await;
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let money = financial_snapshot(&admin, order).await;
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    let created = call(&router,(TENANT,"editor"),"POST","/api/v1/purchase-orders",None,Some(Uuid::now_v7()),json!({"supplierId":CUSTOMER,"dueDate":"2026-12-01","items":[{"productId":PRODUCT,"quantity":"1.000000","unitCost":"100.00"}]})).await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let purchase = created.2["data"]["id"].as_str().unwrap().to_owned();
+    let confirmed = call(
+        &router,
+        (TENANT, "editor"),
+        "POST",
+        &format!("/api/v1/purchase-orders/{purchase}/confirm"),
+        Some(1),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(confirmed.0, StatusCode::OK, "{}", confirmed.2);
+    assert_eq!(
+        physical(&admin).await,
+        (0, 0, 0),
+        "compra confirmada ainda nao e recebimento fisico"
+    );
+    let received = call(&router,(TENANT,"editor"),"POST",&format!("/api/v1/purchase-orders/{purchase}/receipts"),Some(2),Some(Uuid::now_v7()),json!({"reference":"Chegada fisica sintetica conferida","occurredOn":"2026-11-13","items":[{"productId":PRODUCT,"quantity":"1.000000"}]})).await;
+    assert_eq!(received.0, StatusCode::CREATED, "{}", received.2);
+    assert_eq!(physical(&admin).await, (1_000_000, 0, 1));
+    let reserved = operation(&router, order, "confirm", 2, Uuid::now_v7()).await;
+    assert_eq!(reserved.0, StatusCode::OK, "{}", reserved.2);
+    assert_eq!(physical(&admin).await, (1_000_000, 1_000_000, 1));
+    assert_eq!(financial_snapshot(&admin, order).await, money);
+    let completed = operation(&router, order, "complete", 3, Uuid::now_v7()).await;
+    assert_eq!(completed.0, StatusCode::OK, "{}", completed.2);
+    assert_eq!(physical(&admin).await, (0, 0, 2));
+    assert_eq!(financial_snapshot(&admin, order).await, money);
+    cleanup(&admin, application, server, &role).await;
+}

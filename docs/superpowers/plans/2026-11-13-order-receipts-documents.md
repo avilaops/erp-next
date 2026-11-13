@@ -76,7 +76,19 @@ Files: `apps/api/src/domains/contracts/templates.rs`, focused structured default
 
 ## Execution notes
 
+- The user specifically requested that the other agent's order-screen work be included in this publication. A fresh `origin/main` ancestry check confirmed `f78b526` (PR #199, corporate order PDF, platform SMTP and bank picker, 2026-11-13 00:40 -03:00) and `7047295` (reference-based order workflow, 2026-11-12) are ancestors of this branch. The current order detail still renders the existing PDF and email actions; their behavior and the negotiated order workflow remain regression targets.
+- Backend commits `0c379c4` and `2312881` contain the finance/documents foundation and structured Ludus template. Commit `f07862b` adds real API tests for exact 10 MiB proofs through both upload routes and pre-upgrade receipt-command replay. Formatting and test-target metadata compilation passed locally; these SQLx scenarios still require runtime execution in CI.
+- Independent review found a parent-reload path that could unmount an uncertain child command. The shared frontend now queues reloads while receipt/document commands are unresolved, preserving the same idempotency key and body; the three focused Order/Contract/Receivable browser regressions passed. Complete suites and final review remain required.
 - CI fix PR #203 merged as `81db794acd64554992b478ced1973d3c5ff10034`; required CI run `43380126564` succeeded in 9m25s. Both temporary merged CI branches were removed safely.
 - Release run `43381569822` stopped before activation: API, architecture, company/compatibility contracts and web build passed; three browser tests retained old 16px expectations while the source policy now requires 18px mobile controls. Root corrected four assertions in catalog/navigation/simulator tests; focused reruns and complete Release validation remain required. Production has not changed.
 - CI timing CSV: `artifacts/ci-runtime-43380126564/tempos-scripts.csv` (27 scripts, zero failures). Failed Release CSV: `artifacts/ci-runtime-43381569822/tempos-scripts.csv` (62 scripts, two failed shard processes). Parallel durations must not be added to infer total elapsed time.
 - Native Windows test-binary build completed after 18m08s; actual old-API HTTP RED confirmed missing finance route and 148-field rejection. The changed implementation will use metadata checks locally and complete real SQLx execution in required CI; do not restart/repeat obsolete LLVM work merely because observation yielded.
+
+## Required follow-up — entry before equipment arrives
+
+The source audit found that sales confirmation checks physical availability before `checkout::confirm` creates titles. The audio requires accepting an entry before equipment arrives, so a zero-stock order cannot yet exercise the complete scenario. Keep this as required work in the overall objective, not as a completed capability of the receipts/document foundation.
+
+- [ ] Audit existing backorder/production/procurement modes and reservation derivation; record a coherent made-to-order or advance-receipt state transition.
+- [ ] Implement explicit commercial freezing/title origination before physical arrival without editable chargeable drafts, fictional inventory, duplicated titles or weakened normal-stock reservations.
+- [ ] Add zero-stock entry → later receipt → physical arrival/reservation → final receipt/dispatch tests, including cancellation and reversals; integrate the corresponding Order/Finance/Production views.
+- [ ] Only then claim the full client-audio workflow is homologated. No global dispatch blockade is implied without a defined business policy.

@@ -68,6 +68,7 @@ Registrar recebimento exige as permissões financeiras atuais. Anexar/consultar 
 - O pacote documental atual exige NF-e autorizada e só acrescenta declarações de recebimento geradas em RTF/`.doc` quando todos os títulos estão quitados. Essas declarações não substituem o comprovante bancário original nem cobrem a consulta dos parciais.
 - O cadastro negociado distingue Pix/crédito/débito, mas a liquidação atual aceita `cash`, `bank_transfer`, `card`, `other`. É necessário preservar a identificação da forma efetiva sem quebrar o contrato existente.
 - A confirmação do checkout cria títulos de entrada e parcelas antes da conclusão. No caminho legado, o título só nasce na conclusão. O recebimento antecipado precisa respeitar essa diferença sem antecipar a saída de estoque.
+- A confirmação atual também exige estoque físico disponível para a reserva (`apps/api/src/domains/sales.rs:899`). Assim, o caso do áudio em que a entrada precede a chegada das máquinas exige um fluxo explícito de encomenda/recebimento antecipado. A integração de comprovantes, sozinha, não resolve esse impedimento. É necessário preservar os controles de estoque e congelar a condição comercial que originar os títulos; não usar rascunho editável nem criar saldo de estoque fictício.
 
 ## Ordem de implementação
 

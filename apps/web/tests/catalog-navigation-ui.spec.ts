@@ -187,7 +187,7 @@ test("consulta e edição do produto agrupam os campos e limitam a foto no celul
     expect(unitInput!.x).toBeGreaterThan(skuInput!.x)
     expect(unitInput!.y).toBe(skuInput!.y)
     expect(skuInput!.height).toBe(36)
-    await expect(name).toHaveCSS("font-size", "16px")
+    await expect(name).toHaveCSS("font-size", "18px")
     await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
     await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Vermelho")
     await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")

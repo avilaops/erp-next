@@ -792,9 +792,17 @@ async fn acceptance_cancellation_requires_explicit_reversal_and_preserves_eviden
     let original = evidence(&admin, order).await;
     let before = financial_snapshot(&admin, order).await;
     assert_eq!(
-        operation(&router, order, "cancel-completed", 3, Uuid::now_v7())
-            .await
-            .0,
+        call(
+            &router,
+            (TENANT, "editor"),
+            "POST",
+            &format!("/api/v1/orders/{order}/cancel-completed"),
+            Some(3),
+            Some(Uuid::now_v7()),
+            json!({"reason":"Cancelamento sintético antes da expedição","occurredOn":"2026-11-14"})
+        )
+        .await
+        .0,
         StatusCode::CONFLICT
     );
     let cancel_key = Uuid::now_v7();

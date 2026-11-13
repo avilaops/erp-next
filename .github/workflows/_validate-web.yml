@@ -17,14 +17,14 @@ name: Validate web
     outputs:
       digest:
         description: Validated registry image digest
-        value: ${{ jobs.web.outputs.digest }}
+        value: ${{ jobs.image.outputs.digest }}
       template_artifact_name:
         description: Exact validated template artifact from its producing attempt
         value: ${{ jobs.web.outputs.template_artifact_name }}
 jobs:
   web:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
       with:
@@ -131,56 +131,6 @@ jobs:
 
         '
       if: inputs.full
-    - name: Reserve browser fixture ports outside ephemeral allocation
-      run: 'script_file=$(mktemp)
-
-        trap ''rm -f -- "$script_file"'' EXIT
-
-        cat > "$script_file" <<''ERP_TIMED_ebb41251ba597764''
-
-        sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
-
-        ERP_TIMED_ebb41251ba597764
-
-        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/web: Reserve browser fixture ports outside ephemeral allocation'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
-        -- bash --noprofile --norc -e -o pipefail "$script_file"
-
-        '
-      if: inputs.full
-    - run: 'script_file=$(mktemp)
-
-        trap ''rm -f -- "$script_file"'' EXIT
-
-        cat > "$script_file" <<''ERP_TIMED_393f0a1270b82a96''
-
-        timeout 900s pnpm --filter web test:danfe
-
-        ERP_TIMED_393f0a1270b82a96
-
-        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/web: timeout 900s pnpm --filter web test:danfe'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
-        -- bash --noprofile --norc -e -o pipefail "$script_file"
-
-        '
-      env:
-        ERP_BROWSER_CHANNEL: chrome
-      if: inputs.full
-    - run: 'script_file=$(mktemp)
-
-        trap ''rm -f -- "$script_file"'' EXIT
-
-        cat > "$script_file" <<''ERP_TIMED_b7ac6aa277bd41e6''
-
-        timeout 120s pnpm --filter web test:monitor
-
-        ERP_TIMED_b7ac6aa277bd41e6
-
-        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/web: timeout 120s pnpm --filter web test:monitor'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
-        -- bash --noprofile --norc -e -o pipefail "$script_file"
-
-        '
-      env:
-        ERP_BROWSER_CHANNEL: chrome
-      if: inputs.full
     - name: Build the technical contract validation template
       run: 'script_file=$(mktemp)
 
@@ -221,44 +171,256 @@ jobs:
         -- bash --noprofile --norc -e -o pipefail "$script_file"
 
         '
-    - name: Session, registry and proposal browser suites
-      if: inputs.full
+    - name: Package validated web build and generated public assets
       run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT
 
-        cat > "$script_file" <<''ERP_TIMED_00cac0632049e115''
+        cat > "$script_file" <<''ERP_TIMED_1873df9a3d899516''
 
-        pnpm --filter web exec playwright test --config playwright.session.config.ts
+        mkdir -p artifacts
 
-        pnpm --filter web exec playwright test --config playwright.registry.config.ts
+        tar --exclude=''apps/web/.next/cache'' -czf artifacts/web-build.tar.gz apps/web/.next apps/web/public
 
-        pnpm --filter web exec playwright test --config playwright.proposals.config.ts
+        ERP_TIMED_1873df9a3d899516
 
-        ERP_TIMED_00cac0632049e115
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/web: Package validated web build and generated public assets'' --output
+        "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
 
-        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/web: Session, registry and proposal browser suites'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        '
+      if: inputs.full
+    - name: Preserve exact web build for browser shards and image
+      if: inputs.full
+      uses: actions/upload-artifact@v4
+      with:
+        name: erp-web-build-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/web-build.tar.gz
+        include-hidden-files: true
+        compression-level: 0
+        retention-days: 1
+        if-no-files-found: error
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-_validate-web-web-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    outputs:
+      template_artifact_name: erp-contract-model-${{ inputs.source_sha }}-${{ github.run_attempt }}
+      build_artifact_name: erp-web-build-${{ inputs.source_sha }}-${{ github.run_attempt }}
+  browser:
+    needs:
+    - web
+    if: inputs.full
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+        - 1
+        - 2
+    env:
+      ERP_BROWSER_CHANNEL: chrome
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_f733afb2da73a36b''
+
+        pnpm install --frozen-lockfile
+
+        ERP_TIMED_f733afb2da73a36b
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: pnpm install --frozen-lockfile'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
         -- bash --noprofile --norc -e -o pipefail "$script_file"
 
         '
-      env:
-        ERP_BROWSER_CHANNEL: chrome
-    - uses: actions/upload-artifact@v4
-      if: always() && inputs.full
+    - uses: actions/download-artifact@v4
       with:
-        name: erp-browser-${{ inputs.source_sha }}-${{ github.run_attempt }}
-        path: artifacts/danfe-browser/
+        name: ${{ needs.web.outputs.build_artifact_name }}
+        path: artifacts/
+    - name: Restore exact validated web build
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_1ccb08ecb301aa14''
+
+        tar -xzf artifacts/web-build.tar.gz
+
+        ERP_TIMED_1ccb08ecb301aa14
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Restore exact validated web build'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Reserve browser fixture ports outside ephemeral allocation
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_ebb41251ba597764''
+
+        sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
+
+        ERP_TIMED_ebb41251ba597764
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Reserve browser fixture ports outside ephemeral allocation'' --output
+        "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: DANFE browser shard ${{ matrix.shard }}/2
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_c4c826c7b87beb43''
+
+        timeout 900s pnpm --filter web test:danfe --shard=${{ matrix.shard }}/2
+
+        ERP_TIMED_c4c826c7b87beb43
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: DANFE browser shard ${{ matrix.shard }}/2'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Monitor browser suite
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_b7ac6aa277bd41e6''
+
+        timeout 120s pnpm --filter web test:monitor
+
+        ERP_TIMED_b7ac6aa277bd41e6
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Monitor browser suite'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: matrix.shard == 1
+    - name: Session browser suite
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_fb7e6c40945ebde8''
+
+        pnpm --filter web exec playwright test --config playwright.session.config.ts
+
+        ERP_TIMED_fb7e6c40945ebde8
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Session browser suite'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: matrix.shard == 1
+    - name: Registry browser suite
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_48aae2ba93547997''
+
+        pnpm --filter web exec playwright test --config playwright.registry.config.ts
+
+        ERP_TIMED_48aae2ba93547997
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Registry browser suite'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: matrix.shard == 2
+    - name: Proposals browser suite
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_1beb1213943483fd''
+
+        pnpm --filter web exec playwright test --config playwright.proposals.config.ts
+
+        ERP_TIMED_1beb1213943483fd
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/browser: Proposals browser suite'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: matrix.shard == 2
+    - name: Preserve browser reports and failure screenshots
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-browser-${{ inputs.source_sha }}-${{ github.run_attempt }}-${{ matrix.shard }}
+        path: 'artifacts/danfe-browser/
+
+          apps/web/test-results/
+
+          apps/web/playwright-report/'
         retention-days: 7
         if-no-files-found: warn
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-_validate-web-browser-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+  image:
+    needs:
+    - web
+    - browser
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.web.outputs.build_artifact_name }}
+        path: artifacts/
+    - name: Restore exact validated web build
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_1ccb08ecb301aa14''
+
+        tar -xzf artifacts/web-build.tar.gz
+
+        ERP_TIMED_1ccb08ecb301aa14
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-web/image: Restore exact validated web build'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
     - uses: docker/login-action@v3
-      if: inputs.publish
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Publish web by immutable digest
       id: image
-      if: inputs.publish
       uses: docker/build-push-action@v6
       with:
         context: .
@@ -269,10 +431,9 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: timing-_validate-web-web-${{ github.run_id }}-${{ github.run_attempt }}
+        name: timing-_validate-web-image-${{ github.run_id }}-${{ github.run_attempt }}
         path: artifacts/timings/*.jsonl
         retention-days: 7
         if-no-files-found: warn
     outputs:
       digest: ${{ steps.image.outputs.digest }}
-      template_artifact_name: erp-contract-model-${{ inputs.source_sha }}-${{ github.run_attempt }}

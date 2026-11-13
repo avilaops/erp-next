@@ -38,14 +38,14 @@
 .proposal-notes { grid-column: 1 / -1; }
 .proposal-history { border-top: 1px solid #d8dde3; padding-top: 16px; margin-top: 24px; }
 @media screen and (max-width: 639px) {
-  .proposal-document { margin-block: 16px; padding: 12px; font-size: 13px; }
+  .proposal-document { margin-block: 16px; padding: 12px; font-size: 12px; }
   .proposal-document-header { gap: 16px; padding-bottom: 16px; }
   .proposal-parties { gap: 16px; margin-block: 16px; }
   .proposal-product-column { width: calc(100% - 7.5rem); }
   .proposal-quantity-column, .proposal-unit-price-column { display: none; }
   .proposal-mobile-pricing { display: grid; gap: 2px; }
   .proposal-product-identity > span, .proposal-product-identity img { width: 40px; height: 40px; }
-  .proposal-document .proposal-items-table { font-size: 13px; }
+  .proposal-document .proposal-items-table { font-size: 12px; }
   .proposal-document .proposal-items-table :is(th, td) { padding-inline: 4px; }
   .proposal-document .proposal-items-table td:last-child { white-space: nowrap; }
   .proposal-conditions { grid-template-columns: 1fr; }

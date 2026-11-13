@@ -4,6 +4,7 @@ import { readFile, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as gate from '../gate.mjs';
 const evaluateCompatibilityPolicy = report => {
   assert.equal(typeof gate.evaluateCompatibilityPolicy, 'function', 'the gate must evaluate the reviewed correction policy');
@@ -124,7 +125,7 @@ test('the real CLI preserves strict success and failure outside the reviewed con
       ['removed endpoint', { ...document, paths: {} }, 1],
     ]) {
       await writeFile(candidate, JSON.stringify(current));
-      const result = spawnSync(process.execPath, [entry.pathname, baseline, candidate, directory], { encoding: 'utf8' });
+      const result = spawnSync(process.execPath, [fileURLToPath(entry), baseline, candidate, directory], { encoding: 'utf8' });
       assert.equal(result.status, expected, name + ': ' + result.stderr);
       const printed = JSON.parse(result.stdout);
       const report = JSON.parse(await readFile(path.join(directory, 'comparison.json'), 'utf8'));

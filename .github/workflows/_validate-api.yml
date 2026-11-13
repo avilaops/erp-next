@@ -81,7 +81,11 @@ jobs:
 
         mkdir -p artifacts/contracts
 
-        ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" cargo test --locked --workspace -- --test-threads=2
+        ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" ERP_COMPANY_CONTRACT_OUTPUT="$PWD/artifacts/contracts/company.json" cargo test --locked --workspace -- --test-threads=2
+
+        test -s artifacts/contracts/candidate.json
+
+        test -s artifacts/contracts/company.json
 
         ERP_TIMED_7a9bcab76b275aff
 
@@ -92,7 +96,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: erp-openapi-${{ inputs.source_sha }}-${{ github.run_attempt }}
-        path: artifacts/contracts/candidate.json
+        path: artifacts/contracts/
         if-no-files-found: error
         retention-days: 7
     - run: 'script_file=$(mktemp)

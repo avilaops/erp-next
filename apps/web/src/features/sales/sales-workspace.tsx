@@ -31,7 +31,7 @@ export function SalesWorkspace() {
             <DataTable className="table-fixed text-xs sm:table-auto sm:text-sm"><caption className="sr-only">Propostas recentes</caption>
               <thead className="bg-primary text-primary-foreground"><tr><th scope="col" className="w-[64%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="w-[36%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
               <tbody>{proposals.value.data.map(proposal => <tr key={proposal.id} className="border-t hover:bg-muted/30">
-                <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={proposal.customerName} href={`/vendas/propostas/${proposal.id}`}>{proposal.customerName}</Link><p className="mt-1 text-[11px] text-muted-foreground sm:hidden">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</p></td>
+                <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={proposal.customerName} href={`/vendas/propostas/${proposal.id}`}>{proposal.customerName}</Link><p className="mt-1 text-xs text-muted-foreground sm:hidden">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</p></td>
                 <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{proposal.expired ? "Expirada" : statuses[proposal.status] || proposal.status}</td>
                 <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{money(proposal.amount)}</td>
               </tr>)}</tbody>
@@ -51,7 +51,7 @@ export function SalesWorkspace() {
                 <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link></td>
                 <td className="min-w-0 p-2 align-top sm:p-3">
                   <Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link>
-                  <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground sm:hidden"><Link className="underline underline-offset-4" href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link><span>{statuses[order.status] || order.status}</span></div>
+                  <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground sm:hidden"><Link className="underline underline-offset-4" href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link><span>{statuses[order.status] || order.status}</span></div>
                 </td>
                 <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{statuses[order.status] || order.status}</td>
                 <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{money(order.amount)}</td>

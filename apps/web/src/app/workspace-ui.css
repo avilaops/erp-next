@@ -117,7 +117,7 @@ body:has(.erp-workspace) {
   /* Keep native iOS date controls inside their grid cell. */
   .erp-content input[type=date] { min-width: 0; max-width: 100%; }
   .erp-content input[type=date]::-webkit-date-and-time-value { min-width: 0; text-align: start; }
-  .erp-content :is(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=hidden]), select, textarea) { font-size: 16px; }
+  .erp-content :is(input:not([type=checkbox], [type=radio], [type=range], [type=color], [type=hidden]), select, textarea) { font-size: 18px; }
   .erp-content .form-actions { bottom: max(12px, env(safe-area-inset-bottom)); }
 }
 @media (max-width: 767px) {

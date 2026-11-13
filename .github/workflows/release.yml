@@ -7,7 +7,7 @@ concurrency:
 jobs:
   select:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
     steps:
@@ -28,6 +28,24 @@ jobs:
         \ $source_sha\" >> \"$GITHUB_STEP_SUMMARY\"\nERP_TIMED_36c32cfd3745883f\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'release/select: Require\
         \ an exact promoted revision integrated into main' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail\
         \ \"$script_file\"\n"
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ steps.source.outputs.sha }}
+        persist-credentials: false
+        clean: false
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - name: Install preflight dependencies
+      run: |
+        python3 scripts/ci/timed.py --label 'release/select: install preflight dependencies' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm install --frozen-lockfile --prefer-offline
+    - name: Validate architecture before starting release builds
+      run: |
+        python3 scripts/ci/timed.py --label 'release/select: architecture preflight' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm check:architecture
     - name: Preserve measured script durations
       if: always()
       uses: actions/upload-artifact@v4

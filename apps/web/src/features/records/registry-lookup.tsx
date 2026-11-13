@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Search, LoaderCircle } from "lucide-react"
 import type { Schema } from "@/lib/api/types"
-import { erpFetch } from "@/lib/api/client"
+import { requestRegistryLookup, requestRegistrySession } from "./registry-request"
 import { Button } from "@/components/ui/button"
 import { validCnpj } from "./automatic-cnpj"
 
@@ -53,13 +53,7 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     active.current = controller
     setPending(true); setResult(null); setMessage(""); setError("")
     try {
-      const response = await erpFetch("/api/erp/registry-lookups", {
-        method: "POST", headers: { "Content-Type": "application/json", "X-Tenant-Id": current.current.tenantId },
-        body: JSON.stringify({ kind, context, value, ...(kind === "ie" ? { state: current.current.readState?.() } : {}) }),
-        signal: controller.signal,
-      })
-      const reply = await response.json()
-      if (!response.ok) throw new Error(reply.title || "Consulta indisponível. Continue manualmente")
+      const reply = await requestRegistryLookup({ kind, context, value, ...(kind === "ie" ? { state: current.current.readState?.() } : {}) }, current.current.tenantId, controller.signal)
       if (captured !== key() || reply.tenantId !== current.current.tenantId || normalized(reply.value || "") !== normalized(value) || reply.kind !== kind) {
         setMessage("O documento, CEP ou empresa mudou. Consulte novamente; os campos foram preservados"); return
       }
@@ -98,9 +92,8 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     }
     if (!validPreview()) return
     // Another tab can replace the shared session cookie without changing this form's props.
-    const response = await erpFetch("/api/erp/me", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) })
-    const session: Schema<"CurrentAccessResponse"> = await response.json()
-    if (!response.ok || session?.tenant?.id !== preview.reply.tenantId) {
+    const session = await requestRegistrySession(AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]))
+    if (session.tenant.id !== preview.reply.tenantId) {
       setResult(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
     }
     if (current.current.disabled || !validPreview()) return

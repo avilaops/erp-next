@@ -29,6 +29,8 @@ Selecione pelo menos um relacionamento. Documento duplicado na mesma empresa é 
 
 O formulário recupera o rascunho na mesma sessão e avisa sobre alterações pendentes antes da saída. A emissão ainda depende dos campos e das validações da própria nota.
 
+As consultas cadastrais preservam os campos já preenchidos e só aplicam dados após conferir o documento e a empresa da sessão. Respostas vazias ou incompletas admitem uma nova tentativa automática; se a falha continuar, a mensagem permite seguir manualmente ou consultar novamente.
+
 ## Referências para manutenção
 
 Guia conferido no código de 12/11/2026. As ações dependem das permissões e da configuração da empresa. Relatos técnicos antigos descrevem a etapa em que foram escritos.

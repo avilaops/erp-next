@@ -93,3 +93,38 @@ test("identity-only access is limited to the company registration lookup", async
     assert.equal(calls[0].options.headers.has("x-tenant-id"), false);
   } finally { globalThis.fetch = previous; }
 });
+
+test("invalid registry bodies become JSON problems while authorization status and request ID survive", async () => {
+  const forward = await proxyFor(tenant);
+  const previous = globalThis.fetch;
+  try {
+    for (const status of [200, 204, 401, 403, 409, 422, 429, 502, 503, 504]) {
+      for (const body of status === 204 ? [null] : ["", "{", "<html>gateway</html>", "null", "[]"]) {
+        globalThis.fetch = async () => new Response(body, { status, headers: { "x-request-id": "fixture-request" } });
+        const response = await forward(request(tenant), "/registry-lookups");
+        assert.equal(response.status, status < 300 ? 502 : status);
+        assert.equal(response.headers.get("x-request-id"), "fixture-request");
+        assert.match(response.headers.get("cache-control"), /no-store/);
+        assert.match(response.headers.get("content-type"), /application\/json/);
+        assert.match((await response.json()).title, /Consulta cadastral indisponível/);
+      }
+    }
+    globalThis.fetch = async () => new Response("", { status: 200 });
+    const onboarding = await forward(request(null), "/company-registration/lookup");
+    assert.equal(onboarding.status, 502);
+    assert.match((await onboarding.json()).title, /Consulta cadastral indisponível/);
+  } finally { globalThis.fetch = previous; }
+});
+
+test("registry recovery does not change bodyless responses of business commands", async () => {
+  const forward = await proxyFor(tenant);
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response(null, { status: 204 }); };
+  try {
+    const response = await forward(request(tenant), "/orders");
+    assert.equal(response.status, 204);
+    assert.equal(await response.text(), "");
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = previous; }
+});

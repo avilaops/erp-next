@@ -16,9 +16,9 @@ Backups must include data and migration history, stream to a private local file,
 
 ## External gates
 
-The Supabase connector can read avilaops's Org but currently lists no accessible project. Its create-project tool requires the user to choose the organization; that text question is pending. No nonzero subscription is authorized. Cloudflare Containers list now explicitly returns 401 requiring Workers Paid. Prepare and test source/configuration first; present exact deployment and quoted cost before activating a paid plan. Native Supabase Auth is not a drop-in replacement for the existing origin-only OIDC configuration; existing identity subjects and membership must be preserved during a separately validated identity transition.
+The user selected avilaops's Org and subsequently directed source/test completion without waiting for remote infrastructure. The Supabase connector lists no accessible project; no project or nonzero subscription has been provisioned. Cloudflare Containers list explicitly returns 401 requiring Workers Paid. Prepare and test source/configuration first; present exact deployment and quoted cost before activating a paid plan. Native Supabase Auth is not a drop-in replacement for the existing origin-only OIDC configuration; existing identity subjects and membership must be preserved during a separately validated identity transition.
 
-The current financial-server block does not authorize replacing current data with an empty database or the previously inspected legacy ERP dump. No actual messages, payments, fiscal transmissions or signatures as test fixtures. Original accepted-order implementation stays paused and its PR207 is not included.
+The current financial-server block does not authorize replacing current data with an empty database or the previously inspected legacy ERP dump. No actual messages, payments, fiscal transmissions or signatures as test fixtures. PR207 remains separate from this increment; resume the accepted-order implementation after this source increment, as directed by the user.
 
 ## Acceptance
 

@@ -23,6 +23,9 @@ variables, not process arguments or reports. Remote connections require
 `sslmode=verify-full`; `sslrootcert=system` needs libpq17+ or an explicitly trusted
 CA file. Pin PostgreSQL client versions compatible with the source/target version
 before backup and restore. A project ref must match the endpoint and session user.
+For the native SQLx URL, omit `sslrootcert=system`: SQLx0.8 treats it as a file
+path. Use `sslmode=verify-full` with its trusted roots, or a real CA bundle path
+present in the reviewed image. The libpq preflight sets PGSSLROOTCERT separately.
 
 ## Preflight and full backup
 

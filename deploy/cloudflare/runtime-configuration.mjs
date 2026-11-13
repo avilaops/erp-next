@@ -67,7 +67,9 @@ export function runtimeConfiguration(env) {
       || !username || ['postgres', 'supabase_admin'].includes(username.split('.')[0])
       || parameters.length !== new Set(parameters).size
       || parameters.some(key => !['sslmode', 'sslrootcert', 'application_name'].includes(key))
-      || database.searchParams.get('sslmode') !== 'verify-full') return null;
+      || database.searchParams.get('sslmode') !== 'verify-full'
+      // libpq recognizes this keyword; SQLx 0.8 interprets it as a filename.
+      || database.searchParams.get('sslrootcert') === 'system') return null;
     const connections = env.DATABASE_MAX_CONNECTIONS || '5';
     if (!/^\d+$/.test(connections) || Number(connections) < 1 || Number(connections) > 10
       || !['true', 'false'].includes(env.ERP_BACKGROUND_WORKERS_ENABLED || 'false')) return null;

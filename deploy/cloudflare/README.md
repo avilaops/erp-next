@@ -24,6 +24,21 @@ output; the existing API image retains its native/TLS/ICP dependencies. No build
 or durable business state belongs on a runtime instance. The native Container API
 requires a Workers Paid account; preparing this source does not activate a plan.
 
+`build-runtime.py` reuses the strict `erp-release/1` manifest contract already
+produced by Release. It accepts only the expected source SHA and owned registry
+digests. It reads three exact Git blobs to construct an isolated build context,
+so unrelated/untracked files, backups and credentials are never sent to Docker.
+Default behavior is a plan; `--build` builds locally without pushing or activating:
+
+```text
+python deploy/cloudflare/build-runtime.py --release-json <validated-release.json> --source-sha <sha>
+python deploy/cloudflare/build-runtime.py --release-json <validated-release.json> --source-sha <sha> --build
+```
+
+Use these in the existing reviewed CI packaging process after its native image
+producers pass. The helper does not bypass the CI gate, attest an arbitrary input
+manifest, enable a paid plan, publish an image or modify an application route.
+
 `runtime-worker.mjs` exports the native Durable Object class and delegates to
 `runtime-core.mjs`. This uses `ctx.container` with a digest-pinned `images.base`,
 bounded idle timeout and real API/web readiness probes. It never forwards a user

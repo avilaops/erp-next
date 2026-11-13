@@ -25,6 +25,7 @@ test('activation requires exact source, recovered data, auth and safe database i
     { ERP_AUTH_VERIFIED: 'false' }, { ERP_ACTIVATION_SOURCE_SHA: 'c'.repeat(40) },
     { DATABASE_URL: environment().DATABASE_URL.replace('erp_next_app:', 'postgres:') },
     { DATABASE_URL: environment().DATABASE_URL.replace('verify-full', 'disable') },
+    { DATABASE_URL: environment().DATABASE_URL + '&sslrootcert=system' },
     { DATABASE_URL: environment().DATABASE_URL.replace(':5432/', ':6543/') },
     { DATABASE_URL: environment().DATABASE_URL.replace('.supabase.co', '.supabase.co.evil.invalid') },
     { ERP_SESSION_SECRET: 'short' }, { AUTH_ISSUER: 'http://auth.example.invalid' },

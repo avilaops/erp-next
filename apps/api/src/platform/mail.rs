@@ -69,7 +69,7 @@ impl SmtpMailer {
             &username,
             &password,
             mailbox.name.as_deref().unwrap_or(""),
-            &mailbox.email.to_string(),
+            mailbox.email.as_ref(),
         )
         .map(Some)
     }

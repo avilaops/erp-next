@@ -99,7 +99,7 @@ pub async fn snapshot(
                 WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
             'items',COALESCE((SELECT jsonb_agg(
                 jsonb_build_object('name',l.name,'sku',l.sku,'unit',l.unit,'quantity',(l.quantity_micros::numeric/1000000)::numeric(24,6)::text,'unitPrice',(l.price_cents::numeric/100)::numeric(16,2)::text,'amount',(l.amount_cents::numeric/100)::numeric(16,2)::text)
-                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'upholsteryColor',l.upholstery_color,'plateHolderColor',l.plate_holder_color,'plateHolderType',l.plate_holder_type))
+                || jsonb_strip_nulls(jsonb_build_object('structureColor',l.structure_color,'swingArmColor',l.swing_arm_color,'upholsteryColor',l.upholstery_color,'plateHolderColor',l.plate_holder_color,'plateHolderType',l.plate_holder_type))
                 ORDER BY l.line_number)
                 FROM sales_order_lines l WHERE l.tenant_id=o.tenant_id AND l.order_id=o.id),'[]'::jsonb))
         FROM sales_orders o
@@ -171,6 +171,7 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
                     let mut description = item["name"].as_str().unwrap_or("").to_owned();
                     for (key, label) in [
                         ("structureColor", "Estrutura"),
+                        ("swingArmColor", "Braços"),
                         ("plateHolderType", "Tipo de anilheiro"),
                         ("upholsteryColor", "Estofado"),
                     ] {

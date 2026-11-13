@@ -19,8 +19,9 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
-import { CatalogColorPhotos } from "@/features/catalog/catalog-color-photos"
+import { CatalogColorPhotos, CatalogPaletteReference } from "@/features/catalog/catalog-color-photos"
 import { catalogPaletteFor, type CatalogPalette } from "@/features/catalog/catalog-color-photo-model"
+import type { CatalogFinishPart } from "@/features/catalog/catalog-finish-palettes"
 import { quantity, useCommand, useResource } from "../../hooks/use-operation"
 import { CommercialReturn } from "../returns/commercial-return"
 import { OrderCommissionTerms } from "@/features/finance/commissions-workspace"
@@ -35,8 +36,8 @@ import { OrderWeightSummary } from "./order-weight-summary"
 
 type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean; checkout?: CheckoutSnapshot | null }
 type Listing = Schema<"OrderList">
-export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[]; hasPhoto?: boolean }
-type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
+export type Choice = { id: string; legalName?: string; name?: string; sku?: string; basePrice?: string; unit?: string; structureColors?: string[]; swingArmColors?: string[]; finishingPalette?: string | null; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[]; hasPhoto?: boolean }
+type SelectedItem = Choice & { quantity: string; preserved: boolean; structureColor: string; swingArmColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const labels: Record<string, string> = { draft: "Rascunho", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 
@@ -48,9 +49,10 @@ export function PlateHolderChoice({ label, value, onChange }: { label: string; v
   </select></div>
 }
 
-export function ColorChoice({ label, options = [], value, onChange, catalog, palette }: { label: string; palette?: CatalogPalette; options?: string[]; value: string; onChange: (value: string) => void; catalog?: { productId: string; tenantId: string; field: "structureColors" | "upholsteryColors" | "plateHolderColors" | "plateHolderTypes" } }) {
+export function ColorChoice({ label, options = [], value, onChange, catalog, palette, part = "structure", optional = false }: { label: string; part?: CatalogFinishPart; optional?: boolean; palette?: CatalogPalette; options?: string[]; value: string; onChange: (value: string) => void; catalog?: { productId: string; tenantId: string; field: "structureColors" | "swingArmColors" | "upholsteryColors" | "plateHolderColors" | "plateHolderTypes" } }) {
   const id = useId()
   const [refreshed, setRefreshed] = useState<string[] | null>(null)
+  const [refreshedPalette, setRefreshedPalette] = useState<CatalogPalette | undefined>(undefined)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const choices = refreshed ?? options
@@ -62,7 +64,7 @@ export function ColorChoice({ label, options = [], value, onChange, catalog, pal
       const product = await response.json()
       if (!response.ok || product.tenantId !== catalog.tenantId) throw new Error("Não foi possível atualizar as opções deste produto.")
       const colors = product.data[catalog.field] || []
-      setRefreshed(colors)
+      setRefreshed(colors); setRefreshedPalette(catalogPaletteFor(product.data.finishingPalette))
       if (!colors.length) setError("Ainda não há opções cadastradas. Salve o acabamento no produto e atualize novamente.")
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao consultar opções.") }
     finally { setLoading(false) }
@@ -70,12 +72,12 @@ export function ColorChoice({ label, options = [], value, onChange, catalog, pal
   if (!choices.length && !value) return null
   return <div className="grid min-w-0 gap-2 text-sm">
     <label htmlFor={id}>{label}</label>
-    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={choices.length > 0} disabled={loading || !choices.length && !value} onChange={event => onChange(event.target.value)}>
-      <option value="">{choices.length ? (catalog?.field === "plateHolderTypes" ? "Escolha um tipo" : "Escolha uma cor") : "Sem opções cadastradas"}</option>
+    <select id={id} className="min-h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3" value={value} required={choices.length > 0 && !optional} disabled={loading || !choices.length && !value} onChange={event => onChange(event.target.value)}>
+      <option value="">{optional ? "Manter sem seleção" : choices.length ? (catalog?.field === "plateHolderTypes" ? "Escolha um tipo" : "Escolha uma cor") : "Sem opções cadastradas"}</option>
       {value && !choices.includes(value) && <option value={value}>{value} · seleção registrada</option>}
       {choices.map(color => <option key={color} value={color}>{color}</option>)}
     </select>
-    <CatalogColorPhotos label={label} options={choices} value={value} onChange={onChange} disabled={loading} palette={palette ?? catalogPaletteFor(choices)} />
+    <CatalogColorPhotos label={label} options={choices} value={value} onChange={onChange} disabled={loading} palette={refreshed === null ? palette : refreshedPalette} part={part} showSource={false} />
     {catalog && !choices.length && <div className="flex flex-wrap items-center gap-3">
       <Link className={linkClass} href={`/cadastros/produtos/${catalog.productId}/editar#product-colors`} target="_blank" rel="noopener noreferrer" aria-label={`Cadastrar opções de ${label} (nova aba)`}>Cadastrar opções</Link>
       <Button type="button" variant="outline" disabled={loading} aria-label={`Atualizar opções de ${label}`} onClick={() => void refresh()}>{loading ? "Atualizando…" : "Atualizar opções"}</Button>
@@ -195,7 +197,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
   const command = useCommand()
   const originalCustomer: Choice | null = initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null
   const [customer, setCustomer] = useState<Choice | null>(originalCustomer)
-  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "", plateHolderColor: item.plateHolderColor || "", plateHolderType: item.plateHolderType || "" })) || [])
+  const [items, setItems] = useState<SelectedItem[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: item.unitPrice, quantity: item.quantity, preserved: true, structureColor: item.structureColor || "", swingArmColor: item.swingArmColor || "", upholsteryColor: item.upholsteryColor || "", plateHolderColor: item.plateHolderColor || "", plateHolderType: item.plateHolderType || "" })) || [])
   const [dueDate, setDueDate] = useState(initial?.data.dueDate || "")
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
@@ -207,7 +209,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
       const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const value = await response.json()
       if (!response.ok || value.tenantId !== tenantId) throw new Error("Não foi possível consultar as opções de cores. As escolhas registradas foram mantidas; recarregue para alterar o acabamento.")
-      return { id: item.productId, structureColors: value.data.structureColors || [], upholsteryConfigurable: value.data.upholsteryConfigurable, upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], hasPhoto: value.data.hasPhoto }
+      return { id: item.productId, structureColors: value.data.structureColors || [], swingArmColors: value.data.swingArmColors || [], finishingPalette: value.data.finishingPalette, upholsteryConfigurable: value.data.upholsteryConfigurable, upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], hasPhoto: value.data.hasPhoto }
     })).then(products => {
       if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) })))
     }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar cores") })
@@ -234,19 +236,27 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           if (items.length >= 100) { setError("O pedido aceita até 100 produtos diferentes."); return }
           const saved = initial?.items.find(item => item.productId === value.id)
           const choice = saved ? { id: saved.productId, name: saved.name, sku: saved.sku, unit: saved.unit, basePrice: saved.unitPrice } : value
-          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
+          setItems(previous => [...previous, { ...value, ...choice, quantity: "1", preserved: Boolean(saved), structureColor: saved?.structureColor || "", swingArmColor: saved?.swingArmColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
         }} /></div>
         <details className="border-y py-2"><summary className="cursor-pointer text-sm font-medium">Regras para confirmar o pedido</summary><div className="pt-2"><OrderSalesRules tenantId={tenantId} /></div></details>
         <form className="space-y-2 sm:space-y-4" onSubmit={async event => {
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
-          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, upholsteryColor: item.upholsteryColor, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
+          const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, swingArmColor: item.swingArmColor || null, upholsteryColor: item.upholsteryColor, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
           if (value) { setDirty(false); router.replace(`/vendas/pedidos/${value.data.id}`) }
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>
             {items.map(item => <div key={item.id} role="group" aria-label={`Item do pedido: ${item.name}`} className="min-w-0 space-y-2 border-b py-3 sm:space-y-3 sm:py-4"><div className="flex min-w-0 items-center gap-3"><ProductThumbnail id={item.id} name={item.name || item.sku || "Produto"} tenantId={tenantId} hasPhoto={item.hasPhoto} decorative /><strong className="min-w-0 break-words">{item.name}</strong></div><p className="break-all text-sm">SKU {item.sku} · {item.preserved ? "Preço registrado" : "Preço base consultado"}: {item.basePrice ? commercialMoney(item.basePrice) : "Não informado"}</p><label className="block min-w-0 space-y-2">Quantidade de {item.name}<Input required inputMode="decimal" pattern={decimalPattern(6)} maxLength={19} value={item.quantity} onChange={event => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, quantity: event.target.value } : value)); setDirty(true) }} /></label>
-              <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}><summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType].filter(Boolean).join(" · ") || "Escolher opções"}</span></summary><div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} /><PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice palette={catalogPaletteFor(item.structureColors)} label={`${catalogPaletteFor(item.structureColors) ? "Cor dos braços" : "Cor do estofado"} de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}</div>
+              <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
+                <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 text-xs font-normal text-muted-foreground">{[item.structureColor, item.swingArmColor, item.upholsteryColor, item.plateHolderType].filter(Boolean).join(" · ") || "Escolher opções"}</span></summary>
+                <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2">
+                  <ColorChoice part="structure" palette={catalogPaletteFor(item.finishingPalette)} label={`Cor da estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, structureColor: color } : value)); setDirty(true) }} />
+                  <ColorChoice part="swingArm" optional={Boolean(initial?.items.some(line => line.productId === item.id && !line.swingArmColor))} palette={catalogPaletteFor(item.finishingPalette)} label={`Cor dos braços de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "swingArmColors" }} options={item.swingArmColors} value={item.swingArmColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, swingArmColor: color } : value)); setDirty(true) }} />
+                  {(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice part="upholstery" palette={catalogPaletteFor(item.finishingPalette)} label={`Cor do estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryConfigurable === false ? [] : item.upholsteryColors} value={item.upholsteryColor} onChange={color => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, upholsteryColor: color } : value)); setDirty(true) }} />}
+                  <PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={plateHolderType => { setItems(previous => previous.map(value => value.id === item.id ? { ...value, plateHolderType } : value)); setDirty(true) }} />
+                </div>
+                <CatalogPaletteReference palette={catalogPaletteFor(item.finishingPalette)} />
               <p className="text-xs text-muted-foreground">O acabamento fica registrado neste item. O saldo de estoque continua controlado por produto.</p></details>
               <Button type="button" variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal break-words text-left" onClick={() => { setItems(previous => previous.filter(value => value.id !== item.id)); setDirty(true) }}>Remover {item.name}</Button></div>)}
           </fieldset>

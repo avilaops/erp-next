@@ -6,7 +6,7 @@ export type SimulationInput = {
 export type Equipment = {
   productId: string; sku: string; name: string; unit: string
   priceWithoutIpiCents: number; priceWithIpiCents: number
-  structureColors: string[]; upholsteryColors: string[]
+  structureColors: string[]; swingArmColors?: string[]; finishingPalette?: string | null; upholsteryColors: string[]; upholsteryConfigurable?: boolean
 }
 export type PublishedTable = {
   id: string; version: number; publishedAt: string; originState: string

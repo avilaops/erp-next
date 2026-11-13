@@ -92,6 +92,8 @@ fn contents(snapshot: &Value, fields: &Value, escape: bool) -> String {
         ));
         for (key, label) in [
             ("structureColor", "Estrutura"),
+            ("swingArmColor", "Braços"),
+            ("plateHolderType", "Tipo de anilheiro"),
             ("upholsteryColor", "Estofado"),
         ] {
             if let Some(color) = item[key].as_str().filter(|value| !value.is_empty()) {

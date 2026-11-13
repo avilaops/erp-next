@@ -1,0 +1,15 @@
+{
+  "manufacturer": "DHZ Fitness",
+  "catalog": "Hammer S-FORCE",
+  "sourceFilename": "hammer-s-force.pdf",
+  "sourceDocumentSha256": "e3c61b0ccf210083bfff5c720ff9113e6d15a0e1549d2f36b3d48faead4dbf34",
+  "pdfPageOneBased": 29,
+  "embeddedImageXref": 546,
+  "width": 1245,
+  "height": 1759,
+  "asset": "dhz-s-force-original-colors.jpeg",
+  "assetBytes": 117555,
+  "assetSha256": "106032e206a9c0bdedb51a450ba665900419bdf80e5fed18b089ec11af9203e4",
+  "extraction": "PyMuPDF Document.extract_image(546); original embedded JPEG bytes retained without conversion, regeneration or recoloring.",
+  "display": "Separate frame, swing-arm and upholstery swatches from this source; unknown options retain text without a substitute photo."
+}

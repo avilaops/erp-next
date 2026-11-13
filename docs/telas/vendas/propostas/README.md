@@ -29,9 +29,11 @@ Para enviar, abra **Enviar por e-mail**, confira destinatário, assunto e mensag
 
 Marcar como enviada registra uma situação interna; isso não envia um e-mail. Se o envio ficar sem confirmação, não faça um novo envio: consulte o histórico e o resultado da mesma solicitação e confira a situação com o provedor de e-mail. Um envio pendente bloqueia novas mensagens para evitar duplicação. Uma proposta não movimenta estoque nem contas a receber. A conversão cria um pedido que ainda segue suas etapas de confirmação.
 
+As escolhas de estrutura, braços e estofado ficam registradas separadamente no item e acompanham a conversão para pedido. Alterar a quantidade preserva o acabamento histórico, inclusive quando uma opção deixa de ser oferecida no cadastro.
+
 ## O que ainda precisa de atenção
 
-A escolha do tipo de anilheiro deve ficar no item: Standard, Olímpico ou Não se aplica. A separação definitiva das paletas de braços e estofado está em desenvolvimento.
+A escolha do tipo de anilheiro fica no item: Standard, Olímpico ou Não se aplica. As amostras originais dependem da referência de paleta informada no produto; sem referência, a opção mantém seu texto cadastrado.
 
 ## Referências para manutenção
 

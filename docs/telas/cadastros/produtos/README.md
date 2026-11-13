@@ -23,9 +23,11 @@ Consultar, cadastrar e editar os produtos da empresa ativa.
 
 Preço base, custo de compra e preço da tabela publicada são informações diferentes. Editar um produto não altera os documentos comerciais anteriores.
 
+Estrutura, braços e estofado têm opções independentes. Informe a referência da paleta para mostrar as amostras originais do catálogo, com cores padrão e especiais separadas. Uma opção sem referência conserva seu nome cadastrado. Quando o estofado é fixo na configuração da empresa, os braços continuam disponíveis.
+
 ## O que ainda precisa de atenção
 
-Separar braços e estofado nos dados e apresentar as paletas originais de cada catálogo. Essa correção ainda não deve ser tratada como concluída. Não existe escolha comercial de cor de anilheiro; o tipo é escolhido na proposta ou no pedido.
+Vincule a referência somente quando ela estiver comprovada no catálogo daquele equipamento. A atualização dos cadastros existentes exige conferir a fonte. Não existe escolha comercial de cor de anilheiro; o tipo é escolhido na proposta ou no pedido.
 
 ## Referências para manutenção
 

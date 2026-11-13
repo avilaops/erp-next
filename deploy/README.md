@@ -38,6 +38,28 @@ migrações da mesma revisão da API. O SQLx aplica apenas as pendentes. Bootstr
 importação do legado são operações de provisionamento e não fazem parte de uma
 publicação normal. Não os repita.
 
+O dispatcher versionado em `deploy/production-deploy.sh` recebe também
+`migrate-release.py` no pacote da mesma revisão. Após validar o Compose, ele
+executa o helper antes de instalar o rollback de ativação ou iniciar serviços.
+O helper guarda schema, ledger SQLx e diagnóstico em
+`private/migration-<sha>/`, com diretório privado e arquivos de acesso restrito.
+Confere o banco local esperado e aplica o comando `migrate` da imagem candidata
+por socket PostgreSQL, com a identidade local do postgres. Nenhuma senha é
+incluída na linha de comando. Não compila código no servidor.
+
+Falha de backup, checksum ou migração impede ativar os novos serviços. O helper
+não restaura dados nem inicia containers da aplicação; os serviços anteriores
+continuam ativos. Se a tentativa falhar, inspecione o diagnóstico privado e as
+migrações já aplicadas antes de tentar novamente. Backups existentes não são
+sobrescritos. As migrações devem conservar compatibilidade com a aplicação
+anterior; o rollback da ativação troca imagens, sem desfazer DDL automaticamente.
+
+Antes da primeira publicação com esse protocolo, instale o dispatcher revisado
+em `/usr/local/sbin/erp-next-deploy`, preservando uma cópia do anterior e esperando
+terminar qualquer publicação em andamento. O helper é enviado pelo workflow;
+não se instala uma cópia de revisão diferente fora do pacote. Validação local:
+`python -B -m unittest discover -s scripts/deploy -p 'test_*.py'`.
+
 Crie um diretório de release separado, copie a configuração privada da versão
 ativa e altere somente as imagens dos componentes atualizados e a revisão.
 Valide o Compose antes de iniciar. Preserve a versão anterior para rollback.

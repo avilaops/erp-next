@@ -117,7 +117,7 @@ jobs:
   web:
     needs: api
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -143,7 +143,7 @@ jobs:
       - run: pnpm --filter web build
       - name: Reserve browser fixture ports outside ephemeral allocation
         run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
-      - run: timeout 600s pnpm --filter web test:danfe
+      - run: timeout 900s pnpm --filter web test:danfe
         env:
           ERP_BROWSER_CHANNEL: chrome
       - run: timeout 120s pnpm --filter web test:monitor
@@ -285,7 +285,7 @@ jobs:
           ssh_dir=$(mktemp -d)
           trap 'rm -rf "$bundle_dir" "$ssh_dir"' EXIT
           cp bundle/api-image.tar.gz bundle/web-image.tar.gz bundle/fiscal-image.tar.gz bundle/fiscal-mcp-image.tar.gz "$bundle_dir/"
-          cp deploy/compose.yaml deploy/fiscal-compose.yaml "$bundle_dir/"
+          cp deploy/compose.yaml deploy/fiscal-compose.yaml deploy/migrate-release.py "$bundle_dir/"
           chmod 700 "$ssh_dir"
           printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"

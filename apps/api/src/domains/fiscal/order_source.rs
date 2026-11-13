@@ -35,6 +35,7 @@ struct Order {
 #[derive(FromRow)]
 struct Line {
     structure_color: Option<String>,
+    swing_arm_color: Option<String>,
     plate_holder_color: Option<String>,
     plate_holder_type: Option<String>,
     upholstery_color: Option<String>,
@@ -60,6 +61,7 @@ impl Line {
     fn describe_finish(&self, include_legacy_holder_color: bool) -> Option<String> {
         let values = [
             ("Estrutura", &self.structure_color, true),
+            ("Braços", &self.swing_arm_color, true),
             (
                 "Anilheiros",
                 &self.plate_holder_color,
@@ -144,7 +146,7 @@ async fn lines(
     tenant: Uuid,
     id: Uuid,
 ) -> Result<Vec<Line>, DomainError> {
-    let mut lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let mut lines = sqlx::query_as::<_, Line>("SELECT product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,swing_arm_color,plate_holder_color,plate_holder_type,upholstery_color FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     if lines.is_empty() || lines.len() > 990 {
         return Err(DomainError::Conflict(
@@ -416,6 +418,7 @@ mod tests {
     fn fiscal_finish_information_contains_structure_upholstery_and_holder_type() {
         let line = Line {
             structure_color: Some("Preto".into()),
+            swing_arm_color: Some("Apple Green".into()),
             plate_holder_color: Some("Azul legado".into()),
             plate_holder_type: Some("Olímpico".into()),
             upholstery_color: Some("Vermelho".into()),
@@ -429,12 +432,14 @@ mod tests {
         };
         assert_eq!(
             line.finish_information().as_deref(),
-            Some("Estrutura: Preto; Tipo de anilheiro: Olímpico; Estofado: Vermelho")
+            Some(
+                "Estrutura: Preto; Braços: Apple Green; Tipo de anilheiro: Olímpico; Estofado: Vermelho"
+            )
         );
         assert_eq!(
             line.recorded_finish_information().as_deref(),
             Some(
-                "Estrutura: Preto; Anilheiros: Azul legado; Tipo de anilheiro: Olímpico; Estofado: Vermelho"
+                "Estrutura: Preto; Braços: Apple Green; Anilheiros: Azul legado; Tipo de anilheiro: Olímpico; Estofado: Vermelho"
             )
         );
     }

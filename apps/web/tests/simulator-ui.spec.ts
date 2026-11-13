@@ -116,7 +116,7 @@ for (const viewport of [
   await page.getByRole("combobox", { name: "Inscrição estadual", exact: true }).selectOption("false")
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação" })).toContainText("R$ 226,00")
-  expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
+  expect(sent).toEqual({ line: "imported", versionId: version, destinationState: "SP", taxpayer: false, discount: { kind: "percent", value: 0 }, freightCents: 0, downPaymentCents: null, items: [{ productId: product, quantity: 1, structureColor: null, swingArmColor: null, upholsteryColor: null, plateHolderColor: null, plateHolderType: null }] })
   const commercialResult = page.getByRole("region", { name: "Resultado da simulação" })
   await expect(commercialResult.getByText("Desconto máximo para atingir a meta")).toBeVisible()
   await expect(commercialResult.getByText("15%", { exact: true })).toBeVisible()

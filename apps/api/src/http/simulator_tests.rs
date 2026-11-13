@@ -97,6 +97,10 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
             status
         );
     }
+    sqlx::query("INSERT INTO registration_settings(tenant_id,section,data,revision) VALUES($1,'products','{\"requireNcm\":false,\"requireCest\":false,\"upholsteryConfigurable\":false}',1) ON CONFLICT(tenant_id,section) DO UPDATE SET data=EXCLUDED.data")
+        .bind(Uuid::parse_str(TENANT).unwrap()).execute(&admin).await.unwrap();
+    sqlx::query("UPDATE products SET swing_arm_colors=ARRAY['Apple Green'],finishing_palette='dhz-sforce' WHERE id=$1")
+        .bind(Uuid::parse_str(PRODUCT).unwrap()).execute(&admin).await.unwrap();
     let options = call(
         &router,
         "GET",
@@ -109,6 +113,18 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
     .await;
     assert_eq!(options.0, StatusCode::OK, "{}", options.1);
     assert_eq!(options.1["data"]["items"][0]["priceWithIpiCents"], 33900);
+    assert_eq!(
+        options.1["data"]["items"][0]["upholsteryConfigurable"],
+        false
+    );
+    assert_eq!(
+        options.1["data"]["items"][0]["swingArmColors"],
+        json!(["Apple Green"])
+    );
+    assert_eq!(
+        options.1["data"]["items"][0]["finishingPalette"],
+        "dhz-sforce"
+    );
     let raw = options.1.to_string();
     for secret in ["purchaseCostCents", "costSnapshot", "netMarginBps"] {
         assert!(!raw.contains(secret));
@@ -180,14 +196,14 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
         ("reader", TENANT),
         None,
         Some(Uuid::now_v7()),
-        json!({"customerId":CUSTOMER,"dueDate":"2026-12-30","items":[{"productId":PRODUCT,"quantity":"2.000000","structureColor":"Preto"}]}),
+        json!({"customerId":CUSTOMER,"dueDate":"2026-12-30","items":[{"productId":PRODUCT,"quantity":"2.000000","structureColor":"Preto","swingArmColor":"Apple Green"}]}),
     ).await;
     assert_eq!(
         manual.0,
         StatusCode::CONFLICT,
         "Published items require validated pricing"
     );
-    let body = json!({"quote":input(3000),"digest":seller.1["digest"],"customerId":CUSTOMER,"dueDate":"2026-12-30","structureColor":"Preto","upholsteryColor":null});
+    let body = json!({"quote":input(3000),"digest":seller.1["digest"],"customerId":CUSTOMER,"dueDate":"2026-12-30","structureColor":"Preto","swingArmColor":"Apple Green","upholsteryColor":null});
     let mut tampered = body.clone();
     tampered["quote"]["discount"]["value"] = json!(0);
     assert_eq!(
@@ -243,6 +259,7 @@ async fn simulator_preserves_versions_redacts_costs_and_approves_atomically(admi
     )
     .await;
     assert_eq!(order.1["pricingOrigin"], true);
+    assert_eq!(order.1["items"][0]["swingArmColor"], "Apple Green");
     let expected_total = seller.1["sale"]["invoiceTotalCents"].as_i64().unwrap();
     assert_eq!(
         crate::domains::fixed(order.1["data"]["amount"].as_str().unwrap(), 2).unwrap(),

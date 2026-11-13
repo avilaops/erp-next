@@ -168,6 +168,9 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
             item.structure_color
                 .as_ref()
                 .map(|v| format!("Estrutura: {v}")),
+            item.swing_arm_color
+                .as_ref()
+                .map(|v| format!("Braços: {v}")),
             item.upholstery_color
                 .as_ref()
                 .map(|v| format!("Estofado: {v}")),
@@ -468,6 +471,7 @@ mod tests {
             "17.99",
             "44.98",
             "Azul &amp; preto",
+            "Braços: Apple Green &amp; dourado",
             "Tipo: Redondo",
             "Reservado",
         ] {
@@ -555,6 +559,7 @@ mod tests {
                 amount: "44.98".into(),
                 equipment_weight: None,
                 structure_color: Some("Azul & preto".into()),
+                swing_arm_color: Some("Apple Green & dourado".into()),
                 upholstery_color: None,
                 plate_holder_color: Some("Branco".into()),
                 plate_holder_type: Some("Redondo".into()),

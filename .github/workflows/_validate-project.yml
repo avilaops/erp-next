@@ -117,6 +117,8 @@ jobs:
 
         pnpm test:verification
 
+        pnpm test:cloudflare
+
         ERP_TIMED_443939b9682c412e
 
         python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-project/policy: pnpm test:verification'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"

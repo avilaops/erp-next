@@ -5,6 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{HeaderMap, Request, StatusCode},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use tower::ServiceExt;
@@ -15,6 +16,68 @@ const OTHER: &str = "22222222-2222-4222-8222-222222222222";
 const CUSTOMER: &str = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const PRODUCT: &str = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const METHOD: &str = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const ACCOUNT: &str = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+async fn operation(
+    router: &Router,
+    order: Uuid,
+    action: &str,
+    rev: i64,
+    key: Uuid,
+) -> (StatusCode, HeaderMap, Value) {
+    call(
+        router,
+        (TENANT, "editor"),
+        "POST",
+        &format!("/api/v1/orders/{order}/{action}"),
+        Some(rev),
+        Some(key),
+        json!({}),
+    )
+    .await
+}
+
+async fn titles(admin: &PgPool, order: Uuid) -> Vec<Uuid> {
+    sqlx::query_scalar("SELECT r.id FROM receivables r JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id WHERE r.order_id=$1 ORDER BY i.number").bind(order).fetch_all(admin).await.unwrap()
+}
+
+async fn financial_snapshot(admin: &PgPool, order: Uuid) -> Value {
+    sqlx::query_scalar("SELECT jsonb_build_object('titles',(SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM receivables r WHERE r.order_id=$1),'payments',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.id) FROM receivable_payments p JOIN receivables r ON r.tenant_id=p.tenant_id AND r.id=p.receivable_id WHERE r.order_id=$1),'schedule',(SELECT jsonb_agg(to_jsonb(i) ORDER BY i.number) FROM sales_order_installments i WHERE i.order_id=$1))").bind(order).fetch_one(admin).await.unwrap()
+}
+
+fn proof() -> Value {
+    json!({"filename":"comprovante.pdf","mediaType":"application/pdf","contentBase64":STANDARD.encode(b"%PDF-1.4\nacceptance-proof"),"description":"Original sintético","documentDate":"2026-11-13"})
+}
+
+async fn pay(router: &Router, title: Uuid, rev: i64, amount: &str) -> Value {
+    let paid = call(router,(TENANT,"editor"),"POST",&format!("/api/v1/receivables/{title}/payments"),Some(rev),Some(Uuid::now_v7()),json!({"amount":amount,"method":"bank_transfer","paymentMethodId":METHOD,"reference":"Recebimento sintético","occurredOn":"2026-11-13","financialAccountId":ACCOUNT,"supportingDocument":proof()})).await;
+    assert_eq!(paid.0, StatusCode::OK, "{}", paid.2);
+    paid.2
+}
+
+async fn seed_account(admin: &PgPool) {
+    sqlx::query("INSERT INTO financial_accounts(id,tenant_id,code,name,status,revision,account_type) VALUES($1::uuid,$2::uuid,'ACCEPT-CASH','Caixa sintético','active',1,'cash')").bind(ACCOUNT).bind(TENANT).execute(admin).await.unwrap();
+}
+
+async fn receipt(router: &Router) {
+    let stock = call(router,(TENANT,"editor"),"POST","/api/v1/stock/movements",None,Some(Uuid::now_v7()),json!({"productId":PRODUCT,"direction":"receipt","quantity":"1.000000","reason":"Chegada física sintética conferida","reversesId":null})).await;
+    assert_eq!(stock.0, StatusCode::CREATED, "{}", stock.2);
+}
+
+async fn physical(admin: &PgPool) -> (i64, i64, i64) {
+    sqlx::query_as("SELECT COALESCE((SELECT quantity_micros FROM stock_balances WHERE product_id=$1::uuid),0),COALESCE((SELECT sum(l.quantity_micros)::bigint FROM sales_order_lines l JOIN sales_orders o ON o.tenant_id=l.tenant_id AND o.id=l.order_id WHERE o.status='confirmed' AND l.product_id=$1::uuid),0),(SELECT count(*) FROM stock_movements WHERE product_id=$1::uuid)").bind(PRODUCT).fetch_one(admin).await.unwrap()
+}
+
+async fn signed_fixture(admin: &PgPool, order: Uuid) -> Uuid {
+    let contract = Uuid::now_v7();
+    sqlx::query("INSERT INTO commercial_contracts(id,tenant_id,customer_id,order_id,template_id,template_name,template_snapshot,snapshot,recipients,fields,fingerprint,status) VALUES($1,$2::uuid,$3::uuid,$4,2,'Contrato sintético','{}','{\"accepted\":true}','[]','{}','acceptance-signature-preservation','completed')").bind(contract).bind(TENANT).bind(CUSTOMER).bind(order).execute(admin).await.unwrap();
+    sqlx::query("INSERT INTO commercial_contract_files(id,tenant_id,contract_id,kind,position,sha256,content) VALUES($1,$2::uuid,$3,'signed',0,'658a04a0a4f9863fb9d1abfffcf9c3e7779954647c57e58cda349318fb150074',decode('255044462d312e340a7369676e6564','hex'))").bind(Uuid::now_v7()).bind(TENANT).bind(contract).execute(admin).await.unwrap();
+    contract
+}
+
+async fn evidence(admin: &PgPool, order: Uuid) -> Value {
+    sqlx::query_scalar("SELECT jsonb_build_object('proofs',(SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM order_supporting_documents d WHERE d.order_id=$1),'contract',(SELECT jsonb_agg(to_jsonb(c) ORDER BY c.id) FROM commercial_contracts c WHERE c.order_id=$1),'signed',(SELECT jsonb_agg(to_jsonb(f) ORDER BY f.id) FROM commercial_contract_files f JOIN commercial_contracts c ON c.tenant_id=f.tenant_id AND c.id=f.contract_id WHERE c.order_id=$1))").bind(order).fetch_one(admin).await.unwrap()
+}
 
 async fn seed(admin: &PgPool) {
     super::returns_tests::seed(admin).await;
@@ -64,7 +127,11 @@ async fn draft(router: &Router) -> Uuid {
 }
 
 async fn save(application: &PgPool, order: Uuid) {
-    let input: CheckoutInput = serde_json::from_value(json!({"entry":{"paymentMethodId":METHOD,"dueOn":null},"installments":[{"paymentMethodId":METHOD,"dueOn":"2027-01-30","amountCents":5000000}],"manufacturingDays":45,"deliveryNotes":"Entrega após chegada real","paymentNotes":"Entrada e saldo","notes":"Acordo preservado"})).unwrap();
+    save_with_entry_due(application, order, None).await;
+}
+
+async fn save_with_entry_due(application: &PgPool, order: Uuid, due: Option<&str>) {
+    let input: CheckoutInput = serde_json::from_value(json!({"entry":{"paymentMethodId":METHOD,"dueOn":due},"installments":[{"paymentMethodId":METHOD,"dueOn":"2027-01-30","amountCents":5000000}],"manufacturingDays":45,"deliveryNotes":"Entrega após chegada real","paymentNotes":"Entrada e saldo","notes":"Acordo preservado"})).unwrap();
     let mut tx = application.begin().await.unwrap();
     sqlx::query("SELECT set_config('app.tenant_id',$1,true)")
         .bind(TENANT)
@@ -507,5 +574,381 @@ async fn acceptance_competes_with_confirmation_and_repeated_acceptance(admin: Pg
             .unwrap(),
         2
     );
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches treating planned money or full settlement as physical receipt/reservation,
+// and losing original proofs or the signed contract when another proof arrives.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_receives_50000_10000_40000_before_physical_arrival(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    seed_account(&admin).await;
+    let order = draft(&router).await;
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let ids = titles(&admin, order).await;
+    assert_eq!(ids.len(), 2);
+    let mut first_payment = Value::Null;
+    for (index, (title, rev, amount, received, outstanding)) in [
+        (ids[0], 1, "50000.00", "50000.00", "50000.00"),
+        (ids[1], 1, "10000.00", "60000.00", "40000.00"),
+        (ids[1], 2, "40000.00", "100000.00", "0.00"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let paid = pay(&router, title, rev, amount).await;
+        if index == 0 {
+            first_payment = paid["payments"][0]["id"].clone();
+        }
+        let state = call(
+            &router,
+            (TENANT, "editor"),
+            "GET",
+            &format!("/api/v1/orders/{order}/finance"),
+            None,
+            None,
+            Value::Null,
+        )
+        .await;
+        assert_eq!(state.0, StatusCode::OK, "{}", state.2);
+        assert_eq!(state.2["receivedAmount"], received);
+        assert_eq!(state.2["outstandingAmount"], outstanding);
+        assert_eq!(physical(&admin).await, (0, 0, 0));
+    }
+    signed_fixture(&admin, order).await;
+    let before = evidence(&admin, order).await;
+    assert_eq!(before["proofs"].as_array().unwrap().len(), 3);
+    let money = financial_snapshot(&admin, order).await;
+    let attached = call(
+        &router,
+        (TENANT, "editor"),
+        "POST",
+        &format!("/api/v1/orders/{order}/documents"),
+        None,
+        Some(Uuid::now_v7()),
+        json!({"paymentId":first_payment,"document":proof()}),
+    )
+    .await;
+    assert_eq!(attached.0, StatusCode::CREATED, "{}", attached.2);
+    let after = evidence(&admin, order).await;
+    assert_eq!(after["signed"], before["signed"]);
+    assert_eq!(after["contract"], before["contract"]);
+    assert_eq!(after["proofs"].as_array().unwrap().len(), 4);
+    for original in before["proofs"].as_array().unwrap() {
+        assert!(after["proofs"].as_array().unwrap().contains(original));
+    }
+    assert_eq!(financial_snapshot(&admin, order).await, money);
+    assert_eq!(
+        operation(&router, order, "complete", 2, Uuid::now_v7())
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches reoriginating/redating accepted titles, losing partial receipts, creating
+// another title at completion, or letting payment substitute for real stock.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_reserves_after_real_receipt_without_reoriginating_or_redating(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    seed_account(&admin).await;
+    let order = draft(&router).await;
+    save_with_entry_due(&application, order, Some("2026-10-30")).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let ids = titles(&admin, order).await;
+    pay(&router, ids[0], 1, "50000.00").await;
+    pay(&router, ids[1], 1, "10000.00").await;
+    let before = financial_snapshot(&admin, order).await;
+    let key = Uuid::now_v7();
+    assert_eq!(
+        operation(&router, order, "confirm", 2, key).await.0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(financial_snapshot(&admin, order).await, before);
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    let state: (String, i64) =
+        sqlx::query_as("SELECT status,revision FROM sales_orders WHERE id=$1")
+            .bind(order)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(state, ("accepted".into(), 2));
+    receipt(&router).await;
+    let confirmed = operation(&router, order, "confirm", 2, key).await;
+    assert_eq!(confirmed.0, StatusCode::OK, "{}", confirmed.2);
+    assert_eq!(confirmed.2["data"]["status"], "confirmed");
+    assert_eq!(confirmed.1["etag"], "\"3\"");
+    assert_eq!(
+        operation(&router, order, "confirm", 2, key).await.2,
+        confirmed.2
+    );
+    assert_eq!(
+        operation(&router, order, "confirm", 3, Uuid::now_v7())
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(physical(&admin).await, (1000000, 1000000, 1));
+    assert_eq!(financial_snapshot(&admin, order).await, before);
+    let completed = operation(&router, order, "complete", 3, Uuid::now_v7()).await;
+    assert_eq!(completed.0, StatusCode::OK, "{}", completed.2);
+    assert_eq!(physical(&admin).await, (0, 0, 2));
+    assert_eq!(financial_snapshot(&admin, order).await, before);
+    assert_eq!(titles(&admin, order).await, ids);
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches either repricing frozen accepted agreements, bypassing current physical
+// product/customer checks, or oversubscribing the same real unit concurrently.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_reservation_competes_with_other_orders_and_honors_frozen_terms(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let a = draft(&router).await;
+    let b = draft(&router).await;
+    for order in [a, b] {
+        save(&application, order).await;
+        assert_eq!(
+            accept(&router, order, 1, Uuid::now_v7()).await.0,
+            StatusCode::OK
+        );
+    }
+    let before_a = financial_snapshot(&admin, a).await;
+    let before_b = financial_snapshot(&admin, b).await;
+    receipt(&router).await;
+    for (mutation, restore) in [
+        (
+            "UPDATE parties SET status='archived'",
+            "UPDATE parties SET status='active'",
+        ),
+        (
+            "UPDATE parties SET is_customer=false",
+            "UPDATE parties SET is_customer=true",
+        ),
+        (
+            "UPDATE products SET status='archived'",
+            "UPDATE products SET status='active'",
+        ),
+        (
+            "UPDATE products SET unit='KG'",
+            "UPDATE products SET unit='UN'",
+        ),
+    ] {
+        sqlx::query(mutation).execute(&admin).await.unwrap();
+        assert_eq!(
+            operation(&router, a, "confirm", 2, Uuid::now_v7()).await.0,
+            StatusCode::CONFLICT,
+            "{mutation}"
+        );
+        assert_eq!(physical(&admin).await, (1000000, 0, 1));
+        sqlx::query(restore).execute(&admin).await.unwrap();
+    }
+    sqlx::raw_sql("UPDATE products SET price_cents=1; UPDATE payment_methods SET status='archived'; INSERT INTO sales_settings(tenant_id,revision,minimum_order_amount_cents,maximum_payment_term_days,require_customer_contact) VALUES('11111111-1111-4111-8111-111111111111',1,10000001,0,true); INSERT INTO commercial_settings(tenant_id,product_line,parameters,revision) VALUES('11111111-1111-4111-8111-111111111111','imported','{}',1)").execute(&admin).await.unwrap();
+    sqlx::raw_sql("INSERT INTO price_table_versions(id,tenant_id,product_line,version,settings_revision,policy_snapshot,calculator_version,digest,published_by) VALUES('ffffffff-ffff-4fff-8fff-ffffffffffff','11111111-1111-4111-8111-111111111111','imported',1,1,'{}','acceptance-future-policy',repeat('b',64),'33333333-3333-4333-8333-333333333333'); INSERT INTO price_table_items(tenant_id,version_id,product_id,product_snapshot,cost_revision,cost_snapshot,price_without_ipi_cents,ipi_bps,price_with_ipi_cents) VALUES('11111111-1111-4111-8111-111111111111','ffffffff-ffff-4fff-8fff-ffffffffffff','cccccccc-cccc-4ccc-8ccc-cccccccccccc','{}',1,'{}',1,0,1); UPDATE commercial_settings SET active_price_version_id='ffffffff-ffff-4fff-8fff-ffffffffffff'").execute(&admin).await.unwrap();
+    let (x, y) = tokio::join!(
+        operation(&router, a, "confirm", 2, Uuid::now_v7()),
+        operation(&router, b, "confirm", 2, Uuid::now_v7())
+    );
+    let mut statuses = [x.0.as_u16(), y.0.as_u16()];
+    statuses.sort();
+    assert_eq!(statuses, [200, 409], "a={} b={}", x.2, y.2);
+    assert_eq!(physical(&admin).await, (1000000, 1000000, 1));
+    assert_eq!(financial_snapshot(&admin, a).await, before_a);
+    assert_eq!(financial_snapshot(&admin, b).await, before_b);
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches implicit reversal during unshipped cancellation, loss of original
+// evidence, or using the completed-sale compensation route for accepted stock.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_cancellation_requires_explicit_reversal_and_preserves_evidence(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    seed_account(&admin).await;
+    let order = draft(&router).await;
+    // Real immutable commission terms: 5% of the synthetic entry, no IPI.
+    sqlx::raw_sql("INSERT INTO staff(id,tenant_id,code,name,is_employee,is_seller,status) VALUES('abababab-abab-4bab-8bab-abababababab','11111111-1111-4111-8111-111111111111','ACCEPT-SELLER','Vendedor sintético',true,true,'active')").execute(&admin).await.unwrap();
+    let configured = call(&router,(TENANT,"editor"),"PUT",&format!("/api/v1/orders/{order}/commission"),Some(1),Some(Uuid::now_v7()),json!({"sellerStaffId":"abababab-abab-4bab-8bab-abababababab","commissionRate":"5.0000","ipiRate":"0.0000","paymentDay":10})).await;
+    assert_eq!(configured.0, StatusCode::OK, "{}", configured.2);
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 2, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    let ids = titles(&admin, order).await;
+    let paid = pay(&router, ids[0], 1, "50000.00").await;
+    signed_fixture(&admin, order).await;
+    let original = evidence(&admin, order).await;
+    let before = financial_snapshot(&admin, order).await;
+    assert_eq!(
+        operation(&router, order, "cancel-completed", 3, Uuid::now_v7())
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    let cancel_key = Uuid::now_v7();
+    let refused = operation(&router, order, "cancel", 3, cancel_key).await;
+    assert_eq!(refused.0, StatusCode::CONFLICT, "{}", refused.2);
+    assert!(refused.2.to_string().contains("estornos"), "{}", refused.2);
+    assert_eq!(financial_snapshot(&admin, order).await, before);
+    let reversed = call(&router,(TENANT,"editor"),"POST",&format!("/api/v1/receivables/{}/reverse-payment",ids[0]),Some(2),Some(Uuid::now_v7()),json!({"paymentId":paid["payments"][0]["id"],"reason":"Estorno explícito sintético","occurredOn":"2026-11-14"})).await;
+    assert_eq!(reversed.0, StatusCode::OK, "{}", reversed.2);
+    let state = call(
+        &router,
+        (TENANT, "editor"),
+        "GET",
+        &format!("/api/v1/orders/{order}/finance"),
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(state.2["receivedAmount"], "0.00");
+    assert_eq!(state.2["outstandingAmount"], "100000.00");
+    let ledger:(i64,i64)=sqlx::query_as("SELECT count(*),sum(CASE direction WHEN 'credit' THEN amount_cents ELSE -amount_cents END)::bigint FROM financial_account_entries WHERE account_id=$1::uuid").bind(ACCOUNT).fetch_one(&admin).await.unwrap();
+    assert_eq!(ledger, (2, 0));
+    let commission: (i64, i64) = sqlx::query_as(
+        "SELECT count(*),sum(amount_cents)::bigint FROM commission_entries WHERE order_id=$1",
+    )
+    .bind(order)
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(commission, (2, 0));
+    let cancelled = operation(&router, order, "cancel", 3, cancel_key).await;
+    assert_eq!(cancelled.0, StatusCode::OK, "{}", cancelled.2);
+    assert_eq!(cancelled.2["data"]["status"], "cancelled");
+    assert_eq!(
+        operation(&router, order, "cancel", 3, cancel_key).await.2,
+        cancelled.2
+    );
+    let cancelled_titles: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM receivables WHERE order_id=$1 AND status='cancelled'",
+    )
+    .bind(order)
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert_eq!(cancelled_titles, 2);
+    assert_eq!(evidence(&admin, order).await, original);
+    assert_eq!(physical(&admin).await, (0, 0, 0));
+    let reconciliation: Value =
+        sqlx::query_scalar("SELECT summary FROM sales_order_cancellations WHERE order_id=$1")
+            .bind(order)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(reconciliation["beforeShipment"], true);
+    assert_eq!(reconciliation["stockMovementIds"], json!([]));
+    assert_eq!(reconciliation["paymentReversalIds"], json!([]));
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches blindly reusing missing, cancelled, redated or changed titles, and
+// a late confirmation failure leaving a physical reservation behind.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_confirmation_verifies_every_title_and_rolls_back_failed_reservation(
+    admin: PgPool,
+) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let order = draft(&router).await;
+    save(&application, order).await;
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::OK
+    );
+    receipt(&router).await;
+    let ids = titles(&admin, order).await;
+    for (mutation, restore) in [
+        (
+            "UPDATE receivables SET amount_cents=5000001 WHERE id=$1",
+            "UPDATE receivables SET amount_cents=5000000 WHERE id=$1",
+        ),
+        (
+            "UPDATE receivables SET due_date=due_date+1 WHERE id=$1",
+            "UPDATE receivables SET due_date=due_date-1 WHERE id=$1",
+        ),
+        (
+            "UPDATE receivables SET status='cancelled' WHERE id=$1",
+            "UPDATE receivables SET status='open' WHERE id=$1",
+        ),
+    ] {
+        sqlx::query(mutation)
+            .bind(ids[1])
+            .execute(&admin)
+            .await
+            .unwrap();
+        let before = financial_snapshot(&admin, order).await;
+        assert_eq!(
+            operation(&router, order, "confirm", 2, Uuid::now_v7())
+                .await
+                .0,
+            StatusCode::CONFLICT,
+            "{mutation}"
+        );
+        assert_eq!(financial_snapshot(&admin, order).await, before);
+        assert_eq!(physical(&admin).await, (1000000, 0, 1));
+        sqlx::query(restore)
+            .bind(ids[1])
+            .execute(&admin)
+            .await
+            .unwrap();
+    }
+    let extra = Uuid::now_v7();
+    sqlx::query("INSERT INTO receivables(id,tenant_id,order_id,customer_name,due_date,amount_cents,status) VALUES($1,$2::uuid,$3,'Título indevido','2027-01-30',1,'open')").bind(extra).bind(TENANT).bind(order).execute(&admin).await.unwrap();
+    assert_eq!(
+        operation(&router, order, "confirm", 2, Uuid::now_v7())
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    sqlx::query("DELETE FROM receivables WHERE id=$1")
+        .bind(extra)
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM receivables WHERE id=$1")
+        .bind(ids[1])
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        operation(&router, order, "confirm", 2, Uuid::now_v7())
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(titles(&admin, order).await, vec![ids[0]]);
+    sqlx::query("INSERT INTO receivables(id,tenant_id,order_id,order_installment_id,customer_name,due_date,amount_cents,status) SELECT $1,i.tenant_id,i.order_id,i.id,'Cliente fornecedor',i.due_on,i.amount_cents,'open' FROM sales_order_installments i WHERE i.order_id=$2 AND i.number=1").bind(ids[1]).bind(order).execute(&admin).await.unwrap();
+    let before = financial_snapshot(&admin, order).await;
+    sqlx::raw_sql("CREATE FUNCTION fail_accepted_confirmation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type='order.confirmed' THEN RAISE EXCEPTION 'synthetic accepted reservation failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_accepted_confirmation BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION fail_accepted_confirmation()").execute(&admin).await.unwrap();
+    let key = Uuid::now_v7();
+    assert_eq!(
+        operation(&router, order, "confirm", 2, key).await.0,
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert_eq!(financial_snapshot(&admin, order).await, before);
+    assert_eq!(physical(&admin).await, (1000000, 0, 1));
+    sqlx::query("DROP TRIGGER fail_accepted_confirmation ON outbox_events")
+        .execute(&admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        operation(&router, order, "confirm", 2, key).await.0,
+        StatusCode::OK
+    );
+    assert_eq!(financial_snapshot(&admin, order).await, before);
     cleanup(&admin, application, server, &role).await;
 }

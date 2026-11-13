@@ -26,6 +26,8 @@ Registrar a venda, conferir as condições e acompanhar a confirmação e a conc
 
 Salvar o pedido mantém uma etapa de rascunho antes da confirmação. Confirmar verifica regras e estoque; concluir registra a saída e gera o título a receber. Receber o pagamento é uma ação própria no Financeiro.
 
+No cadastro do cliente, consultar CNPJ preenche apenas campos vazios e confere a empresa da sessão antes de aplicar os dados. Uma resposta vazia ou temporariamente indisponível admite uma nova tentativa automática da consulta. Se a falha continuar, o formulário mantém os dados digitados e permite preencher manualmente ou consultar novamente.
+
 O envio de e-mail permite conferir destinatário, assunto e mensagem e anexa um documento HTML com os dados registrados do pedido. Não pode enviar um pedido cancelado. Se o resultado ficar sem confirmação, não faça um novo envio: consulte o histórico e o resultado da mesma solicitação e confira a situação com o provedor de e-mail. Um envio pendente bloqueia novas mensagens para evitar duplicação.
 
 ## O que ainda precisa de atenção

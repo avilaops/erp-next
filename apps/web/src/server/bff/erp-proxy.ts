@@ -200,6 +200,16 @@ export async function forwardErp(request: Request, resource: string) {
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
     if (productExportResource && response.ok) { const disposition = response.headers.get("content-disposition"); if (disposition) output.set("Content-Disposition", disposition) }
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }
-    return new Response(response.status === 204 ? null : await response.text(), { status: response.status, headers: output })
+    const responseBody = response.status === 204 ? "" : await response.text()
+    if (registryResource) {
+      let valid = false
+      try { const value: unknown = JSON.parse(responseBody); valid = typeof value === "object" && value !== null && !Array.isArray(value) } catch { /* Invalid upstream replies are never forwarded as successful registry data. */ }
+      if (!valid) {
+        console.warn("registry_lookup_invalid_response", { status: response.status, requestId: response.headers.get("x-request-id") })
+        output.set("Content-Type", "application/json")
+        return Response.json({ title: "Consulta cadastral indisponível. Tente novamente; seus campos foram preservados" }, { status: response.ok ? 502 : response.status, headers: output })
+      }
+    }
+    return new Response(response.status === 204 ? null : responseBody, { status: response.status, headers: output })
   } catch { return Response.json({ title: "Serviço do ERP indisponível. Sua edição foi preservada" }, { status: 503, headers: { "Cache-Control": "no-store" } }) }
 }

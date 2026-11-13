@@ -6,6 +6,7 @@ use axum::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -651,5 +652,180 @@ async fn order_receipts_not_originated_inconsistent_and_cancelled_are_never_paid
     )
     .await;
     assert_eq!(uploaded.0, StatusCode::CREATED, "{}", uploaded.1);
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_receipts_exact_ten_mib_proof_crosses_both_post_routes_and_downloads_original_hash(
+    admin: PgPool,
+) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let mut original = vec![b'x'; 10 * 1024 * 1024];
+    original[..9].copy_from_slice(b"%PDF-1.4\n");
+    let expected_hash = format!("{:x}", Sha256::digest(&original));
+    let large_document = json!({"filename":"comprovante-limite.pdf","mediaType":"application/pdf",
+        "contentBase64":STANDARD.encode(&original),"description":"Comprovante original no limite permitido","documentDate":"2026-11-13"});
+    let mut payment = receipt("1.00");
+    payment["supportingDocument"] = large_document.clone();
+    // This request must pass the route override, not Axum's 2 MiB default.
+    assert!(payment.to_string().len() > 2 * 1024 * 1024);
+    let received = call(
+        &router,
+        "POST",
+        &format!("/api/v1/receivables/{TITLE_A}/payments"),
+        "editor",
+        Some(1),
+        Some(Uuid::now_v7()),
+        payment,
+    )
+    .await;
+    assert_eq!(received.0, StatusCode::OK, "{}", received.1);
+    let payment_id = received.1["payments"][0]["id"].clone();
+    let docs_path = format!("/api/v1/orders/{ORDER}/documents");
+    let first = call(
+        &router,
+        "GET",
+        &docs_path,
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await
+    .1;
+    assert_eq!(first["data"].as_array().unwrap().len(), 1);
+    assert_eq!(first["data"][0]["byteSize"], original.len());
+    assert_eq!(first["data"][0]["sha256"], expected_hash);
+    let later = call(
+        &router,
+        "POST",
+        &docs_path,
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        json!({"paymentId":payment_id,"document":large_document}),
+    )
+    .await;
+    assert_eq!(later.0, StatusCode::CREATED, "{}", later.1);
+    assert_eq!(later.1["data"]["byteSize"], original.len());
+    assert_eq!(later.1["data"]["sha256"], expected_hash);
+    let download = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "{docs_path}/{}",
+                    later.1["data"]["id"].as_str().unwrap()
+                ))
+                .header("authorization", "Bearer reader")
+                .header("x-tenant-id", TENANT)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(download.status(), StatusCode::OK);
+    assert_eq!(download.headers()["content-type"], "application/pdf");
+    assert_eq!(download.headers()["cache-control"], "private, no-store");
+    assert_eq!(download.headers()["x-content-type-options"], "nosniff");
+    let downloaded = to_bytes(download.into_body(), original.len())
+        .await
+        .unwrap();
+    assert_eq!(downloaded.len(), original.len());
+    assert_eq!(format!("{:x}", Sha256::digest(&downloaded)), expected_hash);
+    let finance = call(
+        &router,
+        "GET",
+        &format!("/api/v1/orders/{ORDER}/finance"),
+        "reader",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(finance.1["receivedAmount"], "1.00");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM receivable_payments")
+            .fetch_one(&admin)
+            .await
+            .unwrap(),
+        1
+    );
+    cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn order_receipts_replay_pre_upgrade_command_without_optional_fields_or_new_effects(
+    admin: PgPool,
+) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let payment = Uuid::now_v7();
+    sqlx::query("INSERT INTO receivable_payments(id,tenant_id,receivable_id,kind,amount_cents,method,reference,occurred_on) VALUES($1,$2,$3,'receipt',100,'cash','Recebimento anterior à atualização','2026-11-13')")
+        .bind(payment).bind(Uuid::parse_str(TENANT).unwrap()).bind(Uuid::parse_str(TITLE_A).unwrap())
+        .execute(&admin).await.unwrap();
+    sqlx::query("UPDATE receivables SET revision=2 WHERE id=$1")
+        .bind(Uuid::parse_str(TITLE_A).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    let path = format!("/api/v1/receivables/{TITLE_A}");
+    let previous = call(&router, "GET", &path, "editor", None, None, Value::Null).await;
+    assert_eq!(previous.0, StatusCode::OK, "{}", previous.1);
+    assert_eq!(previous.1["data"]["revision"], 2);
+    assert!(previous.1["payments"][0].get("paymentMethodId").is_none());
+    let old_input = json!({"amount":"1.00","method":"cash","reference":"Recebimento anterior à atualização",
+        "occurredOn":"2026-11-13","financialAccountId":null});
+    let key = Uuid::now_v7();
+    // Persist the exact pre-upgrade canonical envelope: neither extension existed.
+    let old_request = json!({"id":TITLE_A,"revision":1,"input":old_input});
+    sqlx::query("INSERT INTO domain_commands(tenant_id,auth_subject,command_key,scope,request,result) VALUES($1,'editor',$2,'receivable.pay',$3,$4)")
+        .bind(Uuid::parse_str(TENANT).unwrap()).bind(key).bind(&old_request).bind(&previous.1)
+        .execute(&admin).await.unwrap();
+    let replayed = call(
+        &router,
+        "POST",
+        &format!("{path}/payments"),
+        "editor",
+        Some(1),
+        Some(key),
+        old_input.clone(),
+    )
+    .await;
+    assert_eq!(replayed, previous);
+    let mut changed = old_input;
+    changed["amount"] = json!("2.00");
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            &format!("{path}/payments"),
+            "editor",
+            Some(1),
+            Some(key),
+            changed
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    for (table, expected) in [
+        ("receivable_payments", 1i64),
+        ("domain_commands", 1),
+        ("order_supporting_documents", 0),
+        ("audit_log", 0),
+        ("outbox_events", 0),
+    ] {
+        let query = format!("SELECT count(*) FROM {table}");
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(&query)
+                .fetch_one(&admin)
+                .await
+                .unwrap(),
+            expected,
+            "{table} must not gain effects on replay"
+        );
+    }
     cleanup(&admin, application, server, &role).await;
 }

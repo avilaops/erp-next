@@ -336,7 +336,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
             {saveBlocked ? <p role="status" className="text-sm">{saveBlocked}</p> : orderIssues.length > 0 && !command.uncertain && !customerUncertain ? <p className="text-sm">Faltam dados para salvar. Toque em Salvar pedido para ir à primeira pendência.</p> : null}
             {(command.uncertain || customerUncertain) && <p role="status" className="text-sm">A confirmação está pendente. Confira o mesmo envio antes de editar ou sair.</p>}
             <Button type="button" disabled={!!saveBlocked} onClick={convert}>{savingOrder || command.busy ? "Salvando…" : command.uncertain ? "Conferir criação do pedido" : customerUncertain ? "Conferir cadastro e salvar pedido" : "Salvar pedido"}</Button>
-            <p className="text-xs text-muted-foreground">Salvar cria um pedido em rascunho com número. Confirmar pedido, no detalhe, reserva o estoque e gera os títulos previstos. Recebimentos são registrados separadamente.</p>
+            <p className="text-xs text-muted-foreground">Salvar cria um pedido em rascunho com número. No detalhe, aceite a encomenda para gerar as parcelas e reserve o estoque quando estiver disponível. Recebimentos são registrados separadamente.</p>
           </>}
         />}
       />
@@ -389,7 +389,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
         {result && <>
           {(!customer || !dueDate) && <p className="text-xs text-muted-foreground">Selecione o cliente e informe o vencimento para criar o pedido.</p>}
           <Button className="h-auto min-h-11 max-w-full whitespace-normal" disabled={!customer || !dueDate || busy || reloading || command.busy || command.stale} onClick={convert}>{command.uncertain ? "Conferir criação com o mesmo comando" : "Criar pedido com estas condições"}</Button>
-          <p className="text-xs text-muted-foreground">{table.paymentMethods !== undefined ? "O pedido recebe um número. A confirmação seguinte reserva o estoque e gera os títulos da entrada e das parcelas, sem registrar recebimentos." : "O pedido recebe um número. A confirmação seguinte reserva o estoque."}</p>
+          <p className="text-xs text-muted-foreground">{table.paymentMethods !== undefined ? "Depois de criar, aceite a encomenda para gerar as parcelas. Reserve os produtos quando houver estoque disponível." : "O pedido recebe um número. A confirmação seguinte reserva o estoque."}</p>
         </>}
       </details>}
     </div>

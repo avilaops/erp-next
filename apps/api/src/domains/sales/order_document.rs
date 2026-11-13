@@ -252,6 +252,7 @@ fn commercial(
         revision: current.data.revision,
         status: match current.data.status.as_str() {
             "draft" => "Rascunho",
+            "accepted" => "Encomenda aceita",
             "confirmed" => "Confirmado",
             "completed" => "Concluído",
             "cancelled" => "Cancelado",

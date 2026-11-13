@@ -103,6 +103,8 @@ mod registry_tests;
 #[cfg(test)]
 mod returns_tests;
 #[cfg(test)]
+mod sales_acceptance_tests;
+#[cfg(test)]
 mod sales_checkout_tests;
 #[cfg(test)]
 mod sales_settings_tests;
@@ -485,6 +487,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/v1/orders/{id}/documents/{documentId}",
             get(crate::domains::supporting_documents::download),
+        )
+        .route(
+            "/api/v1/orders/{id}/accept",
+            axum::routing::post(sales::acceptance::accept),
         )
         .route(
             "/api/v1/orders/{id}/confirm",

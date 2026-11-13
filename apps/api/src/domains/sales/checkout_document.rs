@@ -38,7 +38,7 @@ pub fn terms(checkout: &CheckoutSnapshot) -> CheckoutDocument {
                 .due_on
                 .as_deref()
                 .map(date)
-                .unwrap_or_else(|| "Na confirmação do pedido".into())
+                .unwrap_or_else(|| "Na geração das parcelas".into())
         )
     } else {
         "Sem entrada negociada".into()
@@ -124,7 +124,7 @@ mod tests {
         let document = terms(&checkout);
         for expected in [
             "R$ 70,01",
-            "Na confirmação do pedido",
+            "Na geração das parcelas",
             "Parcela 1: R$ 15,00",
             "Parcela 2: R$ 14,99",
             "01/01/2027",

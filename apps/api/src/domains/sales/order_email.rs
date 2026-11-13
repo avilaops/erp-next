@@ -160,6 +160,7 @@ fn attachment(current: &OrderSnapshot, company: &str, tax_id: &str) -> MailAttac
         escape(&data.due_date),
         match data.status.as_str() {
             "draft" => "Rascunho",
+            "accepted" => "Encomenda aceita",
             "confirmed" => "Reservado",
             "completed" => "Concluído",
             _ => "Cancelado",
@@ -459,6 +460,21 @@ mod tests {
             })
             .is_err()
         );
+    }
+
+    #[test]
+    fn accepted_order_email_snapshot_identifies_the_encomenda_without_claiming_cancellation() {
+        let mut order = sample_order();
+        order.data.status = "accepted".into();
+        let html = String::from_utf8(attachment(&order, "Empresa", "123").bytes).unwrap();
+        assert!(html.contains("Situação: Encomenda aceita"), "{html}");
+        for forbidden in [
+            "Situação: Cancelado",
+            "Situação: Reservado",
+            "Situação: Concluído",
+        ] {
+            assert!(!html.contains(forbidden), "unexpected {forbidden}: {html}");
+        }
     }
 
     #[test]

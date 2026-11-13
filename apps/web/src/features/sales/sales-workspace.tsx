@@ -4,7 +4,7 @@ import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { DataTable } from "@/components/workspace/data-table"
-import { orderNumber } from "./order-presentation"
+import { orderNumber, orderStatusLabels } from "./order-presentation"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { useResource } from "@/hooks/use-operation"
 import type { Schema } from "@/lib/api/types"
@@ -51,9 +51,9 @@ export function SalesWorkspace() {
                 <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link></td>
                 <td className="min-w-0 p-2 align-top sm:p-3">
                   <Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link>
-                  <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground sm:hidden"><Link className="underline underline-offset-4" href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link><span>{statuses[order.status] || order.status}</span></div>
+                  <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground sm:hidden"><Link className="underline underline-offset-4" href={`/vendas/pedidos/${order.id}`}>{order.number ? orderNumber(order.number) : "Consultar pedido"}</Link><span>{orderStatusLabels[order.status] || order.status}</span></div>
                 </td>
-                <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{statuses[order.status] || order.status}</td>
+                <td className="hidden whitespace-nowrap p-3 align-top sm:table-cell">{orderStatusLabels[order.status] || order.status}</td>
                 <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{money(order.amount)}</td>
               </tr>)}</tbody>
             </DataTable>

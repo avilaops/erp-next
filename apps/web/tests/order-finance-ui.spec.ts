@@ -24,10 +24,21 @@ let contractRevision = 1
 let syncCalls = 0
 let orderReads = 0
 let failOrderReload = false
+let orderStatus = "confirmed"
+let orderRevision = 1
+let orderCheckout = false
+let loseAcceptanceResponse = false
+let acceptanceKey: string | null = null
+const acceptanceCommands: { key: string; etag: string }[] = []
 const documentCommands: { key: string; body: string }[] = []
 const documentsByKey = new Map<string, ReturnType<typeof addDocument>>()
 const receiptsByKey = new Map<string, ReturnType<typeof title>>()
 const failures: string[] = []
+function orderSnapshot() {
+  const method = { id: methodId, name: "Pix configurado", modality: "pix" }
+  return { tenantId: tenant, canEdit: orderEditable, data: { id: order, customerName: "Cliente sintético", amount: "100000.00", dueDate: "2026-12-01", status: orderStatus, revision: orderRevision }, items: [],
+    checkout: orderCheckout ? { confirmationCreatesReceivables: orderStatus === "draft", customer: { legalName: "Cliente sintético", addresses: [], contacts: [] }, entry: { amountCents: 5000000, paymentMethodId: methodId, paymentMethod: method, dueOn: "2026-11-13" }, installments: [{ id: titleIds[1], number: 1, paymentMethodId: methodId, paymentMethod: method, amountCents: 5000000, dueOn: "2026-12-01" }], manufacturingDays: 30 } : null }
+}
 function title(index: number) {
   const received = payments[index].reduce((sum, p) => sum + Number(p.amount), 0)
   return { tenantId: tenant, canEdit: !readonly, data: { id: titleIds[index], orderId: order, customerName: "Cliente sintético", amount: "50000.00", receivedAmount: received.toFixed(2), outstandingAmount: (50000 - received).toFixed(2), status: received === 50000 ? "paid" : "open", revision: payments[index].length + 1, dueDate: "2026-12-01", installmentKind: index ? "balance" : "entry", installmentNumber: index }, payments: payments[index] }
@@ -44,12 +55,22 @@ const upstream = createServer(async (req, res) => {
     expect(req.headers.authorization).toBe("Bearer receipts-fixture-token")
     expect(req.headers["x-tenant-id"]).toBe(tenant)
     const path = new URL(req.url!, origin).pathname
-    if (path === "/api/v1/me") return reply({ tenant: { id: tenant, legalName: "Empresa sintética" }, permissions: ["sales.orders.read", ...(salesOnly ? [] : ["finance.receivables.read", "finance.receivables.manage"])] })
-    if (path === `/api/v1/orders/${order}`) { orderReads++; if (failOrderReload) return reply({ title: "Pedido temporariamente indisponível" }, 503); res.setHeader("ETag", '"1"'); return reply({ tenantId: tenant, canEdit: orderEditable, data: { id: order, customerName: "Cliente sintético", amount: "100000.00", dueDate: "2026-12-01", status: "confirmed", revision: 1 }, items: [] }) }
+    if (path === "/api/v1/me") return reply({ tenant: { id: tenant, legalName: "Empresa sintética" }, permissions: ["sales.orders.read", ...(orderEditable ? ["sales.orders.manage"] : []), ...(salesOnly ? [] : ["finance.receivables.read", "finance.receivables.manage"])] })
+    if (path === `/api/v1/orders/${order}`) { orderReads++; if (failOrderReload) return reply({ title: "Pedido temporariamente indisponível" }, 503); res.setHeader("ETag", `"${orderRevision}"`); return reply(orderSnapshot()) }
+    if (path === `/api/v1/orders/${order}/accept` && req.method === "POST") {
+      const key = String(req.headers["idempotency-key"]), etag = String(req.headers["if-match"])
+      acceptanceCommands.push({ key, etag })
+      expect(etag).toBe('"1"')
+      expect(key).toMatch(/^[a-f0-9-]{36}$/)
+      if (acceptanceKey && acceptanceKey !== key) return reply({ title: "Pedido já aceito" }, 409)
+      acceptanceKey = key; orderStatus = "accepted"; orderRevision = 2
+      if (loseAcceptanceResponse) { loseAcceptanceResponse = false; return reply({ title: "Resposta do aceite interrompida" }, 503) }
+      res.setHeader("ETag", '"2"'); return reply(orderSnapshot())
+    }
     if (path === `/api/v1/orders/${order}/finance`) {
       if (salesOnly) return reply({ title: "Sem permissão financeira" }, 403)
       const received = payments.flat().reduce((sum, p) => sum + Number(p.amount), 0)
-      return reply({ tenantId: tenant, orderId: order, orderStatus: "confirmed", orderAmount: "100000.00", titleAmount: "100000.00", receivedAmount: received.toFixed(2), outstandingAmount: (100000 - received).toFixed(2), state: received === 100000 ? "paid" : received ? "partial" : "open", canEdit: !readonly, receivables: titleIds.map((_, i) => title(i)) })
+      return reply({ tenantId: tenant, orderId: order, orderStatus, orderAmount: "100000.00", titleAmount: "100000.00", receivedAmount: received.toFixed(2), outstandingAmount: (100000 - received).toFixed(2), state: received === 100000 ? "paid" : received ? "partial" : "open", canEdit: !readonly, receivables: titleIds.map((_, i) => title(i)) })
     }
     if (path === "/api/v1/payment-methods") return reply({ data: [{ id: methodId, code: "PIX", name: "Pix configurado", modality: "pix", status: "active" }] })
     if (path === "/api/v1/financial-accounts") return reply({ data: [] })
@@ -106,8 +127,50 @@ function cookie() {
 }
 test.beforeAll(async () => { await new Promise<void>(resolve => upstream.listen(33119, "127.0.0.1", resolve)) })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
-test.beforeEach(async ({ context }) => { payments = [[], []]; documents = []; readonly = false; salesOnly = false; calls = 0; loseReceiptResponse = false; loseDocumentResponse = false; orderEditable = false; contractRevision = 1; syncCalls = 0; orderReads = 0; failOrderReload = false; documentCommands.length = 0; documentsByKey.clear(); receiptsByKey.clear(); failures.length = 0; await context.addCookies([cookie()]) })
+test.beforeEach(async ({ context }) => { payments = [[], []]; documents = []; readonly = false; salesOnly = false; calls = 0; loseReceiptResponse = false; loseDocumentResponse = false; orderEditable = false; contractRevision = 1; syncCalls = 0; orderReads = 0; failOrderReload = false; orderStatus = "confirmed"; orderRevision = 1; orderCheckout = false; loseAcceptanceResponse = false; acceptanceKey = null; acceptanceCommands.length = 0; documentCommands.length = 0; documentsByKey.clear(); receiptsByKey.clear(); failures.length = 0; await context.addCookies([cookie()]) })
 test.afterEach(() => expect(failures).toEqual([]))
+
+test("encomenda: BFF permite somente POST autenticado com origem, revisão e chave", async ({ context }) => {
+  orderStatus = "draft"; orderEditable = true; orderCheckout = true
+  const url = `${origin}/api/erp/orders/${order}/accept`
+  const headers = { Origin: origin, "X-Tenant-Id": tenant, "If-Match": '"1"', "Idempotency-Key": randomUUID() }
+  const response = await context.request.post(url, { headers, data: {} })
+  expect(response.status()).toBe(200)
+  expect((await response.json()).data.status).toBe("accepted")
+  expect(response.headers().etag).toBe('"2"')
+  expect((await context.request.get(url, { headers })).status()).toBe(405)
+  expect((await context.request.post(url, { headers: { ...headers, Origin: "https://foreign.invalid" }, data: {} })).status()).toBe(403)
+  expect(acceptanceCommands).toHaveLength(1)
+})
+
+test("encomenda: resposta perdida repete a mesma intenção e conserva a revisão do aceite", async ({ page }) => {
+  orderStatus = "draft"; orderEditable = true; orderCheckout = true; salesOnly = true; loseAcceptanceResponse = true
+  await page.goto(`/vendas/pedidos/${order}`)
+  await page.getByRole("button", { name: "Aceitar encomenda e gerar parcelas", exact: true }).click()
+  const repeat = page.getByRole("button", { name: "Repetir aceite da encomenda", exact: true })
+  await expect(repeat).toBeVisible()
+  expect(acceptanceCommands).toHaveLength(1)
+  await repeat.click()
+  await expect(page.getByText("Encomenda aceita", { exact: true })).toBeVisible()
+  expect(acceptanceCommands).toHaveLength(2)
+  expect(acceptanceCommands[1]).toEqual(acceptanceCommands[0])
+  await expect(page.getByRole("button", { name: "Reservar estoque disponível", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Registrar recebimento", exact: true })).toHaveCount(0)
+})
+
+for (const width of [375, 768, 1440]) test(`encomenda: ações aceitas, financeiro e responsividade em ${width}px`, async ({ page }) => {
+  orderStatus = "accepted"; orderRevision = 2; orderEditable = true; orderCheckout = true
+  await page.setViewportSize({ width, height: 900 })
+  await page.goto(`/vendas/pedidos/${order}`)
+  await expect(page.getByText("Encomenda aceita", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Reservar estoque disponível", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Cancelar pedido", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Editar rascunho", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Preparar NF-e deste pedido", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Concluir pedido/ })).toHaveCount(0)
+  await expect(page.getByRole("region", { name: "Financeiro do pedido", exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+})
 
 test("pedido soma recebimentos de todas as parcelas e permite mais provas sem novo dinheiro", async ({ page }) => {
   await page.goto(`/vendas/pedidos/${order}`)

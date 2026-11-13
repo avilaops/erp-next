@@ -1,5 +1,7 @@
 import { normalizeDecimal } from "@/lib/decimal-input"
 
+export const orderStatusLabels: Record<string, string> = { draft: "Rascunho", accepted: "Encomenda aceita", confirmed: "Reservado", completed: "Concluído", cancelled: "Cancelado" }
+
 export function orderNumber(number: string | undefined) {
   return number ? `PV-${number.padStart(6, "0")}` : "Pedido"
 }

@@ -1,6 +1,84 @@
 use super::{model::*, parse};
 use serde_json::{Value, json};
 
+#[test]
+fn cnpj_registration_status_is_preserved_from_both_providers() {
+    for (code, label) in [
+        (1, "NULA"),
+        (2, "ATIVA"),
+        (3, "SUSPENSA"),
+        (4, "INAPTA"),
+        (8, "BAIXADA"),
+    ] {
+        let brasil = json!({"cnpj":"04252011000110","razao_social":"Empresa sintética","situacao_cadastral":code,"descricao_situacao_cadastral":label,"data_situacao_cadastral":"2026-04-15","descricao_motivo_situacao_cadastral":"Motivo informado pela fonte"});
+        let ws = json!({"razao_social":"Empresa sintética","estabelecimento":{"cnpj":"04252011000110","situacao_cadastral":label,"data_situacao_cadastral":"2026-04-15","motivo_situacao_cadastral":{"descricao":"Motivo informado pela fonte"}}});
+        for (provider, value) in [("BrasilAPI", brasil), ("CNPJ.ws", ws)] {
+            let (data, _) =
+                parse::parse(provider, LookupKind::Cnpj, "04252011000110", None, &value).unwrap();
+            assert_eq!(
+                data.fields.get("registrationStatusCode"),
+                Some(&code.to_string()),
+                "{provider}"
+            );
+            assert_eq!(
+                data.fields.get("registrationStatus").map(String::as_str),
+                Some(label)
+            );
+            assert_eq!(
+                data.fields
+                    .get("registrationStatusDate")
+                    .map(String::as_str),
+                Some("2026-04-15")
+            );
+            assert_eq!(
+                data.fields
+                    .get("registrationStatusReason")
+                    .map(String::as_str),
+                Some("Motivo informado pela fonte")
+            );
+        }
+    }
+}
+
+#[test]
+fn missing_or_conflicting_registration_status_never_implies_an_active_company() {
+    for extra in [
+        json!({}),
+        json!({"situacao_cadastral":99}),
+        json!({"situacao_cadastral":2,"descricao_situacao_cadastral":"BAIXADA"}),
+        json!({"situacao_cadastral":2,"descricao_situacao_cadastral":{"invalid":true}}),
+    ] {
+        let mut value = json!({"cnpj":"04252011000110","razao_social":"Empresa sintética"});
+        value
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let (data, _) = parse::parse(
+            "BrasilAPI",
+            LookupKind::Cnpj,
+            "04252011000110",
+            None,
+            &value,
+        )
+        .unwrap();
+        assert_eq!(
+            data.fields
+                .get("registrationStatusCode")
+                .map(String::as_str),
+            Some("unknown")
+        );
+        assert_eq!(
+            data.fields.get("registrationStatus").map(String::as_str),
+            Some("Não confirmada")
+        );
+        assert!(!data.fields.contains_key("status"));
+        assert_eq!(data.fields["legalName"], "Empresa sintética");
+    }
+    let cep = json!({"cep":"01001-000","uf":"SP","localidade":"São Paulo","situacao_cadastral":8});
+    let (data, _) = parse::parse("ViaCEP", LookupKind::Cep, "01001000", None, &cep).unwrap();
+    assert!(!data.fields.contains_key("registrationStatus"));
+}
+
 fn input(kind: LookupKind, value: &str) -> LookupInput {
     LookupInput {
         kind,
@@ -8,6 +86,45 @@ fn input(kind: LookupKind, value: &str) -> LookupInput {
         context: LookupContext::Party,
         state: None,
     }
+}
+
+#[test]
+fn registration_warning_and_date_do_not_invent_source_facts() {
+    for date in ["2026-02-30", "15/04/2026", "2026-04-15T00:00:00Z"] {
+        let value = json!({"cnpj":"04252011000110","razao_social":"Empresa sintética","situacao_cadastral":"08","data_situacao_cadastral":date});
+        let (data, _) = parse::parse(
+            "BrasilAPI",
+            LookupKind::Cnpj,
+            "04252011000110",
+            None,
+            &value,
+        )
+        .unwrap();
+        assert_eq!(data.fields["registrationStatus"], "BAIXADA");
+        assert!(!data.fields.contains_key("registrationStatusDate"));
+        assert!(!data.fields.contains_key("registrationStatusReason"));
+        assert!(
+            super::registration_status::warning(&data.fields)
+                .unwrap()
+                .contains("BAIXADA")
+        );
+    }
+    let value =
+        json!({"cnpj":"04252011000110","razao_social":"Empresa sintética","situacao_cadastral":2});
+    let (data, _) = parse::parse(
+        "BrasilAPI",
+        LookupKind::Cnpj,
+        "04252011000110",
+        None,
+        &value,
+    )
+    .unwrap();
+    assert!(super::registration_status::warning(&data.fields).is_none());
+    assert!(
+        super::registration_status::warning(&Default::default())
+            .unwrap()
+            .contains("não confirmada")
+    );
 }
 
 #[test]

@@ -6,6 +6,8 @@ import type { Schema } from "@/lib/api/types"
 import { requestRegistryLookup, requestRegistrySession } from "./registry-request"
 import { Button } from "@/components/ui/button"
 import { validCnpj } from "./automatic-cnpj"
+import { CnpjRegistrationNotice } from "./cnpj-registration-notice"
+import { registrationWarningPrefix } from "./cnpj-registration-model"
 
 type Reply = Schema<"LookupReply">
 type Kind = Schema<"LookupKind">
@@ -20,8 +22,10 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
 }) {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<{ reply: Reply; key: string } | null>(null)
+  const [registration, setRegistration] = useState<{ reply: Reply; key: string } | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const container = useRef<HTMLDivElement>(null)
   const active = useRef<AbortController | null>(null)
   const lookupAction = useRef<(automatic: boolean) => Promise<void>>(async () => {})
   const current = useRef({ readValue, readState, onApply, disabled, tenantId })
@@ -29,6 +33,19 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
   useEffect(() => () => active.current?.abort(), [])
   const label = kind === "cep" ? "CEP" : kind === "ie" ? "IE" : "CNPJ"
   const automaticDocument = automaticValue === undefined ? null : normalized(automaticValue)
+  const renderedKey = JSON.stringify([kind, context, tenantId, normalized(readValue()), kind === "ie" ? readState?.().toUpperCase() : null])
+  useEffect(() => {
+    const form = container.current?.closest("form")
+    if (!form) return
+    const invalidate = () => queueMicrotask(() => {
+      const key = JSON.stringify([kind, context, current.current.tenantId, normalized(current.current.readValue()), kind === "ie" ? current.current.readState?.().toUpperCase() : null])
+      setRegistration(previous => previous?.key === key ? previous : null)
+      setResult(previous => previous?.key === key ? previous : null)
+    })
+    form.addEventListener("input", invalidate)
+    form.addEventListener("change", invalidate)
+    return () => { form.removeEventListener("input", invalidate); form.removeEventListener("change", invalidate) }
+  }, [kind, context, tenantId])
   useEffect(() => { lookupAction.current = lookup })
   useEffect(() => {
     if (automaticDocument === null || disabled || kind !== "cnpj") return
@@ -51,7 +68,7 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     const captured = key()
     const controller = new AbortController()
     active.current = controller
-    setPending(true); setResult(null); setMessage(""); setError("")
+    setPending(true); setResult(null); setRegistration(null); setMessage(""); setError("")
     try {
       const reply = await requestRegistryLookup({ kind, context, value, ...(kind === "ie" ? { state: current.current.readState?.() } : {}) }, current.current.tenantId, controller.signal)
       if (captured !== key() || reply.tenantId !== current.current.tenantId || normalized(reply.value || "") !== normalized(value) || reply.kind !== kind) {
@@ -60,10 +77,19 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
       if (reply.status !== "found" || !reply.data) {
         setMessage(reply.warnings?.join(" ") || "Sem resultado disponível. Continue manualmente"); return
       }
-      if (!reply.source || !reply.expiresAt || !Number.isFinite(Date.parse(reply.expiresAt))) throw new Error("Prévia sem origem ou validade. Continue manualmente")
+      if (!reply.source || !reply.expiresAt || !(Date.parse(reply.expiresAt) > Date.now())) throw new Error("Prévia sem origem ou validade. Continue manualmente")
       const preview = { reply, key: captured }
       if (automatic) await applyPreview(reply.data.fields, preview, controller)
-      else setResult(preview)
+      else {
+        if (kind === "cnpj") {
+          const session = await requestRegistrySession(AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]))
+          if (session.tenant.id !== reply.tenantId || captured !== key() || controller.signal.aborted) {
+            setMessage("A empresa da sessão ou o documento mudou. Consulte novamente; os campos foram preservados"); return
+          }
+          setRegistration(preview)
+        }
+        setResult(preview)
+      }
     } catch (reason) {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Consulta indisponível. Continue manualmente")
     } finally { if (active.current === controller) { active.current = null; setPending(false) } }
@@ -75,7 +101,7 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     active.current = controller
     setPending(true); setError("")
     try { await applyPreview(fields, result, controller) }
-    catch { if (!controller.signal.aborted) setError("Não foi possível conferir a empresa da sessão. Recarregue antes de preencher; seus campos foram preservados") }
+    catch { if (!controller.signal.aborted) { setRegistration(null); setError("Não foi possível conferir a empresa da sessão. Recarregue antes de preencher; seus campos foram preservados") } }
     finally { if (active.current === controller) { active.current = null; setPending(false) } }
   }
 
@@ -83,10 +109,10 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     function validPreview() {
       if (controller.signal.aborted || current.current.disabled) return false
       if (key() !== preview.key || preview.reply.tenantId !== current.current.tenantId) {
-        setResult(null); setMessage("O documento, CEP ou empresa mudou. Consulte novamente; os campos foram preservados"); return false
+        setResult(null); setRegistration(null); setMessage("O documento, CEP ou empresa mudou. Consulte novamente; os campos foram preservados"); return false
       }
       if (!preview.reply.expiresAt || Date.parse(preview.reply.expiresAt) <= Date.now()) {
-        setResult(null); setMessage("A prévia venceu. Consulte novamente; os campos foram preservados"); return false
+        setResult(null); setRegistration(null); setMessage("A prévia venceu. Consulte novamente; os campos foram preservados"); return false
       }
       return true
     }
@@ -94,28 +120,30 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
     // Another tab can replace the shared session cookie without changing this form's props.
     const session = await requestRegistrySession(AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]))
     if (session.tenant.id !== preview.reply.tenantId) {
-      setResult(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
+      setResult(null); setRegistration(null); setMessage("A empresa da sessão mudou ou o acesso expirou. Recarregue antes de preencher; seus campos foram preservados"); return
     }
     if (current.current.disabled || !validPreview()) return
+    if (kind === "cnpj") setRegistration(preview)
     const count = current.current.onApply(Object.fromEntries(Object.entries(fields).filter(([field, value]) => labels[field] && typeof value === "string" && value.trim())))
-    const origin = automaticDocument === null ? "" : ` Fonte: ${preview.reply.source}. Atualização: ${preview.reply.sourceUpdatedAt ? date(preview.reply.sourceUpdatedAt) : "não informada"}. ${preview.reply.warnings.join(" ")}`
+    const origin = automaticDocument === null ? "" : ` Fonte: ${preview.reply.source}. Atualização: ${preview.reply.sourceUpdatedAt ? date(preview.reply.sourceUpdatedAt) : "não informada"}. ${preview.reply.warnings.filter(warning => !warning.startsWith(registrationWarningPrefix)).join(" ")}`
     setResult(null); setMessage((count ? "Campos vazios preenchidos. Dados já informados foram preservados; revise antes de salvar" : "Nenhum campo vazio para preencher. Seus dados foram preservados") + origin)
   }
 
-  return <div className={documentField ? "min-w-0 space-y-2" : "col-span-full min-w-0 space-y-3 rounded-lg border border-border p-3"}>
+  return <div ref={container} className={documentField ? "min-w-0 space-y-2" : "col-span-full min-w-0 space-y-3 rounded-lg border border-border p-3"}>
     {documentField ? <div className="flex items-end gap-2"><div className="min-w-0 flex-1">{documentField}</div><Button type="button" variant="outline" className="size-9 shrink-0 p-0" aria-label={`Consultar ${label}`} title={`Consultar ${label}`} disabled={disabled || pending} onClick={() => lookup(automaticDocument !== null)}>{pending ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Search aria-hidden="true" className="size-4" />}</Button></div> : <>
     <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="outline" disabled={disabled || pending} onClick={() => lookup(automaticDocument !== null)}>{pending ? `Consultando ${label}…` : `Consultar ${label}`}</Button>
       <p className="min-w-0 text-sm text-muted-foreground">{automaticDocument !== null ? "O CNPJ válido preenche automaticamente dados disponíveis em campos vazios." : kind === "ie" ? "Consulta cadastral não determina a condição de contribuinte." : "Confira a prévia para preencher somente campos vazios."} Você pode preencher manualmente.</p>
     </div>
     </>}
+    {registration?.key === renderedKey && <CnpjRegistrationNotice fields={registration.reply.data?.fields} value={registration.reply.value} source={registration.reply.source} fetchedAt={registration.reply.fetchedAt} />}
     {pending && <p role="status">Conferindo os dados da consulta de {label}…</p>}
     {error && <p role="alert" className="break-words text-sm text-destructive">{error}</p>}
     {message && <p role="status" className="break-words text-sm">{message}</p>}
     {result && <section aria-label={`Prévia da consulta de ${label}`} className="min-w-0 space-y-3">
       <p role="status" className="break-words text-sm">Fonte: {result.reply.source} · Consultado em {date(result.reply.fetchedAt)}{result.reply.cached ? " · Cache" : ""}{result.reply.expiresAt ? ` · Cache até ${date(result.reply.expiresAt)}` : ""}</p>
       <p className="text-sm text-muted-foreground">Atualização na fonte: {result.reply.sourceUpdatedAt ? date(result.reply.sourceUpdatedAt) : "não informada"}.</p>
-      {result.reply.warnings.map((warning, index) => <p className="break-words text-sm" key={index}>{warning}</p>)}
+      {result.reply.warnings.filter(warning => !warning.startsWith(registrationWarningPrefix)).map((warning, index) => <p className="break-words text-sm" key={index}>{warning}</p>)}
       <dl className="grid min-w-0 gap-3 sm:grid-cols-2">{Object.entries(result.reply.data!.fields).filter(([field]) => labels[field]).map(([field, value]) => <div className="min-w-0" key={field}><dt className="text-sm text-muted-foreground">{labels[field]}</dt><dd className="break-words">{value}</dd></div>)}</dl>
       {Object.keys(result.reply.data!.fields).length > 0 && <Button type="button" disabled={disabled || pending} onClick={() => apply(result.reply.data!.fields)}>Preencher campos vazios</Button>}
       {result.reply.data!.stateRegistrations.map((registration, index) => <div className="min-w-0 space-y-2" key={index}>

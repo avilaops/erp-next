@@ -246,6 +246,11 @@ impl RegistryClient {
                             outcome: "found".into(),
                         });
                         reply.status = LookupStatus::Found;
+                        if input.kind == LookupKind::Cnpj
+                            && let Some(warning) = super::registration_status::warning(&data.fields)
+                        {
+                            reply.warnings.push(warning);
+                        }
                         if data.generic_postal_code {
                             reply.warnings.push("CEP genérico ou endereço incompleto. Complete os campos manualmente".into());
                         }

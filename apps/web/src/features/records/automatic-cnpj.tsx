@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, type RefObject } from "react"
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 import { Button } from "@/components/ui/button"
+import { CnpjRegistrationNotice } from "./cnpj-registration-notice"
 
 type RegistryData = Schema<"RegistryData">
-type LookupResult = Pick<Schema<"LookupReply">, "value" | "status" | "data" | "source" | "sourceUpdatedAt" | "expiresAt" | "warnings"> & { tenantId?: string }
+type LookupResult = Pick<Schema<"LookupReply">, "value" | "status" | "data" | "source" | "sourceUpdatedAt" | "expiresAt" | "fetchedAt" | "warnings"> & { tenantId?: string }
 const normalize = (value: string) => value.trim().replace(/[.\s/-]/g, "").toUpperCase()
 
 export function validCnpj(value: string) {
@@ -55,6 +56,7 @@ export function AutomaticCnpj({ formRef, tenantId, disabled, onApply }: {
   const [message, setMessage] = useState("")
   const [retry, setRetry] = useState(0)
   const [failed, setFailed] = useState(false)
+  const [registration, setRegistration] = useState<{ reply: LookupResult; tenantId?: string } | null>(null)
 
   useEffect(() => {
     const form = formRef.current
@@ -79,6 +81,7 @@ export function AutomaticCnpj({ formRef, tenantId, disabled, onApply }: {
       clearTimeout(timer)
       controller?.abort()
       if (document.current !== value) {
+        setRegistration(null)
         for (const [input, previous] of filled) if (input.value === previous) input.value = ""
         filled.clear()
         document.current = value
@@ -88,7 +91,7 @@ export function AutomaticCnpj({ formRef, tenantId, disabled, onApply }: {
         controller = new AbortController()
         const request = controller
         last = value
-        setFailed(false); setMessage("Consultando os dados do CNPJ…")
+        setFailed(false); setRegistration(null); setMessage("Consultando os dados do CNPJ…")
         const isCurrent = () => !request.signal.aborted && currentValue() === value
         try {
           const response = await erpFetch(tenantId ? "/api/erp/registry-lookups" : "/api/erp/company-registration/lookup", {
@@ -108,6 +111,7 @@ export function AutomaticCnpj({ formRef, tenantId, disabled, onApply }: {
             if (!access.ok || session.tenant?.id !== tenantId) throw new Error("A empresa da sessão mudou. Recarregue; seus campos foram preservados.")
           }
           if (!isCurrent()) return
+          setRegistration({ reply, tenantId })
           const inputs = Array.from(form.elements).filter((input): input is HTMLInputElement | HTMLSelectElement => input instanceof HTMLInputElement || input instanceof HTMLSelectElement)
           const before = new Map(inputs.map(input => [input, input.value]))
           const count = apply.current(reply.data)
@@ -126,6 +130,7 @@ export function AutomaticCnpj({ formRef, tenantId, disabled, onApply }: {
   }, [disabled, formRef, tenantId, retry])
 
   return <div className="col-span-full min-w-0 space-y-2">
+    {registration && registration.tenantId === tenantId && !disabled && <CnpjRegistrationNotice fields={registration.reply.data?.fields} value={registration.reply.value} source={registration.reply.source} fetchedAt={registration.reply.fetchedAt} />}
     <p role="status" aria-live="polite" className="break-words text-sm text-muted-foreground">{message || "Ao informar um CNPJ válido, os dados disponíveis preencherão os campos vazios."}</p>
     {failed && <Button type="button" variant="outline" disabled={disabled} onClick={() => setRetry(value => value + 1)}>Tentar consulta novamente</Button>}
   </div>

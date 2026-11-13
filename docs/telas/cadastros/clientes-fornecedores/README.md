@@ -31,6 +31,8 @@ O formulário recupera o rascunho na mesma sessão e avisa sobre alterações pe
 
 As consultas cadastrais preservam os campos já preenchidos e só aplicam dados após conferir o documento e a empresa da sessão. Respostas vazias ou incompletas admitem uma nova tentativa automática; se a falha continuar, a mensagem permite seguir manualmente ou consultar novamente.
 
+**Situação no ERP** indica se o cadastro está ativo ou arquivado internamente. A **situação cadastral do CNPJ** aparece separadamente, com a fonte, a data da consulta e, quando disponíveis, a data da situação e o motivo. CNPJ baixado, inapto, suspenso ou nulo recebe um aviso antes de continuar o cadastro. Ao abrir a ficha de uma pessoa jurídica existente, o ERP também confere essa situação sem alterar os dados salvos. Uma fonte indisponível ou sem situação válida aparece como não confirmada; não significa empresa ativa.
+
 ## Referências para manutenção
 
 Guia conferido no código de 12/11/2026. As ações dependem das permissões e da configuração da empresa. Relatos técnicos antigos descrevem a etapa em que foram escritos.

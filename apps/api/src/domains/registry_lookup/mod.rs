@@ -3,6 +3,7 @@ mod company_fields;
 pub mod model;
 mod parse;
 pub mod registration;
+mod registration_status;
 #[cfg(test)]
 mod tests;
 

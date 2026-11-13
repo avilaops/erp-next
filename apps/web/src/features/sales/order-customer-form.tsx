@@ -7,6 +7,7 @@ import { GuardedLink } from "@/components/shell/navigation-guard"
 import { erpFetch } from "@/lib/api/client"
 import type { Schema } from "@/lib/api/types"
 import { RegistryLookup } from "@/features/records/registry-lookup"
+import { CnpjRegistrationCheck } from "@/features/records/cnpj-registration-check"
 import { states } from "@/features/commercial-settings/commercial-parameters"
 import { Lookup, type Choice } from "./orders"
 import type { OrderIssue } from "./order-progress"
@@ -301,6 +302,7 @@ export function OrderCustomerForm({ ref, tenantId, disabled, canManage, onDirty,
       <div className="order-customer-actions"><Button type="button" variant="outline" disabled={disabled || busy || uncertain || loading} onClick={() => { setSearchOpen(true); setEditorOpen(false) }}>Trocar</Button>{canManage && <Button type="button" variant="outline" disabled={frozen} aria-expanded={editorOpen} onClick={() => { setEditorOpen(value => !value); setSearchOpen(false) }}>{editorOpen ? "Fechar edição" : "Editar cadastro"}</Button>}</div>
       {!editorOpen && registration}
     </div>}
+    {selectedName && !documentEdited && <CnpjRegistrationCheck value={draft.taxId} tenantId={tenantId} />}
     {editorOpen && <>
       {selectedName && <p className="order-customer-edit-note text-sm">Ao salvar o pedido, as alterações serão gravadas no cadastro compartilhado do cliente e valerão para outros pedidos.</p>}
       {!selectedName && <p className="text-xs text-muted-foreground">O novo cadastro será gravado ao salvar o pedido.</p>}

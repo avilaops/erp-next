@@ -861,8 +861,8 @@ async fn transition(
         return Err(DomainError::StaleRevision);
     }
     let allowed = match action {
-        Action::Confirm => current.data.status == "draft",
-        Action::Cancel => ["draft", "confirmed"].contains(&current.data.status.as_str()),
+        Action::Confirm => ["draft", "accepted"].contains(&current.data.status.as_str()),
+        Action::Cancel => ["draft", "accepted", "confirmed"].contains(&current.data.status.as_str()),
         Action::Complete => current.data.status == "confirmed",
     };
     if !allowed {
@@ -931,7 +931,11 @@ async fn transition(
         }
     }
     if matches!(action, Action::Confirm) {
-        checkout::confirm(&mut tx, tenant, id, &identity, &headers).await?;
+        if current.data.status == "accepted" {
+            checkout::verify_receivables(&mut tx, tenant, id).await?;
+        } else {
+            checkout::confirm(&mut tx, tenant, id, &identity, &headers).await?;
+        }
     }
     if matches!(action, Action::Complete) {
         super::finance::originate_order_receivable(&mut tx, tenant, &identity, &headers, id)

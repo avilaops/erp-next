@@ -154,7 +154,7 @@ test("catálogo separa nome e metadados e agrupa o preço sem rolagem lateral", 
 
 test("consulta e edição do produto agrupam os campos e limitam a foto no celular", async ({ page }, info) => {
   const photoDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1nQAAAAASUVORK5CYII="
-  const stored = { ...product, basePrice: "19419.84", ncm: "85176259", cest: "1234567", photoDataUrl, structureColors: ["Preto"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] }
+  const stored = { ...product, basePrice: "19419.84", ncm: "85176259", cest: "1234567", photoDataUrl, structureColors: ["Preto"], swingArmColors: ["Vermelho"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] }
   let saved: Record<string, unknown> | undefined
   await page.route("**/api/erp/product-categories?*", route => route.fulfill({ json: { tenantId: tenant, data: [], total: 0 } }))
   await page.route(`**/api/erp/products/${productId}`, route => {
@@ -186,7 +186,8 @@ test("consulta e edição do produto agrupam os campos e limitam a foto no celul
     expect(skuInput!.height).toBe(36)
     await expect(name).toHaveCSS("font-size", "16px")
     await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
-    await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Azul")
+    await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Vermelho")
+    await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")
     expect((await page.getByRole("textbox", { name: "Cores da estrutura", exact: true }).boundingBox())!.height).toBeLessThanOrEqual(64)
     await expect(page.getByLabel("Tipo de anilheiro", { exact: true })).toHaveCount(0)
     await expect(page.getByLabel("Cores dos anilheiros", { exact: true })).toHaveCount(0)
@@ -197,7 +198,7 @@ test("consulta e edição do produto agrupam os campos e limitam a foto no celul
   await page.getByRole("textbox", { name: "Preço base (R$)", exact: true }).fill("19419,84")
   await page.getByRole("button", { name: "Salvar produto", exact: true }).click()
   await expect(page.getByRole("status").filter({ hasText: "Produto salvo" })).toBeVisible()
-  expect(saved).toMatchObject({ basePrice: "19419.84", structureColors: ["Preto"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] })
+  expect(saved).toMatchObject({ basePrice: "19419.84", structureColors: ["Preto"], swingArmColors: ["Vermelho"], upholsteryColors: ["Azul"], plateHolderColors: ["Cinza"], plateHolderTypes: ["Standard"] })
   await page.screenshot({ path: info.outputPath("product-editor-compact-mobile.png"), fullPage: true })
 })
 
@@ -317,7 +318,7 @@ test("rascunho preserva foto grande e cores ao reabrir e salvar", async ({ page 
 
 test("rascunho antigo mantém os acabamentos atuais do servidor", async ({ page }) => {
   await page.route(`**/api/erp/products/${productId}`, route => route.fulfill({
-    json: { tenantId: tenant, canEdit: true, data: { ...product, structureColors: ["Preto"], upholsteryColors: ["Azul"] } },
+    json: { tenantId: tenant, canEdit: true, data: { ...product, structureColors: ["Preto"], swingArmColors: ["Vermelho"], upholsteryColors: ["Azul"] } },
     headers: { etag: '"revision-1"' },
   }))
   await page.goto(`/cadastros/produtos/${productId}/editar`)
@@ -326,14 +327,15 @@ test("rascunho antigo mantém os acabamentos atuais do servidor", async ({ page 
   await page.evaluate(() => {
     const key = Object.keys(sessionStorage).find(key => key.startsWith("erp:product-draft:"))!
     const stored = JSON.parse(sessionStorage.getItem(key)!)
-    for (const field of ["structureColors", "upholsteryColors", "photoDataUrl"]) delete stored.draft[field]
+    for (const field of ["structureColors", "swingArmColors", "upholsteryColors", "photoDataUrl"]) delete stored.draft[field]
     sessionStorage.setItem(key, JSON.stringify(stored))
   })
   page.on("dialog", dialog => dialog.accept())
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Nome do produto", exact: true })).toHaveValue("Edição anterior", { timeout: process.env.ERP_BROWSER_DEV === "1" ? 30_000 : 5_000 })
   await expect(page.getByRole("textbox", { name: "Cores da estrutura", exact: true })).toHaveValue("Preto")
-  await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Azul")
+  await expect(page.getByRole("textbox", { name: "Cores dos braços", exact: true })).toHaveValue("Vermelho")
+  await expect(page.getByRole("textbox", { name: "Cores do estofado", exact: true })).toHaveValue("Azul")
 })
 
 test("menu desktop, módulos, busca e breadcrumb respeitam cancelamento", async ({ page }) => {

@@ -25,8 +25,10 @@ export function CommercialTable() {
   const query = readCommercialTableQuery(params)
   const { line, q, offset } = query
   const [notice, setNotice] = useState("")
-  function navigate(next: CommercialTableQuery, replace = false) {
-    window.history[replace ? "replaceState" : "pushState"](null, "", commercialTableHref(next))
+  function navigate(patch: Partial<CommercialTableQuery>, replace = false) {
+    // The URL changes before Next commits useSearchParams; preserve newer actions.
+    const current = readCommercialTableQuery(new URLSearchParams(window.location.search))
+    window.history[replace ? "replaceState" : "pushState"](null, "", commercialTableHref({ ...current, ...patch }))
   }
   function select(productId: string, change: number) {
     const current = readCommercialTableQuery(new URLSearchParams(window.location.search))
@@ -35,7 +37,7 @@ export function CommercialTable() {
     const quantity = (selected?.quantity || 0) + change
     if (quantity > 1_000_000) { setNotice("A quantidade máxima por equipamento é 1.000.000."); return }
     const next = selected ? current.items.flatMap(item => item.productId === productId ? quantity > 0 ? [{ ...item, quantity }] : [] : [item]) : [...current.items, { productId, quantity }]
-    navigate({ ...current, items: next }, true)
+    navigate({ items: next }, true)
     const name = table.value?.data?.items.find(item => item.productId === productId)?.name || "Equipamento"
     setNotice(quantity > 0 ? `${name}: ${quantity} un. na seleção do pedido.` : `${name} removido da seleção.`)
   }
@@ -50,6 +52,13 @@ export function CommercialTable() {
   const units = query.items.reduce((total, item) => total + item.quantity, 0)
   const cartAvailable = !!table.value?.canCreateOrder && !!data && query.items.every(selected => data.items.some(item => item.productId === selected.productId && item.available === true))
   const freeLabel = data ? `Com ${percent(data.freeDiscountBps)} desc. + IPI` : "Com desconto livre + IPI"
+  function paginate(direction: -1 | 1) {
+    const current = readCommercialTableQuery(new URLSearchParams(window.location.search))
+    // A newer filter may still be waiting for React; its page count is not known yet.
+    if (!data || table.loading || table.error || current.line !== line || current.q !== q || current.destinationState !== query.destinationState || current.taxpayer !== query.taxpayer) return
+    const lastPage = Math.max(0, Math.floor((items.length - 1) / limit) * limit)
+    navigate({ offset: Math.min(lastPage, Math.max(0, current.offset + direction * limit)) })
+  }
 
   return <main className="mx-auto min-w-0 max-w-7xl space-y-4 px-3 pb-28 pt-3 sm:px-4 sm:pt-6 [--workspace-control-height:2.25rem]">
     <PageHeader breadcrumbs={[{ label: "Vendas", href: "/vendas" }, { label: "Tabela de preços" }]} title="Tabela de preços" description="Compare os preços publicados e sua alçada por destino. Selecione os equipamentos para abrir a negociação." />
@@ -59,18 +68,18 @@ export function CommercialTable() {
       {table.value?.canManage && <><Link className="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground" href={`/preferencias/tabela-precos?linha=${line}`}>Nova tabela de preços</Link><Link className="text-primary underline" href={`/preferencias/comercial?linha=${line}`}>Preços e metas por destino</Link></>}
     </nav>
     <div className="flex flex-wrap items-end gap-3">
-      <div className="flex gap-2" aria-label="Linha comercial">{([["imported", "Importada"], ["national", "Nacional"]] as const).map(([value, label]) => <Button className="h-9" key={value} variant={line === value ? "default" : "outline"} aria-pressed={line === value} onClick={() => navigate({ ...query, line: value, offset: 0 })}>{label}</Button>)}</div>
-      <label className="grid min-w-28 gap-1 text-xs">Destino (UF)<select aria-label="Destino (UF)" className="h-9 rounded-lg border bg-background px-2 text-sm" value={destination} onChange={event => navigate({ ...query, destinationState: event.target.value, offset: 0 })}>{!destination && <option value="">Selecione</option>}{states.map(state => <option key={state} value={state}>{state}</option>)}</select></label>
-      <div className="flex gap-1" role="group" aria-label="Inscrição estadual">{([[false, "Sem IE"], [true, "Com IE"]] as const).map(([value, label]) => <Button className="h-9" key={label} variant={query.taxpayer === value ? "default" : "outline"} aria-pressed={query.taxpayer === value} onClick={() => navigate({ ...query, destinationState: destination, taxpayer: value, offset: 0 })}>{label}</Button>)}</div>
-      <label className="grid min-w-0 flex-1 basis-64 gap-1 text-xs">Buscar equipamento por nome ou código<SearchInput className="h-9" type="search" defaultValue={q} onSearch={q => navigate({ ...query, q: q.trim().slice(0, 160), offset: 0 })} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); navigate({ ...query, q: event.currentTarget.value.trim().slice(0, 160), offset: 0 }) } }} /></label>
+      <div className="flex gap-2" aria-label="Linha comercial">{([["imported", "Importada"], ["national", "Nacional"]] as const).map(([value, label]) => <Button className="h-9" key={value} variant={line === value ? "default" : "outline"} aria-pressed={line === value} onClick={() => navigate({ line: value, offset: 0 })}>{label}</Button>)}</div>
+      <label className="grid min-w-28 gap-1 text-xs">Destino (UF)<select aria-label="Destino (UF)" className="h-9 rounded-lg border bg-background px-2 text-sm" value={destination} onChange={event => navigate({ destinationState: event.target.value, offset: 0 })}>{!destination && <option value="">Selecione</option>}{states.map(state => <option key={state} value={state}>{state}</option>)}</select></label>
+      <div className="flex gap-1" role="group" aria-label="Inscrição estadual">{([[false, "Sem IE"], [true, "Com IE"]] as const).map(([value, label]) => <Button className="h-9" key={label} variant={query.taxpayer === value ? "default" : "outline"} aria-pressed={query.taxpayer === value} onClick={() => navigate({ destinationState: readCommercialTableQuery(new URLSearchParams(window.location.search)).destinationState || destination, taxpayer: value, offset: 0 })}>{label}</Button>)}</div>
+      <label className="grid min-w-0 flex-1 basis-64 gap-1 text-xs">Buscar equipamento por nome ou código<SearchInput className="h-9" type="search" defaultValue={q} onSearch={q => navigate({ q: q.trim().slice(0, 160), offset: 0 })} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); navigate({ q: event.currentTarget.value.trim().slice(0, 160), offset: 0 }) } }} /></label>
     </div>
     <p role="status" aria-live="polite" className={notice ? "text-xs text-muted-foreground" : "sr-only"}>{notice}</p>
-    {units > 0 && <CommercialTableCart query={query} data={data || null} canOpen={cartAvailable && !table.loading && !table.error} onChange={select} onClear={() => { navigate({ ...query, items: [] }, true); setNotice("Seleção do pedido esvaziada.") }} />}
+    {units > 0 && <CommercialTableCart query={query} data={data || null} canOpen={cartAvailable && !table.loading && !table.error} onChange={select} onClear={() => { navigate({ items: [] }, true); setNotice("Seleção do pedido esvaziada.") }} />}
     {table.loading ? <p role="status">Carregando tabela…</p> : table.error ? <div role="alert"><RequestError message={table.error} status={table.status} /><Button variant="outline" onClick={table.reload}>Tentar novamente</Button></div> : !data ? <section className="form-section space-y-3"><p>Nenhuma tabela publicada nesta linha.</p>{table.value?.canManage && <Link className="text-primary underline" href={`/preferencias/tabela-precos?linha=${line}`}>Criar tabela de preços</Link>}</section> : <>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><p>Tabela v{data.version} · {new Date(data.publishedAt).toLocaleDateString("pt-BR")} · {data.items.length} equipamentos</p>{table.value?.authority && <p>Seu acesso: <strong className="font-medium text-foreground">{authorityLabels[table.value.authority]}</strong></p>}</div>
       {table.value?.canCreateOrder === false && <p className="text-xs text-muted-foreground">Seu acesso permite consultar e simular. Criar pedidos exige permissão de gestão de vendas.</p>}
       {data.availability?.message && <p role="status" className="rounded-lg border bg-muted/40 p-3 text-sm">{data.availability.message}</p>}
-      <CommercialTableDestinations data={data} destination={destination} taxpayer={query.taxpayer} onSelect={destinationState => navigate({ ...query, destinationState, offset: 0 })} />
+      <CommercialTableDestinations data={data} destination={destination} taxpayer={query.taxpayer} onSelect={destinationState => navigate({ destinationState, offset: 0 })} />
       <p className="text-xs text-muted-foreground">Valores por unidade · sem frete por nossa conta · entrada conforme a política. Com IE: cliente contribuinte do ICMS.</p>
       <div className="min-w-0 rounded-lg border">
         <DataTable aria-label="Preços publicados" className="table-fixed text-xs [&_td]:px-2 [&_td]:py-3 [&_td]:[overflow-wrap:anywhere] [&_th]:px-2 [&_th]:[overflow-wrap:anywhere] lg:[&_td]:px-3 lg:[&_th]:px-3">
@@ -93,7 +102,7 @@ export function CommercialTable() {
         </DataTable>
       </div>
       {!items.length && <p role="status">Nenhum equipamento corresponde à busca.</p>}
-      <nav aria-label="Paginação da tabela" className="flex flex-wrap items-center justify-between gap-3 text-xs"><span>{items.length ? `${offset + 1} a ${Math.min(offset + limit, items.length)} de ${items.length}` : "0 equipamentos"}</span><div className="flex gap-2"><Button className="h-9" variant="outline" disabled={offset === 0} onClick={() => navigate({ ...query, offset: Math.max(0, offset - limit) })}>Anterior</Button><Button className="h-9" variant="outline" disabled={offset + limit >= items.length} onClick={() => navigate({ ...query, offset: offset + limit })}>Próxima</Button></div></nav>
+      <nav aria-label="Paginação da tabela" className="flex flex-wrap items-center justify-between gap-3 text-xs"><span>{items.length ? `${offset + 1} a ${Math.min(offset + limit, items.length)} de ${items.length}` : "0 equipamentos"}</span><div className="flex gap-2"><Button className="h-9" variant="outline" disabled={offset === 0} onClick={() => paginate(-1)}>Anterior</Button><Button className="h-9" variant="outline" disabled={offset + limit >= items.length} onClick={() => paginate(1)}>Próxima</Button></div></nav>
     </>}
   </main>
 }

@@ -32,6 +32,16 @@ pub(super) async fn validate_commercial_acceptance(
     negotiation::require_approval(tx, tenant, order.data.id).await?;
     pricing_orders::validate_confirmation(tx, tenant, order.data.id).await?;
     settings::validate_confirmation(tx, tenant, order).await?;
+    validate_products(tx, tenant, order).await
+}
+
+// Commercial conditions are frozen at acceptance. Fulfillment still checks
+// the current product identity/status/unit without repricing that agreement.
+pub(super) async fn validate_products(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    order: &OrderSnapshot,
+) -> Result<(), DomainError> {
     for item in &order.items {
         let product = catalog::load(tx, tenant, item.product_id).await?;
         if product.data.unit != item.unit {

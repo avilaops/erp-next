@@ -862,7 +862,9 @@ async fn transition(
     }
     let allowed = match action {
         Action::Confirm => ["draft", "accepted"].contains(&current.data.status.as_str()),
-        Action::Cancel => ["draft", "accepted", "confirmed"].contains(&current.data.status.as_str()),
+        Action::Cancel => {
+            ["draft", "accepted", "confirmed"].contains(&current.data.status.as_str())
+        }
         Action::Complete => current.data.status == "confirmed",
     };
     if !allowed {
@@ -903,7 +905,11 @@ async fn transition(
             ));
         }
         if matches!(action, Action::Confirm) {
-            acceptance::validate_commercial_acceptance(&mut tx, tenant, &current).await?;
+            if current.data.status == "draft" {
+                acceptance::validate_commercial_acceptance(&mut tx, tenant, &current).await?;
+            } else {
+                acceptance::validate_products(&mut tx, tenant, &current).await?;
+            }
         }
         for item in &current.items {
             if matches!(action, Action::Complete) {

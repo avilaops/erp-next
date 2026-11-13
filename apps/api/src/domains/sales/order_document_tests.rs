@@ -92,6 +92,16 @@ fn document_uses_frozen_customer_and_recorded_prices_without_repricing() {
     }
 }
 #[test]
+fn accepted_order_document_identifies_the_encomenda_without_claiming_reservation() {
+    let mut current = order();
+    current.data.status = "accepted".into();
+    let text = document_text(&current);
+    assert!(text.contains("Encomenda aceita"), "{text}");
+    for forbidden in ["Não informado", "Cancelado", "Reservado", "Quitado"] {
+        assert!(!text.contains(forbidden), "unexpected {forbidden}: {text}");
+    }
+}
+#[test]
 fn planned_entry_and_installments_never_claim_payment_or_reservation() {
     let text = document_text(&order());
     for expected in [

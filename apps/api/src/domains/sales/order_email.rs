@@ -462,6 +462,21 @@ mod tests {
     }
 
     #[test]
+    fn accepted_order_email_snapshot_identifies_the_encomenda_without_claiming_cancellation() {
+        let mut order = sample_order();
+        order.data.status = "accepted".into();
+        let html = String::from_utf8(attachment(&order, "Empresa", "123").bytes).unwrap();
+        assert!(html.contains("Situação: Encomenda aceita"), "{html}");
+        for forbidden in [
+            "Situação: Cancelado",
+            "Situação: Reservado",
+            "Situação: Concluído",
+        ] {
+            assert!(!html.contains(forbidden), "unexpected {forbidden}: {html}");
+        }
+    }
+
+    #[test]
     fn attachment_preserves_recorded_prices_and_escapes_customer_content() {
         let order = sample_order();
         let file = attachment(&order, "Empresa & Filhos", "04252011000110");

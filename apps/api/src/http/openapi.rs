@@ -67,7 +67,7 @@ use crate::platform::{
         reference_data::create_financial_account, reference_data::update_financial_account,
         reference_data::list_payment_methods, reference_data::get_payment_method,
         reference_data::create_payment_method, reference_data::update_payment_method,
-        sales::list, sales::get, sales::create, sales::update, sales::confirm, sales::cancel, sales::complete,
+        sales::list, sales::get, sales::create, sales::update, sales::acceptance::accept, sales::confirm, sales::cancel, sales::complete,
         sales::proposals::list, sales::proposals::get, sales::proposals::create,
         sales::proposals::decide,
         sales::proposals::revise, sales::proposals::convert,
@@ -643,6 +643,7 @@ mod tests {
         assert!(issue["responses"].get("200").is_some());
         assert!(issue["responses"].get("202").is_some());
         for path in [
+            "/api/v1/orders/{id}/accept",
             "/api/v1/orders/{id}/cancel-completed",
             "/api/v1/purchase-receipts/{id}/reverse",
             "/api/v1/fiscal/nfe/{id}/consult",

@@ -228,6 +228,20 @@ async fn acceptance_rejects_missing_checkout_pending_approval_foreign_or_unmanag
     );
     unchanged(&admin, order).await;
     save(&application, order).await;
+    for (revision, key) in [(None, Some(Uuid::now_v7())), (Some(1), None)] {
+        let result = call(
+            &router,
+            (TENANT, "editor"),
+            "POST",
+            &format!("/api/v1/orders/{order}/accept"),
+            revision,
+            key,
+            json!({}),
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::PRECONDITION_REQUIRED, "{}", result.2);
+        unchanged(&admin, order).await;
+    }
     for (actor, revision, status) in [
         ((TENANT, "reader"), 1, StatusCode::FORBIDDEN),
         ((OTHER, "editor"), 1, StatusCode::FORBIDDEN),
@@ -275,6 +289,48 @@ async fn acceptance_rejects_missing_checkout_pending_approval_foreign_or_unmanag
         unchanged(&admin, order).await;
         sqlx::query(restore).execute(&admin).await.unwrap();
     }
+    // An authorized actor in another tenant must still not find this order.
+    sqlx::raw_sql("INSERT INTO tenant_memberships(id,tenant_id,identity_id,status) VALUES('12121212-1212-4212-8212-121212121212','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','active'); INSERT INTO roles(id,tenant_id,code,name) VALUES('13131313-1313-4313-8313-131313131313','22222222-2222-4222-8222-222222222222','other-editor','Editor sintético'); INSERT INTO membership_roles(membership_id,role_id) VALUES('12121212-1212-4212-8212-121212121212','13131313-1313-4313-8313-131313131313'); INSERT INTO role_permissions(role_id,permission_code) VALUES('13131313-1313-4313-8313-131313131313','sales.orders.read'),('13131313-1313-4313-8313-131313131313','sales.orders.manage')").execute(&admin).await.unwrap();
+    let foreign = call(
+        &router,
+        (OTHER, "editor"),
+        "POST",
+        &format!("/api/v1/orders/{order}/accept"),
+        Some(1),
+        Some(Uuid::now_v7()),
+        json!({}),
+    )
+    .await;
+    assert_eq!(foreign.0, StatusCode::NOT_FOUND, "{}", foreign.2);
+    unchanged(&admin, order).await;
+    // The same minimum, term and contact rules as direct confirmation apply.
+    sqlx::raw_sql("INSERT INTO sales_settings(tenant_id,revision,minimum_order_amount_cents,maximum_payment_term_days,require_customer_contact) VALUES('11111111-1111-4111-8111-111111111111',1,10000001,3650,false)").execute(&admin).await.unwrap();
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::CONFLICT
+    );
+    unchanged(&admin, order).await;
+    sqlx::raw_sql("UPDATE sales_settings SET minimum_order_amount_cents=0,maximum_payment_term_days=0; UPDATE sales_orders SET due_date=(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date+1").execute(&admin).await.unwrap();
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::CONFLICT
+    );
+    unchanged(&admin, order).await;
+    sqlx::query(
+        "UPDATE sales_settings SET maximum_payment_term_days=3650,require_customer_contact=true",
+    )
+    .execute(&admin)
+    .await
+    .unwrap();
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::CONFLICT
+    );
+    unchanged(&admin, order).await;
+    sqlx::query("UPDATE sales_settings SET require_customer_contact=false")
+        .execute(&admin)
+        .await
+        .unwrap();
     // A real quote with a pending management decision must keep blocking acceptance.
     sqlx::raw_sql("INSERT INTO commercial_settings(tenant_id,product_line,parameters,revision) VALUES('11111111-1111-4111-8111-111111111111','imported','{}',1); INSERT INTO price_table_versions(id,tenant_id,product_line,version,settings_revision,policy_snapshot,calculator_version,digest,published_by) VALUES('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','11111111-1111-4111-8111-111111111111','imported',1,1,'{}','acceptance-test',repeat('a',64),'33333333-3333-4333-8333-333333333333')").execute(&admin).await.unwrap();
     sqlx::query("INSERT INTO commercial_order_quotes(tenant_id,order_id,price_version_id,public_snapshot,private_snapshot,approval_rules,approval_status,requires_director,created_by) VALUES($1::uuid,$2,'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','{}','{}','{}','pending',false,'33333333-3333-4333-8333-333333333333')").bind(TENANT).bind(order).execute(&admin).await.unwrap();
@@ -283,6 +339,62 @@ async fn acceptance_rejects_missing_checkout_pending_approval_foreign_or_unmanag
         StatusCode::CONFLICT
     );
     unchanged(&admin, order).await;
+    sqlx::query("UPDATE commercial_order_quotes SET approval_status='approved'")
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO order_pricing_snapshots(tenant_id,order_id,version_id,snapshot,needs_approval) VALUES($1::uuid,$2,'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','{}',true)").bind(TENANT).bind(order).execute(&admin).await.unwrap();
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::CONFLICT
+    );
+    unchanged(&admin, order).await;
+    cleanup(&admin, application, server, &role).await;
+}
+
+// Catches accidentally originating a checkout alongside an existing legacy title.
+#[sqlx::test(migrations = "../../migrations")]
+async fn acceptance_refuses_preexisting_titles_without_financial_or_order_effects(admin: PgPool) {
+    let (router, application, server, role) = setup(&admin).await;
+    seed(&admin).await;
+    let order = draft(&router).await;
+    save(&application, order).await;
+    let existing = Uuid::now_v7();
+    sqlx::query("INSERT INTO receivables(id,tenant_id,order_id,customer_name,due_date,amount_cents,status) VALUES($1,$2::uuid,$3,'Título sintético legado','2027-01-30',10000000,'open')").bind(existing).bind(TENANT).bind(order).execute(&admin).await.unwrap();
+    assert_eq!(
+        accept(&router, order, 1, Uuid::now_v7()).await.0,
+        StatusCode::CONFLICT
+    );
+    let state: (String, i64) =
+        sqlx::query_as("SELECT status,revision FROM sales_orders WHERE id=$1")
+            .bind(order)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(state, ("draft".into(), 1));
+    let titles: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM receivables WHERE order_id=$1")
+        .bind(order)
+        .fetch_all(&admin)
+        .await
+        .unwrap();
+    assert_eq!(titles, vec![existing]);
+    let due: Option<String> = sqlx::query_scalar(
+        "SELECT due_on::text FROM sales_order_installments WHERE order_id=$1 AND kind='entry'",
+    )
+    .bind(order)
+    .fetch_one(&admin)
+    .await
+    .unwrap();
+    assert!(due.is_none());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM domain_commands WHERE scope='order.accept'"
+        )
+        .fetch_one(&admin)
+        .await
+        .unwrap(),
+        0
+    );
     cleanup(&admin, application, server, &role).await;
 }
 

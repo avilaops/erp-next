@@ -489,6 +489,10 @@ pub fn router(state: AppState) -> Router {
             get(crate::domains::supporting_documents::download),
         )
         .route(
+            "/api/v1/orders/{id}/accept",
+            axum::routing::post(sales::acceptance::accept),
+        )
+        .route(
             "/api/v1/orders/{id}/confirm",
             axum::routing::post(sales::confirm),
         )

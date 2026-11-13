@@ -1,4 +1,4 @@
-//! Immutable negotiated conditions and the planned titles created on confirmation.
+//! Immutable negotiated conditions and titles created at commercial commitment.
 //! No payment, bank operation or production activation is performed here.
 use crate::domains::{DomainChange, DomainError, db, decimal, record};
 use crate::platform::auth::AuthenticatedIdentity;
@@ -257,8 +257,16 @@ pub async fn load(
     let state_registration = saved.customer_snapshot["stateRegistration"]
         .as_str()
         .map(str::to_owned);
+    let originated: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM receivables WHERE tenant_id=$1 AND order_id=$2)",
+    )
+    .bind(tenant)
+    .bind(order)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
     Ok(Some(CheckoutSnapshot {
-        confirmation_creates_receivables: true,
+        confirmation_creates_receivables: !originated,
         entry: CheckoutEntrySnapshot {
             amount_cents: saved.entry_amount_cents,
             payment_method_id: saved.entry_payment_method_id,
@@ -305,6 +313,48 @@ pub(super) async fn confirm(
     if !exists(tx, tenant, order).await? {
         return Ok(());
     }
+    originate(
+        tx,
+        tenant,
+        order,
+        identity,
+        headers,
+        "confirmed_order_schedule",
+    )
+    .await
+}
+
+pub(super) async fn originate_on_acceptance(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    order: Uuid,
+    identity: &AuthenticatedIdentity,
+    headers: &HeaderMap,
+) -> Result<(), DomainError> {
+    if !exists(tx, tenant, order).await? {
+        return Err(DomainError::Conflict(
+            "Aceitar encomenda exige checkout completo",
+        ));
+    }
+    originate(
+        tx,
+        tenant,
+        order,
+        identity,
+        headers,
+        "accepted_order_schedule",
+    )
+    .await
+}
+
+async fn originate(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: Uuid,
+    order: Uuid,
+    identity: &AuthenticatedIdentity,
+    headers: &HeaderMap,
+    source: &'static str,
+) -> Result<(), DomainError> {
     let existing: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM receivables WHERE tenant_id=$1 AND order_id=$2)",
     )
@@ -315,7 +365,7 @@ pub(super) async fn confirm(
     .map_err(db)?;
     if existing {
         return Err(DomainError::Conflict(
-            "Pedido já possui títulos; concilie antes de confirmar",
+            "Pedido já possui títulos; concilie antes de originar parcelas",
         ));
     }
     sqlx::query("UPDATE sales_order_installments SET due_on=(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date WHERE tenant_id=$1 AND order_id=$2 AND kind='entry' AND due_on IS NULL")
@@ -326,7 +376,7 @@ pub(super) async fn confirm(
         let id = Uuid::now_v7();
         sqlx::query("INSERT INTO receivables(id,tenant_id,order_id,order_installment_id,customer_name,due_date,amount_cents,status) VALUES($1,$2,$3,$4,$5,$6,$7,'open')")
             .bind(id).bind(tenant).bind(order).bind(installment).bind(customer).bind(due).bind(amount).execute(&mut **tx).await.map_err(db)?;
-        record(tx,tenant,identity,headers,DomainChange {kind:"receivable",id,event:"receivable.created",details:json!({"orderId":order,"orderInstallmentId":installment,"amount":decimal(amount,2),"revision":1,"source":"confirmed_order_schedule"})}).await?;
+        record(tx,tenant,identity,headers,DomainChange {kind:"receivable",id,event:"receivable.created",details:json!({"orderId":order,"orderInstallmentId":installment,"amount":decimal(amount,2),"revision":1,"source":source})}).await?;
     }
     verify_receivables(tx, tenant, order).await
 }

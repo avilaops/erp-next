@@ -17,6 +17,7 @@ use sqlx::{FromRow, Postgres, Transaction};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
+pub mod acceptance;
 pub mod checkout;
 pub(crate) mod checkout_document;
 #[cfg(test)]
@@ -902,9 +903,7 @@ async fn transition(
             ));
         }
         if matches!(action, Action::Confirm) {
-            negotiation::require_approval(&mut tx, tenant, id).await?;
-            pricing_orders::validate_confirmation(&mut tx, tenant, id).await?;
-            settings::validate_confirmation(&mut tx, tenant, &current).await?;
+            acceptance::validate_commercial_acceptance(&mut tx, tenant, &current).await?;
         }
         for item in &current.items {
             if matches!(action, Action::Complete) {
@@ -920,17 +919,6 @@ async fn transition(
                 )
                 .await?;
                 continue;
-            }
-            let product = catalog::load(&mut tx, tenant, item.product_id).await?;
-            if product.data.unit != item.unit {
-                return Err(DomainError::Conflict(
-                    "Unidade do produto mudou desde o rascunho. Cancele e recrie o pedido",
-                ));
-            }
-            if product.data.status != "active" {
-                return Err(DomainError::Conflict(
-                    "O produto precisa estar ativo para esta operação",
-                ));
             }
             let balance=sqlx::query_scalar::<_,i64>("SELECT COALESCE((SELECT quantity_micros FROM stock_balances WHERE tenant_id=$1 AND product_id=$2),0)").bind(tenant).bind(item.product_id).fetch_one(&mut *tx).await.map_err(db)?;
             let quantity = fixed(&item.quantity, 6)?;

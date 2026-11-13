@@ -18345,6 +18345,72 @@
       }
     },
     {
+      "id": "post-api-v1-orders-id-accept",
+      "flow": "orders",
+      "status": "implemented",
+      "operation": {
+        "method": "POST",
+        "path": "/api/v1/orders/{id}/accept"
+      },
+      "actor": "active_tenant_member",
+      "permissions": ["sales.orders.read", "sales.orders.manage"],
+      "input": {
+        "headers": ["Authorization", "X-Tenant-Id", "If-Match", "Idempotency-Key"],
+        "pathParameters": ["id"],
+        "body": null,
+        "query": null
+      },
+      "preconditions": [
+        "Revalidar identidade, empresa e permissões antes de replay ou efeitos.",
+        "If-Match atual e Idempotency-Key UUID; request canônico {id,revision}, escopo order.accept.",
+        "Pedido draft com checkout completo e imutável; entrada e parcelas somam exatamente o total.",
+        "Cliente e produtos ativos desta empresa, unidade preservada e condições comerciais aprovadas pelos mesmos guards da confirmação direta."
+      ],
+      "transition": {
+        "from": "draft com checkout completo",
+        "to": "accepted — Encomenda aceita; acordo congelado sem reserva física"
+      },
+      "effects": {
+        "writes": [
+          "Atualizar status e revisão do pedido; originar uma única vez os títulos de entrada e parcelas existentes.",
+          "Entrada sem vencimento usa a data do aceite em America/Sao_Paulo; demais datas e valores permanecem preservados.",
+          "Auditoria accepted_order_schedule, evento order.accepted e comando idempotente na mesma transação."
+        ],
+        "external": [],
+        "excludes": [
+          "Não cria saldo, reserva, movimento de estoque, recebimento financeiro, comissão, OP ou emissão fiscal.",
+          "Não permite editar o acordo nem confirma ou conclui o pedido fisicamente."
+        ]
+      },
+      "concurrency": {
+        "revision": true,
+        "idempotency": true,
+        "rule": "Mesmo mutex transacional da empresa; replay preserva o resultado e outra intenção com a mesma chave retorna 409."
+      },
+      "response": {
+        "successStatuses": [200],
+        "errorStatuses": [400, 401, 403, 404, 409, 412, 428, 500, 503],
+        "action": "Retornar OrderSnapshot com accepted, revisão incrementada e ETag; replay não duplica títulos."
+      },
+      "recovery": "Resposta perdida exige repetir exatamente chave e revisão originais. Revalidar acesso antes do replay; falha de outbox reverte pedido, vencimento, títulos, auditoria e comando.",
+      "ui": {
+        "pages": [],
+        "bff": null,
+        "gap": "Task 1 disponibiliza somente a API. O BFF e a ação Aceitar encomenda e gerar parcelas serão integrados na Task 4."
+      },
+      "sources": [
+        "apps/api/src/http/mod.rs",
+        "apps/api/src/domains/sales/acceptance.rs",
+        "apps/api/src/domains/sales/checkout.rs",
+        "migrations/202611130004_sales_order_acceptance.sql",
+        "apps/api/src/http/sales_acceptance_tests.rs"
+      ],
+      "verification": {
+        "status": "not_verified_by_catalog",
+        "criteria": ["interface", "request", "authorization", "domain", "persistence", "effects", "failure", "response"]
+      }
+    },
+    {
       "id": "post-api-v1-orders-id-confirm",
       "flow": "orders",
       "status": "implemented",

@@ -186,12 +186,12 @@ jobs:
       run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_055e10cbe21c575e'\nset -euo pipefail\n[[ \"$SOURCE_SHA\"\
         \ =~ ^[0-9a-f]{40}$ ]]\n[[ \"$DEPLOY_HOST\" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]\n[[ \"$DEPLOY_USER\" =~ ^[a-z_][a-z0-9_-]*$ ]]\nbundle_dir=$(mktemp -d)\nssh_dir=$(mktemp\
         \ -d)\ntrap 'rm -rf -- \"$bundle_dir\" \"$ssh_dir\"' EXIT\ncp bundle/release.json deploy/compose.yaml deploy/fiscal-compose.yaml deploy/migrate-release.py\
-        \ deploy/release-retention.py \"$bundle_dir/\"\nchmod 700 \"$ssh_dir\"\nprintf '%s\\n' \"$DEPLOY_KEY\" > \"$ssh_dir/key\"\nprintf '%s\\n' \"$DEPLOY_KNOWN_HOSTS\"\
-        \ > \"$ssh_dir/known_hosts\"\nchmod 600 \"$ssh_dir/key\" \"$ssh_dir/known_hosts\"\ntar -C \"$bundle_dir\" -czf - . | ssh -T -i \"$ssh_dir/key\" \\\n  -o BatchMode=yes\
-        \ -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\\n  -o UserKnownHostsFile=\"$ssh_dir/known_hosts\" -o ConnectTimeout=20 \\\n  -o ServerAliveInterval=15\
-        \ -o ServerAliveCountMax=3 \\\n  \"$DEPLOY_USER@$DEPLOY_HOST\" \"deploy erp-next $SOURCE_SHA\"\nERP_TIMED_055e10cbe21c575e\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\"\
-        \ --label 'release/deploy: Stream configuration and deploy registry images' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile\
-        \ --norc -e -o pipefail \"$script_file\"\n"
+        \ deploy/release-retention.py deploy/grant-fiscal-monitor.sql deploy/grant-cte-distribution.sql \"$bundle_dir/\"\nchmod 700 \"$ssh_dir\"\nprintf '%s\\n' \"\
+        $DEPLOY_KEY\" > \"$ssh_dir/key\"\nprintf '%s\\n' \"$DEPLOY_KNOWN_HOSTS\" > \"$ssh_dir/known_hosts\"\nchmod 600 \"$ssh_dir/key\" \"$ssh_dir/known_hosts\"\n\
+        tar -C \"$bundle_dir\" -czf - . | ssh -T -i \"$ssh_dir/key\" \\\n  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\\n  -o UserKnownHostsFile=\"\
+        $ssh_dir/known_hosts\" -o ConnectTimeout=20 \\\n  -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \\\n  \"$DEPLOY_USER@$DEPLOY_HOST\" \"deploy erp-next\
+        \ $SOURCE_SHA\"\nERP_TIMED_055e10cbe21c575e\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'release/deploy: Stream configuration and deploy registry\
+        \ images' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail \"$script_file\"\n"
     - name: Verify the public version after activation
       run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_1ea6e5c931ff1c26'\npython3 - <<'PY'\nimport json, os,\
         \ urllib.request\nwith urllib.request.urlopen('https://erp.avilaops.com/api/health', timeout=20) as response:\n    value = json.load(response)\nassert value.get('ok')\

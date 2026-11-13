@@ -30,7 +30,7 @@ def archive(files):
 class ArchiveTests(unittest.TestCase):
     def test_traversal_duplicates_and_oversized_bundles_are_rejected(self):
         code = re.search(r"python3 -c '(\nimport os, sys, tarfile[\s\S]*?)\n' \"\$staging\"", (DEPLOY / 'production-deploy.sh').read_text())[1]
-        names = ('release.json', 'compose.yaml', 'fiscal-compose.yaml', 'migrate-release.py', 'release-retention.py')
+        names = ('release.json', 'compose.yaml', 'fiscal-compose.yaml', 'migrate-release.py', 'release-retention.py', 'grant-fiscal-monitor.sql', 'grant-cte-distribution.sql')
         valid = [(name, b'fixture') for name in names]
         for extra, expected in [([], 0), ([('../escape', b'x')], 1), ([('release.json', b'x')], 1), ([('unknown', b'x')], 1), ([('unknown', b'x' * 524289)], 1)]:
             with self.subTest(extra=[name for name, _ in extra]), tempfile.TemporaryDirectory() as directory:
@@ -132,7 +132,9 @@ class DispatcherTests(unittest.TestCase):
                 migrate = b'import os,sys\nsys.exit(1 if os.environ.get("FAKE_FAILURE")=="migration" else 0)\n'
                 files = [('release.json', json.dumps(manifest).encode()), ('migrate-release.py', migrate),
                          ('release-retention.py', (DEPLOY / 'release-retention.py').read_bytes()),
-                         ('compose.yaml', (DEPLOY / 'compose.yaml').read_bytes()), ('fiscal-compose.yaml', (DEPLOY / 'fiscal-compose.yaml').read_bytes())]
+                         ('compose.yaml', (DEPLOY / 'compose.yaml').read_bytes()), ('fiscal-compose.yaml', (DEPLOY / 'fiscal-compose.yaml').read_bytes()),
+                         ('grant-fiscal-monitor.sql', (DEPLOY / 'grant-fiscal-monitor.sql').read_bytes()),
+                         ('grant-cte-distribution.sql', (DEPLOY / 'grant-cte-distribution.sql').read_bytes())]
                 environment = {**os.environ, 'PATH': str(binary) + os.pathsep + os.environ['PATH'], 'FAKE_DOCKER_STATE': str(state_file), 'FAKE_FAILURE': failure, 'SSH_ORIGINAL_COMMAND': 'deploy erp-next ' + A}
                 result = subprocess.run(['bash', str(script)], input=archive(files), capture_output=True, env=environment, timeout=30)
                 state = json.loads(state_file.read_text())

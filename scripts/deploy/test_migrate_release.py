@@ -43,6 +43,8 @@ class ReleaseMigrationTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.release = self.root / "releases" / SHA
         self.release.mkdir(parents=True)
+        for name in ("grant-fiscal-monitor.sql", "grant-cte-distribution.sql"):
+            (self.release / name).write_bytes((MODULE.parent / name).read_bytes())
         self.runtime = FakeRuntime()
 
     def migrate(self):
@@ -67,6 +69,15 @@ class ReleaseMigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "backup"):
             self.migrate()
         self.assertFalse(any(args[:2] == ["docker", "run"] for args, _ in self.runtime.calls))
+
+    def test_restricted_fiscal_grants_are_applied_after_migration_before_verification(self):
+        self.migrate()
+        migration_index = next(i for i, (args, _) in enumerate(self.runtime.calls) if args[:2] == ["docker", "run"])
+        grants = [(i, kwargs.get("input", "")) for i, (args, kwargs) in enumerate(self.runtime.calls) if "psql" in args and "GRANT" in kwargs.get("input", "")]
+        self.assertEqual(len(grants), 2)
+        self.assertTrue(all(i > migration_index for i, _ in grants))
+        self.assertTrue(any("fiscal_monitor_documents" in text for _, text in grants))
+        self.assertTrue(any("REVOKE UPDATE, DELETE ON fiscal_cte_distribution_documents" in text for _, text in grants))
 
     def test_failed_migration_keeps_private_diagnostic_and_never_claims_success(self):
         self.runtime.fail = "migrate"

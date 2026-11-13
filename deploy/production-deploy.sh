@@ -55,7 +55,8 @@ python3 -c '
 import os, sys, tarfile
 from pathlib import Path
 destination = Path(sys.argv[1])
-allowed = {"release.json", "compose.yaml", "fiscal-compose.yaml", "migrate-release.py", "release-retention.py"}
+allowed = {"release.json", "compose.yaml", "fiscal-compose.yaml", "migrate-release.py", "release-retention.py",
+           "grant-fiscal-monitor.sql", "grant-cte-distribution.sql"}
 seen, size = set(), 0
 with tarfile.open(fileobj=sys.stdin.buffer, mode="r|gz") as archive:
     for member in archive:
@@ -73,7 +74,7 @@ with tarfile.open(fileobj=sys.stdin.buffer, mode="r|gz") as archive:
 if seen != allowed: raise SystemExit("Incomplete release bundle")
 ' "$staging"
 
-for file in release.json compose.yaml fiscal-compose.yaml migrate-release.py release-retention.py; do
+for file in release.json compose.yaml fiscal-compose.yaml migrate-release.py release-retention.py grant-fiscal-monitor.sql grant-cte-distribution.sql; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"
 done
 [[ ! -e "$release" ]] || fail 'release already exists'
@@ -87,7 +88,7 @@ while read -r component reference; do
 done < "$staging/images.txt"
 
 mkdir -m 700 "$release"
-cp -p "$staging/migrate-release.py" "$staging/release-retention.py" "$staging/release.json" "$release/"
+cp -p "$staging/migrate-release.py" "$staging/release-retention.py" "$staging/release.json" "$staging/grant-fiscal-monitor.sql" "$staging/grant-cte-distribution.sql" "$release/"
 
 compose_overlay_args=()
 if [[ -f "$previous_release/compose.json" ]]; then

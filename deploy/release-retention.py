@@ -89,7 +89,7 @@ def snapshot_plan(root, active, rollback):
     allowed = {'ledger-before.json', 'ledger-after.json', 'schema-before.sql', 'ledger-before.sql',
                'migration.log', 'verification.json', 'image-check.log', 'database-check.log',
                'ledger-before.log', 'ledger-after.log', 'schema-backup.log', 'ledger-backup.log',
-               'postgres-user.log'}
+               'postgres-user.log', 'grant-fiscal-monitor.log', 'grant-cte-distribution.log'}
     for directory in private.iterdir():
         if not re.fullmatch(r'migration-[a-f0-9]{40}', directory.name) or directory.is_symlink() or not directory.is_dir():
             continue
@@ -111,7 +111,7 @@ def snapshot_plan(root, active, rollback):
 def staging_plan(root):
     allowed = {'release.json', 'compose.yaml', 'fiscal-compose.yaml', 'migrate-release.py',
                'release-retention.py', 'images.txt', 'api-image.tar.gz', 'web-image.tar.gz',
-               'fiscal-image.tar.gz', 'fiscal-mcp-image.tar.gz'}
+               'fiscal-image.tar.gz', 'fiscal-mcp-image.tar.gz', 'grant-fiscal-monitor.sql', 'grant-cte-distribution.sql'}
     result = []
     for directory in sorted(root.iterdir()):
         if not re.fullmatch(r'\.incoming\.[A-Za-z0-9]{6}', directory.name) or directory.is_symlink() or not directory.is_dir():

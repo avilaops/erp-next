@@ -35,6 +35,8 @@ conferindo o SHA-256 dos bytes LF aprovados. A conta SSH continua limitada ao
 comando `deploy erp-next <sha>`.
 
 O novo pacote contém somente manifesto, Compose e dois helpers Python. Ele
+inclui também os dois scripts revisados de permissões fiscais restritas, aplicados
+após as migrações e antes de ativar os serviços. Ele
 não é compatível com o dispatcher antigo: este recusará o pacote antes de
 alterar os serviços. O código não instala ferramentas nem compila no servidor.
 

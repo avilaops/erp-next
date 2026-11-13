@@ -15,7 +15,7 @@ test.beforeEach(async ({ context, baseURL, page }) => {
 })
 test.afterEach(async ({ page }, testInfo) => {
   if (testInfo.status !== testInfo.expectedStatus) {
-    const images = await page.locator("img").evaluateAll(images => images.map(image => ({ src: image.getAttribute("src"), currentSrc: image.currentSrc, width: image.naturalWidth, height: image.naturalHeight })))
+    const images = await page.locator("img").evaluateAll(images => images.filter((image): image is HTMLImageElement => image instanceof HTMLImageElement).map(image => ({ src: image.getAttribute("src"), currentSrc: image.currentSrc, width: image.naturalWidth, height: image.naturalHeight })))
     await testInfo.attach("bank-image-delivery", { body: [...(imageDiagnostics.get(page) || []), JSON.stringify(images)].join("\n"), contentType: "text/plain" })
   }
 })

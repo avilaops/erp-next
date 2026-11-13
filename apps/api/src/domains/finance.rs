@@ -39,17 +39,17 @@ pub(super) async fn originate_order_receivable(
     Ok(())
 }
 
-#[derive(FromRow, Serialize, ToSchema)]
+#[derive(FromRow, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Receivable {
     id: Uuid,
     order_id: Uuid,
     customer_name: String,
     due_date: String,
-    amount: String,
-    received_amount: String,
-    outstanding_amount: String,
-    status: String,
+    pub(super) amount: String,
+    pub(super) received_amount: String,
+    pub(super) outstanding_amount: String,
+    pub(super) status: String,
     revision: i64,
     payment_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,7 +63,7 @@ pub struct Receivable {
 }
 
 // Totals come from the append-only ledger, not a second mutable balance.
-const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id,r.order_installment_id,i.number AS installment_number,i.kind AS installment_kind,i.payment_method_id AS planned_payment_method_id FROM receivables r LEFT JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
+pub(super) const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id,r.order_installment_id,i.number AS installment_number,i.kind AS installment_kind,i.payment_method_id AS planned_payment_method_id FROM receivables r LEFT JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
 #[derive(Clone, FromRow, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Payment {
@@ -75,13 +75,25 @@ pub struct Payment {
     pub(super) occurred_on: String,
     pub(super) reverses_id: Option<Uuid>,
     pub(super) financial_account_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) payment_method_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) payment_method: Option<ConfiguredPaymentMethod>,
 }
-#[derive(Serialize, ToSchema)]
+#[derive(Clone, FromRow, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfiguredPaymentMethod {
+    pub(super) id: Uuid,
+    pub(super) code: String,
+    pub(super) name: String,
+    pub(super) modality: String,
+}
+#[derive(Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceivableSnapshot {
     tenant_id: Uuid,
     can_edit: bool,
-    data: Receivable,
+    pub(super) data: Receivable,
     payments: Vec<Payment>,
 }
 #[derive(Serialize, ToSchema)]
@@ -102,6 +114,10 @@ pub struct PaymentInput {
     pub(super) reference: String,
     pub(super) occurred_on: String,
     pub(super) financial_account_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) supporting_document: Option<super::supporting_documents::SupportingDocumentInput>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) payment_method_id: Option<Uuid>,
 }
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -120,7 +136,7 @@ async fn load(
     // Read the totals and ledger in one statement so concurrent commits cannot
     // produce a detail with an old revision and a newer payment history.
     let query = format!(
-        "SELECT account.*, COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'method',p.method,'reference',p.reference,'occurredOn',p.occurred_on::text,'reversesId',p.reverses_id,'financialAccountId',p.financial_account_id) ORDER BY p.created_at,p.id) FROM receivable_payments p WHERE p.tenant_id=$1 AND p.receivable_id=$2),'[]'::jsonb) AS payments FROM ({ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.id=$2) account"
+        "SELECT account.*, COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount',(p.amount_cents::numeric/100)::numeric(16,2)::text,'method',p.method,'reference',p.reference,'occurredOn',p.occurred_on::text,'reversesId',p.reverses_id,'financialAccountId',p.financial_account_id,'paymentMethodId',p.payment_method_id,'paymentMethod',p.payment_method) ORDER BY p.created_at,p.id) FROM receivable_payments p WHERE p.tenant_id=$1 AND p.receivable_id=$2),'[]'::jsonb) AS payments FROM ({ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.id=$2) account"
     );
     let row = sqlx::query(&query)
         .bind(tenant)
@@ -265,4 +281,15 @@ pub(super) async fn settlement_snapshot(
         value: serde_json::to_value(current).map_err(|_| AccessError::Internal)?,
     };
     Ok(snapshot)
+}
+
+#[cfg(test)]
+mod receipt_command_tests {
+    use super::*;
+    #[test]
+    fn optional_receipt_extensions_preserve_legacy_command_serialization() {
+        let previous = serde_json::json!({"amount":"1.00","method":"cash","reference":"Registro anterior","occurredOn":"2026-11-13","financialAccountId":null});
+        let input: PaymentInput = serde_json::from_value(previous.clone()).unwrap();
+        assert_eq!(serde_json::to_value(input).unwrap(), previous);
+    }
 }

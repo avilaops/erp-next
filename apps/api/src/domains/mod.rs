@@ -16,6 +16,7 @@ pub mod legacy;
 pub mod logistics;
 pub mod logistics_checkout;
 pub mod logistics_dispatch;
+pub mod order_finance;
 pub mod parties;
 mod party_complements;
 pub mod payables;
@@ -32,6 +33,7 @@ mod settlements;
 pub mod staff;
 pub mod staff_payroll;
 pub mod supply_settings;
+pub mod supporting_documents;
 pub mod warranties;
 
 use crate::platform::{access, auth::AuthenticatedIdentity, state::AppState};

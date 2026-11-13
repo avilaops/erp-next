@@ -3,6 +3,7 @@ mod email;
 mod model;
 mod package;
 pub mod provider;
+mod structured;
 mod sync;
 pub mod templates;
 
@@ -136,7 +137,14 @@ pub async fn options(
             } else {
                 template["name"].as_str().unwrap_or("Modelo").to_owned()
             };
-            templates.push(json!({"id":id,"name":name,"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template)}));
+            let (defaults, problem) = match model::defaults_for_template(&snapshot, &template) {
+                Ok(values) => (Some(values), None),
+                Err(DomainError::Conflict(message) | DomainError::Invalid(message)) => {
+                    (None, Some(message))
+                }
+                Err(error) => return Err(error),
+            };
+            templates.push(json!({"id":id,"name":name,"updatedAt":template["updated_at"],"roles":template["submitters"],"fields":model::editable_fields(&template),"defaults":defaults,"generationProblem":problem}));
         }
     }
     Ok(response(

@@ -43,4 +43,26 @@ other = Account.create!(name: 'Other tenant fixture').users.create!(email: 'othe
 other_headers = headers.merge('HTTP_X_AUTH_TOKEN' => other.create_access_token!.token)
 check(JSON.parse(client.get(path, other_headers).body)['found'] == false, 'another account saw the publication')
 check(Submission.count.zero?, 'publishing must never create a signing request')
+
+[148, 200].each do |count|
+  expanded = definition.merge(fields: Array.new(count) do |index|
+    definition[:fields].first.merge(id: SecureRandom.uuid, name: "Bounded field #{index}",
+                                   kind: index.zero? ? 'signature' : 'text', required: index.zero?)
+  end)
+  expanded_body = body.merge(definitionJson: JSON.generate(expanded))
+  expanded_path = "/api/avila/templates/#{SecureRandom.uuid}"
+  published = client.post(expanded_path, headers.merge(input: JSON.generate(expanded_body)))
+  check(published.status == 200, "#{count}-field publication failed: #{published.status}")
+  stored = Template.find(JSON.parse(published.body)['id'])
+  check(stored.fields.size == count, 'expanded publication lost fields')
+  check(client.post(expanded_path, headers.merge(input: JSON.generate(expanded_body))).body == published.body,
+        'expanded publication retry must remain immutable')
+end
+too_many = definition.merge(fields: Array.new(201) do |index|
+  definition[:fields].first.merge(id: SecureRandom.uuid, name: "Overflow field #{index}")
+end)
+rejected = client.post("/api/avila/templates/#{SecureRandom.uuid}",
+                       headers.merge(input: JSON.generate(body.merge(definitionJson: JSON.generate(too_many)))))
+check(rejected.status == 422, '201-field publication must be rejected')
+check(Submission.count.zero?, 'large template publication must never request signatures')
 puts 'Publication integration: authorization, PDF validation, multiple positions, immutable retry and account isolation passed.'

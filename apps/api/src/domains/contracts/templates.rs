@@ -24,6 +24,7 @@ use import::{catalog, import_template};
 
 const READ: &str = "sales.orders.read";
 const MANAGE: &str = "platform.integrations.manage";
+pub(super) const MAX_FIELDS: usize = 200;
 
 #[derive(Clone, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -95,7 +96,7 @@ impl Definition {
                 .roles
                 .iter()
                 .any(|r| !valid_text(r) || !roles.insert(r))
-            || self.fields.len() > 100
+            || self.fields.len() > MAX_FIELDS
         {
             return Err(DomainError::Invalid(
                 "Nome, páginas ou participantes do modelo inválidos",
@@ -374,5 +375,43 @@ mod tests {
         value.fields.pop();
         value.fields[0].x = f64::NAN;
         assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn accepts_real_ludus_definition_and_two_hundred_fields_but_not_two_hundred_one() {
+        let actual: Definition =
+            serde_json::from_str(include_str!("ludus-template.fixture.json")).unwrap();
+        assert_eq!(actual.fields.len(), 148);
+        assert!(actual.validate().is_ok());
+        let mut maximum = definition();
+        maximum.fields = (0..200)
+            .map(|index| {
+                let mut field = definition().fields.remove(0);
+                field.name = format!("Campo {index}");
+                field
+            })
+            .collect();
+        assert!(maximum.validate().is_ok());
+        let mut extra = definition().fields.remove(0);
+        extra.name = "Campo 201".into();
+        maximum.fields.push(extra);
+        assert!(maximum.validate().is_err());
+    }
+
+    #[test]
+    fn expanded_field_cap_keeps_additional_areas_pages_roles_and_fonts_bounded() {
+        let original: Definition =
+            serde_json::from_str(include_str!("ludus-template.fixture.json")).unwrap();
+        for mutation in 0..5 {
+            let mut value = original.clone();
+            match mutation {
+                0 => value.fields[0].additional_areas[0].x = 101.0,
+                1 => value.fields[0].additional_areas[0].page = 18,
+                2 => value.fields[0].page = 0,
+                3 => value.fields[0].role = "Desconhecido".into(),
+                _ => value.fields[0].font_size = Some(5.9),
+            }
+            assert!(value.validate().is_err(), "mutation {mutation}");
+        }
     }
 }

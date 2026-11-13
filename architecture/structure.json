@@ -46,8 +46,8 @@
     "pos": "Operação do PDV, sessões de caixa, fechamento e histórico, com autorização no backend."
   },
   "routeSurface": {
-    "count": 493,
-    "sha256": "b8f0ed3623922203863f2007999b0c04bf4de721590d388282e7f973f4cdd9d3"
+    "count": 496,
+    "sha256": "61d062db4163a9b8750a2a216d0a075ee1b0474bf368b2b2ac51540bcba9ecbd"
   },
   "retiredPaths": [
     "apps/web/src/lib/erp-session.ts",
@@ -90,8 +90,8 @@
     "apps/api/src/platform/financial_settings.rs"
   ],
   "routeSurfaceReview": {
-    "previousPolicyCommit": "1eadb2043ccb267fb753117047286563ceea8a97",
-    "reviewedMainCommit": "720af1bbc9f8867c4752d4d26c27e2019dc83041",
-    "changes": "15 URLs adicionadas para PDV, documentos e e-mails de pedidos/propostas e configuração de e-mail; nenhum endereço removido. Domínio pos registrado."
+    "previousPolicyCommit": "81db794acd64554992b478ced1973d3c5ff10034",
+    "reviewedMainCommit": "81db794acd64554992b478ced1973d3c5ff10034",
+    "changes": "3 rotas BFF adicionadas: resumo financeiro do pedido, documentos do pedido e download privado de documento. Sessão, empresa e permissões continuam verificadas; nenhum endereço removido."
   }
 }

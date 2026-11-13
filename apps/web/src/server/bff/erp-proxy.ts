@@ -4,6 +4,11 @@ import { fiscalApiOrigin } from "@/lib/api/local-fiscal-origin"
 import { currentIdentitySession, currentSession, erpConfiguration } from "@/server/auth/erp-session"
 
 export async function forwardErp(request: Request, resource: string) {
+  const orderFinanceResource = /^\/orders\/[a-f0-9-]{36}\/finance$/i.test(resource)
+  const supportingDocumentsResource = /^\/orders\/[a-f0-9-]{36}\/documents$/i.test(resource)
+  const supportingDownloadResource = /^\/orders\/[a-f0-9-]{36}\/documents\/[a-f0-9-]{36}$/i.test(resource)
+  const supportingResource = orderFinanceResource || supportingDocumentsResource || supportingDownloadResource
+  if (supportingResource && (!(supportingDocumentsResource ? ["GET", "POST"] : ["GET"]).includes(request.method) || new URL(request.url).search)) return Response.json({ title: "Operação de documentos ou financeiro inválida" }, { status: 400 })
   const platformMailResource = resource === "/platform/mail-settings"
   const orderDocumentResource = /^\/orders\/[a-f0-9-]{36}\/document$/i.test(resource)
   if (platformMailResource && !["GET", "PUT"].includes(request.method) || orderDocumentResource && request.method !== "GET") return Response.json({ title: "Método inválido" }, { status: 405 })
@@ -79,7 +84,7 @@ export async function forwardErp(request: Request, resource: string) {
     || request.method === "POST" && (/^\/logistics\/postings$/i.test(resource) || /^\/logistics\/postings\/[a-f0-9-]{36}\/(?:status|packages)$/i.test(resource) || /^\/logistics\/checkouts(?:\/[a-f0-9-]{36}(?:\/(?:complete|labels|lines\/\d+\/check|packages(?:\/[a-f0-9-]{36}\/status)?))?)?$/i.test(resource))
   const purchaseCollection = /^\/(?:purchase-orders|payables|financial-payables)$|^\/purchase-orders\/[a-f0-9-]{36}\/receipts$/i.test(resource)
   const purchaseResource = purchaseCollection || /^\/(?:purchase-orders|purchase-receipts|payables|financial-payables)\/[a-f0-9-]{36}$|^\/purchase-orders\/[a-f0-9-]{36}\/(?:confirm|cancel|close)$|^\/(?:payables|financial-payables)\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)
-  if (!platformMailResource && !orderDocumentResource && !posResource && !documentEmailResource && !priceListResource && !opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !productCatalogResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
+  if (!supportingResource && !platformMailResource && !orderDocumentResource && !posResource && !documentEmailResource && !priceListResource && !opportunityResource && !negotiationResource && !warrantyResource && !simulatorResource && !dashboardResource && !productCostResource && !priceTableResource && !fixedExpenseResource && !commercialResource && !proposalResource && !payrollResource && !registryResource && !salesSettingsResource && !accountResource && !continuityResource && !auditResource && !systemResource && !returnResource && !logisticsResource && !invitationResource && !referenceResource && !financialAccountEntriesResource && !financialAccountTransfersResource && !inventoryCountResource && !serviceKeyResource && !purchaseResource && !productTransferResource && !productCatalogResource && !/^\/(?:me|company|companies|financial-settings|preferences|staff|users|roles|permissions|products|stock|parties|orders|receivables)$|^\/(?:users|roles|products|parties|staff|orders|receivables)\/[a-f0-9-]{36}$|^\/stock\/movements$|^\/orders\/[a-f0-9-]{36}\/(?:confirm|cancel|complete)$|^\/receivables\/[a-f0-9-]{36}\/(?:payments|reverse-payment)$/i.test(resource)) return Response.json({ title: "Recurso inválido" }, { status: 400 })
   try {
     const config = erpConfiguration()
     const session = platformMailResource || resource === "/companies" || resource === "/company-registration/lookup" ? await currentIdentitySession() : await currentSession()
@@ -96,7 +101,7 @@ export async function forwardErp(request: Request, resource: string) {
       const reader = request.body?.getReader()
       const chunks: Uint8Array[] = []
       let size = 0
-      const bodyLimit = /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) ? 14_100_000 : /^\/products\/import$/i.test(resource) ? 2_800_000 : /^\/(?:staff|products|company)(?:\/[a-f0-9-]{36})?$/i.test(resource) ? 400_000 : 65_536
+      const bodyLimit = supportingDocumentsResource || /^\/receivables\/[a-f0-9-]{36}\/payments$/i.test(resource) || /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) ? 14_100_000 : /^\/products\/import$/i.test(resource) ? 2_800_000 : /^\/(?:staff|products|company)(?:\/[a-f0-9-]{36})?$/i.test(resource) ? 400_000 : 65_536
       if (reader) for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -205,6 +210,11 @@ export async function forwardErp(request: Request, resource: string) {
     const output = new Headers({ "Cache-Control": "no-store, no-transform", "Content-Type": response.headers.get("content-type") || "application/json" })
     if ((productExportResource || orderDocumentResource) && response.ok) { const disposition = response.headers.get("content-disposition"); if (disposition) output.set("Content-Disposition", disposition) }
     for (const name of ["etag", "x-request-id", "idempotency-replayed"]) { const value = response.headers.get(name); if (value) output.set(name, value) }
+    if (supportingDownloadResource && response.ok) {
+      output.set("X-Content-Type-Options", "nosniff")
+      output.set("Content-Disposition", response.headers.get("content-disposition") || "attachment")
+      return new Response(response.body, { status: response.status, headers: output })
+    }
     if (orderDocumentResource && response.ok) return new Response(await response.arrayBuffer(), { status: response.status, headers: output })
     const responseBody = response.status === 204 ? "" : await response.text()
     if (registryResource) {

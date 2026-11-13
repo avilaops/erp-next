@@ -17,23 +17,18 @@ para execução manual ou semanal (segunda-feira, 04:23 UTC). O auto merge foi
 retirado. `Release` publica somente uma revisão promovida por tag ou execução
 manual na main, depois das validações completas e das proteções do ambiente.
 
-## Publicação direta
+## Publicação aprovada
 
-O fluxo operacional é compilar na máquina de desenvolvimento, testar o trecho
-alterado e enviar o pacote pronto por SSH. O servidor aplica a versão e as
-migrações pendentes diretamente, sem aguardar o workflow completo. Não compilar
-no servidor de aplicações: ele compartilha memória com outros serviços.
+Integre o PR depois do check obrigatório `gate` e execute `Release` na main com
+o SHA completo aprovado. A publicação exige todas as validações desse workflow,
+incluindo os testes de navegador, e usa as imagens GHCR por digest do manifesto.
+Builds locais servem para desenvolvimento e diagnóstico; não substituem esses
+checks nem autorizam enviar executáveis avulsos para produção.
 
-No Windows, a API Linux pode ser gerada localmente com `cargo-zigbuild` e Zig:
-`cargo zigbuild --target x86_64-unknown-linux-gnu.2.36 --locked -p erp-next-api`.
-Reutilize o cache de `target`; limite `CARGO_BUILD_JOBS=1` em máquinas com pouca
-memória. Para a web, use `ERP_BUILD_CPUS=2` e `pnpm --filter web build`. A variável
-limita os workers do build sem mudar o layout ou a configuração da aplicação.
-
-Identifique o commit e os hashes dos pacotes. Preserve as dependências Linux das
-imagens de runtime e substitua somente o executável da API ou o build da web
-quando as dependências não mudarem. Uma mudança de dependências exige imagem
-compatível reconstruída e validada. Registre quais componentes foram atualizados.
+Não compilar no servidor de aplicações: ele compartilha memória com outros
+serviços. O dispatcher recebe somente configuração e helpers revisados e baixa
+as imagens já construídas e validadas. O procedimento detalhado e a retenção
+estão em [CI, publicação e retenção](CI-CD.md).
 
 Antes das migrações, preserve um backup do schema e confira os arquivos/checksums
 contra `_sqlx_migrations`. Execute somente `erp-next-api migrate`, usando as

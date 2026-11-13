@@ -93,7 +93,7 @@ pub async fn snapshot(
         SELECT jsonb_build_object(
             'order',jsonb_build_object('id',o.id,'number',o.number::text,'revision',o.revision,'status',o.status,'dueDate',o.due_date::text,'amount',(o.amount_cents::numeric/100)::numeric(16,2)::text),
             'company',COALESCE(c.details,'{}'::jsonb)||jsonb_build_object('legalName',t.legal_name,'taxId',t.tax_id),
-            'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'addresses',p.addresses),
+            'customer',jsonb_build_object('id',p.id,'name',p.legal_name,'taxId',p.tax_id,'email',p.email,'phone',p.phone,'addresses',p.addresses),
             'proposal',(SELECT jsonb_build_object('id',sp.id,'number',sp.number::text,'version',v.version,'paymentTerms',v.payment_terms,'deliveryTerms',v.delivery_terms,'notes',v.notes)
                 FROM sales_proposals sp JOIN sales_proposal_versions v ON v.tenant_id=sp.tenant_id AND v.proposal_id=sp.id AND v.version=sp.current_version
                 WHERE sp.tenant_id=o.tenant_id AND sp.order_id=o.id AND v.status='accepted'),
@@ -120,8 +120,9 @@ fn apply_checkout(
     checkout: &crate::domains::sales::checkout::CheckoutSnapshot,
 ) {
     let customer = &checkout.customer;
-    snapshot["customer"] = json!({"id":customer["id"],"name":customer["legalName"],"taxId":customer["taxId"],"email":customer["email"],"addresses":customer["addresses"]});
+    snapshot["customer"] = json!({"id":customer["id"],"name":customer["legalName"],"taxId":customer["taxId"],"email":customer["email"],"phone":customer["phone"],"addresses":customer["addresses"]});
     snapshot["commercialTerms"] = json!(crate::domains::sales::checkout_document::terms(checkout));
+    snapshot["negotiatedPayments"] = json!({"entryAmountCents":checkout.entry.amount_cents,"installments":checkout.installments.iter().map(|installment|json!({"amountCents":installment.amount_cents,"dueOn":installment.due_on})).collect::<Vec<_>>()});
 }
 
 fn address(value: &Value) -> String {
@@ -232,7 +233,28 @@ pub fn defaults(snapshot: &Value) -> BTreeMap<String, String> {
 pub fn editable_fields(template: &Value) -> Vec<Value> {
     template["fields"].as_array().into_iter().flatten()
         .filter(|field| field["type"] != "signature" && field["type"] != "initials")
-        .map(|field| json!({"name":field["name"],"type":field["type"],"required":field["required"].as_bool().unwrap_or(true)})).collect()
+        .map(|field| {
+            let choice = field["name"].as_str().and_then(|name| super::structured::choice_metadata(template, name));
+            json!({"name":field["name"],"type":field["type"],"required":field["required"].as_bool().unwrap_or(true),"choiceGroup":choice.map(|(group,_)|group),"choiceOption":choice.map(|(_,option)|option)})
+        }).collect()
+}
+
+/// Defaults are template-specific: the historical decimal transport and joined
+/// item text stay unchanged unless the selected document has the structured cells.
+pub fn defaults_for_template(
+    snapshot: &Value,
+    template: &Value,
+) -> Result<BTreeMap<String, String>, DomainError> {
+    let names: HashSet<_> = editable_fields(template)
+        .into_iter()
+        .filter_map(|field| field["name"].as_str().map(str::to_owned))
+        .collect();
+    let mut values: BTreeMap<_, _> = defaults(snapshot)
+        .into_iter()
+        .filter(|(name, value)| names.contains(name) && !value.is_empty())
+        .collect();
+    super::structured::apply_defaults(snapshot, &names, &mut values)?;
+    Ok(values)
 }
 
 pub fn validate(
@@ -261,6 +283,7 @@ pub fn validate(
         .ok_or(DomainError::Invalid("Modelo sem campos"))?;
     let mut names = HashSet::new();
     if template_fields.is_empty()
+        || template_fields.len() > super::templates::MAX_FIELDS
         || template_fields.iter().any(|f| {
             f["name"]
                 .as_str()
@@ -302,7 +325,7 @@ pub fn validate(
         }
     }
     let fields = editable_fields(template);
-    if input.fields.len() > 100
+    if input.fields.len() > super::templates::MAX_FIELDS
         || input
             .fields
             .iter()
@@ -314,10 +337,8 @@ pub fn validate(
     }
     // Commercial values available in the ERP are authoritative. Missing values
     // and commercial terms can be filled explicitly and remain in the snapshot.
-    for (key, value) in defaults(snapshot) {
-        if !value.is_empty() && fields.iter().any(|f| f["name"] == key) {
-            input.fields.insert(key, value);
-        }
+    for (key, value) in defaults_for_template(snapshot, template)? {
+        input.fields.insert(key, value);
     }
     for field in fields {
         if !["text", "date", "number", "phone", "select", "radio"]
@@ -338,7 +359,7 @@ pub fn validate(
             ));
         }
     }
-    Ok(())
+    super::structured::validate(&input.fields, template)
 }
 
 pub fn submission_body(contract: &Contract) -> Value {
@@ -399,3 +420,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "structured_tests.rs"]
+mod structured_tests;

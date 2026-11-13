@@ -26,4 +26,6 @@ Gerar um título não confirma pagamento. Receber e estornar exigem permissão f
 
 Guia conferido no código de 12/11/2026. As ações dependem das permissões e da configuração da empresa. Relatos técnicos antigos descrevem a etapa em que foram escritos.
 
+- [Levantamento: recebimentos do pedido e comprovantes](../../vendas/pedidos/referencias/RECEBIMENTOS-E-DOCUMENTOS.md) — reutilização do Financeiro e integrações pendentes.
+
 - [receivables-access](../../../../apps/web/src/features/finance/receivables-access.tsx)

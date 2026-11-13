@@ -17,6 +17,9 @@ const commercialDefaults = { cliente_nome: snapshot.customer.name, pedido_total:
 const commercialManualFields = ["condicoes", "entrega", "Representante — nome", "Representante — CPF", "Testemunha 1 — nome", "Testemunha 1 — CPF", "Testemunha 2 — nome", "Testemunha 2 — CPF", ...Array.from({ length: 20 }, (_, index) => `Informação comercial ${index + 1}`)]
 let commercial = false
 let inherited = false
+let templateSpecific = false
+let largeTemplate = false
+let generationProblem = ""
 const proposalTerms = { id: "66666666-6666-4666-8666-666666666666", number: "18", version: 2, paymentTerms: "Entrada de 30%, saldo na entrega", deliveryTerms: "Entrega em 60 dias", notes: "Conferir acesso ao local" }
 function contractSnapshot() { return inherited ? { ...snapshot, proposal: proposalTerms } : snapshot }
 let generationCalls = 0
@@ -88,6 +91,18 @@ const upstream = createServer(async (request, response) => {
     if (url.pathname === "/api/v1/me") { response.end(JSON.stringify({ tenant: { id: tenant, legalName: "Empresa de validação" }, permissions: ["sales.orders.read", "sales.orders.manage", "sales.contracts.send"] })); return }
     if (url.pathname === `/api/v1/orders/${orderId}`) { response.end(JSON.stringify({ tenantId: tenant, canEdit: true, data: { id: orderId, customerId, customerName: snapshot.customer.name, amount: "100.00", dueDate: "2026-12-01", status: "draft", revision: 1 }, items: [] })); return }
     if (url.pathname === `/api/v1/commercial-contracts/options/${orderId}`) {
+      if (largeTemplate) {
+        const fields = [
+          { name: "cliente_nome", type: "text", required: true }, { name: "pedido_total", type: "text", required: true },
+          { name: "Produto 2 — descrição", type: "text", required: false }, { name: "condicoes", type: "text", required: true },
+          ...["À vista", "02 parcelas"].map(choiceOption => ({ name: `Pagamento — condição — ${choiceOption}`, type: "text", required: false, choiceGroup: "Pagamento — condição", choiceOption })),
+          ...Array.from({ length: 142 }, (_, i) => ({ name: `Informação opcional ${i + 1}`, type: "text", required: false })),
+        ]
+        response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot, defaults: {}, templates: [{ id: 4, name: "Contrato técnico com 148 campos", updatedAt: "2026-11-13T00:00:00Z", defaults: { cliente_nome: snapshot.customer.name, pedido_total: "R$ 100,00", "Produto 2 — descrição": "" }, fields, roles: [{ name: "Cliente", uuid: "customer" }] }] })); return
+      }
+      if (templateSpecific) {
+        response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot, defaults: { pedido_total: "100.00", linha_vazia: "Valor genérico indevido" }, templates: [{ id: 1, name: "Modelo com defaults próprios", updatedAt: "2026-10-29T00:00:00Z", defaults: { pedido_total: "R$ 100,00", linha_vazia: "" }, generationProblem: generationProblem || null, roles: [{ name: "Cliente", uuid: "customer" }], fields: [{ name: "pedido_total", type: "text", required: true }, { name: "linha_vazia", type: "text", required: false }, { name: "condicoes", type: "text", required: true }] }] })); return
+      }
       if (inherited) {
         const defaults = { cliente_nome: snapshot.customer.name, condicoes: proposalTerms.paymentTerms, entrega: proposalTerms.deliveryTerms, observacoes: proposalTerms.notes }
         response.end(JSON.stringify({ tenantId: tenant, canEdit: true, configured: true, emailReady, snapshot: contractSnapshot(), defaults, templates: [{ id: 1, name: "Contrato de validação", updatedAt: "2026-10-29T00:00:00Z", roles: [{ name: "Cliente", uuid: "customer" }], fields: Object.keys(defaults).map(name => ({ name, type: "text", required: true })) }] })); return
@@ -150,10 +165,42 @@ test.beforeAll(async ({ browser }) => {
 })
 test.afterAll(async () => { await new Promise<void>(resolve => upstream.close(() => resolve())) })
 test.beforeEach(() => {
+  templateSpecific = false; largeTemplate = false; generationProblem = ""
   templateDraft = null; templateSaves = 0; templatePublications = 0
   status = "created"; revision = 1; canSend = true; emailReady = false
   generated = false; sends = 0; reviewCalls = 0; commercial = false; inherited = false; generationCalls = 0
   generatedRecipients = []; generatedFields = {}; generationKeys = []; failures.length = 0
+})
+
+test("modelo preserva defaults próprios inclusive vazios e apresenta bloqueio de geração", async ({ page, context }) => {
+  templateSpecific = true
+  await context.addCookies([cookie()])
+  await page.goto(`/vendas/pedidos/${orderId}/contratos/novo`)
+  await expect(page.getByLabel("Total do pedido")).toHaveValue("R$ 100,00")
+  await expect(page.getByLabel("linha_vazia")).toHaveValue("")
+  await expect(page.getByLabel("linha_vazia")).toHaveAttribute("readonly", "")
+  await page.getByLabel("Condições comerciais").fill("Validação autorizada")
+  await page.getByRole("button", { name: "Gerar prévia para revisão" }).click()
+  await page.waitForURL(`**/vendas/pedidos/${orderId}/contratos?contrato=${contractId}`)
+  expect(generatedFields).toMatchObject({ pedido_total: "R$ 100,00", linha_vazia: "" })
+  generationProblem = "O pedido possui mais itens que o modelo comporta."
+  await page.goto(`/vendas/pedidos/${orderId}/contratos/novo`)
+  await expect(page.getByRole("alert").filter({ hasText: generationProblem })).toBeVisible()
+  await page.getByLabel("Condições comerciais").fill("Validação autorizada")
+  await expect(page.getByRole("button", { name: "Gerar prévia para revisão" })).toBeDisabled()
+  expect(generationCalls).toBe(1)
+})
+
+test("editor aceita campo 200 e impede campo 201", async ({ page, context }) => {
+  const id = "77777777-7777-4777-8777-777777777777"
+  templateDraft = { id, revision: 1, definition: { name: "Modelo com 199 campos", pages: 1, roles: ["Cliente"], fields: Array.from({ length: 199 }, (_, i) => ({ id: `f${i}`, name: `campo_${i + 1}`, kind: "text", role: "Cliente", required: false, page: 1, x: 5, y: 5, width: 40, height: 5 })) } }
+  await context.addCookies([cookie()])
+  await page.goto(`/servicos/contratos/modelos/${id}`)
+  const add = page.getByRole("button", { name: "Adicionar campo", exact: true })
+  await expect(add).toBeEnabled({ timeout: 30000 })
+  await add.click()
+  await expect(page.getByRole("textbox", { name: "Nome do campo", exact: true })).toHaveCount(200)
+  await expect(add).toBeDisabled()
 })
 
 test("editor salva PDF e campos como rascunho e reabre sem enviar contrato", async ({ page, context }) => {
@@ -316,7 +363,7 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   await context.addCookies([cookie()])
   await page.goto(`/vendas/pedidos/${orderId}/contratos/novo`)
   await expect(page.getByLabel("Modelo de contrato")).toHaveValue("3")
-  await expect(page.locator("textarea")).toHaveCount(31)
+  await expect(page.getByRole("heading", { name: "Campos do documento", exact: true }).locator("..").getByRole("textbox")).toHaveCount(31)
   await expect(page.getByText(/^Faltam 28 campos obrigatórios:/)).toBeVisible()
   const generate = page.getByRole("button", { name: "Gerar prévia para revisão" })
   await expect(generate).toBeDisabled()
@@ -379,5 +426,41 @@ test("contrato comercial confere 31 campos e quatro destinatários antes da revi
   expect(generationCalls).toBe(1)
   expect(reviewCalls).toBe(1)
   expect(sends).toBe(0)
+  expect(failures).toEqual([])
+})
+
+
+for (const width of [375, 768, 1440]) test(`contrato com 148 campos usa escolha exclusiva e formulário compacto em ${width}px`, async ({ page, context }, info) => {
+  largeTemplate = true
+  await context.addCookies([cookie()])
+  await page.setViewportSize({ width, height: 900 })
+  await page.goto(`/vendas/pedidos/${orderId}/contratos/novo`)
+  await expect(page.getByLabel("Modelo de contrato")).toHaveValue("4")
+  const section = page.getByRole("heading", { name: "Campos do documento", exact: true }).locator("..")
+  const required = section.getByRole("textbox", { name: "Condições comerciais *", exact: true })
+  await expect(required).toBeVisible()
+  await expect(section.locator("textarea")).toHaveCount(2)
+  await expect(section.getByRole("textbox", { name: "Informação opcional 1", exact: true })).toHaveCount(0)
+  await section.locator("summary").filter({ hasText: "Pagamento, entrega e observações — informações opcionais" }).click()
+  const choice = section.getByRole("combobox", { name: "Pagamento — condição", exact: true })
+  await expect(choice).toHaveValue("")
+  await choice.selectOption({ label: "À vista" })
+  await choice.selectOption({ label: "02 parcelas" })
+  await choice.selectOption({ label: "Não informado" })
+  await choice.selectOption({ label: "02 parcelas" })
+  await required.fill("Validação autorizada")
+  await section.locator("summary").filter({ hasText: "Pedido e equipamentos — dados do pedido" }).click()
+  const empty = section.getByRole("textbox", { name: /^Produto 2 — descrição/ })
+  await expect(empty).toHaveValue("")
+  await expect(empty).toHaveJSProperty("readOnly", true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+  await info.attach(`contrato-148-campos-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  await page.getByRole("button", { name: "Gerar prévia para revisão" }).click()
+  await page.waitForURL(`**/vendas/pedidos/${orderId}/contratos?contrato=${contractId}`)
+  expect(Object.keys(generatedFields)).toHaveLength(148)
+  expect(generatedFields["Pagamento — condição — À vista"]).toBe("")
+  expect(generatedFields["Pagamento — condição — 02 parcelas"]).toBe("X")
+  expect(generatedFields["Produto 2 — descrição"]).toBe("")
+  expect(generationCalls).toBe(1); expect(sends).toBe(0)
   expect(failures).toEqual([])
 })

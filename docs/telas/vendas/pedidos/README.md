@@ -39,5 +39,6 @@ Escolha Standard, Olímpico ou Não se aplica no item, sem cor de anilheiro. Est
 Guia conferido no código de 12/11/2026. As ações dependem das permissões e da configuração da empresa. Relatos técnicos antigos descrevem a etapa em que foram escritos.
 
 - [PEDIDOS-FINANCEIRO](referencias/PEDIDOS-FINANCEIRO.md)
+- [Levantamento: recebimentos, contrato e comprovantes](referencias/RECEBIMENTOS-E-DOCUMENTOS.md) — responsabilidades dos módulos e integração ainda a implementar.
 - [sales-order-numbers](referencias/sales-order-numbers.md)
 - [orders](../../../../apps/web/src/features/sales/orders.tsx)

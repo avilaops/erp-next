@@ -152,7 +152,7 @@ function Editor({ tenant, canEdit, initial }: { tenant: string; canEdit: boolean
         {field.kind !== "signature" && field.kind !== "initials" && <label className="block">Tamanho da fonte (pt)<Input type="number" min={6} max={72} step="any" value={field.fontSize ?? 12} onChange={e => changeField(field.id, { fontSize: Number(e.target.value) })} /></label>}
         <Button type="button" variant="outline" onClick={() => setDefinition(value => ({ ...value, fields: value.fields.filter(item => item.id !== field.id) }))}>Remover campo {index + 1}</Button>
       </fieldset>)}
-      <Button type="button" variant="outline" disabled={definition.fields.length >= 100} onClick={() => setDefinition(value => ({ ...value, fields: [...value.fields, { id: crypto.randomUUID(), name: `campo_${value.fields.length + 1}`, kind: "text", role: value.roles[0], required: true, page: 1, x: 5, y: 5, width: 40, height: 5 }] }))}>Adicionar campo</Button>
+      <Button type="button" variant="outline" disabled={definition.fields.length >= 200} onClick={() => setDefinition(value => ({ ...value, fields: [...value.fields, { id: crypto.randomUUID(), name: `campo_${value.fields.length + 1}`, kind: "text", role: value.roles[0], required: true, page: 1, x: 5, y: 5, width: 40, height: 5 }] }))}>Adicionar campo</Button>
     </fieldset>
     {fileError && <p role="alert">{fileError}</p>}
     {command.error && <RequestError message={command.error} status={command.status} />}

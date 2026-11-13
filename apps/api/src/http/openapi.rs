@@ -78,6 +78,9 @@ use crate::platform::{
         sales::order_document::get,
         crate::platform::mail_settings::get, crate::platform::mail_settings::put,
         finance::list, finance::get, finance::pay, finance::reverse,
+        crate::domains::order_finance::get,
+        crate::domains::supporting_documents::list,crate::domains::supporting_documents::attach,
+        crate::domains::supporting_documents::download,
         financial_account_ledger::list, financial_account_ledger::create,
         financial_account_ledger::transfer,
         commissions::get_order, commissions::configure_order, commissions::list,
@@ -401,7 +404,7 @@ mod tests {
     #[test]
     fn contract_contains_only_implemented_resources_and_company_preconditions() {
         let doc = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        assert_eq!(doc["paths"].as_object().unwrap().len(), 244);
+        assert_eq!(doc["paths"].as_object().unwrap().len(), 247);
         for (path, method) in [
             ("/api/v1/fiscal/outgoing-imports", "get"),
             ("/api/v1/fiscal/outgoing-imports/import", "post"),
@@ -414,6 +417,10 @@ mod tests {
             ("/api/v1/orders/{id}/email", "get"),
             ("/api/v1/orders/{id}/email", "post"),
             ("/api/v1/orders/{id}/document", "get"),
+            ("/api/v1/orders/{id}/finance", "get"),
+            ("/api/v1/orders/{id}/documents", "get"),
+            ("/api/v1/orders/{id}/documents", "post"),
+            ("/api/v1/orders/{id}/documents/{documentId}", "get"),
             ("/api/v1/platform/mail-settings", "get"),
             ("/api/v1/platform/mail-settings", "put"),
         ] {

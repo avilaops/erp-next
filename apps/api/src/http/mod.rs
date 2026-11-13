@@ -69,6 +69,8 @@ mod operations_tests;
 #[cfg(test)]
 mod order_email_tests;
 #[cfg(test)]
+mod order_receipts_tests;
+#[cfg(test)]
 mod outgoing_import_tests;
 #[cfg(test)]
 mod parties_tests;
@@ -471,6 +473,20 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/orders/{id}", get(sales::get).put(sales::update))
         .route(
+            "/api/v1/orders/{id}/finance",
+            get(crate::domains::order_finance::get),
+        )
+        .route(
+            "/api/v1/orders/{id}/documents",
+            get(crate::domains::supporting_documents::list)
+                .post(crate::domains::supporting_documents::attach)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
+        )
+        .route(
+            "/api/v1/orders/{id}/documents/{documentId}",
+            get(crate::domains::supporting_documents::download),
+        )
+        .route(
             "/api/v1/orders/{id}/confirm",
             axum::routing::post(sales::confirm),
         )
@@ -494,7 +510,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/receivables/{id}", get(finance::get))
         .route(
             "/api/v1/receivables/{id}/payments",
-            axum::routing::post(finance::pay),
+            axum::routing::post(finance::pay)
+                .layer(axum::extract::DefaultBodyLimit::max(14_100_000)),
         )
         .route(
             "/api/v1/receivables/{id}/reverse-payment",

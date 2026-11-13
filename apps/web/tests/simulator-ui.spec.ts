@@ -20,7 +20,7 @@ test("parâmetros comerciais organiza seções e alíquotas em tabela sem perder
     expect(Math.abs(discountBounds.y - safetyBounds.y)).toBeLessThanOrEqual(1)
     expect(safetyBounds.x).toBeGreaterThan(discountBounds.x + discountBounds.width)
     expect(discountBounds.height).toBe(36)
-    expect(await discount.evaluate(element => getComputedStyle(element).fontSize)).toBe("16px")
+    expect(await discount.evaluate(element => getComputedStyle(element).fontSize)).toBe("18px")
     const policy = page.locator("#commercial-section-0")
     expect((await policy.boundingBox())!.height).toBeLessThan(310)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

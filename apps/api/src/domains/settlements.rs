@@ -139,6 +139,18 @@ pub(super) async fn pay(
             "Meio de pagamento ou recebimento inválido",
         ));
     }
+    if !matches!(kind, Kind::Receivable)
+        && (input.supporting_document.is_some() || input.payment_method_id.is_some())
+    {
+        return Err(DomainError::Invalid(
+            "Comprovante e forma cadastrada pertencem ao recebimento de cliente",
+        ));
+    }
+    let supporting_document = input
+        .supporting_document
+        .take()
+        .map(super::supporting_documents::prepare)
+        .transpose()?;
     if let Some(account_id) = input.financial_account_id {
         let active: Option<String> = sqlx::query_scalar(
             "SELECT status FROM financial_accounts WHERE tenant_id=$1 AND id=$2",
@@ -155,7 +167,11 @@ pub(super) async fn pay(
             return Err(DomainError::Conflict("A conta financeira está arquivada"));
         }
     }
-    let request = json!({"id":id,"revision":expected,"input":input});
+    let mut command_input = serde_json::to_value(&input).map_err(|_| AccessError::Internal)?;
+    if let Some(document) = &supporting_document {
+        command_input["supportingDocument"] = document.fingerprint();
+    }
+    let request = json!({"id":id,"revision":expected,"input":command_input});
     let scope = kind.scope(false);
     if let Some(previous) = replay(&mut tx, tenant, &identity.subject, key, scope, &request).await?
     {
@@ -163,6 +179,22 @@ pub(super) async fn pay(
         tx.commit().await.map_err(db)?;
         return Ok(response(StatusCode::OK, rev, previous));
     }
+    // Resolve after replay so a renamed/archived method cannot change an already
+    // confirmed command or replace its historical receipt snapshot.
+    let payment_method = if let Some(method) = input.payment_method_id {
+        let selected=sqlx::query_as::<_,super::finance::ConfiguredPaymentMethod>("SELECT id,code,name,modality FROM payment_methods WHERE tenant_id=$1 AND id=$2 AND status='active'")
+            .bind(tenant).bind(method).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
+        input.method = match selected.modality.as_str() {
+            "pix" | "bank_transfer" => "bank_transfer",
+            "credit_card" | "debit_card" => "card",
+            "cash" => "cash",
+            _ => "other",
+        }
+        .into();
+        Some(serde_json::to_value(selected).map_err(|_| AccessError::Internal)?)
+    } else {
+        None
+    };
     let current = kind.load(&mut tx, tenant, id).await?;
     if current.revision != expected {
         return Err(DomainError::StaleRevision);
@@ -186,8 +218,51 @@ pub(super) async fn pay(
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let (accounts, entries, foreign, positive) = kind.names();
-    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,financial_account_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)"))
-        .bind(payment).bind(tenant).bind(id).bind(positive).bind(amount).bind(&input.method).bind(&input.reference).bind(occurred).bind(input.financial_account_id).execute(&mut *tx).await.map_err(db)?;
+    let (method_columns, method_values) = if matches!(kind, Kind::Receivable) {
+        (",payment_method_id,payment_method", ",$10,$11")
+    } else {
+        ("", "")
+    };
+    let insert_sql = format!(
+        "INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,financial_account_id{method_columns}) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9{method_values})"
+    );
+    let mut insert = sqlx::query(&insert_sql)
+        .bind(payment)
+        .bind(tenant)
+        .bind(id)
+        .bind(positive)
+        .bind(amount)
+        .bind(&input.method)
+        .bind(&input.reference)
+        .bind(occurred)
+        .bind(input.financial_account_id);
+    if matches!(kind, Kind::Receivable) {
+        insert = insert.bind(input.payment_method_id).bind(payment_method);
+    }
+    insert.execute(&mut *tx).await.map_err(db)?;
+    if matches!(kind, Kind::Receivable) {
+        // Both optional additions are written at INSERT time: the receipt ledger
+        // remains append-only, including for the new historical method identity.
+        if let Some(document) = supporting_document {
+            let order: Uuid =
+                sqlx::query_scalar("SELECT order_id FROM receivables WHERE tenant_id=$1 AND id=$2")
+                    .bind(tenant)
+                    .bind(id)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(db)?;
+            super::supporting_documents::store(
+                &mut tx,
+                tenant,
+                order,
+                Some(payment),
+                document,
+                &identity,
+                &headers,
+            )
+            .await?;
+        }
+    }
     if let Some(account_id) = input.financial_account_id {
         sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(Uuid::now_v7()).bind(tenant).bind(account_id).bind(kind.account_direction(false)).bind(amount).bind(occurred).bind(if matches!(kind, Kind::Receivable) { "Recebimento declarado" } else { "Pagamento declarado" }).bind(&input.reference).execute(&mut *tx).await.map_err(db)?;
@@ -290,8 +365,30 @@ pub(super) async fn reverse(
     let payment = Uuid::now_v7();
     let next = expected.checked_add(1).ok_or(AccessError::Internal)?;
     let (accounts, entries, foreign, _) = kind.names();
-    sqlx::query(&format!("INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id,financial_account_id) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8,$9)"))
-        .bind(payment).bind(tenant).bind(id).bind(amount).bind(&original.method).bind(&input.reason).bind(occurred).bind(input.payment_id).bind(original.financial_account_id).execute(&mut *tx).await.map_err(db)?;
+    let (method_columns, method_values) = if matches!(kind, Kind::Receivable) {
+        (",payment_method_id,payment_method", ",$10,$11")
+    } else {
+        ("", "")
+    };
+    let insert_sql = format!(
+        "INSERT INTO {entries}(id,tenant_id,{foreign},kind,amount_cents,method,reference,occurred_on,reverses_id,financial_account_id{method_columns}) VALUES($1,$2,$3,'reversal',$4,$5,$6,$7,$8,$9{method_values})"
+    );
+    let mut insert = sqlx::query(&insert_sql)
+        .bind(payment)
+        .bind(tenant)
+        .bind(id)
+        .bind(amount)
+        .bind(&original.method)
+        .bind(&input.reason)
+        .bind(occurred)
+        .bind(input.payment_id)
+        .bind(original.financial_account_id);
+    if matches!(kind, Kind::Receivable) {
+        insert = insert
+            .bind(original.payment_method_id)
+            .bind(original.payment_method.as_ref().map(sqlx::types::Json));
+    }
+    insert.execute(&mut *tx).await.map_err(db)?;
     if let Some(account_id) = original.financial_account_id {
         sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(Uuid::now_v7()).bind(tenant).bind(account_id).bind(kind.account_direction(true)).bind(amount).bind(occurred).bind("Estorno de lançamento financeiro").bind(&input.reason).execute(&mut *tx).await.map_err(db)?;

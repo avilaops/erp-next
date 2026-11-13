@@ -1,5 +1,10 @@
 # Assistente do ERP
 
+Status: inativo por decisão do responsável pelo ERP. O workflow dedicado
+`assistant.yml` foi removido; a validação com Ollama e o modelo local não integra
+mais a automação do projeto. As instruções abaixo ficam como referência técnica
+para uma eventual reativação deliberada.
+
 O assistente usa Next.js para interface e sessão, Rust para autorização e ferramentas,
 e Qwen3 1.7B Q4_K_M via Ollama para inferência local. Não existe fallback pago,
 RAG, banco vetorial ou ferramenta de escrita.
@@ -146,8 +151,9 @@ o restante do ERP continua funcionando. Parar apenas o projeto Compose
 --workspace --all-targets -- -D warnings`, `cargo fmt --all --check`, lint e build
 do frontend. Testes Rust usam PostgreSQL isolado e papel sem bypass de RLS.
 
-O workflow `assistant.yml` executa o navegador contra BFF, Rust e PostgreSQL reais,
-autenticação de fixture e o modelo local real em CPU. Nada usa dados de produção.
+O antigo workflow `assistant.yml` executava o navegador contra BFF, Rust e
+PostgreSQL reais, autenticação de fixture e o modelo local real em CPU. Esse
+workflow foi removido. Os testes descritos aqui não usam dados de produção.
 O teste móvel intercepta apenas a resposta de inferência para reproduzir erro,
 retry e interrupção de forma determinística; não representa validação de produção.
 

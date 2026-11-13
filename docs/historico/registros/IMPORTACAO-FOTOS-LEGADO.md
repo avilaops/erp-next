@@ -1,5 +1,10 @@
 # Fotos preservadas do ERP anterior
 
+Registro histórico: o workflow dedicado foi retirado da automação. O script
+`scripts/import-legacy-photos.py` e seus testes continuam versionados para uma
+operação de provisionamento deliberada; os disparos descritos abaixo documentam
+o procedimento anterior e não estão mais disponíveis no GitHub Actions.
+
 O workflow `Import preserved product photos` promove as imagens de `legacy_files`
 para `products.photo_data_url`, sem reativar o ERP antigo ou alterar o histórico.
 Ele executa pelo GitHub com túnel restrito ao banco, usando a credencial de

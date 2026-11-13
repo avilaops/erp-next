@@ -12,7 +12,7 @@ const TEXT_MAX = 20 * 1024 * 1024;
 export function validateReleaseInputs(input) {
   if (!SHA.test(input.sourceSha ?? "") || !SHA.test(input.checkoutSha ?? "") ||
       input.sourceSha !== input.checkoutSha) throw new Error("SOURCE_SHA_MISMATCH");
-  if (input.ref !== "refs/heads/main") throw new Error("NOT_MAIN_BRANCH");
+  if (input.ref !== "refs/heads/main" && !/^refs\/tags\/v[0-9][0-9A-Za-z._-]*$/.test(input.ref ?? "")) throw new Error("NOT_MAIN_BRANCH");
   if (!/^[0-9]+$/.test(String(input.runId ?? "")) || !/^[1-9][0-9]*$/.test(String(input.runAttempt ?? ""))) {
     throw new Error("INVALID_RUN_ID");
   }

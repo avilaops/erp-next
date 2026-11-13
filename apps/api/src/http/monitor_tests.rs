@@ -38,9 +38,9 @@ async fn schema_only_upgrade_grants_monitor_storage_to_the_existing_restricted_r
             .0,
         StatusCode::INTERNAL_SERVER_ERROR
     );
-    let workflow = include_str!("../../../../.github/workflows/production-migrate.yml");
+    let workflow = include_str!("../../../../deploy/migrate-release.py");
     assert!(
-        workflow.contains("-f deploy/grant-fiscal-monitor.sql"),
+        workflow.contains("\"grant-fiscal-monitor.sql\""),
         "schema_only migration must provision the new monitor tables and sequence"
     );
     let script = include_str!("../../../../deploy/grant-fiscal-monitor.sql");

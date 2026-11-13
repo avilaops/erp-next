@@ -1,0 +1,180 @@
+name: Full regression
+'on':
+  schedule:
+  - cron: 23 4 * * 1
+  workflow_dispatch:
+    inputs:
+      task:
+        type: choice
+        options:
+        - regression
+        - contracts-portal
+        default: regression
+        description: Validation only; does not deploy the ERP
+permissions:
+  contents: read
+concurrency:
+  group: regression-${{ github.ref }}-${{ inputs.task }}
+  cancel-in-progress: true
+jobs:
+  api:
+    if: github.event_name == 'schedule' || inputs.task == 'regression'
+    uses: ./.github/workflows/_validate-api.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: true
+      publish: false
+  web:
+    if: github.event_name == 'schedule' || inputs.task == 'regression'
+    uses: ./.github/workflows/_validate-web.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: true
+      publish: false
+      openapi_artifact_name: ${{ needs.api.outputs.openapi_artifact_name }}
+    needs:
+    - api
+  fiscal:
+    if: github.event_name == 'schedule' || inputs.task == 'regression'
+    uses: ./.github/workflows/_validate-fiscal.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: true
+      publish: false
+  project:
+    if: github.event_name == 'schedule' || inputs.task == 'regression'
+    uses: ./.github/workflows/_validate-project.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: true
+      publish: false
+      openapi_artifact_name: ${{ needs.api.outputs.openapi_artifact_name }}
+    needs:
+    - api
+  contracts-portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+        - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 3s --health-retries 20
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: avila_contracts_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: portal_ci_only
+        ports:
+        - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 20
+    steps:
+    - uses: actions/checkout@v4
+    - name: Prepare corresponding source with original license and attribution
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_4651db3dae28745a''
+
+        curl --fail --location --retry 2 https://github.com/docusealco/docuseal/archive/8f8f69f0bc6ac2e59746cd6efac54a852289bec3.tar.gz -o upstream.tar.gz
+
+        mkdir corresponding-source
+
+        tar -xzf upstream.tar.gz -C corresponding-source --strip-components=1
+
+        cp -R deploy/contracts-portal/overlay/. corresponding-source/
+
+        cp deploy/contracts-portal/README.md corresponding-source/AVILA-OPS-SOURCE.md
+
+        cp deploy/contracts-portal/Dockerfile corresponding-source/AVILA-OPS-Dockerfile
+
+        cp -R deploy/contracts-portal/tests corresponding-source/avila-tests
+
+        test -s corresponding-source/LICENSE
+
+        grep -q ''retain the original DocuSeal attribution'' corresponding-source/LICENSE_ADDITIONAL_TERMS
+
+        tar -czf deploy/contracts-portal/avila-source.tar.gz -C corresponding-source .
+
+        ERP_TIMED_4651db3dae28745a
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''regression/contracts-portal: Prepare corresponding source with original license and attribution''
+        --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Build branded portal
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_8ab2b833a7c7202c''
+
+        docker build --build-arg RELEASE_SHA="$GITHUB_SHA" -t "avila-contracts:sha-$GITHUB_SHA" deploy/contracts-portal
+
+        ERP_TIMED_8ab2b833a7c7202c
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''regression/contracts-portal: Build branded portal'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Validate overlay syntax and retained attribution
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_61ad7845e2d76b03''
+
+        docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c ''find /app/app/views -name "*.erb" -path "*/shared/_title.html.erb" -exec erb -P -x
+        -T - {} \; | ruby -c''
+
+        docker run --rm --entrypoint sh "avila-contracts:sha-$GITHUB_SHA" -c ''test -s /app/public/avila-source.tar.gz && grep -q DocuSeal /app/app/views/shared/_powered_by.html.erb''
+
+        ERP_TIMED_61ad7845e2d76b03
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''regression/contracts-portal: Validate overlay syntax and retained attribution'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Package immutable image
+      run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_cf5a67053cf1eba6'\ndocker run --rm --network host --entrypoint\
+        \ sh -w /app \\\n  -e RAILS_ENV=production -e AVILA_PUBLICATION_TEST=true \\\n  -e REDIS_URL=redis://127.0.0.1:6379/0 \\\n  -e DATABASE_URL=postgres://postgres:portal_ci_only@127.0.0.1:5432/avila_contracts_ci\
+        \ \\\n  -e SECRET_KEY_BASE=avila-ci-disposable-publication-secret-key-not-production \\\n  -v \"$PWD/deploy/contracts-portal/tests:/avila-tests:ro\" \\\n\
+        \  \"avila-contracts:sha-$GITHUB_SHA\" -c 'bundle exec rails db:prepare && bundle exec rails runner /avila-tests/publication.rb && bundle exec rails runner\
+        \ /avila-tests/public_access.rb'\nERP_TIMED_cf5a67053cf1eba6\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'regression/contracts-portal: Package\
+        \ immutable image' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail \"$script_file\"\n"
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish validated portal image
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_51b4c19ec338da71''
+
+        docker tag "avila-contracts:sha-$GITHUB_SHA" "ghcr.io/avilaops/contracts-portal:sha-$GITHUB_SHA"
+
+        docker push "ghcr.io/avilaops/contracts-portal:sha-$GITHUB_SHA"
+
+        ERP_TIMED_51b4c19ec338da71
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''regression/contracts-portal: Publish validated portal image'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-regression-contracts-portal-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'contracts-portal'
+    permissions:
+      contents: read
+      packages: write

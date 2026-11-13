@@ -10,6 +10,7 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path("/mnt/HC_Volume_106542212/erp-next")
+RUNTIME_GRANTS = ("grant-fiscal-monitor.sql", "grant-cte-distribution.sql")
 STATE_SQL = "SELECT COALESCE(json_agg(json_build_object('version',version,'success',success,'checksum',encode(checksum,'hex')) ORDER BY version),'[]'::json) FROM _sqlx_migrations;"
 
 
@@ -23,6 +24,10 @@ def migrate_release(sha, release, *, root=ROOT, run=subprocess.run):
     release = Path(release)
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or release.resolve() != root / "releases" / sha or not release.is_dir():
         raise ValueError("Invalid release revision or directory")
+    for name in RUNTIME_GRANTS:
+        script = release / name
+        if not script.is_file() or script.is_symlink() or script.resolve().parent != release.resolve():
+            raise ValueError("Missing reviewed runtime grant script")
     private_root = root / "private"
     if private_root.resolve() != private_root:
         raise ValueError("Invalid private backup directory")
@@ -77,6 +82,8 @@ def migrate_release(sha, release, *, root=ROOT, run=subprocess.run):
     environment = {**os.environ, "DATABASE_URL": "postgresql://postgres@localhost/erp_next?host=/var/run/postgresql"}
     output = execute(command, "migration", env=environment)
     private_file(private / "migration.log", output + "\n")
+    for name in RUNTIME_GRANTS:
+        execute(psql, name.removesuffix(".sql"), input=(release / name).read_text())
     after = state("ledger-after")
     if any(row not in after for row in before):
         raise RuntimeError("Existing migration checksums changed; services must not be activated")

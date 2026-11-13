@@ -1,5 +1,8 @@
 # ERP Next em produção
 
+O procedimento atual está em [CI, publicação e retenção](CI-CD.md). Ele usa três
+fluxos de entrada, imagens GHCR por digest e limpeza restrita aos recursos do ERP.
+
 ## CI e publicação
 
 O workflow `CI` valida PRs pelo escopo alterado: lint e testes de modelo da web,
@@ -9,10 +12,10 @@ planejador exclui explicitamente o componente, e o artefato registra esse escopo
 Mudanças em infraestrutura desconhecida executam os três componentes. Não há
 segunda execução de CI no push para `main`.
 
-`CI full regression` conserva arquitetura, contratos, baseline, builds e browsers
-para execução manual ou semanal (segunda-feira, 04:23 UTC). O auto merge verifica
-a evidência do PR e não inicia publicação. Deploy e migrations seguem o procedimento
-direto no servidor; `Production release` permanece disponível apenas manualmente.
+`Full regression` conserva arquitetura, contratos, baseline, builds e browsers
+para execução manual ou semanal (segunda-feira, 04:23 UTC). O auto merge foi
+retirado. `Release` publica somente uma revisão promovida por tag ou execução
+manual na main, depois das validações completas e das proteções do ambiente.
 
 ## Publicação direta
 
@@ -67,10 +70,9 @@ Após a troca, confira a API, o domínio público, a revisão publicada e os ser
 fiscais. Se a API for recriada, recrie os quatro serviços juntos, como descrito
 abaixo, porque compartilham seu namespace de rede.
 
-O workflow manual `production-release.yml` continua disponível como alternativa
-para empacotamento completo no runner. Ele não é disparado por push nem por auto
-merge. O antigo fluxo `production-migrate.yml` permanece apenas para as operações
-manuais de provisionamento já existentes; não é necessário para publicar.
+O workflow `release.yml` constrói as imagens no runner e envia ao servidor somente
+o manifesto, Compose e helpers. Migrações fazem parte da publicação. Os scripts
+de bootstrap e importação histórica ficam reservados a provisionamento deliberado.
 
 O bootstrap cria uma empresa com cadastro fiscal pendente e associa a identidade
 real confirmada de `nicolas@avilaops.com` ao papel de administrador. O banco é

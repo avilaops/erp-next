@@ -717,8 +717,8 @@ async fn cte_distribution_upgrade_preserves_forced_rls_and_append_only_runtime_g
         .unwrap()
     );
     assert!(
-        include_str!("../../../../.github/workflows/production-migrate.yml")
-            .contains("-f deploy/grant-cte-distribution.sql")
+        include_str!("../../../../deploy/migrate-release.py")
+            .contains("\"grant-cte-distribution.sql\"")
     );
     cleanup(&admin, application, auth, &role).await;
 }

@@ -59,10 +59,10 @@ Funções de consumo: `preflight(base: bytes, binding: PreflightBinding, policy:
 
 **Files:** `evidence.py`, integração em `trust.py`, testes PKI sintéticos. Consome tipos/hash da Task1; produz contexto estrito e checks com DERs vinculados.
 
-- [ ] Escrever testes com raiz/intermediária/leaf de teste e CRL/OCSP assinados: cadeia correta, raiz estranha, intermediária ausente, vencido/futuro, revogado, resposta assinada por outro emissor, unknown, evidência velha/ausente e instante sem timezone. Observar RED antes da lógica.
-- [ ] Implementar `validation_context(trust, evidence, checked_at)` e `verify_certificate(cert_der: bytes, trust: TrustBundle, evidence: EvidenceSet, checked_at: datetime) -> tuple[CheckResult, ...]`: `allow_fetching=False`; `CertRevTrustPolicy(RevocationCheckingPolicy(CRL_OR_OCSP_REQUIRED, CRL_OR_OCSP_REQUIRED))` real da versão fixada. Exercitar a validação real da cadeia/uso, não só a construção do contexto. Verificar freshness/assinaturas/cobertura; ausência de dado necessário é indeterminate, revogação/assinatura inválida é invalid. Não considerar raiz enviada no PDF como confiável.
-- [ ] Guardar evidência aceita por hash e tipos; reexecutar offline no mesmo instante e obter mesmo significado. Outro instante/política não herda validade antiga. Ausência de timestamp mantém `long_term_validation=not_established`.
-- [ ] Executar suíte completa, esperar GREEN sem requisições DNS/HTTP, commit.
+- [x] Escrever testes com raiz/intermediária/leaf de teste e CRL/OCSP assinados: cadeia correta, raiz estranha, intermediária ausente, vencido/futuro, revogado, resposta assinada por outro emissor, unknown, evidência velha/ausente e instante sem timezone. Observar RED antes da lógica.
+- [x] Implementar `validation_context(trust, evidence, checked_at)` e `verify_certificate(cert_der: bytes, trust: TrustBundle, evidence: EvidenceSet, checked_at: datetime) -> tuple[CheckResult, ...]`: `allow_fetching=False`; `CertRevTrustPolicy(RevocationCheckingPolicy(CRL_OR_OCSP_REQUIRED, CRL_OR_OCSP_REQUIRED))` real da versão fixada. Exercitar a validação real da cadeia/uso, não só a construção do contexto. Verificar freshness/assinaturas/cobertura; ausência de dado necessário é indeterminate, revogação/assinatura inválida é invalid. Não considerar raiz enviada no PDF como confiável.
+- [x] Guardar evidência aceita por hash e tipos; reexecutar offline no mesmo instante e obter mesmo significado. Outro instante/política não herda validade antiga. Ausência de timestamp mantém `long_term_validation=not_established`.
+- [x] Executar suíte completa, esperar GREEN sem requisições DNS/HTTP, commit.
 
 ## Task 3 — PDF incremental e política restrita
 

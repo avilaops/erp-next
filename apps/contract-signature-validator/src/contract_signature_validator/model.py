@@ -153,6 +153,36 @@ REQUIRED_INCREMENT_CHECKS = frozenset({
 
 
 @dataclass(frozen=True)
+class EvidenceSet:
+    observed_at: datetime
+    certificates: tuple[bytes, ...] = ()
+    crls: tuple[bytes, ...] = ()
+    ocsps: tuple[bytes, ...] = ()
+
+    def __post_init__(self):
+        _utc(self.observed_at)
+        total = 0
+        for values, count, size in ((self.certificates, 64, 256 * 1024),
+                                    (self.crls, 16, 8 * 1024 * 1024),
+                                    (self.ocsps, 16, 256 * 1024)):
+            if not isinstance(values, tuple) or len(values) > count:
+                raise ValueError("evidence_limit_exceeded")
+            for value in values:
+                if not isinstance(value, bytes) or not 0 < len(value) <= size:
+                    raise ValueError("evidence_limit_exceeded")
+                total += len(value)
+        if total > 32 * 1024 * 1024:
+            raise ValueError("evidence_limit_exceeded")
+
+    @property
+    def sha256(self):
+        data = {"observedAt": self.observed_at.isoformat().replace("+00:00", "Z")}
+        for name in ("certificates", "crls", "ocsps"):
+            data[name] = sorted({hashlib.sha256(value).hexdigest() for value in getattr(self, name)})
+        return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+@dataclass(frozen=True)
 class ValidationReport:
     binding: ValidationBinding
     checks: tuple[CheckResult, ...]

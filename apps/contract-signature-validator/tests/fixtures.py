@@ -1,12 +1,14 @@
 """SYNTHETIC TEST ONLY. These certificates and keys are NOT ICP-Brasil."""
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from uuid import UUID
 
 from asn1crypto import core
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.x509 import ocsp
 from cryptography.x509.oid import NameOID, ObjectIdentifier
 
 NOW = datetime(2026, 11, 13, 15, tzinfo=timezone.utc)
@@ -53,3 +55,97 @@ def binding_values():
     return dict(document_id=DOCUMENT, participant_id=PARTICIPANT, parent_sha256="a" * 64,
                 candidate_sha256="b" * 64, policy_sha256="c" * 64,
                 trust_bundle_sha256="d" * 64, checked_at=NOW)
+
+
+@dataclass(frozen=True)
+class TestChain:
+    root: x509.Certificate
+    intermediate: x509.Certificate
+    leaf: x509.Certificate
+    root_key: object = field(repr=False)
+    intermediate_key: object = field(repr=False)
+    leaf_key: object = field(repr=False)
+
+
+def _issued(subject, key, issuer, issuer_key, serial, *, ca, start, end, digital=True):
+    builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(issuer)
+               .public_key(key.public_key()).serial_number(serial)
+               .not_valid_before(start).not_valid_after(end)
+               .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
+               .add_extension(x509.KeyUsage(digital_signature=digital, content_commitment=not ca,
+                    key_encipherment=False, data_encipherment=False, key_agreement=False,
+                    key_cert_sign=ca, crl_sign=ca, encipher_only=None, decipher_only=None), critical=True)
+               .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+               .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer_key.public_key()), critical=False))
+    if subject != issuer:
+        builder = builder.add_extension(x509.CRLDistributionPoints([x509.DistributionPoint(
+            full_name=[x509.UniformResourceIdentifier(f"http://revocation.invalid/{'root' if ca else 'leaf'}.crl")],
+            relative_name=None, reasons=None, crl_issuer=None,
+        )]), critical=False)
+    if not ca:
+        builder = (builder.add_extension(x509.CertificatePolicies([
+                    x509.PolicyInformation(ObjectIdentifier("2.16.76.1.2.1.999999"), None)]), critical=False)
+                   .add_extension(x509.SubjectAlternativeName([x509.OtherName(ObjectIdentifier(PERSON_OID),
+                        core.UTF8String("01011990" + CPF + "0" * 39).dump())]), critical=False)
+                   .add_extension(x509.AuthorityInformationAccess([x509.AccessDescription(
+                        ObjectIdentifier("1.3.6.1.5.5.7.48.1"), x509.UniformResourceIdentifier("http://revocation.invalid/ocsp"))]), critical=False))
+    return builder.sign(issuer_key, hashes.SHA256())
+
+
+@lru_cache(maxsize=8)
+def chain_fixture(*, leaf_start=-30, leaf_end=30, digital=True, other=False):
+    keys = [rsa.generate_private_key(public_exponent=65537, key_size=2048) for _ in range(3)]
+    label = "OTHER " if other else ""
+    names = [x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"SYNTHETIC NOT ICP {label}{part}")])
+             for part in ("ROOT", "INTERMEDIATE", "PERSON:" + CPF)]
+    root = _issued(names[0], keys[0], names[0], keys[0], 100, ca=True,
+                   start=NOW-timedelta(days=365), end=NOW+timedelta(days=365))
+    intermediate = _issued(names[1], keys[1], names[0], keys[0], 200, ca=True,
+                           start=NOW-timedelta(days=365), end=NOW+timedelta(days=365))
+    leaf = _issued(names[2], keys[2], names[1], keys[1], 300, ca=False, digital=digital,
+                   start=NOW+timedelta(days=leaf_start), end=NOW+timedelta(days=leaf_end))
+    return TestChain(root, intermediate, leaf, *keys)
+
+
+def der(cert):
+    return cert.public_bytes(serialization.Encoding.DER)
+
+
+def pem(cert):
+    return cert.public_bytes(serialization.Encoding.PEM)
+
+
+def issued_crl(issuer, issuer_key, *, revoked=(), stale=False, wrong_key=False, no_next=False):
+    builder = (x509.CertificateRevocationListBuilder().issuer_name(issuer.subject)
+               .last_update(NOW-timedelta(days=3 if stale else 1)))
+    builder = builder.next_update(NOW+timedelta(days=-1 if stale else 1))
+    builder = builder.add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer_key.public_key()), critical=False)
+    for serial in revoked:
+        builder = builder.add_revoked_certificate(x509.RevokedCertificateBuilder().serial_number(serial)
+                    .revocation_date(NOW-timedelta(days=2)).build())
+    key = test_key() if wrong_key else issuer_key
+    result = builder.sign(key, hashes.SHA256()).public_bytes(serialization.Encoding.DER)
+    if no_next:
+        from asn1crypto import crl as asn1_crl
+        value = asn1_crl.CertificateList.load(result)
+        value["tbs_cert_list"]["next_update"] = None
+        value["signature"] = key.sign(value["tbs_cert_list"].dump(), padding.PKCS1v15(), hashes.SHA256())
+        result = value.dump()
+    return result
+
+
+def issued_ocsp(cert, issuer, issuer_key, *, status=ocsp.OCSPCertStatus.GOOD, stale=False, wrong_key=False):
+    from asn1crypto import ocsp as asn1_ocsp
+    builder = (ocsp.OCSPResponseBuilder().add_response(cert, issuer, hashes.SHA256(), status,
+               this_update=NOW-timedelta(days=3 if stale else 1),
+               next_update=NOW+timedelta(days=-1 if stale else 1),
+               revocation_time=NOW-timedelta(days=2) if status == ocsp.OCSPCertStatus.REVOKED else None,
+               revocation_reason=x509.ReasonFlags.key_compromise if status == ocsp.OCSPCertStatus.REVOKED else None)
+               .responder_id(ocsp.OCSPResponderEncoding.HASH, issuer))
+    response = asn1_ocsp.OCSPResponse.load(builder.sign(issuer_key, hashes.SHA256()).public_bytes(serialization.Encoding.DER))
+    basic = response["response_bytes"]["response"].parsed
+    basic["tbs_response_data"]["produced_at"] = core.GeneralizedTime(NOW)
+    key = test_key() if wrong_key else issuer_key
+    basic["signature"] = key.sign(basic["tbs_response_data"].dump(), padding.PKCS1v15(), hashes.SHA256())
+    response["response_bytes"]["response"] = basic
+    return response.dump()

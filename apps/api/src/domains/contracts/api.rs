@@ -76,6 +76,8 @@ pub struct ContractCustomerContext {
     pub name: String,
     pub tax_id: String,
     pub email: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -104,6 +106,20 @@ pub struct ContractContext {
     pub proposal: Option<ContractProposalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commercial_terms: Option<crate::domains::sales::checkout_document::CheckoutDocument>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub negotiated_payments: Option<ContractNegotiatedPayments>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractNegotiatedPayments {
+    pub entry_amount_cents: i64,
+    pub installments: Vec<ContractNegotiatedInstallment>,
+}
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractNegotiatedInstallment {
+    pub amount_cents: i64,
+    pub due_on: String,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -137,6 +153,10 @@ pub struct ContractTemplateChoice {
     pub updated_at: String,
     pub roles: Vec<ContractTemplateRole>,
     pub fields: Vec<ContractTemplateField>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defaults: Option<BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generation_problem: Option<String>,
 }
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]

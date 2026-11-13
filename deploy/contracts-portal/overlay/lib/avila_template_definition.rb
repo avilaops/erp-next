@@ -36,7 +36,7 @@ module AvilaTemplateDefinition
     roles = definition['roles']
     fields = definition['fields']
     raise Invalid unless roles.is_a?(Array) && (1..10).cover?(roles.size) && roles.all? { |r| text?(r) } && roles.uniq == roles
-    raise Invalid unless fields.is_a?(Array) && (1..100).cover?(fields.size)
+    raise Invalid unless fields.is_a?(Array) && (1..200).cover?(fields.size)
     raise Invalid unless fields.map { |f| f['id'] }.uniq.size == fields.size && fields.map { |f| f['name'] }.uniq.size == fields.size
 
     fields.each do |field|

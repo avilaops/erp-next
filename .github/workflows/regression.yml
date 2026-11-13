@@ -137,6 +137,9 @@ jobs:
         -- bash --noprofile --norc -e -o pipefail "$script_file"
 
         '
+    - name: Validate bounded template definition without database access
+      run: |
+        python3 scripts/ci/timed.py --label 'regression/contracts-portal: standalone definition validation' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --memory 256m --cpus 1 --pids-limit 64 --cap-drop ALL --security-opt no-new-privileges --entrypoint ruby -v "$PWD/deploy/contracts-portal/tests:/avila-tests:ro" "avila-contracts:sha-$GITHUB_SHA" /avila-tests/definition.rb
     - name: Package immutable image
       run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_cf5a67053cf1eba6'\ndocker run --rm --network host --entrypoint\
         \ sh -w /app \\\n  -e RAILS_ENV=production -e AVILA_PUBLICATION_TEST=true \\\n  -e REDIS_URL=redis://127.0.0.1:6379/0 \\\n  -e DATABASE_URL=postgres://postgres:portal_ci_only@127.0.0.1:5432/avila_contracts_ci\

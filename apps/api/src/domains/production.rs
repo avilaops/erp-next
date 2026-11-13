@@ -313,9 +313,9 @@ pub async fn create_orders(
     if current != expected {
         return Err(DomainError::StaleRevision);
     }
-    if !["confirmed", "completed"].contains(&status.as_str()) {
+    if !["accepted", "confirmed", "completed"].contains(&status.as_str()) {
         return Err(DomainError::Conflict(
-            "Somente pedido confirmado ou concluído entra em produção",
+            "Somente encomenda aceita, pedido reservado ou concluído entra em produção",
         ));
     }
     let exists: bool = sqlx::query_scalar(
@@ -505,7 +505,7 @@ async fn mutate(
         ));
     }
     let sale_status:String=sqlx::query_scalar("SELECT s.status FROM sales_orders s JOIN production_orders o ON o.tenant_id=s.tenant_id AND o.order_id=s.id WHERE o.tenant_id=$1 AND o.id=$2").bind(tenant).bind(id).fetch_one(&mut *tx).await.map_err(db)?;
-    if !["confirmed", "completed"].contains(&sale_status.as_str()) {
+    if !["accepted", "confirmed", "completed"].contains(&sale_status.as_str()) {
         return Err(DomainError::Conflict(
             "Pedido comercial não está ativo para produção",
         ));

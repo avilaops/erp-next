@@ -25,6 +25,7 @@ fn fixture() -> (ApprovalRules, SimulationInput, Vec<SourceItem>) {
                 plate_holder_color: None,
                 plate_holder_type: None,
                 upholstery_color: None,
+                swing_arm_color: None,
             }],
         },
         vec![SourceItem {

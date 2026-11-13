@@ -23,7 +23,7 @@ import { parseCatalogQuery, catalogQueryString, catalogMaxOffset, type CatalogQu
 
 import { ProductPhoto } from "./product-photo"
 import { CatalogProfile } from "./catalog-profile"
-import { CatalogColorPhotos } from "./catalog-color-photos"
+import { CatalogColorPhotos, CatalogPaletteReference } from "./catalog-color-photos"
 import { catalogPaletteFor } from "./catalog-color-photo-model"
 import { ProductCategory } from "./product-category"
 import { ProductThumbnail } from "./product-thumbnail"
@@ -34,7 +34,7 @@ import "./catalog-workspace.css"
 
 type ProductList = Schema<"ProductList">
 type Snapshot = Schema<"ProductSnapshot">
-const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], upholsteryColors: [], plateHolderColors: [], plateHolderTypes: [] }
+const empty: ProductInput = { sku: "", name: "", unit: "UN", ncm: null, cest: null, basePrice: "0.00", status: "active", structureColors: [], swingArmColors: [], finishingPalette: "", upholsteryColors: [], plateHolderColors: [], plateHolderTypes: [] }
 export const catalogLink = "font-medium text-primary underline underline-offset-4"
 
 const priceForRequest = normalizeDecimal
@@ -141,7 +141,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Cadastro indisponível")
       if (controller.signal.aborted) return
-      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
+      const data: ProductInput = id ? { sku: value.data.sku, name: value.data.name, unit: value.data.unit, ncm: value.data.ncm, cest: value.data.cest, basePrice: value.data.basePrice, status: value.data.status, structureColors: value.data.structureColors || [], swingArmColors: value.data.swingArmColors || [], finishingPalette: value.data.finishingPalette || "", upholsteryColors: value.data.upholsteryColors || [], plateHolderColors: value.data.plateHolderColors || [], plateHolderTypes: value.data.plateHolderTypes || [], photoDataUrl: value.data.photoDataUrl || "", categoryId: value.data.categoryId || "" } : { ...empty }
       if (id && !response.headers.get("etag")) throw new Error("Revisão não recebida")
       const stored = !view && value.canEdit ? readProductDraft(storageKey) : { value: null, error: "" }
       const recoveredDraft = stored.value
@@ -170,7 +170,7 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
     const basePrice = priceForRequest(draft.basePrice)
     if (basePrice === null) { setSaved(false); setError("Informe um preço válido com até duas casas decimais, como 12,50. Não use separador de milhar."); return }
     const normalizeColors = (colors: string[]) => colors.map(color => color.trim()).filter(Boolean)
-    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), upholsteryColors: normalizeColors(draft.upholsteryColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []), plateHolderTypes: normalizeColors(draft.plateHolderTypes || []) })
+    const body = JSON.stringify({ ...draft, basePrice, structureColors: normalizeColors(draft.structureColors || []), swingArmColors: normalizeColors(draft.swingArmColors || []), upholsteryColors: snapshot.data.upholsteryConfigurable === false ? undefined : normalizeColors(draft.upholsteryColors || []), plateHolderColors: normalizeColors(draft.plateHolderColors || []), plateHolderTypes: normalizeColors(draft.plateHolderTypes || []) })
     if (!id && !uncertain) command.current = { key: crypto.randomUUID(), body }
     // Persist the in-flight command before dispatch. A reload must not create a new command.
     if (!writeProductDraft(storageKey, { version: 1, draft, baseline, etag, uncertain: !id, conflict: !!id, command: command.current })) {
@@ -222,9 +222,11 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
           <ProductPhoto compact value={snapshot.data.photoUrl || draft.photoDataUrl || undefined} readOnly={!!snapshot.data.photoUrl} disabled={!snapshot.canEdit || saving || uncertain} onBusy={setPhotoBusy} onChange={photoDataUrl => setDraft(previous => ({ ...previous, photoDataUrl }))} />
           <details open={Boolean(id)} className="min-w-0 rounded-lg border p-3"><summary className="cursor-pointer font-medium">Acabamentos disponíveis do equipamento</summary><fieldset id="product-colors" disabled={!snapshot.canEdit || saving || uncertain} className="mt-3 min-w-0 scroll-mt-20 space-y-2">
             <legend className="sr-only">Acabamentos disponíveis do equipamento</legend>
-            <p className="text-xs text-muted-foreground">Uma cor por linha. As opções ficam disponíveis na proposta e no pedido.</p>
+            <label className="grid min-w-0 gap-1 text-sm">Catálogo de acabamentos<select className="h-9 min-w-0 rounded-lg border bg-background px-2" value={draft.finishingPalette || ""} onChange={event => setDraft(previous => ({ ...previous, finishingPalette: event.target.value }))}><option value="">Sem paleta de catálogo</option><option value="dhz-hammerforce-pro">DHZ · HammerForce Pro</option><option value="dhz-sforce">DHZ · Hammer S-FORCE</option></select></label>
+            <p className="text-xs text-muted-foreground">Uma cor por linha. Estrutura, braços e estofado têm escolhas independentes.</p>
+            {snapshot.data.upholsteryConfigurable === false && <p className="text-xs text-muted-foreground">Estofado padrão nesta empresa.</p>}
             <div className="grid min-w-0 grid-cols-2 gap-3">
-              {([["structureColors", "Cores da estrutura"], ["upholsteryColors", "Cores dos braços"]] as const).map(([field, label]) => <label key={field} className="grid min-w-0 gap-1">{label}<textarea rows={2} maxLength={1951} className="catalog-finishing-input w-full min-w-0 rounded-lg border border-input bg-background text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder="Uma cor por linha" /></label>)}
+              {([["structureColors", "Cores da estrutura"], ["swingArmColors", "Cores dos braços"], ...(snapshot.data.upholsteryConfigurable === false ? [] : [["upholsteryColors", "Cores do estofado"] as const])] as const).map(([field, label]) => <label key={field} className="grid min-w-0 gap-1">{label}<textarea rows={2} maxLength={1951} className="catalog-finishing-input w-full min-w-0 rounded-lg border border-input bg-background text-base" value={(draft[field] || []).join("\n")} onChange={event => setDraft({ ...draft, [field]: event.target.value.split("\n") })} placeholder="Uma cor por linha" /></label>)}
             </div>
             <fieldset className="min-w-0 border-t pt-2"><legend className="px-1 text-sm font-medium">Anilheiro — opções no fechamento</legend><div className="mt-1 flex flex-wrap gap-x-5 gap-y-2">{(["Standard", "Olímpico"] as const).map(type => <label key={type} className="inline-flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" checked={(draft.plateHolderTypes || []).includes(type)} onChange={event => { const checked = event.target.checked; setDraft(previous => { const selected = new Set(previous.plateHolderTypes || []); if (checked) selected.add(type); else selected.delete(type); return { ...previous, plateHolderTypes: ["Standard", "Olímpico"].filter(value => selected.has(value)) } }) }} />{type}</label>)}</div><p className="mt-1 text-xs text-muted-foreground">As opções marcadas ficam disponíveis no pedido e na proposta. Sem opções marcadas: Não se aplica.</p></fieldset>
           </fieldset></details>
@@ -232,7 +234,17 @@ export function CatalogEditor({ id, view = false, draftScope }: { id?: string; v
           <Button type="submit" disabled={saving || photoBusy || conflict || storageInvalid || !snapshot.canEdit || (!dirty && !!id)}>{saving ? "Salvando…" : uncertain ? "Conferir gravação" : "Salvar produto"}</Button>
         </form>}
         {view && <ProductCategory tenantId={snapshot.tenantId} value={snapshot.data.categoryId || ""} disabled onChange={() => {}} />}
-        {view && <details className="min-w-0 space-y-3 rounded-lg border p-3"><summary className="cursor-pointer font-medium">Acabamentos disponíveis</summary><div className="grid min-w-0 grid-cols-2 gap-3">{([["Estrutura", snapshot.data.structureColors], ["Braços", snapshot.data.upholsteryColors]] as const).map(([label, colors]) => <div key={label} className="min-w-0 space-y-2"><p className="text-xs text-muted-foreground">{label}</p>{colors?.length ? <CatalogColorPhotos label={label} options={colors} palette={catalogPaletteFor(snapshot.data.structureColors)} readOnly /> : <p className="text-sm">Sem opções cadastradas</p>}</div>)}</div></details>}
+        {view && <details className="min-w-0 space-y-3 rounded-lg border p-3">
+          <summary className="cursor-pointer font-medium">Acabamentos disponíveis</summary>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            {([["Estrutura", "structure", snapshot.data.structureColors], ["Braços", "swingArm", snapshot.data.swingArmColors], ["Estofado", "upholstery", snapshot.data.upholsteryColors]] as const).map(([label, part, colors]) => <div key={part} className={`min-w-0 space-y-2 ${part === "upholstery" ? "sm:col-span-2" : ""}`}>
+              <p className="text-xs font-medium text-muted-foreground">{label}</p>
+              {part === "upholstery" && snapshot.data.upholsteryConfigurable === false ? <p className="text-sm">Estofado padrão</p> : colors?.length ? <CatalogColorPhotos label={label} part={part} options={colors} palette={catalogPaletteFor(snapshot.data.finishingPalette)} readOnly showSource={false} /> : <p className="text-sm">Sem opções cadastradas</p>}
+            </div>)}
+          </div>
+          <p className="text-xs"><span className="text-muted-foreground">Anilheiro: </span>{snapshot.data.plateHolderTypes?.length ? snapshot.data.plateHolderTypes.join(" ou ") : "Não se aplica"}</p>
+          <CatalogPaletteReference palette={catalogPaletteFor(snapshot.data.finishingPalette)} />
+        </details>}
       </>}
       {id && snapshot && <CatalogProfile key={`${snapshot.tenantId}:${id}`} id={id} tenantId={snapshot.tenantId} canEdit={snapshot.canEdit} edit={!view} />}
     </section>

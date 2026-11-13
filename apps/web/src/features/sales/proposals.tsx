@@ -21,11 +21,12 @@ import { ColorChoice, Lookup, PlateHolderChoice, type Choice } from "./orders"
 import { ProposalDocument, type ProposalIssuer } from "./proposal-document"
 import { ProposalEmail } from "./proposal-email"
 import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
+import { CatalogPaletteReference } from "@/features/catalog/catalog-color-photos"
 import "./proposals-print.css"
 
 type Detail = Schema<"ProposalSnapshot">
 type Listing = Schema<"ProposalList">
-type Selected = Choice & { quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
+type Selected = Choice & { quantity: string; structureColor: string; swingArmColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const labels: Record<string, string> = { draft: "Rascunho", sent: "Enviada", accepted: "Aceita", rejected: "Rejeitada", cancelled: "Cancelada", expired: "Expirada", superseded: "Substituída" }
 const linkClass = "font-medium text-primary underline underline-offset-4"
 const textareaClass = "erp-commercial-text w-full rounded-lg border border-input bg-background p-3"
@@ -94,7 +95,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
   const router = useRouter()
   const command = useCommand()
   const [customer, setCustomer] = useState<Choice | null>(initial ? { id: initial.data.customerId, legalName: initial.data.customerName } : null)
-  const [items, setItems] = useState<Selected[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: commercialMoneyInput(item.unitPrice), quantity: item.quantity, structureColor: item.structureColor || "", upholsteryColor: item.upholsteryColor || "", plateHolderColor: item.plateHolderColor || "", plateHolderType: item.plateHolderType || "" })) || [])
+  const [items, setItems] = useState<Selected[]>(() => initial?.items.map(item => ({ id: item.productId, name: item.name, sku: item.sku, unit: item.unit, basePrice: commercialMoneyInput(item.unitPrice), quantity: item.quantity, structureColor: item.structureColor || "", swingArmColor: item.swingArmColor || "", upholsteryColor: item.upholsteryColor || "", plateHolderColor: item.plateHolderColor || "", plateHolderType: item.plateHolderType || "" })) || [])
   const [validUntil, setValidUntil] = useState(initial?.data.validUntil || "")
   const [paymentTerms, setPaymentTerms] = useState(initial?.data.paymentTerms || "")
   const [deliveryTerms, setDeliveryTerms] = useState(initial?.data.deliveryTerms || "")
@@ -110,7 +111,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
       const response = await erpFetch(`/api/erp/products/${item.productId}`, { cache: "no-store", signal: controller.signal })
       const product = await response.json()
       if (!response.ok || product.tenantId !== tenantId) throw new Error("Não foi possível atualizar as opções de acabamento. As escolhas registradas foram preservadas.")
-      return { id: item.productId, structureColors: product.data.structureColors || [], upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [], hasPhoto: product.data.hasPhoto }
+      return { id: item.productId, structureColors: product.data.structureColors || [], swingArmColors: product.data.swingArmColors || [], finishingPalette: product.data.finishingPalette, upholsteryConfigurable: product.data.upholsteryConfigurable, upholsteryColors: product.data.upholsteryColors || [], plateHolderColors: product.data.plateHolderColors || [], plateHolderTypes: product.data.plateHolderTypes || [], hasPhoto: product.data.hasPhoto }
     })).then(products => { if (!controller.signal.aborted) setItems(previous => previous.map(item => ({ ...item, ...products.find(product => product.id === item.id) }))) })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Falha ao consultar produtos") })
     return () => controller.abort()
@@ -121,12 +122,12 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
       <div className="grid items-start gap-2 lg:grid-cols-2"><Lookup endpoint="parties" label="cliente" searchOnly compact selectedName={customer?.legalName} disabled={frozen} choose={value => { setCustomer(value); setDirty(true) }} /><Lookup endpoint="products" label="produto" searchOnly compact disabled={frozen || items.length >= 100} choose={value => {
         if (items.some(item => item.id === value.id)) { setError("Produto já incluído. Altere a quantidade do item existente."); return }
         const saved = initial?.items.find(item => item.productId === value.id)
-        setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), basePrice: commercialMoneyInput(saved?.unitPrice || value.basePrice || ""), quantity: "1", structureColor: saved?.structureColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
+        setItems(previous => [...previous, { ...value, ...(saved ? { name: saved.name, sku: saved.sku, basePrice: saved.unitPrice } : {}), basePrice: commercialMoneyInput(saved?.unitPrice || value.basePrice || ""), quantity: "1", structureColor: saved?.structureColor || "", swingArmColor: saved?.swingArmColor || "", upholsteryColor: saved?.upholsteryColor || "", plateHolderColor: saved?.plateHolderColor || "", plateHolderType: saved?.plateHolderType || "" }]); setDirty(true); setError("")
       }} /></div>
       <form className="space-y-2" onSubmit={async event => {
         event.preventDefault(); setError("")
         if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeCommercialMoney(item.basePrice || ""))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
-        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
+        const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, swingArmColor: item.swingArmColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
         if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
       }}>
         <fieldset disabled={frozen} className="min-w-0 space-y-2" onChange={() => setDirty(true)}>
@@ -143,8 +144,14 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
               <label className="grid min-w-0 gap-1 text-xs">Quantidade<Input className="h-9" aria-label={`Quantidade de ${item.name}`} inputMode="decimal" required value={item.quantity} onChange={event => changeItem(item.id, { quantity: event.target.value })} /></label>
             </div>
             <details className="min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
-              <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.upholsteryColor, item.plateHolderType || "Não se aplica"].filter(Boolean).join(" · ")}</span></summary>
-              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2"><ColorChoice label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} /><PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />{(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice palette={catalogPaletteFor(item.structureColors)} label={`${catalogPaletteFor(item.structureColors) ? "Braços" : "Estofado"} de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}</div>
+              <summary className="cursor-pointer py-1 text-sm font-medium">Acabamentos<span className="ml-2 break-words text-xs font-normal text-muted-foreground">{[item.structureColor, item.swingArmColor, item.upholsteryColor, item.plateHolderType || "Não se aplica"].filter(Boolean).join(" · ")}</span></summary>
+              <div className="mt-2 grid min-w-0 gap-3 sm:grid-cols-2">
+                <ColorChoice part="structure" palette={catalogPaletteFor(item.finishingPalette)} label={`Estrutura de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "structureColors" }} options={item.structureColors} value={item.structureColor} onChange={value => changeItem(item.id, { structureColor: value })} />
+                <ColorChoice part="swingArm" optional={Boolean(initial?.items.some(line => line.productId === item.id && !line.swingArmColor))} palette={catalogPaletteFor(item.finishingPalette)} label={`Braços de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "swingArmColors" }} options={item.swingArmColors} value={item.swingArmColor} onChange={value => changeItem(item.id, { swingArmColor: value })} />
+                {(item.upholsteryConfigurable !== false || item.upholsteryColor) && <ColorChoice part="upholstery" palette={catalogPaletteFor(item.finishingPalette)} label={`Estofado de ${item.name}`} catalog={{ productId: item.id, tenantId, field: "upholsteryColors" }} options={item.upholsteryConfigurable === false ? [] : item.upholsteryColors} value={item.upholsteryColor} onChange={value => changeItem(item.id, { upholsteryColor: value })} />}
+                <PlateHolderChoice label={`Tipo de anilheiro de ${item.name}`} value={item.plateHolderType} onChange={value => changeItem(item.id, { plateHolderType: value })} />
+              </div>
+              <CatalogPaletteReference palette={catalogPaletteFor(item.finishingPalette)} />
             </details>
           </section>)}
           <details className="min-w-0 border-y py-2" onInvalidCapture={event => { event.currentTarget.open = true }}>

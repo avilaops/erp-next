@@ -312,6 +312,7 @@ fn table_projection(context: TableContext<'_>, rows: &[TableRow]) -> (Vec<Value>
                     plate_holder_color: None,
                     plate_holder_type: None,
                     upholstery_color: None,
+                    swing_arm_color: None,
                 }],
             };
             free_price =
@@ -572,13 +573,19 @@ pub async fn convert(
         )?;
         let plate_holder_type =
             super::select_plate_holder_type(item.plate_holder_type.as_deref(), None)?;
-        let upholstery_color = super::select_color(
+        let upholstery_color = super::select_upholstery_color(
             item.upholstery_color.as_deref(),
             product
                 .data
                 .upholstery_colors
                 .as_deref()
                 .unwrap_or_default(),
+            None,
+            product.upholstery_configurable,
+        )?;
+        let swing_arm_color = super::select_swing_arm_color(
+            item.swing_arm_color.as_deref(),
+            product.data.swing_arm_colors.as_deref().unwrap_or_default(),
             None,
         )?;
         lines.push(super::PreparedLine {
@@ -590,6 +597,7 @@ pub async fn convert(
             price: item.unit_total_cents,
             amount: item.total_cents,
             structure_color,
+            swing_arm_color,
             plate_holder_color,
             plate_holder_type,
             upholstery_color,

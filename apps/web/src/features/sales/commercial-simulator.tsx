@@ -1,5 +1,6 @@
 "use client"
 import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
+import { CatalogPaletteReference } from "@/features/catalog/catalog-color-photos"
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
@@ -28,7 +29,7 @@ import { OrderPendingReview, OrderQuickSummary, OrderSectionNavigation, focusOrd
 import { orderedOrderIssues, type OrderIssue } from "./order-progress"
 import { OrderDeliveryDestination, OrderDiscountFields, OrderFreightFields } from "./order-negotiation-fields"
 
-type Selected = { productId: string; quantity: string; structureColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
+type Selected = { productId: string; quantity: string; structureColor: string; swingArmColor: string; upholsteryColor: string; plateHolderColor: string; plateHolderType: string }
 const selectClass = "h-9 min-h-9 min-w-0 rounded-lg border bg-background px-2"
 const sectionHeadingClass = "scroll-mt-48 rounded-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring lg:scroll-mt-40"
 const validOrderQuantity = (value: string) => /^\d{1,7}$/.test(value) && Number(value) >= 1 && Number(value) <= 1_000_000
@@ -80,7 +81,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
   const [updatedTable, setUpdatedTable] = useState<PriceTable | null>(null)
   const [reloading, setReloading] = useState(false)
   const table = updatedTable || initialTable
-  const [items, setItems] = useState<Selected[]>(() => (initialItems?.length ? initialItems : initialProduct ? [{ productId: initialProduct, quantity: 1 }] : []).map(item => ({ productId: item.productId, quantity: String(item.quantity), structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" })))
+  const [items, setItems] = useState<Selected[]>(() => (initialItems?.length ? initialItems : initialProduct ? [{ productId: initialProduct, quantity: 1 }] : []).map(item => ({ productId: item.productId, quantity: String(item.quantity), structureColor: "", swingArmColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" })))
   const [product, setProduct] = useState("")
   const [search, setSearch] = useState("")
   const [destinationDraft, setDestination] = useState(initialDestination || table.data?.originState || "")
@@ -130,7 +131,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
     const freightCents = ourFreight ? parseAmount(freight) : 0
     const entry = downPayment.trim() ? parseAmount(downPayment) : null
     if (value === null || freightCents === null || (downPayment.trim() && entry === null) || !items.length || items.some(i => !/^\d{1,7}$/.test(i.quantity) || Number(i.quantity) < 1 || Number(i.quantity) > 1000000)) throw Error("Confira quantidade, desconto, frete e entrada. Use até duas casas decimais para valores.")
-    return { line: table.line, versionId: table.data.id, destinationState: destination, taxpayer: taxpayer === "true", discount: { kind: discount.kind, value }, freightCents, downPaymentCents: entry, items: items.map(i => ({ productId: i.productId, quantity: Number(i.quantity), structureColor: i.structureColor || null, upholsteryColor: i.upholsteryColor || null, plateHolderColor: null, plateHolderType: i.plateHolderType || null })) }
+    return { line: table.line, versionId: table.data.id, destinationState: destination, taxpayer: taxpayer === "true", discount: { kind: discount.kind, value }, freightCents, downPaymentCents: entry, items: items.map(i => ({ productId: i.productId, quantity: Number(i.quantity), structureColor: i.structureColor || null, swingArmColor: i.swingArmColor || null, upholsteryColor: i.upholsteryColor || null, plateHolderColor: null, plateHolderType: i.plateHolderType || null })) }
   }
   const orderQuoteSignature = (() => { if (!orderMode) return ""; try { return JSON.stringify(simulationInput()) } catch { return "" } })()
   const result = calculated && calculated.input.versionId === table.data?.id && (!orderMode || JSON.stringify(calculated.input) === orderQuoteSignature) ? calculated : null
@@ -267,7 +268,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
       const existing = items.find(item => item.productId === productId)
       if (existing && (!validOrderQuantity(existing.quantity) || Number(existing.quantity) >= 1_000_000)) { setError("Confira a quantidade deste equipamento antes de acrescentar uma unidade."); return }
       if (!existing && items.length >= 100) { setError("O pedido aceita até 100 equipamentos diferentes."); return }
-      setItems(current => existing ? current.map(item => item.productId === productId ? { ...item, quantity: String(Number(item.quantity) + 1) } : item) : [...current, { productId, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }])
+      setItems(current => existing ? current.map(item => item.productId === productId ? { ...item, quantity: String(Number(item.quantity) + 1) } : item) : [...current, { productId, quantity: "1", structureColor: "", swingArmColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }])
       change()
     }
     const saveBlocked = !canCreate ? "Seu acesso permite consultar; salvar exige permissão de gestão de vendas."
@@ -358,7 +359,7 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
         <h2 id="simulator-equipment" tabIndex={-1} className={sectionHeadingClass}>Equipamentos</h2>
         {unavailableItems.length > 0 && <p role="alert" className="rounded-lg border p-2 text-xs">{unavailableItems.length} equipamento(s) da seleção não estão disponíveis nesta tabela. A seleção foi preservada. Remova os itens indisponíveis para continuar.</p>}
         <label className="grid min-w-0 gap-1 sm:gap-2">Buscar equipamento<Input type="search" value={search} onChange={e => setSearch(e.target.value)} /></label>
-        <div className="flex min-w-0 flex-wrap gap-2"><select aria-label="Equipamento da tabela" className={`${selectClass} w-full flex-1`} value={product} onChange={e => setProduct(e.target.value)}><option value="">Selecione um equipamento</option>{choices.map(i => <option key={i.productId} value={i.productId}>{i.sku} · {i.name}</option>)}</select><Button type="button" variant="outline" disabled={!product || items.length >= 100} onClick={() => { if (items.some(i => i.productId === product)) return; setItems([...items, { productId: product, quantity: "1", structureColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }]); setProduct(""); change() }}>Adicionar</Button></div>
+        <div className="flex min-w-0 flex-wrap gap-2"><select aria-label="Equipamento da tabela" className={`${selectClass} w-full flex-1`} value={product} onChange={e => setProduct(e.target.value)}><option value="">Selecione um equipamento</option>{choices.map(i => <option key={i.productId} value={i.productId}>{i.sku} · {i.name}</option>)}</select><Button type="button" variant="outline" disabled={!product || items.length >= 100} onClick={() => { if (items.some(i => i.productId === product)) return; setItems([...items, { productId: product, quantity: "1", structureColor: "", swingArmColor: "", upholsteryColor: "", plateHolderColor: "", plateHolderType: "" }]); setProduct(""); change() }}>Adicionar</Button></div>
         {items.length ? <DataTable aria-label="Equipamentos da simulação" className="table-fixed"><thead><tr className="border-b text-xs text-muted-foreground"><th scope="col" className="py-2 font-medium">Equipamento</th><th scope="col" className="w-20 px-1 py-2 font-medium">Qtd.</th><th scope="col" className="w-11 py-2"><span className="sr-only">Ações</span></th></tr></thead><tbody>{items.map((item, index) => <SelectedProduct key={item.productId} item={item} name={table.data!.items.find(i => i.productId === item.productId)?.name || item.productId} sku={table.data!.items.find(i => i.productId === item.productId)?.sku || ""} tenant={table.tenantId} update={next => { setItems(items.map((i, n) => n === index ? next : i)); change() }} remove={() => { setItems(items.filter((_, n) => n !== index)); change() }} />)}</tbody></DataTable> : <p className="text-xs text-muted-foreground">Adicione equipamentos para iniciar.</p>}
         {!!items.length && <p className="text-xs text-muted-foreground">{items.length} equipamento{items.length !== 1 ? "s" : ""} · Cores e tipo de anilheiro em Acabamentos.</p>}
         <OrderWeightSummary tenantId={table.tenantId} items={items.map(item => ({ ...item, quantity: /^\d{1,7}$/.test(item.quantity) && Number(item.quantity) >= 1 && Number(item.quantity) <= 1_000_000 ? String(Number(item.quantity)) : "" }))} />
@@ -396,10 +397,10 @@ function Simulator({ table: initialTable, initialProduct, initialItems, initialD
 }
 
 function SelectedProduct({ item, name, sku, tenant, update, remove, orderMode = false, price, priced, disabled = false }: { item: Selected; name: string; sku: string; tenant: string; update: (next: Selected) => void; remove: () => void; orderMode?: boolean; price?: PriceItem; priced?: Simulation["sale"]["items"][number]; disabled?: boolean }) {
-  const product = useResource<{ tenantId: string; data: { structureColors?: string[]; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[] } }>(`/api/erp/products/${item.productId}`)
+  const product = useResource<{ tenantId: string; data: { structureColors?: string[]; swingArmColors?: string[]; finishingPalette?: string | null; upholsteryColors?: string[]; upholsteryConfigurable?: boolean; plateHolderColors?: string[]; plateHolderTypes?: string[] } }>(`/api/erp/products/${item.productId}`)
   const colors = product.value?.tenantId === tenant ? product.value.data : null
-  const palette = catalogPaletteFor(colors?.structureColors)
-  const selectedFinishes = [item.structureColor, item.upholsteryColor, item.plateHolderType].filter(Boolean).join(" · ")
+  const palette = catalogPaletteFor(colors?.finishingPalette)
+  const selectedFinishes = [item.structureColor, item.swingArmColor, item.upholsteryColor, item.plateHolderType].filter(Boolean).join(" · ")
   return <>
     <tr>
       <th scope="row" className="min-w-0 break-words py-3 pr-2 text-left align-top font-medium"><span className="block text-xs text-muted-foreground">{sku}</span>{name}</th>
@@ -409,13 +410,15 @@ function SelectedProduct({ item, name, sku, tenant, update, remove, orderMode = 
     </tr>
     <tr className="border-b last:border-0"><td colSpan={orderMode ? 6 : 3} className="min-w-0 pb-3">
       {product.error && <div className="space-y-2 rounded-lg border p-2 text-xs"><p role="alert"><RequestError message={product.error} status={product.status} /></p><Button type="button" variant="outline" disabled={product.loading} aria-label={`Recarregar acabamentos de ${name}`} onClick={product.reload}>{product.loading ? "Carregando acabamentos…" : "Recarregar acabamentos"}</Button></div>}
-      <details className="group min-w-0">
+      <details className="group min-w-0" onInvalidCapture={event => { event.currentTarget.open = true }}>
         <summary className="min-h-10 cursor-pointer rounded-md py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">Acabamentos<span className="sr-only"> de {name}</span><span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">{selectedFinishes || "Escolher cores"}</span></summary>
         <fieldset disabled={disabled} className="grid min-w-0 gap-4 pt-3 sm:grid-cols-2">
-          <FinishChoice title="Estrutura" label={`Cor da estrutura de ${name}`} options={colors?.structureColors} value={item.structureColor} onChange={value => update({ ...item, structureColor: value })} />
+          <FinishChoice title="Estrutura" part="structure" palette={palette} label={`Cor da estrutura de ${name}`} options={colors?.structureColors} value={item.structureColor} onChange={value => update({ ...item, structureColor: value })} />
+          <FinishChoice title="Braços" part="swingArm" palette={palette} label={`Cor dos braços de ${name}`} options={colors?.swingArmColors} value={item.swingArmColor} onChange={value => update({ ...item, swingArmColor: value })} />
 
           <PlateHolderChoice label={`Tipo de anilheiro de ${name}`} value={item.plateHolderType} onChange={value => update({ ...item, plateHolderType: value })} />
-          {colors?.upholsteryConfigurable !== false && <FinishChoice title={palette ? "Braços" : "Estofado"} palette={palette} label={`${palette ? "Cor dos braços" : "Cor do estofado"} de ${name}`} options={colors?.upholsteryColors} value={item.upholsteryColor} onChange={value => update({ ...item, upholsteryColor: value })} />}
+          {(colors?.upholsteryConfigurable !== false || item.upholsteryColor) && <FinishChoice title="Estofado" part="upholstery" palette={palette} label={`Cor do estofado de ${name}`} options={colors?.upholsteryConfigurable === false ? [] : colors?.upholsteryColors} value={item.upholsteryColor} onChange={value => update({ ...item, upholsteryColor: value })} />}
+          <div className="sm:col-span-2"><CatalogPaletteReference palette={palette} /></div>
         </fieldset>
       </details>
     </td></tr>

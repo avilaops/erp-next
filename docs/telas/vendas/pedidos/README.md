@@ -32,7 +32,7 @@ O envio de e-mail permite conferir destinatário, assunto e mensagem e anexa um 
 
 ## O que ainda precisa de atenção
 
-Manter a escolha Standard, Olímpico ou Não se aplica no fechamento, sem cor de anilheiro. A paridade das paletas com os catálogos ainda precisa ser concluída.
+Escolha Standard, Olímpico ou Não se aplica no item, sem cor de anilheiro. Estrutura, braços e estofado têm seleções independentes e preservam o histórico ao editar a quantidade. As amostras originais dependem da referência de paleta comprovada no cadastro do produto.
 
 ## Referências para manutenção
 

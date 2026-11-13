@@ -292,6 +292,8 @@ pub async fn preview(
             category_id: None,
             photo_data_url: None,
             structure_colors: Some(Vec::new()),
+            swing_arm_colors: None,
+            finishing_palette: None,
             upholstery_colors: Some(Vec::new()),
             arm_colors: None,
             plate_holder_colors: Some(Vec::new()),

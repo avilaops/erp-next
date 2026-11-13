@@ -28,7 +28,7 @@ trap cleanup EXIT
 # does not reliably match the selected names when the sender emits ./ prefixes.
 tar --extract --gzip --no-same-owner --directory "$staging" --file -
 
-for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz fiscal-mcp-image.tar.gz compose.yaml fiscal-compose.yaml; do
+for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz fiscal-mcp-image.tar.gz compose.yaml fiscal-compose.yaml migrate-release.py; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"
 done
 [[ ! -e "$release" ]] || fail 'release already exists'
@@ -39,6 +39,7 @@ for image in api web fiscal fiscal-mcp; do
 done
 
 mkdir -m 700 "$release"
+cp -p "$staging/migrate-release.py" "$release/migrate-release.py"
 
 compose_overlay_args=()
 if [[ -f "$previous_release/compose.json" ]]; then
@@ -142,8 +143,9 @@ rollback() {
   exit "$status"
 }
 
-trap rollback ERR
 compose "$release" config --quiet
+python3 "$release/migrate-release.py" "$source_sha" "$release"
+trap rollback ERR
 compose "$release" up --detach --no-build --wait --wait-timeout 120
 
 curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \

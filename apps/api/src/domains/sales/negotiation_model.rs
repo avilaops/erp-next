@@ -13,6 +13,8 @@ pub struct SimulationItem {
     pub product_id: Uuid,
     pub quantity: u32,
     pub structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swing_arm_color: Option<String>,
     pub plate_holder_color: Option<String>,
     pub plate_holder_type: Option<String>,
     pub upholstery_color: Option<String>,
@@ -91,6 +93,8 @@ pub struct QuotedLine {
     pub ipi_cents: i64,
     pub total_cents: i64,
     pub structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swing_arm_color: Option<String>,
     pub plate_holder_color: Option<String>,
     pub plate_holder_type: Option<String>,
     pub upholstery_color: Option<String>,
@@ -308,6 +312,7 @@ pub fn calculate(
             ipi_cents: cents(ipi)?,
             total_cents: cents(line_net + ipi)?,
             structure_color: item.structure_color.clone(),
+            swing_arm_color: item.swing_arm_color.clone(),
             plate_holder_color: item.plate_holder_color.clone(),
             plate_holder_type: super::select_plate_holder_type(
                 item.plate_holder_type.as_deref(),

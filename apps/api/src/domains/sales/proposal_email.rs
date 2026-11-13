@@ -156,6 +156,9 @@ fn attachment(current: &ProposalSnapshot, company: &str, tax_id: &str) -> MailAt
             item.structure_color
                 .as_ref()
                 .map(|v| format!("Estrutura: {v}")),
+            item.swing_arm_color
+                .as_ref()
+                .map(|v| format!("Braços: {v}")),
             item.upholstery_color
                 .as_ref()
                 .map(|v| format!("Estofado: {v}")),
@@ -410,6 +413,7 @@ mod tests {
                 amount: "44.98".into(),
                 structure_color: Some("Preto & azul".into()),
                 upholstery_color: None,
+                swing_arm_color: Some("Apple Green <swing>".into()),
                 plate_holder_color: Some("Azul legado".into()),
                 plate_holder_type: Some("Olímpico".into()),
             }],
@@ -425,6 +429,7 @@ mod tests {
             "44.98",
             "À vista &amp; combinado",
             "Preto &amp; azul",
+            "Braços: Apple Green &lt;swing&gt;",
             "&lt;img src=x onerror=alert(1)&gt;",
         ] {
             assert!(html.contains(expected), "missing {expected}");

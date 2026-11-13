@@ -1,5 +1,6 @@
 "use client"
 import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
+import { CatalogPaletteReference } from "@/features/catalog/catalog-color-photos"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RequestError } from "@/components/feedback/session-recovery"
 import { useCommand } from "@/hooks/use-operation"
-import { ColorChoice, Lookup, type Choice } from "@/features/sales/orders"
+import { ColorChoice, PlateHolderChoice, Lookup, type Choice } from "@/features/sales/orders"
 import type { Equipment, Simulation } from "./simulator-model"
 
 export function SimulationOrder({ value, equipment, line, onLocked }: {
@@ -19,6 +20,8 @@ export function SimulationOrder({ value, equipment, line, onLocked }: {
   const [dueDate, setDueDate] = useState("")
   const [structure, setStructure] = useState("")
   const [upholstery, setUpholstery] = useState("")
+  const [swingArm, setSwingArm] = useState("")
+  const [plateHolderType, setPlateHolderType] = useState("")
   const [error, setError] = useState("")
   const frozen = command.busy || command.uncertain
   useEffect(() => { onLocked(frozen) }, [frozen, onLocked])
@@ -31,14 +34,20 @@ export function SimulationOrder({ value, equipment, line, onLocked }: {
       setError("")
       const result = await command.send<{ tenantId: string; id: string; status: string }>(`/api/erp/sales-simulator/${line}/orders`, value.tenantId, {
         quote: value.input, digest: value.digest, customerId: customer.id, dueDate,
-        structureColor: structure || null, upholsteryColor: upholstery || null,
+        structureColor: structure || null, swingArmColor: swingArm || null, upholsteryColor: upholstery || null, plateHolderType: plateHolderType || null,
       })
       if (result?.tenantId === value.tenantId && result.status === "draft" && /^[a-f0-9-]{36}$/.test(result.id)) router.replace(`/vendas/pedidos/${result.id}`)
       else if (result) setError("Confirmação divergente. Consulte os pedidos antes de repetir.")
     }}>
       <fieldset disabled={frozen} className="space-y-4">
         <label className="grid gap-2">Vencimento<Input required type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} /></label>
-        <div className="grid gap-3 sm:grid-cols-2"><ColorChoice label="Cor da estrutura" options={equipment.structureColors} value={structure} onChange={setStructure} /><ColorChoice palette={catalogPaletteFor(equipment.structureColors)} label={catalogPaletteFor(equipment.structureColors) ? "Cor dos braços" : "Cor do estofado"} options={equipment.upholsteryColors} value={upholstery} onChange={setUpholstery} /></div>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <ColorChoice part="structure" palette={catalogPaletteFor(equipment.finishingPalette)} label="Cor da estrutura" options={equipment.structureColors} value={structure} onChange={setStructure} />
+          <ColorChoice part="swingArm" palette={catalogPaletteFor(equipment.finishingPalette)} label="Cor dos braços" options={equipment.swingArmColors} value={swingArm} onChange={setSwingArm} />
+          {equipment.upholsteryConfigurable !== false && <ColorChoice part="upholstery" palette={catalogPaletteFor(equipment.finishingPalette)} label="Cor do estofado" options={equipment.upholsteryColors} value={upholstery} onChange={setUpholstery} />}
+          <PlateHolderChoice label="Tipo de anilheiro" value={plateHolderType} onChange={setPlateHolderType} />
+        </div>
+        <CatalogPaletteReference palette={catalogPaletteFor(equipment.finishingPalette)} />
       </fieldset>
       {(error || command.error) && <p role="alert"><RequestError message={error || command.error} status={error ? undefined : command.status} /></p>}
       {command.stale && <p>Refaça a simulação antes de criar outro pedido.</p>}

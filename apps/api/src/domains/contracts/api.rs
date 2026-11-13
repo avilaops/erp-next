@@ -87,6 +87,8 @@ pub struct ContractContextItem {
     pub unit_price: String,
     pub amount: String,
     pub structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swing_arm_color: Option<String>,
     pub upholstery_color: Option<String>,
     pub plate_holder_color: Option<String>,
     pub plate_holder_type: Option<String>,

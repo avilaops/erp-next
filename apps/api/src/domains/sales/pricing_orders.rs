@@ -23,6 +23,8 @@ pub struct CreateInput {
     customer_id: Uuid,
     due_date: String,
     structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    swing_arm_color: Option<String>,
     plate_holder_color: Option<String>,
     plate_holder_type: Option<String>,
     upholstery_color: Option<String>,
@@ -73,6 +75,7 @@ pub async fn create(
             product_id: input.quote.product_id,
             quantity: format!("{}.000000", input.quote.quantity),
             structure_color: input.structure_color,
+            swing_arm_color: input.swing_arm_color,
             arm_color: None,
             plate_holder_color: input.plate_holder_color,
             plate_holder_type: input.plate_holder_type,

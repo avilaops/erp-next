@@ -99,6 +99,8 @@ pub struct OrderItemInput {
     quantity: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    swing_arm_color: Option<String>,
     /// Campo legado: armColor representa a cor dos anilheiros.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     arm_color: Option<String>,
@@ -144,6 +146,8 @@ pub struct OrderLine {
     equipment_weight: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     structure_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    swing_arm_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     plate_holder_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -271,7 +275,7 @@ async fn load(
 ) -> Result<OrderSnapshot, DomainError> {
     let data=sqlx::query_as::<_,OrderSummary>("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders WHERE tenant_id=$1 AND id=$2")
         .bind(tenant).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(DomainError::NotFound)?;
-    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,plate_holder_color,plate_holder_type,upholstery_color,(SELECT c.weight FROM product_catalog_profiles c WHERE c.tenant_id=sales_order_lines.tenant_id AND c.product_id=sales_order_lines.product_id) AS equipment_weight FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
+    let items=sqlx::query_as::<_,OrderLine>("SELECT product_id,sku,name,unit,(quantity_micros::numeric/1000000)::numeric(19,6)::text AS quantity,(price_cents::numeric/100)::numeric(16,2)::text AS unit_price,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,structure_color,swing_arm_color,plate_holder_color,plate_holder_type,upholstery_color,(SELECT c.weight FROM product_catalog_profiles c WHERE c.tenant_id=sales_order_lines.tenant_id AND c.product_id=sales_order_lines.product_id) AS equipment_weight FROM sales_order_lines WHERE tenant_id=$1 AND order_id=$2 ORDER BY line_number")
         .bind(tenant).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
     let pricing_origin: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM order_pricing_snapshots WHERE tenant_id=$1 AND order_id=$2) OR EXISTS(SELECT 1 FROM commercial_order_quotes WHERE tenant_id=$1 AND order_id=$2)",
@@ -388,6 +392,7 @@ struct PreparedLine {
     price: i64,
     amount: i64,
     structure_color: Option<String>,
+    swing_arm_color: Option<String>,
     plate_holder_color: Option<String>,
     plate_holder_type: Option<String>,
     upholstery_color: Option<String>,
@@ -407,7 +412,7 @@ fn select_color(
             Ok(None)
         } else {
             Err(DomainError::Invalid(
-                "Escolha as cores disponíveis da estrutura e do estofado antes de salvar",
+                "Escolha as cores disponíveis da estrutura, dos braços e do estofado antes de salvar",
             ))
         };
     };
@@ -422,6 +427,40 @@ fn select_color(
         .ok_or(DomainError::Invalid(
             "A cor escolhida não está disponível neste produto; atualize as opções antes de salvar",
         ))
+}
+
+// A missing new field from an existing line preserves its historical value,
+// including no swing-arm choice on documents created before this component.
+fn select_swing_arm_color(
+    requested: Option<&str>,
+    available: &[String],
+    previous: Option<Option<&str>>,
+) -> Result<Option<String>, DomainError> {
+    if requested.is_none()
+        && let Some(saved) = previous
+    {
+        return Ok(saved.map(str::to_owned));
+    }
+    select_color(requested, available, previous.flatten())
+}
+
+fn select_upholstery_color(
+    requested: Option<&str>,
+    available: &[String],
+    previous: Option<&str>,
+    configurable: bool,
+) -> Result<Option<String>, DomainError> {
+    if configurable {
+        return select_color(requested, available, previous);
+    }
+    match requested.map(str::trim) {
+        None => Ok(previous.map(str::to_owned)),
+        Some("") => Ok(None),
+        Some(value) if previous == Some(value) => Ok(previous.map(str::to_owned)),
+        _ => Err(DomainError::Invalid(
+            "O estofado é padrão nesta empresa; preserve a escolha registrada ou deixe sem seleção",
+        )),
+    }
 }
 
 // Holder colors remain accepted for older clients, but are never required.
@@ -556,7 +595,7 @@ async fn prepare_order(
             item.plate_holder_type.as_deref(),
             saved.and_then(|line| line.plate_holder_type.as_deref()),
         )?;
-        let upholstery_color = select_color(
+        let upholstery_color = select_upholstery_color(
             item.upholstery_color.as_deref(),
             product
                 .data
@@ -564,6 +603,12 @@ async fn prepare_order(
                 .as_deref()
                 .unwrap_or_default(),
             saved.and_then(|line| line.upholstery_color.as_deref()),
+            product.upholstery_configurable,
+        )?;
+        let swing_arm_color = select_swing_arm_color(
+            item.swing_arm_color.as_deref(),
+            product.data.swing_arm_colors.as_deref().unwrap_or_default(),
+            saved.map(|line| line.swing_arm_color.as_deref()),
         )?;
         let (sku, name, unit, price) = match saved {
             Some(line) => (
@@ -595,6 +640,7 @@ async fn prepare_order(
             price,
             amount,
             structure_color,
+            swing_arm_color,
             plate_holder_color,
             plate_holder_type,
             upholstery_color,
@@ -621,8 +667,8 @@ async fn store_lines(
     lines: &[PreparedLine],
 ) -> Result<(), DomainError> {
     for (index, line) in lines.iter().enumerate() {
-        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,plate_holder_color,plate_holder_type,upholstery_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)")
-            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.plate_holder_color).bind(&line.plate_holder_type).bind(&line.upholstery_color).execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO sales_order_lines(tenant_id,order_id,line_number,product_id,sku,name,unit,quantity_micros,price_cents,amount_cents,structure_color,plate_holder_color,plate_holder_type,upholstery_color,swing_arm_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)")
+            .bind(tenant).bind(order).bind((index+1) as i32).bind(line.product_id).bind(&line.sku).bind(&line.name).bind(&line.unit).bind(line.quantity).bind(line.price).bind(line.amount).bind(&line.structure_color).bind(&line.plate_holder_color).bind(&line.plate_holder_type).bind(&line.upholstery_color).bind(&line.swing_arm_color).execute(&mut **tx).await.map_err(db)?;
     }
     Ok(())
 }

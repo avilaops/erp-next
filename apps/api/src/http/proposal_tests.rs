@@ -53,6 +53,241 @@ fn proposal() -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn swing_arm_finishes_are_separate_and_keep_the_agreed_history(admin: PgPool) {
+    let (router, application, server, role) = super::company_tests::setup(&admin).await;
+    sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code LIKE 'sales.%' OR code LIKE 'catalog.%' ON CONFLICT DO NOTHING;
+        INSERT INTO parties(id,tenant_id,person_type,legal_name,tax_id,is_customer,is_supplier,status) VALUES('11111111-2222-4333-8444-555555555555','11111111-1111-4111-8111-111111111111','fisica','Cliente de teste','52998224725',true,false,'active');
+        INSERT INTO products(id,tenant_id,sku,name,unit,price_cents,status) VALUES('11111111-2222-4333-8444-666666666666','11111111-1111-4111-8111-111111111111','SEPARATE-FINISHES','Acabamentos independentes','UN',1999,'active');")
+        .execute(&admin).await.unwrap();
+    let product_url = format!("/api/v1/products/{PRODUCT}");
+    let mut product = json!({"sku":"SEPARATE-FINISHES","name":"Acabamentos independentes","unit":"UN","ncm":null,"cest":null,"basePrice":"19.99","status":"active","structureColors":["Piano Black"],"upholsteryColors":["Mocha"],"swingArmColors":["Apple Green"],"finishingPalette":"dhz-hammerforce-pro","armColors":["Azul"],"plateHolderTypes":["Standard","Olímpico"]});
+    let saved = call(
+        &router,
+        "PUT",
+        &product_url,
+        "editor",
+        Some(1),
+        Some(Uuid::now_v7()),
+        product.clone(),
+    )
+    .await;
+    assert_eq!(saved.0, StatusCode::OK, "{}", saved.1);
+    assert_eq!(saved.1["data"]["swingArmColors"], json!(["Apple Green"]));
+    assert_eq!(saved.1["data"]["upholsteryColors"], json!(["Mocha"]));
+    assert_eq!(saved.1["data"]["plateHolderColors"], json!(["Azul"]));
+    assert_eq!(saved.1["data"]["finishingPalette"], "dhz-hammerforce-pro");
+    product.as_object_mut().unwrap().remove("swingArmColors");
+    product.as_object_mut().unwrap().remove("finishingPalette");
+    let old_client = call(
+        &router,
+        "PUT",
+        &product_url,
+        "editor",
+        Some(2),
+        Some(Uuid::now_v7()),
+        product,
+    )
+    .await;
+    assert_eq!(old_client.0, StatusCode::OK, "{}", old_client.1);
+    assert_eq!(
+        old_client.1["data"]["swingArmColors"],
+        json!(["Apple Green"])
+    );
+    assert_eq!(
+        old_client.1["data"]["finishingPalette"],
+        "dhz-hammerforce-pro"
+    );
+
+    let item = json!({"productId":PRODUCT,"quantity":"1.000000","structureColor":"Piano Black","swingArmColor":"Apple Green","upholsteryColor":"Mocha","plateHolderType":"Standard"});
+    let mut input = proposal();
+    input["items"] = json!([item.clone()]);
+    let key = Uuid::now_v7();
+    let created = call(
+        &router,
+        "POST",
+        "/api/v1/proposals",
+        "editor",
+        None,
+        Some(key),
+        input.clone(),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
+    assert_eq!(created.1["items"][0]["swingArmColor"], "Apple Green");
+    assert_eq!(created.1["items"][0]["upholsteryColor"], "Mocha");
+    assert_eq!(created.1["items"][0]["plateHolderType"], "Standard");
+    let replayed = call(
+        &router,
+        "POST",
+        "/api/v1/proposals",
+        "editor",
+        None,
+        Some(key),
+        input,
+    )
+    .await;
+    assert_eq!(replayed.0, StatusCode::CREATED, "{}", replayed.1);
+    assert_eq!(replayed.1["data"]["id"], created.1["data"]["id"]);
+    let mut invalid = proposal();
+    invalid["items"] = json!([item.clone()]);
+    invalid["items"][0]["swingArmColor"] = json!("Amarelo");
+    assert_eq!(
+        call(
+            &router,
+            "POST",
+            "/api/v1/proposals",
+            "editor",
+            None,
+            Some(Uuid::now_v7()),
+            invalid
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+
+    let url = format!(
+        "/api/v1/proposals/{}",
+        created.1["data"]["id"].as_str().unwrap()
+    );
+    for (action, revision) in [("send", 1), ("accept", 2)] {
+        let result = call(
+            &router,
+            "POST",
+            &format!("{url}/{action}"),
+            "editor",
+            Some(revision),
+            Some(Uuid::now_v7()),
+            json!({}),
+        )
+        .await;
+        assert_eq!(result.0, StatusCode::OK, "{}", result.1);
+    }
+    sqlx::query("UPDATE products SET swing_arm_colors=ARRAY['Ocean Blue'],upholstery_colors=ARRAY['Black'] WHERE id=$1")
+        .bind(Uuid::parse_str(PRODUCT).unwrap()).execute(&admin).await.unwrap();
+    let converted = call(
+        &router,
+        "POST",
+        &format!("{url}/convert"),
+        "editor",
+        Some(3),
+        Some(Uuid::now_v7()),
+        json!({"dueDate":"2100-01-10"}),
+    )
+    .await;
+    assert_eq!(converted.0, StatusCode::OK, "{}", converted.1);
+    let order_url = format!(
+        "/api/v1/orders/{}",
+        converted.1["data"]["orderId"].as_str().unwrap()
+    );
+    let order = call(
+        &router,
+        "GET",
+        &order_url,
+        "editor",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(order.0, StatusCode::OK, "{}", order.1);
+    assert_eq!(order.1["items"][0]["swingArmColor"], "Apple Green");
+    assert_eq!(order.1["items"][0]["upholsteryColor"], "Mocha");
+    let mut historical = item.clone();
+    historical["quantity"] = json!("3.000000");
+    let edited = call(
+        &router,
+        "PUT",
+        &order_url,
+        "editor",
+        Some(1),
+        Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[historical.clone()]}),
+    )
+    .await;
+    assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
+    assert_eq!(edited.1["items"][0]["swingArmColor"], "Apple Green");
+    historical.as_object_mut().unwrap().remove("swingArmColor");
+    historical["quantity"] = json!("4.000000");
+    let old_order_client = call(
+        &router,
+        "PUT",
+        &order_url,
+        "editor",
+        Some(2),
+        Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[historical]}),
+    )
+    .await;
+    assert_eq!(old_order_client.0, StatusCode::OK, "{}", old_order_client.1);
+    assert_eq!(
+        old_order_client.1["items"][0]["swingArmColor"],
+        "Apple Green"
+    );
+    // A fixed upholstery preference must neither require a former fabric choice
+    // nor hide the independent swing-arm selection.
+    sqlx::query("INSERT INTO registration_settings(tenant_id,section,data,revision) VALUES($1,'products','{\"requireNcm\":false,\"requireCest\":false,\"upholsteryConfigurable\":false}',1) ON CONFLICT(tenant_id,section) DO UPDATE SET data=EXCLUDED.data")
+        .bind(Uuid::parse_str(TENANT).unwrap()).execute(&admin).await.unwrap();
+    let fixed_upholstery = call(
+        &router, "POST", "/api/v1/orders", "editor", None, Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[{"productId":PRODUCT,"quantity":"1.000000","structureColor":"Piano Black","swingArmColor":"Ocean Blue"}]}),
+    ).await;
+    assert_eq!(
+        fixed_upholstery.0,
+        StatusCode::CREATED,
+        "{}",
+        fixed_upholstery.1
+    );
+    assert_eq!(
+        fixed_upholstery.1["items"][0]["swingArmColor"],
+        "Ocean Blue"
+    );
+    assert!(fixed_upholstery.1["items"][0]["upholsteryColor"].is_null());
+
+    sqlx::query("UPDATE products SET swing_arm_colors='{}' WHERE id=$1")
+        .bind(Uuid::parse_str(PRODUCT).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    let old_item =
+        json!({"productId":PRODUCT,"quantity":"1.000000","structureColor":"Piano Black"});
+    let without_arms = call(
+        &router,
+        "POST",
+        "/api/v1/orders",
+        "editor",
+        None,
+        Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[old_item.clone()]}),
+    )
+    .await;
+    assert_eq!(without_arms.0, StatusCode::CREATED, "{}", without_arms.1);
+    sqlx::query("UPDATE products SET swing_arm_colors=ARRAY['Apple Green'] WHERE id=$1")
+        .bind(Uuid::parse_str(PRODUCT).unwrap())
+        .execute(&admin)
+        .await
+        .unwrap();
+    let mut changed_quantity = old_item;
+    changed_quantity["quantity"] = json!("2.000000");
+    let preserved_none = call(
+        &router,
+        "PUT",
+        &format!(
+            "/api/v1/orders/{}",
+            without_arms.1["data"]["id"].as_str().unwrap()
+        ),
+        "editor",
+        Some(1),
+        Some(Uuid::now_v7()),
+        json!({"customerId":CUSTOMER,"dueDate":"2100-01-10","items":[changed_quantity]}),
+    )
+    .await;
+    assert_eq!(preserved_none.0, StatusCode::OK, "{}", preserved_none.1);
+    assert!(preserved_none.1["items"][0]["swingArmColor"].is_null());
+    super::company_tests::cleanup(&admin, application, server, &role).await;
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn component_colors_are_independent_and_survive_proposal_conversion(admin: PgPool) {
     let (router, application, server, role) = super::company_tests::setup(&admin).await;
     sqlx::raw_sql("INSERT INTO role_permissions(role_id,permission_code) SELECT '99999999-9999-4999-8999-999999999999'::uuid,code FROM permissions WHERE code LIKE 'sales.%' OR code LIKE 'catalog.%' ON CONFLICT DO NOTHING;

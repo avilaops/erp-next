@@ -408,9 +408,10 @@ test("acabamentos podem ser recarregados sem perder a negociação", async ({ co
   await installFrontendFixture(context, baseURL)
   await fixture(page)
   let attempts = 0
+  let catalogAvailable = false
   await page.route(`**/api/erp/products/${product}`, route => {
     attempts++
-    return route.fulfill(attempts === 1 ? { status: 503, json: { message: "Catálogo temporariamente indisponível" } } : { json: { tenantId: tenant, data: { structureColors: ["Preto"], upholsteryConfigurable: false } } })
+    return route.fulfill(!catalogAvailable ? { status: 503, json: { message: "Catálogo temporariamente indisponível" } } : { json: { tenantId: tenant, data: { structureColors: ["Preto"], upholsteryConfigurable: false } } })
   })
   await openCheckout(page)
   await page.getByLabel("Buscar cliente", { exact: true }).fill("Horizonte")
@@ -421,12 +422,16 @@ test("acabamentos podem ser recarregados sem perder a negociação", async ({ co
   const finishes = page.locator("summary").filter({ hasText: `Acabamentos de ${name}` })
   await finishes.click()
   await page.getByLabel(`Tipo de anilheiro de ${name}`, { exact: true }).selectOption({ label: "Olímpico" })
-  await page.getByRole("button", { name: `Recarregar acabamentos de ${name}`, exact: true }).click()
+  const retryFinishes = page.getByRole("button", { name: `Recarregar acabamentos de ${name}`, exact: true })
+  await expect(retryFinishes).toBeVisible()
+  const attemptsBeforeRetry = attempts
+  catalogAvailable = true
+  await retryFinishes.click()
   await expect(page.getByLabel(`Cor da estrutura de ${name}`, { exact: true }).getByRole("option", { name: "Preto", exact: true })).toHaveCount(1)
   await expect(page.getByLabel(`Quantidade de ${name}`, { exact: true })).toHaveValue("2")
   await expect(page.getByLabel(`Tipo de anilheiro de ${name}`, { exact: true })).toHaveValue("Olímpico")
   await expect(page.getByText(/Cliente selecionado: Academia Horizonte LTDA/)).toBeVisible()
-  expect(attempts).toBe(2)
+  expect(attempts).toBe(attemptsBeforeRetry + 1)
 })
 
 for (const width of [390, 1366]) test(`negociação preserva cliente, entrada e parcelas conferidas em ${width}px`, async ({ context, page, baseURL }, info) => {
@@ -517,8 +522,10 @@ for (const width of [390, 1366]) test(`negociação preserva cliente, entrada e 
   await expect(page.getByText(/Parcelas:.*Soma conferida/)).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath(`checkout-ready-${width}.png`), fullPage: true })
+  const created = page.waitForResponse(response => new URL(response.url()).pathname === "/api/erp/commercial/orders" && response.request().method() === "POST")
   await page.getByRole("button", { name: "Criar pedido com estas condições", exact: true }).click()
-  await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${record}$`))
+  expect((await created).status()).toBe(201)
+  await expect(page).toHaveURL(new RegExp(`/vendas/pedidos/${record}$`), { timeout: 30_000 })
 
   expect(state.creation()).toMatchObject({
     customerId: customer, dueDate: "2026-12-30", digest: "a".repeat(64), simulation: { line: "imported", versionId: version, downPaymentCents: 1519086 },

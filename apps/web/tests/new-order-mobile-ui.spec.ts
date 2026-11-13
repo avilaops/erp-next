@@ -30,6 +30,7 @@ async function addEquipment(page: Page) {
   await expect(page.getByRole("region", { name: "Totais do pedido", exact: true })).toContainText("R$ 1.130,00")
 }
 test.beforeEach(async ({ context, page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await installFrontendFixture(context, baseURL)
   page.on("pageerror", error => console.log("BROWSER_PAGE_ERROR", error.message))
   page.on("console", message => { if (message.type() === "error") console.log("BROWSER_CONSOLE_ERROR", message.text()) })
@@ -80,7 +81,7 @@ test("resumo sai da área do teclado e navegação preserva o preenchimento", as
   await expect(page.getByLabel("Quantidade de Mesa flexora", { exact: true })).toHaveValue("1")
 })
 
-test("vencimento nativo cabe no cartão e indica confirmação sem data", async ({ page }, info) => {
+test("vencimento nativo cabe no cartão e indica geração das parcelas sem data", async ({ page }, info) => {
   await fixture(page)
   await page.goto("/vendas/pedidos/novo")
   await expect(page.getByRole("heading", { name: "Novo pedido", exact: true })).toBeVisible({ timeout: 20000 })
@@ -97,7 +98,7 @@ test("vencimento nativo cabe no cartão e indica confirmação sem data", async 
   expect(geometry.document).toBeLessThanOrEqual(geometry.viewport)
   expect(await input.evaluate(element => getComputedStyle(element).paddingLeft)).toBe("0px")
   expect(await input.evaluate(element => getComputedStyle(element).paddingRight)).toBe("0px")
-  await expect(page.getByText("Na confirmação do pedido", { exact: true })).toBeVisible()
+  await expect(page.getByText("Na geração das parcelas", { exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath("mobile-entry-date-empty.png") })
   await input.fill("2026-12-10")
   await expect(input).toHaveValue("2026-12-10")

@@ -1,7 +1,7 @@
 import { money } from "./negotiation-types"
 import type { CheckoutSnapshot } from "./commercial-payment-model"
 
-const date = (value: string | null) => value ? value.split("-").reverse().join("/") : "Na confirmação do pedido"
+const date = (value: string | null) => value ? value.split("-").reverse().join("/") : "Na geração das parcelas"
 
 export function CommercialCheckoutSummary({ checkout }: { checkout: CheckoutSnapshot }) {
   const total = checkout.entry.amountCents + checkout.installments.reduce((sum, item) => sum + item.amountCents, 0)

@@ -44,3 +44,20 @@ test("produção recusa acesso e oferece recarregar em falha real", async ({ pag
   await expect(page.getByRole("alert").filter({ hasText: "Acesso à produção restrito" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Tentar novamente", exact: true })).toBeVisible()
 })
+
+test("produção oferece encomenda aceita e mantém rascunho fora da seleção", async ({ page }) => {
+  await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: [...permissions, "sales.orders.read"] } }))
+  await page.route("**/api/erp/production/stages", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [] } }))
+  await page.route("**/api/erp/production/orders*", route => route.fulfill({ json: { tenantId: tenant, canEdit: true, data: [], total: 0 } }))
+  await page.route(/\/api\/erp\/orders(?:\?.*)?$/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 2, data: [
+    { id: record, customerName: "Demanda aceita", status: "accepted", revision: 2 },
+    { id: component, customerName: "Rascunho editável", status: "draft", revision: 1 },
+  ] } }))
+  await page.goto("/estoque/ordens-producao")
+  await page.getByRole("button", { name: "Enviar pedido à produção", exact: true }).click()
+  const choices = page.getByRole("combobox", { name: /Pedido.*concluído/ })
+  await expect(choices.locator("option").filter({ hasText: "Demanda aceita" })).toHaveCount(1)
+  await expect(choices.locator("option").filter({ hasText: "Rascunho editável" })).toHaveCount(0)
+  await choices.selectOption(record)
+  await expect(page.getByRole("button", { name: "Criar ordens por produto", exact: true })).toBeEnabled()
+})

@@ -168,7 +168,7 @@ export function ProductionWorkspace({ id }: { id?: string }) {
           <button className="block max-w-full break-words text-left font-medium text-primary underline" disabled={locked} onClick={() => choose(job)}>Consultar {job.name}</button>
           <p className="mt-2 break-words">{job.quantity} {job.unit} · {job.sku}</p><p>{job.stageName} · {statusLabel(job.status)}</p>
           <p className="mt-1 break-all text-xs text-muted-foreground">Pedido {job.orderId}</p>
-        </li>)}</ul> : <p>Nenhuma ordem registrada. Envie um pedido confirmado ou concluído para começar.</p>}
+        </li>)}</ul> : <p>Nenhuma ordem registrada. Envie uma encomenda aceita, um pedido reservado ou concluído para começar.</p>}
         <Pagination offset={offset} pageSize={25} total={list.total} loading={locked} onOffsetChange={offset => { setLoading(true); setOffset(offset) }} />
       </>}
     </section>
@@ -176,7 +176,7 @@ export function ProductionWorkspace({ id }: { id?: string }) {
     {showCreate && list?.canEdit && <section className="form-section min-w-0 space-y-4" aria-label="Enviar pedido à produção">
       <h2 className="font-semibold">Fabricar os produtos de um pedido</h2>
       {saleError ? <p role="alert">{saleError}</p> : !sales ? <p role="status">Carregando pedidos…</p> : <form onSubmit={event => { event.preventDefault(); const sale = sales.data.find(item => item.id === saleId); if (sale) void send({ url: "/api/erp/production/orders", method: "POST", tenant: sales.tenantId, revision: sale.revision, body: { orderId: sale.id } }) }} className="space-y-4">
-        <fieldset disabled={locked} className="space-y-4"><label className="block space-y-2">Pedido confirmado ou concluído<select required className={selectClass} value={saleId} onChange={event => setSaleId(event.target.value)}><option value="">Selecione o pedido</option>{sales.data.filter(sale => ["confirmed", "completed"].includes(sale.status)).map(sale => <option key={sale.id} value={sale.id}>{sale.customerName} · {sale.id}</option>)}</select></label><Button type="submit" disabled={!saleId}>Criar ordens por produto</Button></fieldset>
+        <fieldset disabled={locked} className="space-y-4"><label className="block space-y-2">Pedido aceito, reservado ou concluído<select required className={selectClass} value={saleId} onChange={event => setSaleId(event.target.value)}><option value="">Selecione o pedido</option>{sales.data.filter(sale => ["accepted", "confirmed", "completed"].includes(sale.status)).map(sale => <option key={sale.id} value={sale.id}>{sale.customerName} · {sale.id}</option>)}</select></label><Button type="submit" disabled={!saleId}>Criar ordens por produto</Button></fieldset>
         <div className="flex flex-wrap justify-between gap-3"><Button type="button" variant="outline" disabled={locked || !saleOffset} onClick={() => { setSales(null); setSaleId(""); setSaleOffset(value => value - 25) }}>Pedidos anteriores</Button><Button type="button" variant="outline" disabled={locked || saleOffset + 25 >= sales.total} onClick={() => { setSales(null); setSaleId(""); setSaleOffset(value => value + 25) }}>Próximos pedidos</Button></div>
       </form>}
     </section>}

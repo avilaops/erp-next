@@ -1,0 +1,57 @@
+{
+  "status": "prepared-not-deployed",
+  "account_id": "85b914dcdebf6fa2fce7b819bc542294",
+  "worker": {
+    "name": "erp-next-runtime",
+    "main": "runtime-worker.mjs",
+    "modules": ["runtime-worker.mjs", "runtime-core.mjs", "runtime-configuration.mjs"],
+    "compatibility_date": "2026-11-13",
+    "workers_dev": false,
+    "vars": {
+      "RUNTIME_MODE": "maintenance",
+      "ERP_SOURCE_SHA": "",
+      "ERP_ACTIVATION_SOURCE_SHA": "",
+      "ERP_RECOVERY_VERIFIED": "false",
+      "ERP_AUTH_VERIFIED": "false",
+      "SUPABASE_PROJECT_REF": "",
+      "DATABASE_MAX_CONNECTIONS": "5",
+      "ERP_BACKGROUND_WORKERS_ENABLED": "false"
+    },
+    "observability": {
+      "enabled": true,
+      "redact_query_string": true,
+      "logs": { "enabled": true, "invocation_logs": false, "head_sampling_rate": 0.1 },
+      "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+    }
+  },
+  "durable_object": {
+    "binding": "ERP_RUNTIME",
+    "class_name": "ErpRuntime",
+    "new_sqlite_class_migration": "erp-runtime-v1",
+    "instance_name": "primary"
+  },
+  "container": {
+    "scheduling_policy": "durable_object",
+    "images": { "base": "" },
+    "instance": { "vcpu": 0.25, "memoryMib": 1024, "diskMb": 2000 },
+    "max_instances": 1,
+    "inactivity_timeout_ms": 120000,
+    "public_port": 3000,
+    "private_api_port": 8080,
+    "dockerfile": "runtime.Dockerfile"
+  },
+  "required_secret_names": [
+    "DATABASE_URL", "ERP_SESSION_SECRET", "ERP_AUTH_CLIENT_SECRET"
+  ],
+  "required_configuration_names": [
+    "AUTH_ISSUER", "ERP_AUTH_CLIENT_ID", "ERP_WEB_ORIGIN"
+  ],
+  "edge_binding_after_validation": {
+    "worker": "erp-next-edge",
+    "binding": "APP",
+    "type": "service",
+    "service": "erp-next-runtime"
+  },
+  "private_r2_bindings": [],
+  "deployment_gate": "Source preparation only; no paid plan, namespace, application or edge-mode mutation is performed by this inventory."
+}

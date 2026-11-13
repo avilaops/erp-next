@@ -77,7 +77,8 @@ export function RegistryLookup({ kind, context, tenantId, readValue, readState, 
       if (reply.status !== "found" || !reply.data) {
         setMessage(reply.warnings?.join(" ") || "Sem resultado disponível. Continue manualmente"); return
       }
-      if (!reply.source || !reply.expiresAt || !(Date.parse(reply.expiresAt) > Date.now())) throw new Error("Prévia sem origem ou validade. Continue manualmente")
+      if (!reply.source || !reply.expiresAt || !Number.isFinite(Date.parse(reply.expiresAt))) throw new Error("Prévia sem origem ou validade. Continue manualmente")
+      if (kind === "cnpj" && Date.parse(reply.expiresAt) <= Date.now()) { setMessage("A prévia venceu. Consulte novamente; os campos foram preservados"); return }
       const preview = { reply, key: captured }
       if (automatic) await applyPreview(reply.data.fields, preview, controller)
       else {

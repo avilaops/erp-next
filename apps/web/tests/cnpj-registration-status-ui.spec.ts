@@ -47,7 +47,7 @@ for (const width of [393, 1280]) test(`existing party shows source registration 
   await expect(page.getByText("Ativo", { exact: true })).toBeVisible()
   await expect(page.getByText("Cliente e fornecedor", { exact: true })).toBeVisible()
   expect(writes).toBe(0)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath(`party-registration-status-${width}.png`), fullPage: true })
 })
 

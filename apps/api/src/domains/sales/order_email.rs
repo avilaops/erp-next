@@ -73,7 +73,9 @@ pub async fn get(
     let value = OrderEmailStatus {
         tenant_id: tenant,
         can_send: manage && current.data.status != "cancelled",
-        email_ready: state.mail.is_some(),
+        email_ready: crate::platform::mail_settings::resolve_in(&state, &mut tx)
+            .await?
+            .is_some(),
         recipient,
         deliveries,
     };
@@ -326,7 +328,7 @@ pub async fn send(
             "Existe um envio sem confirmação definitiva. Confira o resultado com o provedor antes de reenviar",
         ));
     }
-    let Some(mailer) = state.mail.as_ref() else {
+    let Some(mailer) = crate::platform::mail_settings::resolve_in(&state, &mut tx).await? else {
         // Nothing is persisted or published when SMTP is unavailable.
         return Ok(response(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -340,11 +342,12 @@ pub async fn send(
             .fetch_one(&mut *tx)
             .await
             .map_err(db)?;
-    let file = attachment(&current, &company, &tax_id);
+    let captured_html = attachment(&current, &company, &tax_id);
+    let file = super::order_document::attachment(&mut tx, tenant, &current).await?;
     let delivery = Uuid::now_v7();
     // Persist uncertainty before crossing the SMTP boundary. A crash can never cause a replay to resend.
     sqlx::query("INSERT INTO sales_order_email_deliveries(id,tenant_id,order_id,order_revision,result_revision,subject_id,command_key,recipient,snapshot_html,status) VALUES($1,$2,$3,$4,$4,$5,$6,$7,$8,'uncertain')")
-        .bind(delivery).bind(tenant).bind(id).bind(expected).bind(&identity.subject).bind(key).bind(&input.recipient).bind(std::str::from_utf8(&file.bytes).map_err(|_| AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
+        .bind(delivery).bind(tenant).bind(id).bind(expected).bind(&identity.subject).bind(key).bind(&input.recipient).bind(std::str::from_utf8(&captured_html.bytes).map_err(|_| AccessError::Internal)?).execute(&mut *tx).await.map_err(db)?;
     record(
         &mut tx,
         tenant,

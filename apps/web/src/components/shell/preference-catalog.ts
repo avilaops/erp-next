@@ -14,7 +14,7 @@ export const preferenceCategories: PreferenceCategory[] = [
     { title: "Tabelas e configurações adicionais", items: [{ label: "Alterar dados da empresa", href: "/preferencias/empresa/dados" }] },
   ] },
   { id: "sistema", label: "Sistema", sections: [
-    { title: "Configurações do sistema", items: [{ label: "Interface", href: "/preferencias/sistema", description: "Aparência e quantidade de produtos por página." }] },
+    { title: "Configurações do sistema", items: [{ label: "Interface", href: "/preferencias/sistema", description: "Aparência e quantidade de produtos por página." }, { label: "E-mail (SMTP)", href: "/preferencias/sistema/email", description: "Servidor de envio compartilhado da plataforma." }] },
     { title: "Tabelas e configurações adicionais", items: [
       { label: "Consulta de exclusões realizadas", href: "/preferencias/sistema/exclusoes" }, { label: "Gerenciador de arquivos", href: "/preferencias/sistema/arquivos" }, { label: "Relatórios customizados", href: "/preferencias/sistema/relatorios-customizados" }, { label: "Etiquetas customizadas", href: "/preferencias/sistema/etiquetas-customizadas" },
       { label: "Registro de atividades", href: "/preferencias/seguranca" },

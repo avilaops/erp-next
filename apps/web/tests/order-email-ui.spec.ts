@@ -55,7 +55,7 @@ test("BFF preserva empresa, revisão e comando e recusa origem, empresa ou consu
     response.writeHead(200, { "Content-Type": "application/json", ETag: '"3"' })
     response.end(JSON.stringify({ tenantId: tenant }))
   })
-  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(33119, "127.0.0.1", resolve) })
+  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(Number(process.env.ERP_TEST_API_PORT || 33119), "127.0.0.1", resolve) })
   const key = "33333333-3333-4333-8333-333333333333"
   const path = `/api/erp/orders/${record}/email`
   const body = { recipient: "cliente@example.test", subject: "Pedido", message: "Documento em anexo." }

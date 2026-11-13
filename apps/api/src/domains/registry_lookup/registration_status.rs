@@ -69,8 +69,8 @@ pub fn fields(ws: bool, record: &Value, fields: &mut BTreeMap<String, String>) {
         label.unwrap_or("Não confirmada").into(),
     );
     if let Some(date) = text(record, "data_situacao_cadastral") {
-        let format =
-            time::format_description::parse("[year]-[month]-[day]").expect("ISO date format");
+        let format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")
+            .expect("ISO date format");
         if date.len() == 10 && time::Date::parse(&date, &format).is_ok() {
             fields.insert("registrationStatusDate".into(), date);
         }

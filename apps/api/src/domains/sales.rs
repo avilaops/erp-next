@@ -28,6 +28,7 @@ pub mod negotiation_model;
 #[cfg(test)]
 mod negotiation_model_tests;
 pub mod opportunities;
+pub mod order_document;
 pub mod order_email;
 pub mod pricing;
 mod pricing_model;

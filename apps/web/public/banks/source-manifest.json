@@ -1,0 +1,867 @@
+{
+  "repository": "https://github.com/Tgentil/Bancos-em-SVG",
+  "commit": "fe1d43f0cf379135bd01c987bc147a04fdf48c6d",
+  "author": "Thiago da Silveira Gentil",
+  "rights": "Logos belong to their respective banks; follow each brand's guidelines. No MIT license is declared upstream.",
+  "transformations": "Public DTD declaration, editor metadata and editor attributes removed; SVG allowlist applied. Local fragment references only. Missing viewBox derived as 0 0 width height only from positive finite unitless root dimensions; existing valid viewBox preserved.",
+  "assets": [
+    {
+      "name": "ABC Brasil",
+      "id": "abc-brasil",
+      "path": "ABC Brasil/logoabc.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/ABC%20Brasil/logoabc.svg",
+      "file": "abc-brasil.svg",
+      "sourceSha256": "23f528fad165941b470bcf5dc41fbf37e1ef1fdc2636360d911969e0e65dbab6",
+      "sha256": "9b30eb52a28bae92e0259cfc375d80730c96c9300ad62b1b80fefc4c5f9aa959",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Ailos",
+      "id": "ailos",
+      "path": "Ailos/logo-ailos.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Ailos/logo-ailos.svg",
+      "file": "ailos.svg",
+      "sourceSha256": "e2b9b732a715e2449f1874a422c75dc41e231e6317e9fed9c8897235421062da",
+      "sha256": "5804f19f4bf3e9347effc8b26a57f80dfb028f7dbbd4f79636ace3e276cff8af",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Almah Conta",
+      "id": "almah-conta",
+      "path": "Almah Conta/Almah.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Almah%20Conta/Almah.svg",
+      "file": "almah-conta.svg",
+      "sourceSha256": "d9d1730bf7af90852df2c9e4657e6708751799f32c7d6b45fcb5b0d995021856",
+      "sha256": "b3ece1ac62438e9fca650e07d48ee8d263be1b3ef9e9fe98cac3e28cbf5b3f6b",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Artta",
+      "id": "artta",
+      "path": "Artta/artta.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Artta/artta.svg",
+      "file": "artta.svg",
+      "sourceSha256": "64381db15d38137991ee188215023d7847e5da6378290c6041d4ba0e987f3072",
+      "sha256": "ac067815f738e3a17f6547f4383016c48b7356a17b3ab81ff09c619098a254e1",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Asaas IP S.A",
+      "id": "asaas-ip-s-a",
+      "path": "Asaas IP S.A/header-logo-azul.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Asaas%20IP%20S.A/header-logo-azul.svg",
+      "file": "asaas-ip-s-a.svg",
+      "sourceSha256": "ca7fc7e94848ba7b1d4058e790ef0ac42c6d8737a8ec77414adf9fb3a7984e90",
+      "sha256": "20a418ab55f8b8fba94d75a333b1c19063d3e9590cac0501293e35150422e2e9",
+      "rejectedVariants": []
+    },
+    {
+      "name": "BK Bank",
+      "id": "bk-bank",
+      "path": "BK Bank/bkBank.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/BK%20Bank/bkBank.svg",
+      "file": "bk-bank.svg",
+      "sourceSha256": "e58bb87e351cf597d5451b6102a6ad5f301a8c9024d68d2bc67772e0a3a99827",
+      "sha256": "7b8951411717580fca2e65c7d6670694fd8abd9a1eea16e37b6e0e647f63a856",
+      "rejectedVariants": []
+    },
+    {
+      "name": "BNP Paripas",
+      "id": "bnp-paripas",
+      "path": "BNP Paripas/logo-bnp.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/BNP%20Paripas/logo-bnp.svg",
+      "file": "bnp-paripas.svg",
+      "sourceSha256": "6ed9fe786834c33a64eb27a5f25914d126eb095a29ac1a8ff5b1dc8d09e7391f",
+      "sha256": "ed3866ced00c1f158235c8f3b7942971be4e9613eadda67903ab603963c9107b",
+      "rejectedVariants": []
+    },
+    {
+      "name": "BRB - Banco de Brasilia",
+      "id": "brb-banco-de-brasilia",
+      "path": "BRB - Banco de Brasilia/brb-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/BRB%20-%20Banco%20de%20Brasilia/brb-logo.svg",
+      "file": "brb-banco-de-brasilia.svg",
+      "sourceSha256": "6c64c275aa9e886e8dce7413bff2e9ca62b2ca1d3447c659f03301c73ef991b5",
+      "sha256": "19773b1f1917d9a5043c9b206d9273049002a4d705b37df90e3962e0603d08bc",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Arbi",
+      "id": "banco-arbi",
+      "path": "Banco Arbi/Banco_Arbi .svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Arbi/Banco_Arbi%20.svg",
+      "file": "banco-arbi.svg",
+      "sourceSha256": "57237f634088cf54bb8372f82463146408943211f6700199d6032c246bf53120",
+      "sha256": "f5498a6245a009a59ebdf6e45eed5eae64c66baa6b18ac8c76d8b844fc3aeea9",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco BMG",
+      "id": "banco-bmg",
+      "path": "Banco BMG/banco-bmg-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20BMG/banco-bmg-logo.svg",
+      "file": "banco-bmg.svg",
+      "sourceSha256": "859286faeee33b22736c3a2a6eb5c0390d32adf7cd463da853018b10f35d3d4b",
+      "sha256": "c9cae8295c19caeb78e9a8927dff2de84e3c5d5b83f082db1bbea559c44fcf95",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco BMP",
+      "id": "banco-bmp",
+      "path": "Banco BMP/logo_bmp.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20BMP/logo_bmp.svg",
+      "file": "banco-bmp.svg",
+      "sourceSha256": "692fa82c8f3e7dd3060d1fc5dfeb0d3eadb64802fdc00c9593fff41f931d4cfd",
+      "sha256": "1e0367eaccf2c816d87186aafef7f14f8f4db5b5e812ccdeeac69cc877514fa4",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco BS2 S.A",
+      "id": "banco-bs2-s-a",
+      "path": "Banco BS2 S.A/Banco_BS2.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20BS2%20S.A/Banco_BS2.svg",
+      "file": "banco-bs2-s-a.svg",
+      "sourceSha256": "5844566aa22cee56ee270434e378418bd1ad418ea09959ea95ae775c4021e286",
+      "sha256": "7cb7efd54fc23e3c1408bac30d1603f2a3d79d3f522982ea5bc09018840e32fa",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco BTG Pacutal",
+      "id": "banco-btg-pacutal",
+      "path": "Banco BTG Pacutal/btg-pactual.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20BTG%20Pacutal/btg-pactual.svg",
+      "file": "banco-btg-pacutal.svg",
+      "sourceSha256": "a979d4142667f04d7804f92956b50f77f38af700a7a02bbd4052cc55acc4932f",
+      "sha256": "5b825ea500a5b049807b78140702196842f4588526e58ffa935e5825d79074c8",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco C6 S.A",
+      "id": "banco-c6-s-a",
+      "path": "Banco C6 S.A/c6 bank.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20C6%20S.A/c6%20bank.svg",
+      "file": "banco-c6-s-a.svg",
+      "sourceSha256": "25b01f43a4c8c5c5cd87417a3bb14aa52f9f3024b16d639c4acd6b3a48cf6956",
+      "sha256": "852439ff0131ae95f20b4da728bba1481d69d5a7bce59930cbf344b2dc38ce91",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Daycoval",
+      "id": "banco-daycoval",
+      "path": "Banco Daycoval/logo-Daycoval.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Daycoval/logo-Daycoval.svg",
+      "file": "banco-daycoval.svg",
+      "sourceSha256": "798a04c71663d9ac81098515107398074a7f58e66677fe8f9348847a885125cc",
+      "sha256": "7d1ecb6fc5c9bd0c9251d662ad9c3113852924441334b5eed885d900870d9a70",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Industrial do Brasil S.A",
+      "id": "banco-industrial-do-brasil-s-a",
+      "path": "Banco Industrial do Brasil S.A/BIB-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Industrial%20do%20Brasil%20S.A/BIB-logo.svg",
+      "file": "banco-industrial-do-brasil-s-a.svg",
+      "sourceSha256": "ec255933897f6762f2c7676e06f6625f2c8faec27c2e640bd06ca83e75a441e5",
+      "sha256": "1f6a7c0809bfce21c6c9492fe10f4067e3be5f545a282ff87fcf82ab9be50599",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Inter S.A",
+      "id": "banco-inter-s-a",
+      "path": "Banco Inter S.A/inter.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Inter%20S.A/inter.svg",
+      "file": "banco-inter-s-a.svg",
+      "sourceSha256": "530c5a25076da37a097a6e98e11e0919d48d7455aca052394d3d4022a2415372",
+      "sha256": "06fe9721e9537203b3a226643c3c35f700fa1599a529ae374b93afc9a014d014",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Mercantil do Brasil S.A",
+      "id": "banco-mercantil-do-brasil-s-a",
+      "path": "Banco Mercantil do Brasil S.A/logo_mercantil-nome-branco.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Mercantil%20do%20Brasil%20S.A/logo_mercantil-nome-branco.svg",
+      "file": "banco-mercantil-do-brasil-s-a.svg",
+      "sourceSha256": "369bc639697f992a3886da5482549d0d67d46988583d57e86831f66491bd1d20",
+      "sha256": "045e66bd23f0f9239f00fcd9f304a15a52b6b07cd20245225bc130a326f2f96a",
+      "rejectedVariants": [
+        "Banco Mercantil do Brasil S.A/banco-mercantil-novo-azul.svg: Disallowed SVG element: image"
+      ]
+    },
+    {
+      "name": "Banco Original S.A",
+      "id": "banco-original-s-a",
+      "path": "Banco Original S.A/banco-original-logo-verde.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Original%20S.A/banco-original-logo-verde.svg",
+      "file": "banco-original-s-a.svg",
+      "sourceSha256": "810f2fc90b55a8c106da45a82afc7f14f1a564d380efe90791f8f21d54e79f6a",
+      "sha256": "869df8d098fc300d161ccfe3046c9a975a342f4e32250f1de92422886b17cb9f",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Pan",
+      "id": "banco-pan",
+      "path": "Banco Pan/bancoPan.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Pan/bancoPan.svg",
+      "file": "banco-pan.svg",
+      "sourceSha256": "0e0f090b2c0300d3fb0af676a4e1ac7c4264f8c949045a6ed51ef5a2f7cd4be5",
+      "sha256": "8c28df5ebff34a4f371720cebe2f7fe269910b61bf756f75df38b97d1937a51c",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Paulista",
+      "id": "banco-paulista",
+      "path": "Banco Paulista/banco-paulista.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Paulista/banco-paulista.svg",
+      "file": "banco-paulista.svg",
+      "sourceSha256": "98fb0d6c51fb4461e6d7a222afee84f7e00d3052d2e91f02763e0e12e9bc5fd9",
+      "sha256": "28c29c43aa27d511eec8d4e0702e9c8abfce08476ee28d9335ea4c9009ca541a",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Pine",
+      "id": "banco-pine",
+      "path": "Banco Pine/banco-pine.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Pine/banco-pine.svg",
+      "file": "banco-pine.svg",
+      "sourceSha256": "0d47f011d8d12c2f13595f853d94c07f7b2e5d2a6b977d021cf7b3c6575e39d5",
+      "sha256": "5cfd1aea26f3a84556b2d2ccf3346cfc86894e2673cbd7e96e0cf3ca9bb2cbbd",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Rendimento",
+      "id": "banco-rendimento",
+      "path": "Banco Rendimento/banco rendimento logo nova .svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Rendimento/banco%20rendimento%20logo%20nova%20.svg",
+      "file": "banco-rendimento.svg",
+      "sourceSha256": "d5b5112f988741e7e7804c55ce7993bcd1d38790fa58fafac1c951d6a39aae63",
+      "sha256": "720f1eb9690cb9c9cb1787dd5742fa3192cca40a7da9555a3f8a4ea0d76ca82f",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Safra S.A",
+      "id": "banco-safra-s-a",
+      "path": "Banco Safra S.A/logo-safra.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Safra%20S.A/logo-safra.svg",
+      "file": "banco-safra-s-a.svg",
+      "sourceSha256": "a937ba76e4587fc3ffe42a1d2a7d2b0ab12d7a1a564b0ede5fe69f0bd2671dbd",
+      "sha256": "9a44b5a5ea07b27c6a5621e8fac8b008f614deebc65de1ffcbf3acae2abc8f13",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Santander Brasil S.A",
+      "id": "banco-santander-brasil-s-a",
+      "path": "Banco Santander Brasil S.A/banco-santander-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Santander%20Brasil%20S.A/banco-santander-logo.svg",
+      "file": "banco-santander-brasil-s-a.svg",
+      "sourceSha256": "676b44c704c9d3fb8401e5e402ff963e85867b8fad7292f5a849a896c5684006",
+      "sha256": "3c1436f9bbfc19f917569451797647200fc9153ed542d10eaf237f707a41e010",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Sofisa",
+      "id": "banco-sofisa",
+      "path": "Banco Sofisa/logo-sofisa.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Sofisa/logo-sofisa.svg",
+      "file": "banco-sofisa.svg",
+      "sourceSha256": "1f7a2455653674c79f232466c9050d6c1b267bbdb2eddea050b40bf3ed4db8c4",
+      "sha256": "e6f869220c7c9fc630720467e524c8b4393b2a28de248e4d23668d3a34507f8d",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Topazio",
+      "id": "banco-topazio",
+      "path": "Banco Topazio/logo-banco-topazio.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Topazio/logo-banco-topazio.svg",
+      "file": "banco-topazio.svg",
+      "sourceSha256": "89f3c47212223845f24e35a4a6002bbb18f2c83efccf87697d047a1ec69543dd",
+      "sha256": "4e9bfa43bc2199cd9558d316178c399d71c9ba9a628b1d807b930fcb535677a0",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Triângulo - Tribanco",
+      "id": "banco-triangulo-tribanco",
+      "path": "Banco Triângulo - Tribanco/logotribanco.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20Tri%C3%A2ngulo%20-%20Tribanco/logotribanco.svg",
+      "file": "banco-triangulo-tribanco.svg",
+      "sourceSha256": "206d7fab7f8e697c39a3d779a141e5b8f0dea45ed93dc0613a22e776fc501593",
+      "sha256": "cd3c362da6a070e69fdde7365927eb62cd3473b4be7c7c4268470e829c8450e6",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco Votorantim",
+      "id": "banco-votorantim",
+      "file": null,
+      "rejectedVariants": [
+        "Banco Votorantim/banco-bv-logo.svg: Disallowed SVG element: image"
+      ]
+    },
+    {
+      "name": "Banco da Amazônia S.A",
+      "id": "banco-da-amazonia-s-a",
+      "path": "Banco da Amazônia S.A/banco-da-amazonia.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20da%20Amaz%C3%B4nia%20S.A/banco-da-amazonia.svg",
+      "file": "banco-da-amazonia-s-a.svg",
+      "sourceSha256": "8da40092a833f74c1ed6395d83a665a80c4b8de343c6f4543d80194fdf6df9e0",
+      "sha256": "dab9e3220bf3187de043e40ece2b0c916f20d13179f6a0237f0f59eacf6a5b31",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco do Brasil S.A",
+      "id": "banco-do-brasil-s-a",
+      "path": "Banco do Brasil S.A/banco-do-brasil-sem-fundo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20do%20Brasil%20S.A/banco-do-brasil-sem-fundo.svg",
+      "file": "banco-do-brasil-s-a.svg",
+      "sourceSha256": "5c979a51dc03555fd4249c7368a673a8ba31d59ec49b6154725a12696748daa1",
+      "sha256": "13cfd0b8c2bf393fc34500484defd06c0cbd0067b280b0080aff51737fb61b6b",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco do Estado do Espirito Santo",
+      "id": "banco-do-estado-do-espirito-santo",
+      "path": "Banco do Estado do Espirito Santo/banestes.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20do%20Estado%20do%20Espirito%20Santo/banestes.svg",
+      "file": "banco-do-estado-do-espirito-santo.svg",
+      "sourceSha256": "86113c83e4aaa74be40a2e934ad0a2c5dface3856675f3c4e071e3ab702a77ce",
+      "sha256": "1d621eaafa2d7230efd3812839d7991c73c3379a9cdc829d22f6586d72218f11",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco do Estado do Para",
+      "id": "banco-do-estado-do-para",
+      "path": "Banco do Estado do Para/banpara-logo-sem-fundo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20do%20Estado%20do%20Para/banpara-logo-sem-fundo.svg",
+      "file": "banco-do-estado-do-para.svg",
+      "sourceSha256": "60f03568c97ef9d775a00ee639e0861268cf6fd6cf7590dc2ed2122371f6fd6d",
+      "sha256": "b17b2672734249fc2c1814dc7b2b8d31cb606d9ea43669ae9c3b9df5e55eb95d",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco do Estado do Sergipe",
+      "id": "banco-do-estado-do-sergipe",
+      "path": "Banco do Estado do Sergipe/logo banese.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20do%20Estado%20do%20Sergipe/logo%20banese.svg",
+      "file": "banco-do-estado-do-sergipe.svg",
+      "sourceSha256": "cd4424d8d150fb42bebd0bb7f6227a43337a2fbb7f2fc3d08643233b3582f633",
+      "sha256": "ec1f6158d471e7b0da89d76469d4c47acbd82b3b872b75487bfa05a250d43829",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banco do Nordeste do Brasil S.A",
+      "id": "banco-do-nordeste-do-brasil-s-a",
+      "path": "Banco do Nordeste do Brasil S.A/Logo_BNB.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banco%20do%20Nordeste%20do%20Brasil%20S.A/Logo_BNB.svg",
+      "file": "banco-do-nordeste-do-brasil-s-a.svg",
+      "sourceSha256": "4d7946623fcb39beb30425811e23252a746f9b5e2c6fdf5598016107c8f1a207",
+      "sha256": "d634f065108bb3b887de778a81e65de3b69c0c425ac77b081cc475897dc8fce8",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Bank of America",
+      "id": "bank-of-america",
+      "path": "Bank of America/bankofamerica-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Bank%20of%20America/bankofamerica-logo.svg",
+      "file": "bank-of-america.svg",
+      "sourceSha256": "6d03cd984a9247e1f97857fcda08c252418555c0522e1e4fc9894086622cf088",
+      "sha256": "4d98a08d94ba960dbdaf2bb004e80a70707ef00efb0d20084894a4853819c5a2",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Banrisul",
+      "id": "banrisul",
+      "path": "Banrisul/banrisul-logo-2023.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Banrisul/banrisul-logo-2023.svg",
+      "file": "banrisul.svg",
+      "sourceSha256": "432d98a4cd3663cca32f9d4ac12d7b533946a4d887f38e2444b6b00a43e9a7c9",
+      "sha256": "acc9004e18e396b6b408752de3f24fc3708283cf87ff3ac2900d8ce98490d9b6",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Bees Bank",
+      "id": "bees-bank",
+      "path": "Bees Bank/BEESBank_Horizontal.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Bees%20Bank/BEESBank_Horizontal.svg",
+      "file": "bees-bank.svg",
+      "sourceSha256": "2bc65b329d35fb5c64164113f693988bd1eab34b7e3bb0b6c0e4b5dc30908e6d",
+      "sha256": "1afc273cfa371781fe6d2a79333c6e0ab4a048b1d0b3c2c848a3adfdaaa8a613",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Bradesco S.A",
+      "id": "bradesco-s-a",
+      "path": "Bradesco S.A/bradesco.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Bradesco%20S.A/bradesco.svg",
+      "file": "bradesco-s-a.svg",
+      "sourceSha256": "166b8bec5c80c5609e40ea5c8860a1e33eae92c68ceb491e2190bb84dfbb174c",
+      "sha256": "446f330dcb0cf4a1b83492b831293ad48e4429ca47af68c03af4e17c63d68460",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Caixa Econômica Federal",
+      "id": "caixa-economica-federal",
+      "path": "Caixa Econômica Federal/caixa-economica-federal-X.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Caixa%20Econ%C3%B4mica%20Federal/caixa-economica-federal-X.svg",
+      "file": "caixa-economica-federal.svg",
+      "sourceSha256": "ebe33e945d49cb3e80bf9dc95c555bc3eceef13adb17ef8987f908f05a897a02",
+      "sha256": "740289ab20e5073cb509538d852b7e9c892fb18c61e5afd4b76b06d8135387be",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Capitual",
+      "id": "capitual",
+      "path": "Capitual/logo capitual.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Capitual/logo%20capitual.svg",
+      "file": "capitual.svg",
+      "sourceSha256": "e7b9a8140e97daa1867be40b023b6cbd8d019937ddb10bf0dd9202ba093cbb67",
+      "sha256": "b6c621df38397677c131682eb7482a4bc803e30ad29ee0af0046ab93e65e2272",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Conta Simples Soluções em Pagamentos",
+      "id": "conta-simples-solucoes-em-pagamentos",
+      "path": "Conta Simples Soluções em Pagamentos/conta-simples_logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Conta%20Simples%20Solu%C3%A7%C3%B5es%20em%20Pagamentos/conta-simples_logo.svg",
+      "file": "conta-simples-solucoes-em-pagamentos.svg",
+      "sourceSha256": "f67c955e8a38dcc6f1690981a99a000cfda15f6e5418a87998dedd4ba3cbc5e7",
+      "sha256": "0cd29c77f3bdba62bad8083cc3586e6f9b1100ae51ca5a41f6ffbc802c0c8406",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Contbank",
+      "id": "contbank",
+      "path": "Contbank/logo-contbank.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Contbank/logo-contbank.svg",
+      "file": "contbank.svg",
+      "sourceSha256": "4ec0b78f1122963024df2a112ab281b9c4ce2c62675ca756d4818139b72294b5",
+      "sha256": "f220cc8eecf336b96e22f7b101b20a1a6086b3a3f02649c587262521e0abeee5",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Cora Sociedade Credito Direto S.A",
+      "id": "cora-sociedade-credito-direto-s-a",
+      "path": "Cora Sociedade Credito Direto S.A/icone-cora-rosa-2500px.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Cora%20Sociedade%20Credito%20Direto%20S.A/icone-cora-rosa-2500px.svg",
+      "file": "cora-sociedade-credito-direto-s-a.svg",
+      "sourceSha256": "06de96591eab13714e808acb804f6b8d0bef119171ce8cb968e839c67f78d9bf",
+      "sha256": "4db31e7c302aa69f0ae7cb3a89cbed9005ccf600cb11427e1d13ab7f33a674eb",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Credisis",
+      "id": "credisis",
+      "path": "Credisis/credisis.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Credisis/credisis.svg",
+      "file": "credisis.svg",
+      "sourceSha256": "37dd6abf730bc17aa56cde9e9a4c8841701eee91adf756cf849b4679959cb398",
+      "sha256": "bda36364427f4646cda0860fcf2db84f858b267539ec09a0239b4fcca7f5f21b",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Cresol",
+      "id": "cresol",
+      "path": "Cresol/Icone-original.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Cresol/Icone-original.svg",
+      "file": "cresol.svg",
+      "sourceSha256": "7d9125c0991cd99d0d1c6b711f3d2868594ff4de5b85aa883319d38909dff567",
+      "sha256": "27cef03383ff51b3d0cacae56ee0b7131624e59c3d5d6dbf9e983298b0d80dfe",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Dock",
+      "id": "dock",
+      "path": "Dock/dock-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Dock/dock-logo.svg",
+      "file": "dock.svg",
+      "sourceSha256": "46c1af7e9748c01e5d2162cbc5d8690b639241b2a787d5004121df7dae9084df",
+      "sha256": "deef262c224b43242b573e31d62203cc7a76717a87191a8e51d718e8fd71e6ae",
+      "rejectedVariants": []
+    },
+    {
+      "name": "DuePay",
+      "id": "duepay",
+      "file": null,
+      "rejectedVariants": [
+        "DuePay/Duepay.svg: Disallowed SVG element: image"
+      ]
+    },
+    {
+      "name": "Efí - Gerencianet",
+      "id": "efi-gerencianet",
+      "path": "Efí - Gerencianet/logo-efi-bank-laranja.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Ef%C3%AD%20-%20Gerencianet/logo-efi-bank-laranja.svg",
+      "file": "efi-gerencianet.svg",
+      "sourceSha256": "ddb741d6fcde7ff79f53ac0d3eca1b83edd5640a8ed096f0b04d36f70aaa0eec",
+      "sha256": "c43d1b8e4b75e3b33f18cb83cff4de14ce1677c4151065ec6709895cee6bbd56",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Grafeno",
+      "id": "grafeno",
+      "path": "Grafeno/grafeno.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Grafeno/grafeno.svg",
+      "file": "grafeno.svg",
+      "sourceSha256": "062a8c3eb2c62938563c0240256f2026790c5f88bb67a1e8405472064d8ec50b",
+      "sha256": "69b21210b808730681de33a8bf012b9bc2c50ca8b7a5ecba7c5e59819de444bf",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Ifood Pago",
+      "id": "ifood-pago",
+      "path": "Ifood Pago/LOGO-IFOOD-PAGO-BRANCO.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Ifood%20Pago/LOGO-IFOOD-PAGO-BRANCO.svg",
+      "file": "ifood-pago.svg",
+      "sourceSha256": "b5153fc3ac196ca82d0c612e2939d0cc2ad512cbd894cecf0ff71d965b9235d6",
+      "sha256": "56d77d3ba75776e78d8a7a0666a71ef1dedd5a74ef80f1cfdc006e2a924a1b26",
+      "rejectedVariants": []
+    },
+    {
+      "name": "InfinitePay",
+      "id": "infinitepay",
+      "path": "InfinitePay/InfitePay.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/InfinitePay/InfitePay.svg",
+      "file": "infinitepay.svg",
+      "sourceSha256": "abeac1a296f6149529dcb8f4414f5e4f4e4b74c7595f14e4f68d1417da174a2b",
+      "sha256": "b3a23cf7055e93fecbd0345b278309d79899d65e25568c2d1c97e0deb9a880be",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Ip4y",
+      "id": "ip4y",
+      "path": "Ip4y/conta-ip.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Ip4y/conta-ip.svg",
+      "file": "ip4y.svg",
+      "sourceSha256": "77bf776f4c01dce03576d71106fca616c381cb8a79a65b8e4278bc31bdb65d3c",
+      "sha256": "5626b64b9ffc0d43f1bc384edaba92fb278b60f0369027d0444a2280269a4fa8",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Itaú Unibanco S.A",
+      "id": "itau-unibanco-s-a",
+      "path": "Itaú Unibanco S.A/itau-fundo-azul.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Ita%C3%BA%20Unibanco%20S.A/itau-fundo-azul.svg",
+      "file": "itau-unibanco-s-a.svg",
+      "sourceSha256": "adb769e84e19df74017a833d56a370f6d11e711215305f18390b53874ee6d723",
+      "sha256": "e377450a5035e4a3423375ca16b13285e906191767efd7a92ed1d9567ee48f2d",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Iugo",
+      "id": "iugo",
+      "path": "Iugo/Iugo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Iugo/Iugo.svg",
+      "file": "iugo.svg",
+      "sourceSha256": "eafd95b2ea6cc7f949e4a9ec4466dc95bef0a93693e412fa5f71a52e65d103cc",
+      "sha256": "8afe6efab9a8ce3c7a710eaa04e5383e1fbc0765c22c5633f682d14467a11f48",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Lets Bank S.A",
+      "id": "lets-bank-s-a",
+      "path": "Lets Bank S.A/Logo Letsbank.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Lets%20Bank%20S.A/Logo%20Letsbank.svg",
+      "file": "lets-bank-s-a.svg",
+      "sourceSha256": "b7e4b4003d9dca770c5d072ffbeb23cf7fcdef8ac850b251b4d9b8cb443903fa",
+      "sha256": "1cc8a444b14c9f2b0a21f546d2e1a6993ee54ac7f6e84cc9ad5f37c3a69a3867",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Linker",
+      "id": "linker",
+      "path": "Linker/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Linker/logo.svg",
+      "file": "linker.svg",
+      "sourceSha256": "3656c29dadf69d546059d09de48e28e8872c60741f4699eeb7545b62bf66877b",
+      "sha256": "b9f031c3a0d8e5175d36353c1ae92af3c53159323b2b1c2c1727eb6c00ad9845",
+      "rejectedVariants": []
+    },
+    {
+      "name": "MUFG",
+      "id": "mufg",
+      "path": "MUFG/mufg-seeklogo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/MUFG/mufg-seeklogo.svg",
+      "file": "mufg.svg",
+      "sourceSha256": "c9564e1b093266987085b04745becb6b1e417e487694f0befd5de5f59d5a6f0e",
+      "sha256": "7d662127ddcda2461c4eb42c09f23ee7db4e00292f182e51a5bf0ac6fa636cb3",
+      "rejectedVariants": []
+    },
+    {
+      "name": "MagaluPay",
+      "id": "magalupay",
+      "path": "MagaluPay/logo-magalupay.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/MagaluPay/logo-magalupay.svg",
+      "file": "magalupay.svg",
+      "sourceSha256": "989c27017c2035f04763ddc7a0e900a72f498c6164f4a523de3274c08db79998",
+      "sha256": "0fdc9e21efe25e4558c91ec3edf95ac73db45cd32b2c029dd519a345687f5d8d",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Mercado Pago",
+      "id": "mercado-pago",
+      "path": "Mercado Pago/mercado-pago.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Mercado%20Pago/mercado-pago.svg",
+      "file": "mercado-pago.svg",
+      "sourceSha256": "9b91dd92462aea153396d93d725c37b872b56dded434fd3c3b2ced7e6aaf3384",
+      "sha256": "3cc11ed3f549643a62abda96a46e828362817286f811684c72a088cce1b5b747",
+      "rejectedVariants": []
+    },
+    {
+      "name": "ModoBank",
+      "id": "modobank",
+      "path": "ModoBank/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/ModoBank/logo.svg",
+      "file": "modobank.svg",
+      "sourceSha256": "a55e3408102a2d850494adfbf3b644f4446b830c509867e77387c2aadef99ef2",
+      "sha256": "4d26c73cb25869609f4e9accfac03c11f904ddc11832e2182fa1e8981c9625ed",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Multiplo Bank",
+      "id": "multiplo-bank",
+      "path": "Multiplo Bank/logotipo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Multiplo%20Bank/logotipo.svg",
+      "file": "multiplo-bank.svg",
+      "sourceSha256": "9c10787613caaf9340d9f5ab37610d03f958bc87b1a24f6c23d18fb4ff22a85c",
+      "sha256": "24acfaa89d7554c4b9549eb51d4dc76739e534d482dc6de08a5152c94b3ad5a2",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Neon",
+      "id": "neon",
+      "path": "Neon/header-logo-neon.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Neon/header-logo-neon.svg",
+      "file": "neon.svg",
+      "sourceSha256": "25f1ed807a7d5309b0ea2a5199532dc1756cd1e68935401b48d434b1d24c1396",
+      "sha256": "52ad38773d77c119ededacefdaf8792430ad24b6bd408622c9406bc81581d7a2",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Nu Pagamentos S.A",
+      "id": "nu-pagamentos-s-a",
+      "path": "Nu Pagamentos S.A/nubank-logo-2021.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Nu%20Pagamentos%20S.A/nubank-logo-2021.svg",
+      "file": "nu-pagamentos-s-a.svg",
+      "sourceSha256": "750d2c28fa0712b9b4b503d06d59bb0ff335566576ae11dd87509fb7e4d50716",
+      "sha256": "6d0de5c1571774163a5fe6771690bd4797cb2c256a450d8640823ba75cdeef7c",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Omie.Cash",
+      "id": "omie-cash",
+      "path": "Omie.Cash/omie.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Omie.Cash/omie.svg",
+      "file": "omie-cash.svg",
+      "sourceSha256": "bf633ab67ddb6be2d1e71bae69aba5179603d03288a548bec018457aa4044da7",
+      "sha256": "26b5ca40ab4a01c92f95d4e25b9aff66f764dc909c5f79e7143e3ff0e82d690e",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Omni",
+      "id": "omni",
+      "path": "Omni/logo-omni.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Omni/logo-omni.svg",
+      "file": "omni.svg",
+      "sourceSha256": "7bacefef8f35354bfaf9e1aa175548b6e90c45c6637f5ea492713447c3c8c368",
+      "sha256": "1edb9bd0e4f14def00471f5ac620a31419dbd74badfec1aa311cd2d1c68c653a",
+      "rejectedVariants": []
+    },
+    {
+      "name": "OrionPay",
+      "id": "orionpay",
+      "path": "OrionPay/OrionPay.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/OrionPay/OrionPay.svg",
+      "file": "orionpay.svg",
+      "sourceSha256": "57fe0a1d5c8de9671ad6b73fc8454750aaa88c55fc01fd4db60810675c0e0dcc",
+      "sha256": "9f6519f63eadf145c4207ecddc89c9eea685c1202aa427be75fc5061abf2819b",
+      "rejectedVariants": []
+    },
+    {
+      "name": "PagSeguro Internet S.A",
+      "id": "pagseguro-internet-s-a",
+      "path": "PagSeguro Internet S.A/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/PagSeguro%20Internet%20S.A/logo.svg",
+      "file": "pagseguro-internet-s-a.svg",
+      "sourceSha256": "d7f00323f00c2bf16410c56caddabb951bb72698e107fd9e9c5f332486b8aacd",
+      "sha256": "a046d78ae96ac6c156580ee4d74de9cdbc65fbdd47ff3902948018f11d1dab32",
+      "rejectedVariants": []
+    },
+    {
+      "name": "PayCash",
+      "id": "paycash",
+      "path": "PayCash/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/PayCash/logo.svg",
+      "file": "paycash.svg",
+      "sourceSha256": "d68d58250203b93c7403885154db49389c883c8e36d442ab9b1a56916cae0114",
+      "sha256": "0781f216d29463b9a4d404454c72d38851656fed844872b5c1f42842c8f9e36c",
+      "rejectedVariants": []
+    },
+    {
+      "name": "PicPay",
+      "id": "picpay",
+      "path": "PicPay/Logo-PicPay.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/PicPay/Logo-PicPay.svg",
+      "file": "picpay.svg",
+      "sourceSha256": "16c465ec2d1b550d1a4737a8adb49d2d67974c5cf2848cc1f4faab47e28ceb43",
+      "sha256": "988875fb8fdc1ce4c93dc86530557c51adb4c80a298b5b6a97d2beaf98ab4eda",
+      "rejectedVariants": []
+    },
+    {
+      "name": "PinBank",
+      "id": "pinbank",
+      "path": "PinBank/pinBank.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/PinBank/pinBank.svg",
+      "file": "pinbank.svg",
+      "sourceSha256": "e36cd7fa3c347b13dfa28dc2ee347e8ac32d73ee870993d047c74cb730b6c8e7",
+      "sha256": "7f52753abb1d676f7bc73171614aa1b6efffd094ac76e654c9fa2bc1b4dc7baf",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Quality Digital Bank",
+      "id": "quality-digital-bank",
+      "path": "Quality Digital Bank/quality-logo-cinza.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Quality%20Digital%20Bank/quality-logo-cinza.svg",
+      "file": "quality-digital-bank.svg",
+      "sourceSha256": "84df5c89bfbbd45fcde4ec3baa6f51ec7891f7b2a19abbb72f494d20df348431",
+      "sha256": "fa7c515e02897bc9326f93c77f0e9d4345b53a24721e0506cfe492b5a897a6bd",
+      "rejectedVariants": []
+    },
+    {
+      "name": "RecargaPay",
+      "id": "recargapay",
+      "path": "RecargaPay/RecargaPay.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/RecargaPay/RecargaPay.svg",
+      "file": "recargapay.svg",
+      "sourceSha256": "7c35ac31a3b8a1baa3ff70d013969b2aec401f42d446d4f84d40e9b4d119eba0",
+      "sha256": "e79e27f3c583659ccc76f693d1d30dc40118b4895e11204d63d5dc78c4a71439",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Sicoob",
+      "id": "sicoob",
+      "path": "Sicoob/sicoob-vector-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Sicoob/sicoob-vector-logo.svg",
+      "file": "sicoob.svg",
+      "sourceSha256": "a56b5fbc5588238e01b65928081b7975a4618c8f02e2b19ab638eb78d018e606",
+      "sha256": "459119a7c3ada0c8de8da2d71cd0284a71c0880f29eb9f884317eebc77dacf29",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Sicredi",
+      "id": "sicredi",
+      "path": "Sicredi/logo-svg2.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Sicredi/logo-svg2.svg",
+      "file": "sicredi.svg",
+      "sourceSha256": "443a9b513574b2a61911278f35e1a59c73fc4bf844efee885182c4beab628a9d",
+      "sha256": "49a98e5b6d0d42efdcc3e67591525e3576a591be1186515766b16763e8498212",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Sisprime",
+      "id": "sisprime",
+      "path": "Sisprime/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Sisprime/logo.svg",
+      "file": "sisprime.svg",
+      "sourceSha256": "6064afe50b2dde3ddde7a1e7ed60aeea41befd9cd92529c2ea0cc02e5c65e7a1",
+      "sha256": "c90d5e09149670c50a38300f01f5259667e1a7fad0ed76abb160797d3ea80a67",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Squid Soluções Financeiras",
+      "id": "squid-solucoes-financeiras",
+      "path": "Squid Soluções Financeiras/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Squid%20Solu%C3%A7%C3%B5es%20Financeiras/logo.svg",
+      "file": "squid-solucoes-financeiras.svg",
+      "sourceSha256": "1d76c39bf8d46a82efac827ea7896b038b7c83f066bc7ab88d121fdd91462913",
+      "sha256": "94ccd8ae6f91e399c61175ddc64ea3784f6eedb26ff261e26875289b2d690cf2",
+      "rejectedVariants": []
+    },
+    {
+      "name": "StarBank",
+      "id": "starbank",
+      "path": "StarBank/logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/StarBank/logo.svg",
+      "file": "starbank.svg",
+      "sourceSha256": "1de6127badebd0d0e395506c111657ce9e034ddf3ea63e7850bdd62a98c4ce1d",
+      "sha256": "6cdababfe38977f0a6abad13c7721fe3dca9b171c7b6686f017a0667b483cb30",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Stone Pagamentos S.A",
+      "id": "stone-pagamentos-s-a",
+      "path": "Stone Pagamentos S.A/stone.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Stone%20Pagamentos%20S.A/stone.svg",
+      "file": "stone-pagamentos-s-a.svg",
+      "sourceSha256": "c81c4ce4e2bb843a562c68a878dae295b0ee579628517842695f46a1e9de5098",
+      "sha256": "2e79d263230fc483472682fbef0a488c1e3780c5132e21796ecdf922f28d65ee",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Sulcredi",
+      "id": "sulcredi",
+      "path": "Sulcredi/marca.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Sulcredi/marca.svg",
+      "file": "sulcredi.svg",
+      "sourceSha256": "0febf47795d106b7b58b556753a5c225e518377723c6ac53c056c875512310c9",
+      "sha256": "a33649de8fbe541c1680e14af950672bba935a13cbff893e7fbcc73e391ecd12",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Transfera",
+      "id": "transfera",
+      "path": "Transfera/transfeera-logo-verde-nova.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Transfera/transfeera-logo-verde-nova.svg",
+      "file": "transfera.svg",
+      "sourceSha256": "7fd6112fa278aba46511b2f3b8ad6be30460d2fa87619d2d071cfaad8f15c3f6",
+      "sha256": "a65dee788c29bcf769f58e18c9e58bf1312fe1d4be62a3d52089532b598a0c58",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Unicred",
+      "id": "unicred",
+      "path": "Unicred/verde.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Unicred/verde.svg",
+      "file": "unicred.svg",
+      "sourceSha256": "c8ca78332d1976d972b8a6384bb515dbf84b8442adbef7d6686050448ae13745",
+      "sha256": "bbd74212475f767d329b8a3656751758f9f7c77396442d19c9cb5f0ac5b9132a",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Uniprime",
+      "id": "uniprime",
+      "path": "Uniprime/uniprime.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Uniprime/uniprime.svg",
+      "file": "uniprime.svg",
+      "sourceSha256": "356adddba1bdee2717501d503aeff32be6b068b27a3acee4dabb1a6bd555a0ad",
+      "sha256": "f271c2b428c0398c2882d020a3d10ef196f739a8a26e6f8b3e06c417ff6518b3",
+      "rejectedVariants": []
+    },
+    {
+      "name": "UzziPay",
+      "id": "uzzipay",
+      "path": "UzziPay/logo-uzzipay-branco-verde.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/UzziPay/logo-uzzipay-branco-verde.svg",
+      "file": "uzzipay.svg",
+      "sourceSha256": "21837ffa3321ac65bad191b48d0c0735dc423519b539b32bfc393943cee20ee3",
+      "sha256": "d5fbec28559df06680a70a6fea939691e26fbb388200671487564c8a16e7caec",
+      "rejectedVariants": []
+    },
+    {
+      "name": "XP Investimentos",
+      "id": "xp-investimentos",
+      "path": "XP Investimentos/xp-investimentos-logo.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/XP%20Investimentos/xp-investimentos-logo.svg",
+      "file": "xp-investimentos.svg",
+      "sourceSha256": "75e92de3b915c02f962a43b0e82141f83a084a90e54a557c3cb154e2a4d28020",
+      "sha256": "709a308ac6e7467823c50afd598d360425fb83bbe2a030a0b828b0c27854996d",
+      "rejectedVariants": []
+    },
+    {
+      "name": "Zemo Bank",
+      "id": "zemo-bank",
+      "path": "Zemo Bank/logowhite.svg",
+      "url": "https://raw.githubusercontent.com/Tgentil/Bancos-em-SVG/fe1d43f0cf379135bd01c987bc147a04fdf48c6d/Zemo%20Bank/logowhite.svg",
+      "file": "zemo-bank.svg",
+      "sourceSha256": "6fe845446c2d6142af1ff412e6caa52829f620c8cb94c405b95e0639eb03c827",
+      "sha256": "a491455b0697561dadea7cfffb93876f359e5d243900cbf93c0d11a25b5b9294",
+      "rejectedVariants": []
+    }
+  ]
+}

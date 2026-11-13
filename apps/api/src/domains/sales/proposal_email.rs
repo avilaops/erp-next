@@ -77,7 +77,9 @@ pub async fn get(
             && ["draft", "sent"].contains(&current.data.status.as_str())
             && current.data.order_id.is_none()
             && super::super::date(&current.data.valid_until)? >= today,
-        email_ready: state.mail.is_some(),
+        email_ready: crate::platform::mail_settings::resolve_in(&state, &mut tx)
+            .await?
+            .is_some(),
         recipient,
         deliveries,
     };
@@ -259,7 +261,7 @@ pub async fn send(
             "Somente a versão atual e válida de uma proposta em rascunho ou enviada pode ser enviada por e-mail",
         ));
     }
-    let Some(mailer) = state.mail.as_ref() else {
+    let Some(mailer) = crate::platform::mail_settings::resolve_in(&state, &mut tx).await? else {
         // Nothing is persisted or published when SMTP is unavailable.
         return Ok(response(
             StatusCode::SERVICE_UNAVAILABLE,

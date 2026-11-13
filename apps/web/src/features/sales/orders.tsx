@@ -31,6 +31,7 @@ import { commercialMoney, orderNumber } from "./order-presentation"
 import { OrderPricing } from "@/features/commercial-settings/order-pricing"
 import { OrderDetailCommercial } from "./order-detail-commercial"
 import { OrderEmail } from "./order-email"
+import { OrderPdfDownload } from "./order-pdf-download"
 import type { CheckoutSnapshot } from "./commercial-payment-model"
 import { OrderWeightSummary } from "./order-weight-summary"
 
@@ -296,7 +297,7 @@ function OrderDetail({ id }: { id: string }) {
         <div className="space-y-2 print:hidden" role="group" aria-label="Documentos do pedido">
           <p className="text-xs font-medium text-muted-foreground">Documentos</p>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>button]:w-full sm:[&>button]:w-auto">
-          <Button variant="outline" className="h-9 px-3" onClick={() => window.print()}>Salvar PDF</Button>
+          <OrderPdfDownload id={id} number={value.data.number} tenantId={value.tenantId} etag={result.etag} onReload={result.reload} />
           <OrderEmail id={id} number={value.data.number} tenantId={value.tenantId} etag={result.etag} onReload={result.reload} />
           <Link className={buttonVariants({ variant: "outline", className: "col-span-2 h-9 px-3" })} href={`/vendas/pedidos/${id}/contratos`}>Pedido e contratos</Link>
           </div>

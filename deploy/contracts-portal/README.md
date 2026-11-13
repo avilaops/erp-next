@@ -10,8 +10,9 @@ pelos termos adicionais originais. O crédito DocuSeal permanece visível.
 A imagem oferece o código-fonte correspondente em `/avila-source.tar.gz`,
 incluindo os arquivos originais, as alterações e estas instruções de construção.
 
-O workflow `contracts-portal-release.yml` constrói a imagem no GitHub e fornece
-o artefato Docker. Nenhum build acontece nos servidores. O arquivo Compose
+A tarefa manual `contracts-portal` em `regression.yml` constrói e testa a imagem
+no GitHub e a publica em `ghcr.io/avilaops/contracts-portal:sha-<commit>`.
+Nenhum build acontece nos servidores. O arquivo Compose
 existente em `apps-noclient:/opt/contrato-avilaops-com/docuseal` precisa trocar
 somente a imagem de `app`; volumes, banco, porta e segredos devem ser preservados.
 

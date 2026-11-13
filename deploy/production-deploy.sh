@@ -21,25 +21,73 @@ previous_release=$(docker inspect --format '{{ index .Config.Labels "com.docker.
 
 staging=$(mktemp -d "$ROOT/.incoming.XXXXXX")
 release="$ROOT/releases/$source_sha"
-cleanup() { rm -rf -- "$staging"; }
+validated_bundle=false
+cleanup() {
+  local status=$?
+  if [[ "$status" != 0 && "$validated_bundle" == true ]]; then
+    # Container inspection in retention protects even a partially restored release.
+    local previous_sha="${previous_release##*/}"
+    local rollback_sha
+    if rollback_sha=$(python3 -c '
+import json, re, sys
+from pathlib import Path
+path = Path(sys.argv[1]) / "deployment-state.json"
+if path.is_symlink() or not path.is_file(): raise SystemExit(1)
+state = json.loads(path.read_text())
+if state.get("active") != sys.argv[2]: raise SystemExit(1)
+rollback = state.get("rollback", "")
+if not isinstance(rollback, str) or not re.fullmatch("[a-f0-9]{40}", rollback): raise SystemExit(1)
+print(rollback)
+' "$ROOT" "$previous_sha"); then
+      python3 "$staging/release-retention.py" "$previous_sha" "$rollback_sha" --apply ||
+        printf '%s\n' '::warning::Failed release cleanup needs attention.' >&2
+    else
+      printf '%s\n' '::warning::Prior rollback is unconfirmed; retaining images and releases.' >&2
+    fi
+  fi
+  rm -rf -- "$staging"
+}
 trap cleanup EXIT
 
-# Extract the complete stream first, then enforce the allow-list below. GNU tar
-# does not reliably match the selected names when the sender emits ./ prefixes.
-tar --extract --gzip --no-same-owner --directory "$staging" --file -
+# The bundle contains small configuration/helpers only. Reject links, traversal,
+# unexpected members and oversized files before they can reach the filesystem.
+python3 -c '
+import os, sys, tarfile
+from pathlib import Path
+destination = Path(sys.argv[1])
+allowed = {"release.json", "compose.yaml", "fiscal-compose.yaml", "migrate-release.py", "release-retention.py"}
+seen, size = set(), 0
+with tarfile.open(fileobj=sys.stdin.buffer, mode="r|gz") as archive:
+    for member in archive:
+        name = member.name
+        while name.startswith("./"): name = name[2:]
+        if name in ("", ".") and member.isdir(): continue
+        size += member.size
+        if name not in allowed or name in seen or not member.isfile() or member.size < 1 or size > 524288:
+            raise SystemExit("Invalid release bundle member")
+        seen.add(name)
+        with (destination / name).open("xb") as output:
+            os.chmod(output.name, 0o600)
+            source = archive.extractfile(member)
+            output.write(source.read())
+if seen != allowed: raise SystemExit("Incomplete release bundle")
+' "$staging"
 
-for file in api-image.tar.gz web-image.tar.gz fiscal-image.tar.gz fiscal-mcp-image.tar.gz compose.yaml fiscal-compose.yaml migrate-release.py; do
+for file in release.json compose.yaml fiscal-compose.yaml migrate-release.py release-retention.py; do
   [[ -s "$staging/$file" ]] || fail "missing artifact: $file"
 done
 [[ ! -e "$release" ]] || fail 'release already exists'
 
-for image in api web fiscal fiscal-mcp; do
-  docker load --input "$staging/$image-image.tar.gz" >/dev/null
-  docker image inspect "erp-next-$image:sha-$source_sha" >/dev/null || fail "image not loaded: $image"
-done
+python3 "$staging/release-retention.py" "$source_sha" --manifest "$staging/release.json" > "$staging/images.txt"
+validated_bundle=true
+while read -r component reference; do
+  docker pull "$reference" >/dev/null
+  # Compatibility alias for the migration helper; Compose uses registry digests.
+  docker tag "$reference" "erp-next-$component:sha-$source_sha"
+done < "$staging/images.txt"
 
 mkdir -m 700 "$release"
-cp -p "$staging/migrate-release.py" "$release/migrate-release.py"
+cp -p "$staging/migrate-release.py" "$staging/release-retention.py" "$staging/release.json" "$release/"
 
 compose_overlay_args=()
 if [[ -f "$previous_release/compose.json" ]]; then
@@ -78,6 +126,9 @@ config["services"]["fiscal-mcp"] = {
     "security_opt": ["no-new-privileges:true"], "cap_drop": ["ALL"],
     "mem_limit": "512m", "pids_limit": 128,
 }
+
+for service in config["services"].values():
+    service["logging"] = {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
 target.write_text(json.dumps(config, indent=2))
 PY
   # The generated JSON carries the public release marker in the web
@@ -123,6 +174,27 @@ else
   compose_env_args=(--env-file "$release/.env")
 fi
 
+# Substitute only validated registry digests, preserving private configuration.
+python3 - "$release" "$compose_file" <<'PY'
+import json, sys
+from pathlib import Path
+directory = Path(sys.argv[1])
+manifest = json.loads((directory / "release.json").read_text())
+images = manifest["images"]
+mapping = {"api": "api", "web": "web", "fiscal-engine": "fiscal", "fiscal-mcp": "fiscal-mcp"}
+if sys.argv[2] == "compose.json":
+    path = directory / "compose.json"
+    config = json.loads(path.read_text())
+    for service, component in mapping.items(): config["services"][service]["image"] = images[component]
+    path.write_text(json.dumps(config, indent=2))
+else:
+    path = directory / ".env"
+    variables = {"ERP_API_IMAGE": images["api"], "ERP_WEB_IMAGE": images["web"],
+                 "ERP_FISCAL_ENGINE_IMAGE": images["fiscal"], "ERP_FISCAL_MCP_IMAGE": images["fiscal-mcp"]}
+    lines = [line for line in path.read_text().splitlines() if line.split("=", 1)[0] not in variables]
+    path.write_text("\n".join(lines + [key + "=" + value for key, value in variables.items()]) + "\n")
+PY
+
 compose() {
   docker compose --project-name "$APPLICATION" --project-directory "$1" \
     "${compose_env_args[@]}" --file "$1/$compose_file" "${compose_overlay_args[@]}" "${@:2}"
@@ -130,7 +202,7 @@ compose() {
 
 rollback() {
   local status=$?
-  trap - EXIT
+  trap - ERR
   printf '%s\n' 'ERP deploy failed; restoring previous release' >&2
   if [[ -f "$previous_release/compose.json" ]]; then
     docker compose --project-name "$APPLICATION" --project-directory "$previous_release" \
@@ -151,9 +223,12 @@ compose "$release" up --detach --no-build --wait --wait-timeout 120
 curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
   http://127.0.0.1:3141/health/ready >/dev/null
 
-python3 - "$source_sha" <<'PY'
+python3 - "$source_sha" "$ROOT" "${previous_release##*/}" <<'PY'
 import json
+import os
+from pathlib import Path
 import sys
+import tempfile
 import urllib.request
 
 expected = sys.argv[1]
@@ -166,7 +241,16 @@ for path in ("/entrar", "/erp-preview.webp"):
         if response.status != 200:
             raise SystemExit(f"ERP public path failed: {path}")
 print(json.dumps({"application": health.get("application"), "commit": health.get("commit")}))
+root = Path(sys.argv[2])
+with tempfile.NamedTemporaryFile(mode="w", dir=root, prefix=".deployment-state-", delete=False) as output:
+    os.chmod(output.name, 0o600)
+    json.dump({"active": expected, "rollback": sys.argv[3]}, output)
+    temporary = output.name
+os.replace(temporary, root / "deployment-state.json")
 PY
 
-trap - EXIT
+trap - ERR
+if ! python3 "$release/release-retention.py" "$source_sha" "${previous_release##*/}" --apply; then
+  printf '%s\n' '::warning::Release is healthy; storage cleanup needs attention.' >&2
+fi
 printf 'ERP deploy completed: %s\n' "$source_sha"

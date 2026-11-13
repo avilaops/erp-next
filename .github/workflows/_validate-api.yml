@@ -1,0 +1,138 @@
+name: Validate API
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      full:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+    outputs:
+      digest:
+        description: Validated registry image digest
+        value: ${{ jobs.api.outputs.digest }}
+      openapi_artifact_name:
+        description: Exact contract artifact from its producing attempt
+        value: ${{ jobs.api.outputs.openapi_artifact_name }}
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: erp_next_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_isolated_only
+        ports:
+        - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:ci_isolated_only@127.0.0.1:5432/erp_next_test
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@1.99.1
+      with:
+        components: rustfmt,clippy
+    - uses: Swatinem/rust-cache@v2
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_2d009b4c2fff7c14''
+
+        cargo fmt --all --check
+
+        ERP_TIMED_2d009b4c2fff7c14
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-api/api: cargo fmt --all --check'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_0acdad6d86d7a115''
+
+        cargo clippy --locked --workspace --all-targets -- -D warnings
+
+        ERP_TIMED_0acdad6d86d7a115
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-api/api: cargo clippy --locked --workspace --all-targets -- -D warnings'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: inputs.full
+    - name: Test and export the exact source contract
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_7a9bcab76b275aff''
+
+        mkdir -p artifacts/contracts
+
+        ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" cargo test --locked --workspace -- --test-threads=2
+
+        ERP_TIMED_7a9bcab76b275aff
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-api/api: Test and export the exact source contract'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erp-openapi-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/contracts/candidate.json
+        if-no-files-found: error
+        retention-days: 7
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_8752b798ea8bb621''
+
+        cargo build --release --locked -p erp-next-api
+
+        ERP_TIMED_8752b798ea8bb621
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-api/api: cargo build --release --locked -p erp-next-api'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: inputs.publish
+    - uses: docker/login-action@v3
+      if: inputs.publish
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish api by immutable digest
+      id: image
+      if: inputs.publish
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: deploy/api.Dockerfile
+        push: true
+        tags: ghcr.io/avilaops/erp-next-api:sha-${{ inputs.source_sha }}
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-_validate-api-api-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+      openapi_artifact_name: erp-openapi-${{ inputs.source_sha }}-${{ github.run_attempt }}

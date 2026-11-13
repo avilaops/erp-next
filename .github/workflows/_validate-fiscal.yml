@@ -1,0 +1,256 @@
+name: Validate fiscal
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      full:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+    outputs:
+      engine_digest:
+        description: Validated registry image digest
+        value: ${{ jobs.fiscal-engine.outputs.digest }}
+      mcp_digest:
+        description: Validated registry image digest
+        value: ${{ jobs.fiscal-mcp.outputs.digest }}
+jobs:
+  fiscal-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_9514b3517c824a01''
+
+        npm ci --ignore-scripts --no-audit --no-fund
+
+        ERP_TIMED_9514b3517c824a01
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-engine: npm ci --ignore-scripts --no-audit --no-fund'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      working-directory: apps/fiscal-engine
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_328e123c63857fd8''
+
+        npm test
+
+        ERP_TIMED_328e123c63857fd8
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-engine: npm test'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      working-directory: apps/fiscal-engine
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_2f16b74aeca0ed9b''
+
+        docker build -f apps/fiscal-engine/Dockerfile -t erp-next-fiscal:sha-${{ inputs.source_sha }} .
+
+        ERP_TIMED_2f16b74aeca0ed9b
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-engine: docker build -f apps/fiscal-engine/Dockerfile -t erp-next-fiscal:sha-${{
+        inputs.source_sha }} .'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: inputs.full
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_1812eee1f9731dcd''
+
+        pnpm install --frozen-lockfile --prefer-offline
+
+        ERP_TIMED_1812eee1f9731dcd
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-engine: pnpm install --frozen-lockfile --prefer-offline'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_667d8cc7045a2420''
+
+        pnpm test:fiscal-integrations
+
+        ERP_TIMED_667d8cc7045a2420
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-engine: pnpm test:fiscal-integrations'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - uses: docker/login-action@v3
+      if: inputs.publish
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish fiscal by immutable digest
+      id: image
+      if: inputs.publish
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: apps/fiscal-engine/Dockerfile
+        push: true
+        tags: ghcr.io/avilaops/erp-next-fiscal:sha-${{ inputs.source_sha }}
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-_validate-fiscal-fiscal-engine-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+  fiscal-mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: astral-sh/setup-uv@v6
+      with:
+        version: 0.12.24
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_20464ea12f1d4baa''
+
+        uv sync --frozen --extra dev --python 3.12
+
+        ERP_TIMED_20464ea12f1d4baa
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-mcp: uv sync --frozen --extra dev --python 3.12'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      working-directory: apps/fiscal-mcp
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_c3b18dacc7f94a5f''
+
+        node --test scripts/fiscal/test/deploy-config.test.mjs
+
+        ERP_TIMED_c3b18dacc7f94a5f
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-mcp: node --test scripts/fiscal/test/deploy-config.test.mjs'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_cfebbf6572e9c5a0''
+
+        uv run --frozen --extra dev pytest tests/test_fiscal_schema.py tests/test_simplified_danfe.py tests/test_nfe_assinatura.py
+
+        ERP_TIMED_cfebbf6572e9c5a0
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-mcp: uv run --frozen --extra dev pytest tests/test_fiscal_schema.py tests/test_simplified_danfe.py
+        tests/test_nfe_assinatura.py'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      working-directory: apps/fiscal-mcp
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_42f76c86ee838369''
+
+        docker build -f apps/fiscal-mcp/Dockerfile -t erp-next-fiscal-mcp:sha-${{ inputs.source_sha }} .
+
+        ERP_TIMED_42f76c86ee838369
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-mcp: docker build -f apps/fiscal-mcp/Dockerfile -t erp-next-fiscal-mcp:sha-${{
+        inputs.source_sha }} .'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl" -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: inputs.full
+    - name: Exercise MCP in its restricted runtime container
+      shell: bash
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_ced30296520d9c1e''
+
+        docker run --detach --name fiscal-mcp-smoke --network host --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m,mode=1777 --security-opt no-new-privileges:true
+        --cap-drop ALL --memory 512m --pids-limit 128 -e XDG_CACHE_HOME=/tmp/cache erp-next-fiscal-mcp:sha-${{ inputs.source_sha }}
+
+        trap ''docker rm -f fiscal-mcp-smoke >/dev/null 2>&1 || true'' EXIT
+
+        cd apps/fiscal-mcp
+
+        uv run --frozen --extra dev python scripts/smoke_runtime.py
+
+        ERP_TIMED_ced30296520d9c1e
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''_validate-fiscal/fiscal-mcp: Exercise MCP in its restricted runtime container'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+      if: inputs.full
+    - uses: docker/login-action@v3
+      if: inputs.publish
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish fiscal-mcp by immutable digest
+      id: image
+      if: inputs.publish
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: apps/fiscal-mcp/Dockerfile
+        push: true
+        tags: ghcr.io/avilaops/erp-next-fiscal-mcp:sha-${{ inputs.source_sha }}
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-_validate-fiscal-fiscal-mcp-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}

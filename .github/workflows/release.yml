@@ -1,0 +1,282 @@
+name: Release
+permissions:
+  contents: read
+concurrency:
+  group: erp-production-release
+  cancel-in-progress: false
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - id: source
+      name: Require an exact promoted revision integrated into main
+      env:
+        EVENT: ${{ github.event_name }}
+        REQUESTED_SHA: ${{ inputs.source_sha }}
+        EVENT_REF: ${{ github.ref }}
+      run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_36c32cfd3745883f'\nset -euo pipefail\nif [[ \"$EVENT\"\
+        \ == workflow_dispatch ]]; then\n  [[ \"$EVENT_REF\" == refs/heads/main ]]\n  [[ \"$REQUESTED_SHA\" =~ ^[a-f0-9]{40}$ ]]\n  source_sha=\"$REQUESTED_SHA\"\n\
+        else\n  [[ \"$EVENT_REF\" =~ ^refs/tags/v[0-9][0-9A-Za-z._-]*$ ]]\n  source_sha=$(git rev-parse --verify \"$EVENT_REF^{commit}\")\nfi\ngit cat-file -e \"\
+        $source_sha^{commit}\"\ngit merge-base --is-ancestor \"$source_sha\" origin/main\necho \"sha=$source_sha\" >> \"$GITHUB_OUTPUT\"\necho \"Promoted revision:\
+        \ $source_sha\" >> \"$GITHUB_STEP_SUMMARY\"\nERP_TIMED_36c32cfd3745883f\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'release/select: Require\
+        \ an exact promoted revision integrated into main' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail\
+        \ \"$script_file\"\n"
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-release-select-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+  api:
+    needs: select
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_validate-api.yml
+    with:
+      source_sha: ${{ needs.select.outputs.sha }}
+      full: true
+      publish: true
+  fiscal:
+    needs: select
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_validate-fiscal.yml
+    with:
+      source_sha: ${{ needs.select.outputs.sha }}
+      full: true
+      publish: true
+  web:
+    needs:
+    - select
+    - api
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_validate-web.yml
+    with:
+      source_sha: ${{ needs.select.outputs.sha }}
+      full: true
+      publish: true
+      openapi_artifact_name: ${{ needs.api.outputs.openapi_artifact_name }}
+  project:
+    needs:
+    - select
+    - api
+    uses: ./.github/workflows/_validate-project.yml
+    with:
+      source_sha: ${{ needs.select.outputs.sha }}
+      full: true
+      check_database: true
+      openapi_artifact_name: ${{ needs.api.outputs.openapi_artifact_name }}
+  evidence:
+    needs:
+    - select
+    - api
+    - web
+    - fiscal
+    - project
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SOURCE_SHA: ${{ needs.select.outputs.sha }}
+      API_DIGEST: ${{ needs.api.outputs.digest }}
+      WEB_DIGEST: ${{ needs.web.outputs.digest }}
+      FISCAL_DIGEST: ${{ needs.fiscal.outputs.engine_digest }}
+      MCP_DIGEST: ${{ needs.fiscal.outputs.mcp_digest }}
+      NEEDS_JSON: ${{ toJSON(needs) }}
+      MLOPS_ARTIFACTS_DIR: artifacts/mlops-input
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.select.outputs.sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.api.outputs.openapi_artifact_name }}
+        path: artifacts/mlops-input/contracts
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.web.outputs.template_artifact_name }}
+        path: artifacts/mlops-input/validation
+    - name: Validate measured release evidence
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_565a9cdf651a4877''
+
+        export NEEDS_JSON=$(python3 -c ''import json,os; j=json.loads(os.environ["NEEDS_JSON"]); j["fiscal-engine"]=j["fiscal-mcp"]=j["fiscal"]; print(json.dumps(j))'')
+
+        node scripts/mlops/release-gate.mjs
+
+        ERP_TIMED_565a9cdf651a4877
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''release/evidence: Validate measured release evidence'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Create strict registry manifest
+      run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_c7db700aa984d700'\nmkdir -p bundle\npython3 - <<'PY'\n\
+        import importlib.util, json, os\nfrom pathlib import Path\nspec = importlib.util.spec_from_file_location('retention', 'deploy/release-retention.py')\nmodule\
+        \ = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(module)\nimages = {name: 'ghcr.io/avilaops/erp-next-' + name + '@' + os.environ[key]\n\
+        \          for name, key in [('api', 'API_DIGEST'), ('web', 'WEB_DIGEST'), ('fiscal', 'FISCAL_DIGEST'), ('fiscal-mcp', 'MCP_DIGEST')]}\nvalue = module.validate_manifest({'schema':\
+        \ 'erp-release/1', 'sourceSha': os.environ['SOURCE_SHA'], 'images': images}, os.environ['SOURCE_SHA'])\nPath('bundle/release.json').write_text(json.dumps(value,\
+        \ indent=2) + '\\n')\nPY\nERP_TIMED_c7db700aa984d700\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'release/evidence: Create strict registry\
+        \ manifest' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail \"$script_file\"\n"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erp-release-${{ needs.select.outputs.sha }}-${{ github.run_attempt }}
+        path: bundle/release.json
+        retention-days: 14
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erp-release-evidence-${{ needs.select.outputs.sha }}-${{ github.run_attempt }}
+        path: artifacts/mlops-release/
+        retention-days: 30
+        if-no-files-found: error
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+    outputs:
+      manifest_artifact_name: erp-release-${{ needs.select.outputs.sha }}-${{ github.run_attempt }}
+  deploy:
+    needs:
+    - select
+    - evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      SOURCE_SHA: ${{ needs.select.outputs.sha }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.select.outputs.sha }}
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.evidence.outputs.manifest_artifact_name }}
+        path: bundle
+    - name: Stream configuration and deploy registry images
+      env:
+        DEPLOY_HOST: ${{ secrets.ERP_DEPLOY_HOST }}
+        DEPLOY_USER: ${{ secrets.ERP_DEPLOY_USER }}
+        DEPLOY_KEY: ${{ secrets.ERP_DEPLOY_SSH_KEY }}
+        DEPLOY_KNOWN_HOSTS: ${{ secrets.ERP_DEPLOY_KNOWN_HOSTS }}
+      run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_055e10cbe21c575e'\nset -euo pipefail\n[[ \"$SOURCE_SHA\"\
+        \ =~ ^[0-9a-f]{40}$ ]]\n[[ \"$DEPLOY_HOST\" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]\n[[ \"$DEPLOY_USER\" =~ ^[a-z_][a-z0-9_-]*$ ]]\nbundle_dir=$(mktemp -d)\nssh_dir=$(mktemp\
+        \ -d)\ntrap 'rm -rf -- \"$bundle_dir\" \"$ssh_dir\"' EXIT\ncp bundle/release.json deploy/compose.yaml deploy/fiscal-compose.yaml deploy/migrate-release.py\
+        \ deploy/release-retention.py \"$bundle_dir/\"\nchmod 700 \"$ssh_dir\"\nprintf '%s\\n' \"$DEPLOY_KEY\" > \"$ssh_dir/key\"\nprintf '%s\\n' \"$DEPLOY_KNOWN_HOSTS\"\
+        \ > \"$ssh_dir/known_hosts\"\nchmod 600 \"$ssh_dir/key\" \"$ssh_dir/known_hosts\"\ntar -C \"$bundle_dir\" -czf - . | ssh -T -i \"$ssh_dir/key\" \\\n  -o BatchMode=yes\
+        \ -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\\n  -o UserKnownHostsFile=\"$ssh_dir/known_hosts\" -o ConnectTimeout=20 \\\n  -o ServerAliveInterval=15\
+        \ -o ServerAliveCountMax=3 \\\n  \"$DEPLOY_USER@$DEPLOY_HOST\" \"deploy erp-next $SOURCE_SHA\"\nERP_TIMED_055e10cbe21c575e\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\"\
+        \ --label 'release/deploy: Stream configuration and deploy registry images' --output \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile\
+        \ --norc -e -o pipefail \"$script_file\"\n"
+    - name: Verify the public version after activation
+      run: "script_file=$(mktemp)\ntrap 'rm -f -- \"$script_file\"' EXIT\ncat > \"$script_file\" <<'ERP_TIMED_1ea6e5c931ff1c26'\npython3 - <<'PY'\nimport json, os,\
+        \ urllib.request\nwith urllib.request.urlopen('https://erp.avilaops.com/api/health', timeout=20) as response:\n    value = json.load(response)\nassert value.get('ok')\
+        \ is True and value.get('commit') == os.environ['SOURCE_SHA'], 'Public release mismatch'\nprint('Public ERP revision verified: ' + value['commit'])\nPY\n\
+        ERP_TIMED_1ea6e5c931ff1c26\npython3 \"$GITHUB_WORKSPACE/scripts/ci/timed.py\" --label 'release/deploy: Verify the public version after activation' --output\
+        \ \"$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl\" -- bash --noprofile --norc -e -o pipefail \"$script_file\"\n"
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-release-deploy-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+  context:
+    needs:
+    - select
+    - deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.select.outputs.sha }}
+        persist-credentials: false
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_1812eee1f9731dcd''
+
+        pnpm install --frozen-lockfile --prefer-offline
+
+        ERP_TIMED_1812eee1f9731dcd
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''release/context: pnpm install --frozen-lockfile --prefer-offline'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - name: Publish context once for the confirmed release
+      env:
+        ERP_CONTEXT_LAB_TOKEN: ${{ secrets.ERP_CONTEXT_LAB_TOKEN }}
+      run: 'script_file=$(mktemp)
+
+        trap ''rm -f -- "$script_file"'' EXIT
+
+        cat > "$script_file" <<''ERP_TIMED_f536385c3afea1cf''
+
+        pnpm context:erp:publish --confirm-production
+
+        ERP_TIMED_f536385c3afea1cf
+
+        python3 "$GITHUB_WORKSPACE/scripts/ci/timed.py" --label ''release/context: Publish context once for the confirmed release'' --output "$GITHUB_WORKSPACE/artifacts/timings/$GITHUB_JOB.jsonl"
+        -- bash --noprofile --norc -e -o pipefail "$script_file"
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-context-${{ needs.select.outputs.sha }}-${{ github.run_attempt }}
+        path: artifacts/product-context/
+        retention-days: 7
+        if-no-files-found: warn
+    - name: Preserve measured script durations
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: timing-release-context-${{ github.run_id }}-${{ github.run_attempt }}
+        path: artifacts/timings/*.jsonl
+        retention-days: 7
+        if-no-files-found: warn
+'on':
+  push:
+    tags:
+    - v*
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full SHA already integrated into main
+        type: string
+        required: true

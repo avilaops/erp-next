@@ -18,6 +18,12 @@ allowlists keep database/SMTP credentials out of web and the session secret out
 of the API. Migration/admin credentials and arbitrary operator environment never
 enter the Container through this runtime bridge.
 
+The native scheduling policy uses a custom 0.25 vCPU / 1024 MiB / 2000 MB
+instance, not the legacy `basic` name. The Worker checks `/api/health` on web
+port3000; that route probes the private API over loopback. Business requests
+use the Container's HTTP transport once, with public host/protocol metadata
+set from the verified ERP origin. API port8080 is never exposed for readiness.
+
 Build `runtime.Dockerfile` from validated API/web **digest** inputs from the same
 release, not mutable tags. The web image contributes Node and its standalone
 output; the existing API image retains its native/TLS/ICP dependencies. No build

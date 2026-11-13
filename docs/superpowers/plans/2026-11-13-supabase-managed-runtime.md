@@ -48,4 +48,4 @@
 - [x] Validate all 103 migrations, restricted runtime role, privileged-role rejection and a full backup/restore against isolated local PostgreSQL fixtures. Real-data reconciliation remains a separate external gate.
 - [x] Prepare a reproducible combined-image builder from the existing strict release manifest and exact Git source; exclude all other checkout content. Actual OCI/Cloudflare execution remains pending an available Docker/Containers environment.
 - [x] Keep maintenance if source data, identity, fiscal/contract services or paid authorization is missing. Record exact blocked prerequisites.
-- [ ] Request one fresh whole-branch review, fix important findings, run relevant checks and create/update the PR. Integrate only per repository checks; do not run the old VPS release.
+- [x] Request one fresh whole-branch review, fix important findings, run relevant checks and create/update PR209. Three native-platform mismatches fixed with RED/GREEN contract tests; 92 Cloudflare tests pass. Integrate only after repository checks; do not run the old VPS release.

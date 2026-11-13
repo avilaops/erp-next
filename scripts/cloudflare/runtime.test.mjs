@@ -58,7 +58,8 @@ function fixture(overrides = {}) {
     async setInactivityTimeout(value) { calls.push({ idle: value }); },
     getTcpPort(port) { return { fetch: async request => {
       calls.push({ port, request });
-      if (port === 8080) return Response.json({ status: 'ready' });
+      assert.equal(port, 3000, 'only the web listener is externally reachable');
+      if (new URL(request.url).pathname === '/api/health') return Response.json({ ok: true, application: 'erp-next' });
       if (new URL(request.url).pathname === '/entrar') return new Response('Login');
       return new Response(request.body, { status: 201, headers: { 'Set-Cookie': 'test=value; HttpOnly' } });
     } }; }, ...overrides,
@@ -92,11 +93,55 @@ test('cold start waits for API and web, forwards original business stream exactl
   assert.match(response.headers.get('Set-Cookie'), /HttpOnly/);
   const forwarded = f.calls.filter(c => c.request?.method === 'POST');
   assert.equal(forwarded.length, 1);
-  assert.equal(forwarded[0].request, request);
+  assert.equal(forwarded[0].request.url, 'http://container/api/erp/orders');
   assert.equal(forwarded[0].request.headers.get('Idempotency-Key'), 'original-key');
   assert.equal(f.starts.length, 1);
   assert.equal(f.starts[0].image, IMAGE);
   assert.equal(f.starts[0].env.DATABASE_MIGRATION_URL, undefined);
+});
+
+test('native Container contract uses a supported instance and only reachable plain HTTP web port', async () => {
+  const f = fixture();
+  const start = f.container.start.bind(f.container);
+  f.container.start = options => {
+    assert.deepEqual(options.instance, { vcpu: 0.25, memoryMib: 1024, diskMb: 2000 });
+    start(options);
+  };
+  const ports = f.container.getTcpPort.bind(f.container);
+  f.container.getTcpPort = port => {
+    assert.equal(port, 3000, 'Rust stays loopback-only and cannot be probed by the Worker');
+    return { fetch: async request => {
+      assert.equal(new URL(request.url).protocol, 'http:');
+      if (new URL(request.url).pathname === '/api/health') return Response.json({ ok: true, application: 'erp-next' });
+      return ports(port).fetch(request);
+    } };
+  };
+  const response = await routeRuntimeRequest(new Request('https://erp.example.invalid/api/erp/orders?q=one', {
+    method: 'POST', body: 'single streamed command',
+    headers: { Origin: 'https://erp.example.invalid', Cookie: 'session=private',
+      'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'spoof.invalid', 'Idempotency-Key': 'same-intent' },
+  }), f.env);
+  assert.equal(response.status, 201);
+  assert.equal(await response.text(), 'single streamed command');
+  const command = f.calls.find(call => call.request?.method === 'POST').request;
+  assert.equal(command.url, 'http://container/api/erp/orders?q=one');
+  assert.equal(command.headers.get('Host'), 'erp.example.invalid');
+  assert.equal(command.headers.get('X-Forwarded-Host'), 'erp.example.invalid');
+  assert.equal(command.headers.get('X-Forwarded-Proto'), 'https');
+  assert.equal(command.headers.get('Origin'), 'https://erp.example.invalid');
+  assert.equal(command.headers.get('Cookie'), 'session=private');
+  assert.equal(command.headers.get('Idempotency-Key'), 'same-intent');
+});
+
+test('web availability does not imply readiness when its private API is unavailable', async () => {
+  const f = fixture({ getTcpPort: port => ({ fetch: async request => {
+    if (port === 8080) throw Error('private loopback unreachable');
+    if (new URL(request.url).pathname === '/api/health') return Response.json({ ok: false, application: 'erp-next' }, { status: 503 });
+    if (request.method === 'POST') assert.fail('business command before API readiness');
+    return new Response('Login');
+  } }) });
+  const response = await routeRuntimeRequest(new Request('https://erp.example.invalid/orders', { method: 'POST', body: 'unsent' }), f.env);
+  assert.equal(response.status, 503);
 });
 
 test('concurrent cold requests share startup, with each request forwarded only once', async () => {

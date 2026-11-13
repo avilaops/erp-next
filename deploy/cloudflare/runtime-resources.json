@@ -33,7 +33,7 @@
   "container": {
     "scheduling_policy": "durable_object",
     "images": { "base": "" },
-    "instance_type": "basic",
+    "instance": { "vcpu": 0.25, "memoryMib": 1024, "diskMb": 2000 },
     "max_instances": 1,
     "inactivity_timeout_ms": 120000,
     "public_port": 3000,

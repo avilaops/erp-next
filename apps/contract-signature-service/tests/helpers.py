@@ -5,7 +5,8 @@ import importlib.util
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / 'apps/contract-signature-service/src'))
+if importlib.util.find_spec('contract_signature_service') is None:
+    sys.path.insert(0, str(ROOT / 'apps/contract-signature-service/src'))
 sys.path.insert(0, str(ROOT / 'apps/contract-signature-validator/tests'))
 
 

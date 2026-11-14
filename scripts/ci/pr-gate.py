@@ -10,7 +10,9 @@ import sys
 
 DOMAINS = ("web", "api", "fiscal")
 def signature_path(path):
-    return path.startswith('apps/contract-signature-validator/') or path == 'scripts/contracts/verify-signature-validator.py'
+    return path.startswith(('apps/contract-signature-validator/', 'apps/contract-signature-service/',
+                            'deploy/contracts-validator/')) or path in (
+        'scripts/contracts/verify-signature-validator.py', 'scripts/contracts/verify-signature-service.py')
 
 
 def plan(paths):

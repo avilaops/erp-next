@@ -83,8 +83,8 @@ modify `scripts/ci/{pr-gate.py,test_pr_gate.py,test_workflows.py}` e `.github/wo
 **Interfaces:** Mesma imagem para gateway/worker, runtime privado por digest;
 verificador CI constrói e testa containers restritos com fixtures montadas, nunca copiadas à imagem.
 
-- [ ] Testar escopo/workflow e isolamento do container: sem rede/root/rootfs escrita/segredos/fixtures; confirmar RED antes dos arquivos de integração.
-- [ ] Implementar Compose restrito sem portas públicas, allowlist com proveniência e CI condicional obrigatório, sem novos workflows pontuais.
+- [x] Testar escopo/workflow e isolamento do container: sem rede/root/rootfs escrita/segredos/fixtures; confirmar RED antes dos arquivos de integração. Execução Docker efetiva pendente no próximo gate.
+- [x] Implementar Compose restrito sem portas públicas, allowlist com proveniência e CI condicional obrigatório, sem novos workflows pontuais.
 - [ ] Rodar testes de CI, lock, build/distribuição, core offline e testes Docker Linux efetivos; corrigir falhas.
 - [ ] Uma revisão independente final, correções importantes por RED/GREEN, CI e integração conforme políticas; documentar decisões, pendências e evidências.
 - [ ] Commit final e limpeza segura somente dos artefatos próprios, preservando arquivos do usuário.

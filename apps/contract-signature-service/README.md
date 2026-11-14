@@ -18,3 +18,8 @@ uv run --frozen --project apps/contract-signature-service python -m unittest dis
 Cada consulta HTTP deve executar em subprocesso supervisionado de até 3 s,
 incluindo DNS e corpo. Timeouts de socket por inatividade não substituem esse
 limite. As regras de destinos são locais e nunca vêm de um PDF recebido.
+
+[Configuração privada e CI Linux](../../deploy/contracts-validator/README.md) •
+o verificador constrói/testa uma imagem temporária e remove somente recursos
+próprios. Publicação e integração ao workflow do ERP ainda dependem dos gates
+e do runtime operacional.

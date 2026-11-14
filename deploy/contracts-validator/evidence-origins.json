@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "avila-evidence-origins/1",
+  "rules": {
+    "http://acraiz.gov.br": [
+      "/ICP-Brasilv10.crt"
+    ],
+    "http://acraiz.icpbrasil.gov.br": [
+      "/ICP-Brasilv10.crt",
+      "/LCRacraizv10.crl",
+      "/LCRacraizv11.crl",
+      "/LCRacraizv12.crl",
+      "/LCRacraizv13.crl",
+      "/LCRacraizv4.crl",
+      "/LCRacraizv5.crl",
+      "/LCRacraizv6.crl",
+      "/LCRacraizv7.crl"
+    ],
+    "http://ccd.acsoluti.com.br": [
+      "/lcr/ac-soluti-v5-g2.crl",
+      "/lcr/ac-soluti-v5.crl"
+    ],
+    "http://ccd2.acsoluti.com.br": [
+      "/lcr/ac-soluti-v5-g2.crl",
+      "/lcr/ac-soluti-v5.crl"
+    ],
+    "http://certificados2.serpro.gov.br": [
+      "/lcr/acinmetro.crl",
+      "/lcr/acserprov4.crl",
+      "/lcr/acserprov5.crl"
+    ],
+    "http://icp-brasil.certisign.com.br": [
+      "/repositorio/lcr/ACCertisignG7/LatestCRL.crl",
+      "/repositorio/lcr/ACCertisignG8/LatestCRL.crl"
+    ],
+    "http://icp-brasil.outralcr.com.br": [
+      "/repositorio/lcr/ACCertisignG7/LatestCRL.crl",
+      "/repositorio/lcr/ACCertisignG8/LatestCRL.crl"
+    ],
+    "http://icp-brasil.syngularid.com.br": [
+      "/repositorio/ac-syngularid/lcr/lcr-ac-syngularid-v12.crl",
+      "/repositorio/ac-syngularid/lcr/lcr-ac-syngularid.crl"
+    ],
+    "http://icp-brasil.validcertificadora.com.br": [
+      "/ac-valid/lcr-ac-validv12.crl",
+      "/ac-valid/lcr-ac-validv5.crl"
+    ],
+    "http://icp-brasil2.validcertificadora.com.br": [
+      "/ac-valid/lcr-ac-validv12.crl",
+      "/ac-valid/lcr-ac-validv5.crl"
+    ],
+    "http://lcr.acjus.jus.br": [
+      "/acjusv5.crl",
+      "/acjusv6.crl"
+    ],
+    "http://lcr.certificados.com.br": [
+      "/repositorio/lcr/serasaacpv5.crl"
+    ],
+    "http://lcr1.prodesp.sp.gov.br": [
+      "/acprodespsp/acprodespsp.crl"
+    ],
+    "http://lcr2.prodesp.sp.gov.br": [
+      "/acprodespsp/acprodespsp.crl"
+    ],
+    "http://repositorio.acdigital.com.br": [
+      "/lcr/ac-digital-mais.crl"
+    ],
+    "http://repositorio.acsafeweb.com.br": [
+      "/ac-safeweb/lcr-ac-safeweb.crl",
+      "/ac-safeweb/lcr-ac-safewebv12.crl"
+    ],
+    "http://repositorio.serpro.gov.br": [
+      "/lcr/acinmetro.crl",
+      "/lcr/acserprov4.crl",
+      "/lcr/acserprov5.crl"
+    ],
+    "http://repositorio2.acdigital.com.br": [
+      "/lcr/ac-digital-mais.crl"
+    ],
+    "http://repositorio2.acsafeweb.com.br": [
+      "/ac-safeweb/lcr-ac-safeweb.crl",
+      "/ac-safeweb/lcr-ac-safewebv12.crl"
+    ],
+    "http://syngularid.com.br": [
+      "/repositorio/ac-syngularid/lcr/lcr-ac-syngularid-v12.crl",
+      "/repositorio/ac-syngularid/lcr/lcr-ac-syngularid.crl"
+    ],
+    "http://www.certificadodigital.com.br": [
+      "/cadeias/serasaacpv5.p7b",
+      "/repositorio/lcr/serasaacpv5.crl"
+    ],
+    "http://www.digitalsigncertificadora.com.br": [
+      "/repositorio/acp/ACDIGITALSIGNACPG2.crl",
+      "/repositorio/acp/ACDIGITALSIGNACPG3.crl"
+    ],
+    "http://www.receita.fazenda.gov.br": [
+      "/acrfb/acrfbv4.crl"
+    ]
+  },
+  "provenance": {
+    "rootsPemSha256": "68464dad04bbc97c52df53724242e008f0bd4894cf3e8df1b3d17e053624b297",
+    "intermediatesPemSha256": "8fdc6b73cf2f516379db073a9de8ba6403a78e79c2c0bb7b8f10690debaecd9c"
+  }
+}

@@ -87,7 +87,8 @@ class LinuxWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.config = load(self, 'config').ServiceConfig(trust,
             load(self, 'egress').NetworkPolicy({'http://revocation.invalid': ('/',)}))
         self.frame = encode_request(self.ctx.request)
-        self.result = load(self, 'engine').run_engine('validate', self.ctx, self.evidence, self.config)
+        self.result = await asyncio.to_thread(load(self, 'engine').run_engine,
+            'validate', self.ctx, self.evidence, self.config)
         self.runner = AsyncMock(return_value=self.ipc.encode_result('validate', self.result, self.ctx))
         self.patch_runner = patch.object(self.api, 'run_bounded', self.runner)
         self.patch_runner.start()

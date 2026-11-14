@@ -69,10 +69,10 @@
 **Interfaces:** `create_app(config, authenticator, worker, *, clock) -> aiohttp.web.Application`;
 CLI `gateway` ou `worker`, configuração de arquivos locais somente.
 
-- [ ] Testar TLS obrigatório, autenticação antes de body/parser, upload lento/excessivo, concorrência, targets fixos, falhas de worker/coletor e ausência de logs privados; confirmar RED.
-- [ ] Implementar leitura limitada, observação UTC, duas rodadas no budget global e validação final offline, bundle de saída e cleanup de subprocessos.
-- [ ] Testar pipeline completo com HTTP/TLS e fixtures, sem afirmar homologação real; rodar corpus.
-- [ ] Commit `feat(contracts): serve authenticated private validation over TLS`.
+- [x] Testar TLS obrigatório, autenticação antes de body/parser, upload lento/excessivo, concorrência, targets fixos, falhas de worker/coletor e ausência de logs privados; confirmar RED.
+- [x] Implementar leitura limitada, observação UTC, duas rodadas no budget global e validação final offline, bundle de saída e cleanup de subprocessos.
+- [x] Testar pipeline completo com HTTP/TLS e fixtures, sem afirmar homologação real; rodar corpus. Integração com Unix/containers real permanece na tarefa 4.
+- [x] Commit `feat(contracts): serve authenticated private validation over TLS`.
 
 ### Task 4: Imagem, Linux CI e entrega
 

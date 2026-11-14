@@ -1,7 +1,7 @@
 import { ProductCosts } from "@/features/catalog/product-costs"
 import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 
-export const metadata = { title: "Custos do produto · Avila ERP" }
+export const metadata = { title: "Custos do produto" }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const access = await currentWorkspaceAccess()

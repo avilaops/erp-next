@@ -2,7 +2,7 @@ import { PriceTables } from "@/features/commercial-settings/price-tables"
 import { Suspense } from "react"
 import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 
-export const metadata = { title: "Tabela de preços · Avila ERP" }
+export const metadata = { title: "Tabela de preços" }
 
 type PageProps = { searchParams: Promise<{ linha?: string }> }
 

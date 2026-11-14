@@ -59,6 +59,9 @@ comprovados estão no [README do componente](../../../../../apps/contract-signat
 Esses testes usam confiança `synthetic_not_icp`; não representam certificados
 pessoais reais nem homologação do fluxo publicado.
 
+A [entrega verificada do núcleo](NUCLEO-ICP-ENTREGA-20261114.md) registra PR,
+commit integrado, CI, correções de revisão e todas as decisões e pendências.
+
 Continuam pendentes o serviço privado com isolamento e obtenção restrita de
 revogação, a política e congelamento no ERP, o workflow concorrente, a ponte
 do portal, BFF/telas, o pacote final de todos os documentos e a homologação

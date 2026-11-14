@@ -94,7 +94,8 @@ o relatório canônico e acrescenta correlação completa, hash do request e MAC
 com domínio `AVILA-CV-RESPONSE/1`. `verify_response` recebe também `now` UTC do
 cliente; confere a observação assinada em relação ao envio e ao recebimento,
 sem presumir que os relógios têm exatamente o mesmo instante. Respostas
-limitadas a 256 KiB; checks ausentes continuam `indeterminate`.
+limitadas a 256 KiB; checks ausentes continuam `indeterminate`. Request e
+resposta têm profundidade JSON máxima de 16, conferida antes da desserialização.
 
 O preflight agora exige `trust_profile` em seu construtor e informa esse perfil
 também nas falhas. `canonical_preflight_bytes` publica somente hashes do

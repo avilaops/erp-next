@@ -72,6 +72,8 @@ O transporte interno do serviço está especificado em
 O pacote 0.2.0 acrescenta frames limitados, autenticação HMAC e respostas
 correlacionadas, com confiança explícita também no preflight. Essa fronteira
 pura não é um servidor e não substitui os componentes pendentes acima.
+O [registro de entrega do transporte](TRANSPORTE-ICP-ENTREGA-20261114.md)
+reúne os testes, a revisão, as decisões e a observação menor ainda pendente.
 
 A revisão independente do núcleo encontrou e a correção cobriu algoritmos
 efetivos fora da política, seed values obrigatórios ignorados e mudança de

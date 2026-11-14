@@ -37,7 +37,8 @@ do navegador. O futuro BFF produz esse frame a partir do estado autorizado.
   inventário autodeclarado ou evidência externa entra no frame. O serviço
   registra a hora UTC de observação e obtém sua própria configuração.
 - JSON recusa propriedades desconhecidas/duplicadas, coerção numérica,
-  identificadores alternativos, profundidade excessiva e valores não finitos.
+  identificadores alternativos e valores não finitos. Request e resposta têm
+  profundidade máxima de 16 antes da desserialização, respeitando strings e escapes.
 - HMAC-SHA256 usa chave dedicada de 32 a 64 bytes, até duas chaves ativas
   identificadas. Nunca usar A1, chave pessoal, token DocuSeal ou chave de banco.
   A assinatura inclui domínio, método, target exato, key ID, horário Unix,

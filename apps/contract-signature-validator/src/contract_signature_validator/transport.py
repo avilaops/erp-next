@@ -10,6 +10,7 @@ from .model import ExpectedSigner
 
 MAGIC = b'AVILA-CV1\n'
 HEADER_MAX_BYTES = 32 * 1024
+JSON_MAX_DEPTH = 16
 PART_LIMITS = {'base': 20 * 1024 * 1024, 'parent': 32 * 1024 * 1024,
                'candidate': 32 * 1024 * 1024}
 FRAME_MAX_BYTES = len(MAGIC) + 4 + HEADER_MAX_BYTES + sum(PART_LIMITS.values())
@@ -49,12 +50,35 @@ def _pairs(values):
     return result
 
 
+def _bounded_depth(text):
+    depth, quoted, escaped = 0, False, False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+        elif char in '[{':
+            depth += 1
+            _require(depth <= JSON_MAX_DEPTH)
+        elif char in ']}':
+            depth -= 1
+            _require(depth >= 0)
+    _require(not quoted and depth == 0)
+
+
 def strict_json(raw, *, max_bytes):
     try:
         _require(isinstance(raw, bytes) and 0 < len(raw) <= max_bytes)
+        text = raw.decode('ascii')
+        _bounded_depth(text)
         def reject_constant(_):
             raise ProtocolError()
-        result = json.loads(raw.decode('ascii'), object_pairs_hook=_pairs,
+        result = json.loads(text, object_pairs_hook=_pairs,
                             parse_constant=reject_constant)
         _require(type(result) is dict)
         return result

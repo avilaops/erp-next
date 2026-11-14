@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 import unittest
+from unittest.mock import patch
 
 from contract_signature_validator.model import (BaselineInventory, CheckResult, EvidenceSet,
     PreflightBinding, PreflightReport, ValidationBinding, ValidationPolicy, ValidationReport, Verdict)
@@ -140,3 +141,13 @@ class ResponseTests(unittest.TestCase):
                 self.seal(self.wire.canonical_json(mutated))
         with self.assertRaises(self.wire.ProtocolError):
             self.seal(b'x'*(256*1024+1))
+
+    def test_authenticated_response_depth_is_rejected_before_json_deserialization(self):
+        body = b'{"value":'+b'['*16+b'0'+b']'*16+b'}'
+        headers = {'content-type': self.api.CONTENT_TYPE, 'content-length': str(len(body)),
+            'x-validation-response-sha256': hashlib.sha256(body).hexdigest(),
+            'x-validation-response-mac': 'HMAC-SHA256 current:'+self.auth.response_mac(body, self.authenticated)}
+        with patch.object(self.wire.json, 'loads', wraps=json.loads) as parser:
+            with self.assertRaises(self.wire.ProtocolError):
+                self.verify(body, headers)
+            parser.assert_not_called()

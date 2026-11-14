@@ -5,6 +5,7 @@ import importlib.util
 import json
 import struct
 import unittest
+from unittest.mock import patch
 from uuid import UUID
 
 from contract_signature_validator.model import ExpectedSigner
@@ -125,7 +126,20 @@ class TransportTests(unittest.TestCase):
                         operation='increment')
 
     def test_pathological_json_and_non_ascii_or_non_object_headers_fail_closed(self):
-        for raw in (b'[]', b'null', b'{"x": NaN}', b'{"x": Infinity}', b'{',
-                    b'['*1500+b'0'+b']'*1500, b'\xff', b' '*32769):
-            with self.subTest(size=len(raw)), self.assertRaisesRegex(self.api.ProtocolError, '^invalid_request$'):
-                self.decode(self.api.MAGIC+struct.pack('>I', len(raw))+raw)
+        cases = (b'[]', b'null', b'{"x": NaN}', b'{"x": Infinity}', b'{',
+                 b'['*1500+b'0'+b']'*1500, b'\xff', b' '*32769)
+        with patch.object(self.api, 'strict_json', wraps=self.api.strict_json) as parser:
+            for raw in cases:
+                with self.subTest(size=len(raw)), self.assertRaisesRegex(self.api.ProtocolError, '^invalid_request$'):
+                    self.decode(self.api.MAGIC+struct.pack('>I', len(raw))+raw+b'x')
+            self.assertEqual(parser.call_count, len(cases)-1)  # Only the oversized header stops earlier.
+
+    def test_json_depth_is_bounded_before_deserialization_without_counting_strings(self):
+        literal = 'brackets [{]} and escaped quote " and backslash \\ '*100
+        boundary = b'{"value":'+b'['*15+b'0'+b']'*15+b',"literal":'+json.dumps(literal).encode('ascii')+b'}'
+        self.assertEqual(self.api.strict_json(boundary, max_bytes=32768)['literal'], literal)
+        too_deep = b'{"value":'+b'['*16+b'0'+b']'*16+b'}'
+        with patch.object(self.api.json, 'loads', wraps=json.loads) as parser:
+            with self.assertRaisesRegex(self.api.ProtocolError, '^invalid_request$'):
+                self.api.strict_json(too_deep, max_bytes=32768)
+            parser.assert_not_called()

@@ -85,4 +85,5 @@ Reutilizar bytes canônicos do núcleo; conferir os bindings completos.
 - [x] Executar corpus completo, construir wheel/sdist em pasta temporária nova e verificar wheel offline pelo script existente.
 - [x] Atualizar versão para 0.2.0 pela mudança da assinatura de PreflightReport; atualizar lock sem novas dependências e documentar uso/limites e pendências.
 - [x] Commit `feat(contracts): correlate authenticated validator responses`.
-- [ ] Uma revisão independente da branch; corrigir findings importantes com RED/GREEN, executar CI, integrar conforme as políticas e preservar evidências.
+- [x] Uma revisão independente da branch e correção importante com RED/GREEN; evidências locais no registro de entrega por tela.
+- CI e integração conforme as políticas: acompanhar a [PR 213](https://github.com/avilaops/erp-next/pull/213); o registro remoto é a evidência final desses gates.

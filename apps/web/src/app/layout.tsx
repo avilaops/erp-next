@@ -16,9 +16,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Avila ERP", template: "%s · Avila ERP" },
-  description: "Novo ERP modular da Avila Ops",
-  icons: { icon: "/icon.svg", apple: "/brand/avila-erp-192.png" },
+  title: { default: "ERP • Avila Ops", template: "%s • ERP" },
+  applicationName: "ERP",
+  robots: { index: false, follow: false },
+  description: "ERP modular da Avila Ops",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/brand/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+      { url: "/favicon.ico" },
+    ],
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

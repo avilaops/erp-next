@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /
+Allow: /entrar$
+Allow: /_next/static/
+Allow: /icon.svg
+Allow: /apple-icon.png
+Allow: /favicon.ico
+Allow: /brand/
+Allow: /erp-social.png
+Allow: /sitemap.xml
+
+Sitemap: https://erp.avilaops.com/sitemap.xml

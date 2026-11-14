@@ -93,7 +93,7 @@ test("títulos distinguem lista, criação, configuração e dashboard", async (
     ["/dashboards/vendas", "Dashboard de vendas"],
   ]) {
     await page.goto(path)
-    await expect(page).toHaveTitle(title + " · Avila ERP")
+    await expect(page).toHaveTitle(title + " • ERP")
   }
 })
 

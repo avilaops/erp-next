@@ -37,6 +37,11 @@ jobs:
       with:
         node-version: 24
         cache: pnpm
+    - name: Validate application brand
+      if: hashFiles('scripts/brand/application-icons.mjs') != ''
+      run: |
+        python3 scripts/ci/timed.py --label 'web/application-brand-tests' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm test:brand
+        python3 scripts/ci/timed.py --label 'web/application-brand' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm check:brand
     - run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT

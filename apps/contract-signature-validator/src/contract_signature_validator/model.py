@@ -98,7 +98,26 @@ class BaselineInventory:
 class PreflightReport:
     binding: PreflightBinding
     checks: tuple["CheckResult", ...]
+    trust_profile: str
     baseline: BaselineInventory | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.binding, PreflightBinding) or not isinstance(self.checks, tuple):
+            raise ValueError("invalid_report")
+        if any(not isinstance(check, CheckResult) for check in self.checks):
+            raise ValueError("invalid_report_checks")
+        if len({check.name for check in self.checks}) != len(self.checks):
+            raise ValueError("duplicate_report_check")
+        if self.trust_profile not in {"icp_brasil", "synthetic_not_icp"}:
+            raise ValueError("invalid_trust_profile")
+        if self.baseline is not None:
+            baseline, binding = self.baseline, self.binding
+            if (not isinstance(baseline, BaselineInventory)
+                or baseline.document_id != binding.document_id
+                or baseline.base_sha256 != binding.base_sha256
+                or baseline.policy_sha256 != binding.policy_sha256
+                or baseline.trust_bundle_sha256 != binding.trust_bundle_sha256):
+                raise ValueError("invalid_baseline_binding")
 
     @property
     def verdict(self):
@@ -107,7 +126,8 @@ class PreflightReport:
             return Verdict.INVALID
         if Verdict.UNSUPPORTED in states:
             return Verdict.UNSUPPORTED
-        if self.baseline is None or not states or Verdict.INDETERMINATE in states:
+        if (self.baseline is None or Verdict.INDETERMINATE in states
+            or not {"binding", "format", "baseline"} <= {c.name for c in self.checks}):
             return Verdict.INDETERMINATE
         return Verdict.ACCEPTED
 

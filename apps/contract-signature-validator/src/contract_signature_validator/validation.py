@@ -31,12 +31,12 @@ def preflight(base, binding, policy, trust, evidence):
         checks.append(_check("baseline"))
         baseline = BaselineInventory(binding.document_id, binding.base_sha256, len(base),
             policy.sha256, trust.sha256, inventory)
-        return PreflightReport(binding, tuple(checks), baseline)
+        return PreflightReport(binding, tuple(checks), trust.profile, baseline)
     except PdfPolicyError as error:
         checks.append(_check("preflight", error.verdict, error.reason))
     except (PdfReadError, ValueError, TypeError, KeyError):
         checks.append(_check("preflight", Verdict.INVALID, "malformed_pdf"))
-    return PreflightReport(binding, tuple(checks))
+    return PreflightReport(binding, tuple(checks), trust.profile)
 
 
 def _embedded_evidence(evidence, signatures):

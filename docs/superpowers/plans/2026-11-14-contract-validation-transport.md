@@ -59,12 +59,12 @@ titular e anteriores; `encode_request(request) -> bytes`;
 `TransportAuthenticator(keys)` produz/verifica cabeçalhos e corpo antes de
 chamar decode. Retorna `AuthenticatedRequest(request, observed_at, key_id)`.
 
-- [ ] Testar frame das duas operações, bytes exatos, limites, propriedades extras/duplicadas, JSON malformado e troca de IDs/hashes/operação.
-- [ ] Confirmar RED pelo comando do corpus; implementar framing tipado e limites, sem interpretar PDFs.
-- [ ] Testar autenticação/rotação, adulteração, headers duplicados, idade e futuro, targets/query e ausência de vazamento; confirmar RED.
-- [ ] Implementar autenticação com comparação constante e erros estáveis; conferir hash antes do decode.
-- [ ] Executar corpus completo; confirmar GREEN.
-- [ ] Commit `feat(contracts): authenticate bounded internal validation frames`.
+- [x] Testar frame das duas operações, bytes exatos, limites, propriedades extras/duplicadas, JSON malformado e troca de IDs/hashes/operação.
+- [x] Confirmar RED pelo comando do corpus; implementar framing tipado e limites, sem interpretar PDFs.
+- [x] Testar autenticação/rotação, adulteração, headers duplicados, idade e futuro, targets/query e ausência de vazamento; confirmar RED.
+- [x] Implementar autenticação com comparação constante e erros estáveis; conferir hash antes do decode.
+- [x] Executar corpus completo; confirmar GREEN.
+- [x] Commit `feat(contracts): authenticate bounded internal validation frames`.
 
 ### Task 3: Resposta correlacionada e distribuição
 

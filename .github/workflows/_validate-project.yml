@@ -20,7 +20,7 @@ name: Validate project
 jobs:
   policy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
       with:
@@ -44,6 +44,12 @@ jobs:
         python scripts/ci/timed.py --label signature-core/frozen-environment --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv sync --frozen --project apps/contract-signature-validator --python 3.13
         python scripts/ci/timed.py --label signature-core/build --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv build --project apps/contract-signature-validator --out-dir "$RUNNER_TEMP/signature-validator-dist"
         python scripts/ci/timed.py --label signature-core/offline-wheel-corpus --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv run --frozen --project apps/contract-signature-validator python scripts/contracts/verify-signature-validator.py --directory "$RUNNER_TEMP/signature-validator-dist"
+    - name: Verify private signature service
+      if: steps.signature_scope.outputs.required == 'true'
+      run: |
+        python scripts/ci/timed.py --label signature-service/frozen-environment --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv sync --frozen --project apps/contract-signature-service --python 3.13
+        python scripts/ci/timed.py --label signature-service/build --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv build --project apps/contract-signature-service --out-dir "$RUNNER_TEMP/signature-service-dist"
+        python scripts/ci/timed.py --label signature-service/linux-wheel-and-docker --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv run --frozen --project apps/contract-signature-service python scripts/contracts/verify-signature-service.py --directory "$RUNNER_TEMP/signature-service-dist" --docker
     - run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT

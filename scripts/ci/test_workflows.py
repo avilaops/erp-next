@@ -7,6 +7,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_private_signature_service_requires_linux_docker_in_existing_policy_job(self):
+        policy = self.workflows()['_validate-project.yml']['jobs']['policy']
+        step = next((s for s in policy['steps'] if s.get('name') == 'Verify private signature service'), None)
+        self.assertIsNotNone(step)
+        self.assertEqual(step['if'], "steps.signature_scope.outputs.required == 'true'")
+        self.assertIn('uv sync --frozen --project apps/contract-signature-service', step['run'])
+        self.assertIn('verify-signature-service.py', step['run'])
+        self.assertIn('--docker', step['run'])
+        self.assertNotIn('continue-on-error', step)
+        self.assertGreaterEqual(policy['timeout-minutes'], 15)
+
     def test_signature_core_is_verified_conditionally_in_the_shared_policy_job(self):
         self.assertTrue((ROOT / 'apps/contract-signature-validator/pyproject.toml').is_file())
         steps = self.workflows()['_validate-project.yml']['jobs']['policy']['steps']

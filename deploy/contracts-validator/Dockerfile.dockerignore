@@ -1,0 +1,16 @@
+**
+!apps/
+!apps/contract-signature-validator/
+!apps/contract-signature-service/
+!apps/contract-signature-validator/pyproject.toml
+!apps/contract-signature-validator/uv.lock
+!apps/contract-signature-validator/README.md
+!apps/contract-signature-validator/src/
+!apps/contract-signature-validator/src/**
+!apps/contract-signature-service/pyproject.toml
+!apps/contract-signature-service/uv.lock
+!apps/contract-signature-service/README.md
+!apps/contract-signature-service/src/
+!apps/contract-signature-service/src/**
+**/__pycache__/
+**/*.pyc

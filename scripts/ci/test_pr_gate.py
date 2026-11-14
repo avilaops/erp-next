@@ -9,6 +9,13 @@ spec.loader.exec_module(gate)
 
 
 class ScopeTests(unittest.TestCase):
+    def test_private_signature_service_has_mandatory_project_scope(self):
+        for path in ('apps/contract-signature-service/src/contract_signature_service/worker.py',
+                     'deploy/contracts-validator/compose.yml', 'scripts/contracts/verify-signature-service.py'):
+            self.assertFalse(any(gate.plan([path]).values()), path)
+            self.assertTrue(gate.signature_check_required([path]), path)
+        self.assertTrue(all(gate.plan(['deploy/contracts-validator-unrelated/compose.yml']).values()))
+
     def test_signature_core_uses_project_validation_without_rebuilding_native_domains(self):
         for path in ("apps/contract-signature-validator/uv.lock", "scripts/contracts/verify-signature-validator.py"):
             self.assertFalse(any(gate.plan([path]).values()), path)

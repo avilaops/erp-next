@@ -1,4 +1,5 @@
 # The reviewed manifest hashes these exact public certificate bundle bytes.
+deploy/fiscal/icp-brasil-roots.pem text eol=lf
 deploy/fiscal/icp-brasil-intermediates.pem text eol=lf
 .github/workflows/*.yml text eol=lf
 deploy/*.sh text eol=lf

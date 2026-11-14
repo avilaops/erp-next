@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avila-contract-signature-service"
+version = "0.1.0"
+description = "Private isolated contract validation and restricted evidence collection"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = ["avila-contract-signature-validator==0.2.0", "aiohttp==3.14.5"]
+
+[tool.uv.sources]
+avila-contract-signature-validator = { path = "../contract-signature-validator" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/contract_signature_service"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/contract_signature_service", "pyproject.toml", "uv.lock", "README.md"]

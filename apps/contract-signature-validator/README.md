@@ -13,3 +13,31 @@ Executar na raiz do repositório:
 ```powershell
 uv run --frozen --project apps/contract-signature-validator python -m unittest discover -s apps/contract-signature-validator/tests -p 'test_*.py'
 ```
+
+Para verificar a distribuição efetiva com a rede bloqueada, use uma pasta
+temporária nova para cada compilação:
+
+```powershell
+uv lock --check --project apps/contract-signature-validator
+$validatorDist = Join-Path $env:TEMP ([guid]::NewGuid().ToString())
+uv build --project apps/contract-signature-validator --out-dir $validatorDist
+uv run --frozen --project apps/contract-signature-validator python scripts/contracts/verify-signature-validator.py --directory $validatorDist
+```
+
+O verificador importa o wheel compilado, confere a exclusão das fixtures e
+executa o corpus sem DNS, datagramas ou conexões de rede. No Windows, permite
+somente a conexão interna criada pela função `socket._fallback_socketpair`
+da biblioteca padrão para iniciar o event loop; outras conexões a loopback
+também são recusadas. Isso verifica os testes, sem substituir o isolamento
+do futuro serviço.
+
+O corpus inclui três titulares distintos em dois documentos, preservação de
+todas as revisões, reprodução dos relatórios e rejeição de outro documento,
+pai ou participante. Os perfis RSA-PSS SHA-256/384/512 e ECDSA P-256/384/521
+são exercitados com CMS e cadeia sintéticos reais. O relatório inclui as
+versões instaladas do núcleo, pyHanko e certvalidator.
+
+No CI, a tarefa reutilizável `_validate-project.yml` verifica este componente
+quando seus arquivos mudam, na validação completa ou quando muda infraestrutura
+compartilhada. Alterar somente este núcleo não exige reconstruir API, web e
+motor fiscal. O contrato de release permanece o mesmo.

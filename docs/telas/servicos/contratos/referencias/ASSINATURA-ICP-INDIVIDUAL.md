@@ -52,6 +52,18 @@ O pacote final usará todos os heads concluídos e suas provas. Não escolher so
 
 ## Critérios de validação
 
+O núcleo está em `apps/contract-signature-validator`. O corpus automatizado
+exercita três titulares sintéticos em dois PDFs e reproduz os relatórios por
+hash com a mesma evidência offline. O comando de distribuição e os limites
+comprovados estão no [README do componente](../../../../../apps/contract-signature-validator/README.md).
+Esses testes usam confiança `synthetic_not_icp`; não representam certificados
+pessoais reais nem homologação do fluxo publicado.
+
+Continuam pendentes o serviço privado com isolamento e obtenção restrita de
+revogação, a política e congelamento no ERP, o workflow concorrente, a ponte
+do portal, BFF/telas, o pacote final de todos os documentos e a homologação
+pessoal. A biblioteca por si só não habilita novas emissões ou convites.
+
 Testar três pessoas sintéticas e dois PDFs, identidade errada, e-CNPJ/selo, cadeia desconhecida/incompleta, validade e revogação, CRL/OCSP inválidos/velhos/ausentes, prefixo alterado, append que muda preço, cauda não coberta, múltiplas assinaturas novas, PDF criptografado, DocMDP/FieldMDP, objetos não justificados, quotas e restauração por hash.
 
 Testar também concorrência, replay, stale, tenant e sessão cruzados, permissões revogadas, delegação, 2FA, falha do validador e pacote incompleto. Certificados/chaves sintéticos são apenas fixtures, explicitamente NÃO ICP, e nunca entram no bundle ou imagem de produção.

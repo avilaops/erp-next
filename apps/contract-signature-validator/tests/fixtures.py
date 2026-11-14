@@ -67,7 +67,7 @@ class TestChain:
     leaf_key: object = field(repr=False)
 
 
-def _issued(subject, key, issuer, issuer_key, serial, *, ca, start, end, digital=True):
+def _issued(subject, key, issuer, issuer_key, serial, *, ca, start, end, digital=True, cpf=CPF):
     builder = (x509.CertificateBuilder().subject_name(subject).issuer_name(issuer)
                .public_key(key.public_key()).serial_number(serial)
                .not_valid_before(start).not_valid_after(end)
@@ -86,7 +86,7 @@ def _issued(subject, key, issuer, issuer_key, serial, *, ca, start, end, digital
         builder = (builder.add_extension(x509.CertificatePolicies([
                     x509.PolicyInformation(ObjectIdentifier("2.16.76.1.2.1.999999"), None)]), critical=False)
                    .add_extension(x509.SubjectAlternativeName([x509.OtherName(ObjectIdentifier(PERSON_OID),
-                        core.UTF8String("01011990" + CPF + "0" * 39).dump())]), critical=False)
+                        core.UTF8String("01011990" + cpf + "0" * 39).dump())]), critical=False)
                    .add_extension(x509.AuthorityInformationAccess([x509.AccessDescription(
                         ObjectIdentifier("1.3.6.1.5.5.7.48.1"), x509.UniformResourceIdentifier("http://revocation.invalid/ocsp"))]), critical=False))
     return builder.sign(issuer_key, hashes.SHA256())
@@ -105,6 +105,15 @@ def chain_fixture(*, leaf_start=-30, leaf_end=30, digital=True, other=False):
     leaf = _issued(names[2], keys[2], names[1], keys[1], 300, ca=False, digital=digital,
                    start=NOW+timedelta(days=leaf_start), end=NOW+timedelta(days=leaf_end))
     return TestChain(root, intermediate, leaf, *keys)
+
+
+def personal_fixture(chain, cpf, serial, *, key=None):
+    """A distinct synthetic holder under the existing synthetic test issuer."""
+    key = key or rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "SYNTHETIC NOT ICP PERSON " + cpf)])
+    cert = _issued(subject, key, chain.intermediate.subject, chain.intermediate_key, serial,
+                   ca=False, start=NOW-timedelta(days=30), end=NOW+timedelta(days=30), cpf=cpf)
+    return cert, key
 
 
 def der(cert):
@@ -171,7 +180,8 @@ def unsigned_pdf(text="SYNTHETIC CONTRACT PRICE 100.00", *, encrypted=False):
     return output.getvalue()
 
 
-def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certify=False, locked=False, visible=False, lock_price=False):
+def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certify=False, locked=False, visible=False, lock_price=False,
+             prefer_pss=False, md_algorithm="sha256"):
     from io import BytesIO
     from asn1crypto import keys, x509 as asn1_x509
     from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
@@ -182,8 +192,9 @@ def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certi
         if cert is not None:
             store.register(asn1_x509.Certificate.load(der(cert)))
     signer = signers.SimpleSigner(asn1_x509.Certificate.load(cert_der), keys.PrivateKeyInfo.load(
-        key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())), store)
-    metadata = signers.PdfSignatureMetadata(field_name=field_name, md_algorithm="sha256", certify=certify,
+        key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())), store,
+        prefer_pss=prefer_pss)
+    metadata = signers.PdfSignatureMetadata(field_name=field_name, md_algorithm=md_algorithm, certify=certify,
         docmdp_permissions=fields.MDPPerm.NO_CHANGES if locked else fields.MDPPerm.FILL_FORMS)
     spec = fields.SigFieldSpec(field_name, box=(0, 0, 595, 842) if visible else None,
         field_mdp_spec=fields.FieldMDPSpec(fields.FieldMDPAction.INCLUDE, ["Price"]) if lock_price else None)

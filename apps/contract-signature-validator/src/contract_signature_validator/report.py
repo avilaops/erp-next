@@ -20,7 +20,8 @@ def canonical_report_bytes(report: ValidationReport) -> bytes:
         },
         "verdict": report.verdict.value,
         "trustProfile": report.trust_profile,
-        "engine": {"pyHanko": version("pyHanko"), "certvalidator": version("pyhanko-certvalidator")},
+        "engine": {"validator": version("avila-contract-signature-validator"),
+                   "pyHanko": version("pyHanko"), "certvalidator": version("pyhanko-certvalidator")},
         "checks": [
             {"name": check.name, "verdict": check.verdict.value, "reason": check.reason,
              "evidenceHashes": list(check.evidence_hashes)}

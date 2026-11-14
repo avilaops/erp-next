@@ -7,6 +7,20 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_signature_core_is_verified_conditionally_in_the_shared_policy_job(self):
+        self.assertTrue((ROOT / 'apps/contract-signature-validator/pyproject.toml').is_file())
+        steps = self.workflows()['_validate-project.yml']['jobs']['policy']['steps']
+        scope = next(step for step in steps if step.get('id') == 'signature_scope')
+        self.assertIn("hashFiles('apps/contract-signature-validator/pyproject.toml')", scope['if'])
+        self.assertIn('pr-gate.py signatures', scope['run'])
+        verify = next(step for step in steps if step.get('name') == 'Verify isolated signature core')
+        self.assertEqual(verify['if'], "steps.signature_scope.outputs.required == 'true'")
+        self.assertIn('uv sync --frozen', verify['run'])
+        self.assertIn('verify-signature-validator.py', verify['run'])
+        self.assertIn('uv build', verify['run'])
+        checkout = next(step for step in steps if step.get('uses', '').startswith('actions/checkout@'))
+        self.assertEqual(checkout['with']['fetch-depth'], 2)
+
     def workflows(self):
         return {p.name: yaml.safe_load(p.read_text()) for p in (ROOT / '.github/workflows').glob('*.yml')}
 

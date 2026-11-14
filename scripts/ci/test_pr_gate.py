@@ -9,6 +9,19 @@ spec.loader.exec_module(gate)
 
 
 class ScopeTests(unittest.TestCase):
+    def test_signature_core_uses_project_validation_without_rebuilding_native_domains(self):
+        for path in ("apps/contract-signature-validator/uv.lock", "scripts/contracts/verify-signature-validator.py"):
+            self.assertFalse(any(gate.plan([path]).values()), path)
+            self.assertTrue(gate.signature_check_required([path]))
+
+    def test_signature_scope_is_required_for_full_and_unknown_infrastructure_only(self):
+        for paths in ([], ["docs/guide.md"], ["apps/web/src/page.tsx"], ["apps/api/src/main.rs"]):
+            self.assertFalse(gate.signature_check_required(paths), paths)
+            self.assertTrue(gate.signature_check_required(paths, full=True), paths)
+        for path in (".github/workflows/_validate-project.yml", "scripts/ci/pr-gate.py", "new-service/main.py"):
+            self.assertTrue(gate.signature_check_required([path]), path)
+        self.assertTrue(all(gate.plan(['scripts/contracts/verify-signature-validator.py-unrelated']).values()))
+
     def test_frontend_does_not_rebuild_api(self):
         self.assertEqual(gate.plan(["apps/web/src/page.tsx"]), {"web": True, "api": False, "fiscal": False})
 

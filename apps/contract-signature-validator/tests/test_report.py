@@ -1,6 +1,7 @@
 import hashlib
 import json
 import unittest
+from importlib.metadata import version
 
 from contract_signature_validator.model import CheckResult, ValidationBinding, ValidationReport, Verdict
 from contract_signature_validator.report import canonical_report_bytes
@@ -11,6 +12,10 @@ REQUIRED = ("binding", "increment", "baseline", "identity", "chain", "revocation
 
 
 class ReportTests(unittest.TestCase):
+    def test_report_identifies_the_installed_validator_version(self):
+        encoded = canonical_report_bytes(self.report([]))
+        self.assertEqual(json.loads(encoded)["engine"]["validator"], version("avila-contract-signature-validator"))
+
     def report(self, checks):
         return ValidationReport(ValidationBinding(**binding_values()), tuple(checks), "synthetic_not_icp")
 

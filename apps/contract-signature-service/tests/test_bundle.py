@@ -59,6 +59,18 @@ class BundleTests(unittest.TestCase):
         self.assertNotIn(CPF, repr(result))
         self.assertEqual(self.encode(), (body, headers))
 
+    def test_unsealed_worker_response_is_bound_and_verified_before_gateway_seals_it(self):
+        from contract_signature_validator.transport_response import encode_response
+        self.assertTrue(callable(getattr(self.api, 'encode_response_bundle', None)))
+        raw = encode_response(self.context, self.report, trust_profile=self.trust.profile)
+        body, headers = self.api.encode_response_bundle(self.context, raw, self.evidence, self.trust, self.auth)
+        self.assertEqual(self.decode(body, headers).response['report']['verdict'], 'accepted')
+        altered = json.loads(raw)
+        altered['report']['binding']['documentId'] = str(self.context.request.tenant_id)
+        altered['reportSha256'] = hashlib.sha256(canonical_json(altered['report'])).hexdigest()
+        with self.assertRaises(self.api.BundleError):
+            self.api.encode_response_bundle(self.context, canonical_json(altered), self.evidence, self.trust, self.auth)
+
     def test_exact_binary_authentication_precedes_decoding(self):
         body, headers = self.encode()
         for changed in (body+b'x', body[:-1], body[:-1]+bytes([body[-1]^1])):

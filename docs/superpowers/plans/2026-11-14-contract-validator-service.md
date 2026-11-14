@@ -55,11 +55,11 @@
 `run_bounded(command, input, *, timeout, output_limit, profile) -> bytes`;
 `WorkerClient.call(stage, frame, observed_at, evidence) -> result`.
 
-- [ ] Testar discovery/OCSP em certificados sintéticos e preservação da identidade, limites e relatório offline; confirmar RED, implementar.
-- [ ] Testar protocolo Unix e peer UID, entrada/saída/deadline, limitação Linux, kill de grupo/filhos e falhas; confirmar RED antes de cada fronteira.
-- [ ] Implementar supervisor sem parser, subprocessos com env restrito, namespace/rootfs guards e códigos sem PII.
-- [ ] Executar corpus completo, registrar skips de Windows e exigir Linux real na tarefa 4.
-- [ ] Commit `feat(contracts): isolate private signature validation workers`.
+- [x] Testar discovery/OCSP em certificados sintéticos e preservação da identidade, limites e relatório offline; confirmar RED, implementar.
+- [x] Testar protocolo Unix e peer UID, entrada/saída/deadline, limitação Linux, kill de grupo/filhos e falhas; confirmar RED antes de cada fronteira. Casos Linux escritos, execução efetiva obrigatória na tarefa 4.
+- [x] Implementar supervisor sem parser, subprocessos com env restrito, namespace/rootfs guards e códigos sem PII.
+- [x] Executar corpus completo, registrar skips de Windows e exigir Linux real na tarefa 4.
+- [x] Commit `feat(contracts): isolate private signature validation workers`.
 
 ### Task 3: Gateway TLS autenticado
 

@@ -67,9 +67,16 @@ def _headers_for(body, authenticated, authenticator):
 
 def encode_bundle(authenticated, report, evidence, trust, authenticator):
     try:
+        raw_report = encode_response(authenticated, report, trust_profile=trust.profile)
+        return encode_response_bundle(authenticated, raw_report, evidence, trust, authenticator)
+    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+        raise BundleError() from None
+
+
+def encode_response_bundle(authenticated, raw_report, evidence, trust, authenticator):
+    try:
         _require(isinstance(evidence, EvidenceSet) and evidence.observed_at == authenticated.observed_at)
         evidence = replace(evidence, **{name: tuple(sorted(set(getattr(evidence, name)))) for name in _COUNTS})
-        raw_report = encode_response(authenticated, report, trust_profile=trust.profile)
         response_headers = seal_response(raw_report, authenticated, authenticator, trust_profile=trust.profile)
         response = verify_response(raw_report, list(response_headers.items()), authenticated,
             authenticator, trust_profile=trust.profile, now=authenticated.observed_at)

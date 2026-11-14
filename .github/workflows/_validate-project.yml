@@ -1,0 +1,227 @@
+name: Validate project
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      full:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+      check_database:
+        type: boolean
+        default: false
+      openapi_artifact_name:
+        type: string
+        default: ''
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - run: python -m pip install PyYAML==6.0.3
+    - run: python -B -m unittest discover -s scripts/ci -p 'test_*.py'
+    - run: python -B -m unittest discover -s scripts/deploy -p 'test_*.py'
+    - run: bash -n deploy/production-deploy.sh
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile --prefer-offline
+    - run: pnpm test:verification
+    - run: python -B -m unittest discover -s verification/ml -p 'test_*.py'
+    - run: pnpm verify:erp
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-verification-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/verification/
+        retention-days: 7
+        if-no-files-found: warn
+  context-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm test:architecture
+    - name: Validate MLOps release evidence gate (deterministic fixtures)
+      run: node --test scripts/mlops/release-gate.test.mjs
+    - name: Enforce documented architecture
+      run: 'mkdir -p artifacts
+
+        pnpm --silent check:architecture > artifacts/architecture.json
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-architecture-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/architecture.json
+        retention-days: 7
+    - run: pnpm context:erp
+    if: inputs.full
+  contract-tests:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - run: npm ci --ignore-scripts --no-audit --no-fund
+      working-directory: scripts/contracts/consumer
+    - run: bash scripts/contracts/install-oasdiff.sh
+    - run: node --test scripts/contracts/test/*.test.mjs
+    - run: python3 -B -m unittest discover -s scripts/contracts -p 'test_capture.py'
+    if: inputs.full
+  baseline:
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@1.99.1
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: regression-baseline
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.openapi_artifact_name }}
+        path: artifacts/contracts/
+    - name: Capture explicit baseline
+      run: 'baseline_sha=$(git rev-parse ''HEAD^{commit}~1'')
+
+        timeout 480s python3 -B scripts/contracts/capture.py "$baseline_sha"
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-openapi-captured-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/contracts/
+        if-no-files-found: error
+        retention-days: 7
+    if: inputs.full
+    outputs:
+      contract_artifact_name: erp-openapi-captured-${{ inputs.source_sha }}-${{ github.run_attempt }}
+  contracts:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.baseline.outputs.contract_artifact_name }}
+        path: artifacts/contracts/
+    - run: bash scripts/contracts/install-oasdiff.sh
+    - run: npm ci --ignore-scripts --no-audit --no-fund
+      working-directory: scripts/contracts/consumer
+    - run: node scripts/contracts/gate.mjs artifacts/contracts/baseline.json artifacts/contracts/candidate.json artifacts/contracts
+    - name: Verify fiscal integration examples against the generated OpenAPI
+      run: node scripts/fiscal/check-contract.mjs artifacts/contracts/candidate.json
+    - name: Check fixed company consumer
+      working-directory: scripts/contracts/consumer
+      run: 'npm run generate
+
+        npm run check
+
+        npm test
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: erp-contract-compatibility-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/contracts/
+        if-no-files-found: error
+        retention-days: 7
+    if: inputs.full
+    needs:
+    - baseline
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: system_schema_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: schema_ci_only
+        ports:
+        - 5432:5432
+        options: --health-cmd "pg_isready -U postgres -d system_schema_test" --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: system_schema_test
+      PGUSER: postgres
+      PGPASSWORD: schema_ci_only
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - name: Apply complete migration history
+      shell: bash
+      run: "set -euo pipefail\nfor migration in migrations/*.sql; do\n  psql -X -v ON_ERROR_STOP=1 --single-transaction -f \"$migration\"\ndone\n"
+    - name: Validate tenant isolation and invariants
+      run: psql -X -v ON_ERROR_STOP=1 -f verification/sql/system-configuration.sql
+    - name: Compile parameterized queries
+      run: 'psql -X -v ON_ERROR_STOP=1 -f queries/system-configuration.sql
+
+        psql -X -v ON_ERROR_STOP=1 -f queries/legacy-evolution.sql
+
+        '
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - name: Reconcile historical fixtures twice without replaying business effects
+      run: 'psql -X -v ON_ERROR_STOP=1 -f verification/sql/legacy-evolution-fixture.sql
+
+        psql -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
+
+        psql -X -v ON_ERROR_STOP=1 -f deploy/reconcile-legacy-evolution.sql
+
+        node verification/test/legacy-evolution-db.mjs
+
+        psql -X -v ON_ERROR_STOP=1 -f verification/sql/legacy-evolution-invariants.sql
+
+        '
+    if: inputs.check_database || inputs.full

@@ -1,0 +1,80 @@
+name: Validate API
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      full:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+    outputs:
+      digest:
+        description: Validated registry image digest
+        value: ${{ jobs.api.outputs.digest }}
+      openapi_artifact_name:
+        description: Exact contract artifact from its producing attempt
+        value: ${{ jobs.api.outputs.openapi_artifact_name }}
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: erp_next_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_isolated_only
+        ports:
+        - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:ci_isolated_only@127.0.0.1:5432/erp_next_test
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@1.99.1
+      with:
+        components: rustfmt,clippy
+    - uses: Swatinem/rust-cache@v2
+    - run: cargo fmt --all --check
+    - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      if: inputs.full
+    - name: Test and export the exact source contract
+      run: 'mkdir -p artifacts/contracts
+
+        ERP_OPENAPI_OUTPUT="$PWD/artifacts/contracts/candidate.json" cargo test --locked --workspace -- --test-threads=2
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erp-openapi-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/contracts/candidate.json
+        if-no-files-found: error
+        retention-days: 7
+    - run: cargo build --release --locked -p erp-next-api
+      if: inputs.publish
+    - uses: docker/login-action@v3
+      if: inputs.publish
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish api by immutable digest
+      id: image
+      if: inputs.publish
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: deploy/api.Dockerfile
+        push: true
+        tags: ghcr.io/avilaops/erp-next-api:sha-${{ inputs.source_sha }}
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+      openapi_artifact_name: erp-openapi-${{ inputs.source_sha }}-${{ github.run_attempt }}

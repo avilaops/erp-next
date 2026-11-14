@@ -1,20 +1,13 @@
+# Shared CI/CD: see deploy/CI-CD.md.
 name: CI
-
-on:
-  pull_request:
-  workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -24,108 +17,66 @@ jobs:
       api: ${{ steps.scope.outputs.api }}
       fiscal: ${{ steps.scope.outputs.fiscal }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - run: python3 -B -m unittest discover -s scripts/ci -p 'test_*.py'
-      - run: python3 -B -m unittest discover -s scripts/deploy -p 'test_*.py'
-      - id: scope
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
-        run: python3 -B scripts/ci/pr-gate.py plan
-
-  web:
-    needs: changes
-    if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --prefer-offline
-      - run: pnpm --filter web lint
-      - run: node --import ./tests/helpers/register-typescript.mjs --test tests/*-model.node.mjs
-        working-directory: apps/web
-
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - id: scope
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
+      run: python3 -B scripts/ci/pr-gate.py plan
   api:
-    needs: changes
+    needs:
+    - changes
     if: needs.changes.outputs.api == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_DB: erp_next_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: erp_next_ci_only
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d erp_next_test"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 20
-    env:
-      DATABASE_URL: postgres://postgres:erp_next_ci_only@127.0.0.1:5432/erp_next_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.99.1
-        with:
-          components: rustfmt
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: pr-api
-      - run: cargo fmt --all --check
-      - run: cargo test --workspace --locked -- --test-threads=2
-
+    uses: ./.github/workflows/_validate-api.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: false
+      publish: false
+  web:
+    needs:
+    - changes
+    if: needs.changes.outputs.web == 'true'
+    uses: ./.github/workflows/_validate-web.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: false
+      publish: false
   fiscal:
-    needs: changes
+    needs:
+    - changes
     if: needs.changes.outputs.fiscal == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: apps/fiscal-engine/package-lock.json
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-        working-directory: apps/fiscal-engine
-      - run: npm test
-        working-directory: apps/fiscal-engine
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: 0.12.24
-      - run: uv sync --frozen --extra dev --python 3.12
-        working-directory: apps/fiscal-mcp
-      - run: uv run --frozen --extra dev pytest tests/test_fiscal_schema.py tests/test_simplified_danfe.py tests/test_nfe_assinatura.py
-        working-directory: apps/fiscal-mcp
-
+    uses: ./.github/workflows/_validate-fiscal.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: false
+      publish: false
+  project:
+    needs:
+    - changes
+    uses: ./.github/workflows/_validate-project.yml
+    with:
+      source_sha: ${{ github.sha }}
+      full: false
+      check_database: ${{ needs.changes.outputs.api == 'true' }}
   gate:
-    needs: [changes, web, api, fiscal]
+    needs:
+    - changes
+    - api
+    - web
+    - fiscal
+    - project
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate selected checks and record explicit skips
-        env:
-          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          VALIDATION_JOBS: ${{ toJSON(needs) }}
-        run: python3 -B scripts/ci/pr-gate.py gate artifacts/mlops/ci-attestation.json
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: erp-mlops-ci-${{ github.sha }}-${{ github.run_attempt }}
-          path: artifacts/mlops/ci-attestation.json
-          if-no-files-found: error
-          retention-days: 14
+    - name: Require selected validations and report explicit skips
+      env:
+        JOBS: ${{ toJSON(needs) }}
+      run: "python3 - <<'PY'\nimport json, os\njobs = json.loads(os.environ['JOBS'])\nscope = jobs['changes']['outputs']\npassed = jobs['changes']['result'] == 'success'\
+        \ and jobs['project']['result'] == 'success'\nfor name in ('api', 'web', 'fiscal'):\n    passed &= scope.get(name) in ('true', 'false') and jobs[name]['result']\
+        \ == ('success' if scope.get(name) == 'true' else 'skipped')\nwith open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:\n    output.write('## CI por escopo\\\
+        n\\n' + '\\n'.join(f\"- {name}: {job['result']}\" for name, job in jobs.items()))\nraise SystemExit(0 if passed else 1)\nPY"
+'on':
+  pull_request: {}
+  workflow_dispatch: {}

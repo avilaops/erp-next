@@ -12,6 +12,9 @@ services:
   fiscal-mcp:
     image: ${ERP_FISCAL_MCP_IMAGE:?Validated CI MCP image required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
     network_mode: service:api
     depends_on:
       api:
@@ -28,6 +31,9 @@ services:
   fiscal-engine:
     image: ${ERP_FISCAL_ENGINE_IMAGE:?Validated CI fiscal image required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
     network_mode: service:api
     depends_on:
       api:

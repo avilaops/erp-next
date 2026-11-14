@@ -20,6 +20,11 @@ const manifest = () => Buffer.from(JSON.stringify({
   fields: Array.from({ length: 11 }, (_, i) => ({ name: "f" + i })),
 }));
 
+test("accepts promoted version tags while rejecting arbitrary tag names", () => {
+  assert.doesNotThrow(() => validateReleaseInputs({ ...valid, ref: "refs/tags/v1.2.3" }));
+  assert.throws(() => validateReleaseInputs({ ...valid, ref: "refs/tags/feature" }), /NOT_MAIN_BRANCH/);
+});
+
 test("rejects source mismatch, non-main branch, wrong repo and failed jobs", () => {
   assert.doesNotThrow(() => validateReleaseInputs(valid));
   assert.doesNotThrow(() => validateReleaseInputs({ ...valid, repository: "avilaops/ERP-Next" }));

@@ -1,0 +1,114 @@
+name: Validate web
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      full:
+        type: boolean
+        default: false
+      publish:
+        type: boolean
+        default: false
+      openapi_artifact_name:
+        type: string
+        default: ''
+    outputs:
+      digest:
+        description: Validated registry image digest
+        value: ${{ jobs.web.outputs.digest }}
+      template_artifact_name:
+        description: Exact validated template artifact from its producing attempt
+        value: ${{ jobs.web.outputs.template_artifact_name }}
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_sha }}
+        persist-credentials: false
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 11.11.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm --filter web lint
+    - uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.openapi_artifact_name }}
+        path: artifacts/contracts/
+      if: inputs.full
+    - run: npm ci --ignore-scripts --no-audit --no-fund
+      working-directory: scripts/contracts/consumer
+      if: inputs.full
+    - run: node scripts/contracts/generate-web.mjs
+      if: inputs.full
+    - run: node --import ./tests/helpers/register-typescript.mjs --test tests/*-model.node.mjs
+      working-directory: apps/web
+    - run: pnpm --filter web build
+      if: inputs.full
+    - name: Reserve browser fixture ports outside ephemeral allocation
+      run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=33118-33120,33128-33130,33928-33929,33941
+      if: inputs.full
+    - run: timeout 900s pnpm --filter web test:danfe
+      env:
+        ERP_BROWSER_CHANNEL: chrome
+      if: inputs.full
+    - run: timeout 120s pnpm --filter web test:monitor
+      env:
+        ERP_BROWSER_CHANNEL: chrome
+      if: inputs.full
+    - name: Build the technical contract validation template
+      run: node scripts/contracts/build-validation-template.mjs
+      env:
+        ERP_BROWSER_CHANNEL: chrome
+      if: inputs.full
+    - uses: actions/upload-artifact@v4
+      with:
+        name: erp-contract-model-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/contract-validation/
+        retention-days: 7
+      if: inputs.full
+    - name: Validate generated types
+      if: inputs.full
+      run: pnpm --filter web exec tsc --noEmit
+    - name: Session, registry and proposal browser suites
+      if: inputs.full
+      run: 'pnpm --filter web exec playwright test --config playwright.session.config.ts
+
+        pnpm --filter web exec playwright test --config playwright.registry.config.ts
+
+        pnpm --filter web exec playwright test --config playwright.proposals.config.ts'
+      env:
+        ERP_BROWSER_CHANNEL: chrome
+    - uses: actions/upload-artifact@v4
+      if: always() && inputs.full
+      with:
+        name: erp-browser-${{ inputs.source_sha }}-${{ github.run_attempt }}
+        path: artifacts/danfe-browser/
+        retention-days: 7
+        if-no-files-found: warn
+    - uses: docker/login-action@v3
+      if: inputs.publish
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish web by immutable digest
+      id: image
+      if: inputs.publish
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: deploy/web.Dockerfile
+        push: true
+        tags: ghcr.io/avilaops/erp-next-web:sha-${{ inputs.source_sha }}
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+      template_artifact_name: erp-contract-model-${{ inputs.source_sha }}-${{ github.run_attempt }}

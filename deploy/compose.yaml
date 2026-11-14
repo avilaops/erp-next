@@ -2,6 +2,9 @@ services:
   api:
     image: ${ERP_API_IMAGE:?CI image required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
     env_file: api.env
     environment:
       ERP_CNPJ_WS_ENABLED: "true"
@@ -16,6 +19,9 @@ services:
   web:
     image: ${ERP_WEB_IMAGE:?CI image required}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
     env_file: web.env
     environment:
       ERP_API_URL: http://127.0.0.1:8080

@@ -76,13 +76,13 @@ chamar decode. Retorna `AuthenticatedRequest(request, observed_at, key_id)`.
 - Modify: `apps/contract-signature-validator/uv.lock`
 
 **Interfaces:** `encode_response(authenticated, report, *, trust_profile) -> bytes`;
-`seal_response(body, authenticated, authenticator) -> dict[str, str]`;
-`verify_response(body, headers, authenticated, authenticator, *, trust_profile) -> dict`.
+`seal_response(body, authenticated, authenticator, *, trust_profile) -> dict[str, str]`;
+`verify_response(body, headers, authenticated, authenticator, *, trust_profile, now) -> dict`.
 Reutilizar bytes canônicos do núcleo; conferir os bindings completos.
 
-- [ ] Testar correlação, assinatura com domínio separado, trust profile, checks/veredito/hashes e timestamp de observação; confirmar RED.
-- [ ] Implementar resposta limitada e autenticação; não converter erros ou checks ausentes em sucesso.
-- [ ] Executar corpus completo, construir wheel/sdist em pasta temporária nova e verificar wheel offline pelo script existente.
-- [ ] Atualizar versão para 0.2.0 pela mudança da assinatura de PreflightReport; atualizar lock sem novas dependências e documentar uso/limites e pendências.
-- [ ] Commit `feat(contracts): correlate authenticated validator responses`.
+- [x] Testar correlação, assinatura com domínio separado, trust profile, checks/veredito/hashes e timestamp de observação; confirmar RED.
+- [x] Implementar resposta limitada e autenticação; não converter erros ou checks ausentes em sucesso.
+- [x] Executar corpus completo, construir wheel/sdist em pasta temporária nova e verificar wheel offline pelo script existente.
+- [x] Atualizar versão para 0.2.0 pela mudança da assinatura de PreflightReport; atualizar lock sem novas dependências e documentar uso/limites e pendências.
+- [x] Commit `feat(contracts): correlate authenticated validator responses`.
 - [ ] Uma revisão independente da branch; corrigir findings importantes com RED/GREEN, executar CI, integrar conforme as políticas e preservar evidências.

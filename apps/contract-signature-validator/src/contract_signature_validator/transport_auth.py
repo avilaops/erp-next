@@ -1,6 +1,6 @@
 """Dedicated internal HMAC authentication. Not a personal/ICP signature or replay store."""
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import hmac
 import re
@@ -32,6 +32,7 @@ class HeaderAuthorization:
     content_length: int
     key_id: str
     observed_at: datetime
+    sent_at: datetime
 
 
 @dataclass(frozen=True)
@@ -40,10 +41,12 @@ class AuthenticatedRequest:
     observed_at: datetime
     key_id: str
     request_sha256: str
+    sent_at: datetime
 
     def __post_init__(self):
         _require(isinstance(self.request, transport.ValidationRequest))
         _utc(self.observed_at)
+        _utc(self.sent_at)
         _require(isinstance(self.key_id, str) and _KEY_ID.fullmatch(self.key_id) is not None)
         _require(isinstance(self.request_sha256, str)
                  and re.fullmatch(r'[0-9a-f]{64}', self.request_sha256) is not None)
@@ -121,7 +124,8 @@ class TransportAuthenticator:
                                    request_id, digest, int(size)), 'sha256').hex()
             _require(hmac.compare_digest(expected, received))
             operation = next(name for name, path in transport.TARGETS.items() if path == target)
-            return HeaderAuthorization(operation, request_id, digest, int(size), key_id, now)
+            return HeaderAuthorization(operation, request_id, digest, int(size), key_id, now,
+                                       datetime.fromtimestamp(int(stamp), timezone.utc))
         except (ValueError, TypeError, KeyError, OverflowError, AttributeError):
             raise AuthenticationError() from None
 
@@ -134,4 +138,12 @@ class TransportAuthenticator:
             request_id=authorized.request_id, policy_sha256=policy_sha256,
             trust_bundle_sha256=trust_bundle_sha256)
         return AuthenticatedRequest(request, authorized.observed_at, authorized.key_id,
-                                    authorized.content_sha256)
+                                    authorized.content_sha256, authorized.sent_at)
+
+    def response_mac(self, body, authenticated):
+        _require(isinstance(body, bytes) and isinstance(authenticated, AuthenticatedRequest)
+                 and authenticated.key_id in self._keys)
+        message = ('AVILA-CV-RESPONSE/1\n' + '\n'.join((authenticated.key_id,
+            str(authenticated.request.request_id), authenticated.request_sha256,
+            hashlib.sha256(body).hexdigest(), str(len(body)))) + '\n').encode('ascii')
+        return hmac.digest(self._keys[authenticated.key_id], message, 'sha256').hex()

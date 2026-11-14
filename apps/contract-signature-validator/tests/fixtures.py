@@ -181,7 +181,7 @@ def unsigned_pdf(text="SYNTHETIC CONTRACT PRICE 100.00", *, encrypted=False):
 
 
 def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certify=False, locked=False, visible=False, lock_price=False,
-             prefer_pss=False, md_algorithm="sha256"):
+             prefer_pss=False, md_algorithm="sha256", seed=None, ignore_seed=False, update_metadata=True):
     from io import BytesIO
     from asn1crypto import keys, x509 as asn1_x509
     from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
@@ -197,9 +197,15 @@ def sign_pdf(parent, cert_der, key, field_name, *, issuer=None, root=None, certi
     metadata = signers.PdfSignatureMetadata(field_name=field_name, md_algorithm=md_algorithm, certify=certify,
         docmdp_permissions=fields.MDPPerm.NO_CHANGES if locked else fields.MDPPerm.FILL_FORMS)
     spec = fields.SigFieldSpec(field_name, box=(0, 0, 595, 842) if visible else None,
-        field_mdp_spec=fields.FieldMDPSpec(fields.FieldMDPAction.INCLUDE, ["Price"]) if lock_price else None)
+        field_mdp_spec=fields.FieldMDPSpec(fields.FieldMDPAction.INCLUDE, ["Price"]) if lock_price else None,
+        seed_value_dict=seed)
     output = BytesIO()
-    signers.PdfSigner(metadata, signer, new_field_spec=spec).sign_pdf(IncrementalPdfFileWriter(BytesIO(parent)), output=output)
+    pdf_signer = signers.PdfSigner(metadata, signer, new_field_spec=spec)
+    pdf_signer._ignore_sv = ignore_seed  # Tests may construct a deliberately nonconforming signer.
+    document = IncrementalPdfFileWriter(BytesIO(parent))
+    if not update_metadata:
+        document._update_meta = lambda: None
+    pdf_signer.sign_pdf(document, output=output)
     return output.getvalue()
 
 
@@ -275,3 +281,43 @@ def add_unsupported_timestamp(candidate):
     assert len(encoded) <= end-start-2
     gap = b"<" + encoded + b"0" * (end-start-2-len(encoded)) + b">"
     return candidate[:start] + gap + candidate[end:]
+
+
+def resign_cms(candidate, algorithm, sign):
+    """Preserve signed PDF bytes while forging a different synthetic CMS algorithm."""
+    from io import BytesIO
+    from asn1crypto import cms
+    from pyhanko.pdf_utils.reader import PdfFileReader
+    sig = PdfFileReader(BytesIO(candidate)).embedded_signatures[-1]
+    content = cms.ContentInfo.load(bytes(sig.sig_object['/Contents']))
+    signer_info = content['content']['signer_infos'][0]
+    signer_info['signature_algorithm'] = algorithm
+    for attr in signer_info['signed_attrs']:
+        if attr['type'].native == 'cms_algorithm_protection':
+            attr['values'][0]['signature_algorithm'] = algorithm
+    signer_info['signature'] = sign(signer_info['signed_attrs'].untag().dump())
+    start, end = sig.byte_range[1], sig.byte_range[2]
+    encoded = content.dump().hex().upper().encode('ascii')
+    assert len(encoded) <= end-start-2
+    return candidate[:start] + b'<' + encoded + b'0'*(end-start-2-len(encoded)) + b'>' + candidate[end:]
+
+
+def with_price_metadata(data, price, *, header_price=None):
+    from io import BytesIO
+    from pyhanko.pdf_utils import generic as g
+    from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+    document = IncrementalPdfFileWriter(BytesIO(data))
+    document._update_meta = lambda: None
+    xml = ('<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+           '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+           f'<rdf:Description xmlns:biz="urn:test" biz:price="{price}" rdf:about=""/>'
+           '</rdf:RDF></x:xmpmeta>').encode()
+    metadata = g.StreamObject({g.pdf_name('/Type'): g.pdf_name('/Metadata'),
+                              g.pdf_name('/Subtype'): g.pdf_name('/XML')}, stream_data=xml)
+    if header_price is not None:
+        metadata[g.pdf_name('/CommercialPrice')] = g.pdf_string(header_price)
+    document.root[g.pdf_name('/Metadata')] = document.add_object(metadata)
+    document.update_root()
+    output = BytesIO()
+    document.write(output)
+    return output.getvalue()

@@ -64,6 +64,13 @@ revogação, a política e congelamento no ERP, o workflow concorrente, a ponte
 do portal, BFF/telas, o pacote final de todos os documentos e a homologação
 pessoal. A biblioteca por si só não habilita novas emissões ou convites.
 
+A revisão independente do núcleo encontrou e a correção cobriu algoritmos
+efetivos fora da política, seed values obrigatórios ignorados e mudança de
+metadados comerciais XMP. A regressão inclui SHA-1 em RSA/ECDSA/PSS, MGF1,
+família de chave incompatível, restrições no selo técnico e propriedades
+adicionais do stream de metadados. Datas técnicas, produtor e ferramenta podem
+ser atualizados sem mudar os demais dados XMP.
+
 Testar três pessoas sintéticas e dois PDFs, identidade errada, e-CNPJ/selo, cadeia desconhecida/incompleta, validade e revogação, CRL/OCSP inválidos/velhos/ausentes, prefixo alterado, append que muda preço, cauda não coberta, múltiplas assinaturas novas, PDF criptografado, DocMDP/FieldMDP, objetos não justificados, quotas e restauração por hash.
 
 Testar também concorrência, replay, stale, tenant e sessão cruzados, permissões revogadas, delegação, 2FA, falha do validador e pacote incompleto. Certificados/chaves sintéticos são apenas fixtures, explicitamente NÃO ICP, e nunca entram no bundle ou imagem de produção.

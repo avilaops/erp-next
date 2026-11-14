@@ -37,6 +37,19 @@ pai ou participante. Os perfis RSA-PSS SHA-256/384/512 e ECDSA P-256/384/521
 são exercitados com CMS e cadeia sintéticos reais. O relatório inclui as
 versões instaladas do núcleo, pyHanko e certvalidator.
 
+A política verifica o hash efetivo de `signatureAlgorithm`, sua compatibilidade
+com o digest CMS e o tipo de chave. O perfil RSA-PSS exige MGF1 com o mesmo
+hash da assinatura; defaults SHA-1 não satisfazem a política. Restrições de seed
+values suportadas são conferidas também no selo técnico. Restrições de
+certificado que exigem caminho adicional, aparência obrigatória, atestação
+legal e flags desconhecidas retornam `unsupported`.
+
+Metadados XMP preservam todas as propriedades comerciais e os atributos
+adicionais do stream. Somente `xmp:ModifyDate`, `pdf:Producer` e o identificador
+da ferramenta XMP podem mudar; também é permitida a introdução de um pacote
+XMP contendo apenas esses dados técnicos por um escritor PDF 2.0. XML fora do
+perfil UTF-8 limitado, com entidades ou DTD, não é aceito neste perfil.
+
 No CI, a tarefa reutilizável `_validate-project.yml` verifica este componente
 quando seus arquivos mudam, na validação completa ou quando muda infraestrutura
 compartilhada. Alterar somente este núcleo não exige reconstruir API, web e

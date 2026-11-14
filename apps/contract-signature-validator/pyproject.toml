@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "avila-contract-signature-validator"
-version = "0.1.0"
+version = "0.2.0"
 description = "Restricted PDF signature validation core for individual contract participants"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"

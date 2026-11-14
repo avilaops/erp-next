@@ -67,6 +67,14 @@ revogação, a política e congelamento no ERP, o workflow concorrente, a ponte
 do portal, BFF/telas, o pacote final de todos os documentos e a homologação
 pessoal. A biblioteca por si só não habilita novas emissões ou convites.
 
+O transporte interno do serviço está especificado em
+[protocolo autenticado](../../../../superpowers/specs/2026-11-14-contract-validation-transport-design.md).
+O pacote 0.2.0 acrescenta frames limitados, autenticação HMAC e respostas
+correlacionadas, com confiança explícita também no preflight. Essa fronteira
+pura não é um servidor e não substitui os componentes pendentes acima.
+O [registro de entrega do transporte](TRANSPORTE-ICP-ENTREGA-20261114.md)
+reúne os testes, a revisão, as decisões e a observação menor ainda pendente.
+
 A revisão independente do núcleo encontrou e a correção cobriu algoritmos
 efetivos fora da política, seed values obrigatórios ignorados e mudança de
 metadados comerciais XMP. A regressão inclui SHA-1 em RSA/ECDSA/PSS, MGF1,

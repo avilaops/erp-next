@@ -81,7 +81,7 @@ Funções de consumo: `preflight(base: bytes, binding: PreflightBinding, policy:
 - [x] Escrever jornada de três pessoas sintéticas/dois PDFs; cada etapa conserva assinaturas anteriores e todos os documentos, relatório por hash e mesma evidência offline. Candidato de documento/pai/participante diferente é recusado antes de aceitação. Observar falha antes de qualquer composição faltante.
 - [x] Executar a suíte completa com rede bloqueada; `uv lock --check` e execução com `--frozen`. Confirmar fixture/test trust fora do pacote produtivo; nenhum segredo ou chave real no Git.
 - [x] Integrar verificação ao CI reutilizável sem criar workflow pontual por execução ou rodar tarefas desnecessárias em todo push. Não alterar protocolo de release/infra neste componente nem publicar imagem/serviço inutilizado; serviço e quinto digest pertencem ao incremento seguinte.
-- [ ] Atualizar guia por tela com distinção núcleo implementado / fluxo ainda pendente, source-only e homologação real. Revisar branch com reviewer fresco, corrigir Critical/Important por uma rodada TDD, exigir CI, integrar conforme autorização vigente. Não declarar a exigência ICP inteira concluída.
+- [x] Atualizar guia por tela com distinção núcleo implementado / fluxo ainda pendente, source-only e homologação real. Revisar branch com reviewer fresco, corrigir Critical/Important por uma rodada TDD, exigir CI, integrar conforme autorização vigente. Não declarar a exigência ICP inteira concluída.
 
 ## Self-review and execution
 

@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { CommercialSettings } from "@/features/commercial-settings/commercial-settings"
 import { currentWorkspaceAccess, WorkspaceAccessNotice } from "@/features/access/workspace-access"
 
-export const metadata = { title: "Parâmetros comerciais · Avila ERP" }
+export const metadata = { title: "Parâmetros comerciais" }
 
 type PageProps = { searchParams: Promise<{ linha?: string }> }
 

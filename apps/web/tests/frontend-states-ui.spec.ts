@@ -84,16 +84,34 @@ test("metas e prévias não apresentam números fixos nem controles simulados", 
   }
 })
 
+test("identidade da apresentação pública usa o nome do produto e o canonical de acesso", async ({ page }) => {
+  await page.goto("/entrar")
+  await expect(page).toHaveTitle("Acesse sua operação • ERP")
+  await expect(page.getByRole("link", { name: "ERP • Início", exact: true })).toBeVisible()
+  await expect(page.getByText(/Avila ERP|Ávila Ops/)).toHaveCount(0)
+  await expect(page.getByText("01 • CADASTROS", { exact: true })).toBeVisible()
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow")
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", origin + "/entrar")
+  const sitemap = await page.request.get("/sitemap.xml")
+  expect(sitemap.status()).toBe(200)
+  expect(await sitemap.text()).toContain("<loc>https://erp.avilaops.com/entrar</loc>")
+  const robots = await page.request.get("/robots.txt")
+  expect(robots.status()).toBe(200)
+  expect(await robots.text()).toContain("Disallow: /\nAllow: /entrar$")
+})
+
 test("títulos distinguem lista, criação, configuração e dashboard", async ({ page }) => {
   for (const [path, title] of [
     ["/cadastros/produtos", "Produtos"],
     ["/cadastros/produtos/novo", "Novo produto"],
     ["/financeiro/contas-pagar", "Contas a pagar"],
     ["/preferencias/empresa", "Empresa"],
+    ["/preferencias/comercial", "Parâmetros comerciais"],
+    ["/cadastros/produtos/" + record + "/custos", "Custos do produto"],
     ["/dashboards/vendas", "Dashboard de vendas"],
   ]) {
     await page.goto(path)
-    await expect(page).toHaveTitle(title + " · Avila ERP")
+    await expect(page).toHaveTitle(title + " • ERP")
   }
 })
 

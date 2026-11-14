@@ -1,4 +1,27 @@
 const STATIC_PREFIX = '/_next/static/';
+// Public, fixed search metadata must also work while the application is offline.
+// The tests require byte parity with apps/web/public; no request data is reflected.
+const PUBLIC_SEARCH_METADATA = Object.freeze({
+  "/robots.txt": {
+    "type": "text/plain; charset=utf-8",
+    "body": "User-agent: *\nDisallow: /\nAllow: /entrar$\nAllow: /_next/static/\nAllow: /icon.svg\nAllow: /apple-icon.png\nAllow: /favicon.ico\nAllow: /brand/\nAllow: /erp-social.png\nAllow: /sitemap.xml\n\nSitemap: https://erp.avilaops.com/sitemap.xml\n"
+  },
+  "/sitemap.xml": {
+    "type": "application/xml; charset=utf-8",
+    "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url><loc>https://erp.avilaops.com/entrar</loc></url>\n</urlset>\n"
+  }
+});
+
+function serveSearchMetadata(request, pathname) {
+  if (!Object.hasOwn(PUBLIC_SEARCH_METADATA, pathname)) return null;
+  if (!['GET', 'HEAD'].includes(request.method)) return errorResponse(request, 405);
+  const metadata = PUBLIC_SEARCH_METADATA[pathname];
+  return new Response(request.method === 'HEAD' ? null : metadata.body, { headers: {
+    'Content-Type': metadata.type, 'Cache-Control': 'public, max-age=300',
+    'X-Content-Type-Options': 'nosniff',
+  } });
+}
+
 const TYPES = Object.freeze({
   js: 'application/javascript; charset=utf-8', css: 'text/css; charset=utf-8',
   woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
@@ -146,6 +169,8 @@ export default {
     const url = new URL(request.url);
     const config = configuration(env);
     if (!config) return unavailable(request, url.pathname);
+    const searchMetadata = serveSearchMetadata(request, url.pathname);
+    if (searchMetadata) return searchMetadata;
     if (url.pathname.startsWith(STATIC_PREFIX)) return serveAsset(request, env, ctx, url, config);
     if (config.mode === 'application' && env.APP) {
       try {

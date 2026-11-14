@@ -37,6 +37,18 @@ jobs:
       with:
         node-version: 24
         cache: pnpm
+    - name: Validate application brand
+      if: hashFiles('scripts/brand/application-icons.mjs') != ''
+      run: |
+        python3 scripts/ci/timed.py --label 'web/application-brand-tests' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm test:brand
+        python3 scripts/ci/timed.py --label 'web/application-brand' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm check:brand
+    - name: Validate public metadata in the browser
+      if: hashFiles('scripts/brand/application-icons.mjs') != ''
+      env:
+        ERP_BROWSER_DEV: '1'
+      run: |
+        python3 scripts/ci/timed.py --label 'web/public-metadata-browser/install' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm --filter web exec playwright install --with-deps chromium
+        python3 scripts/ci/timed.py --label 'web/public-metadata-browser/test' --output "artifacts/timings/$GITHUB_JOB.jsonl" -- pnpm --filter web exec playwright test frontend-states-ui.spec.ts --config playwright.danfe.config.ts --grep 'identidade da apresentação|títulos distinguem' --reporter=line --output "$RUNNER_TEMP/public-metadata-browser"
     - run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT

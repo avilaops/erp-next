@@ -25,5 +25,5 @@ async function LoginForm({ searchParams }: LoginProps) {
 }
 
 export async function generateMetadata() {
-  return { metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"), title: "Avila ERP · Acesse sua operação", description: "Acesse o espaço da sua empresa no Avila ERP.", openGraph: { title: "Avila ERP · Acesse sua operação", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "Avila ERP" }] } }
+  return { metadataBase: new URL(process.env.ERP_WEB_ORIGIN || "https://erp.avilaops.com"), title: "Acesse sua operação", description: "Acesse o espaço da sua empresa no ERP da Avila Ops.", robots: { index: true, follow: true }, alternates: { canonical: "/entrar" }, openGraph: { title: "Acesse sua operação • ERP", images: [{ url: "/erp-social.png", width: 1200, height: 630, alt: "ERP • Avila Ops" }] } }
 }

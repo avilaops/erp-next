@@ -17,3 +17,6 @@ apps/api/src/http/fixtures/*.xml -text
 apps/fiscal-engine/src/lib/fiscal/schemas/nfe-authorizers/** -text
 # Imported bank logos are verified against the sanitized SHA-256 manifest.
 apps/web/public/banks/*.svg text eol=lf whitespace=-trailing-space
+# The edge serves the same public search metadata bytes as the web application.
+apps/web/public/robots.txt text eol=lf
+apps/web/public/sitemap.xml text eol=lf

@@ -1,0 +1,220 @@
+{
+  "schemaVersion": "avila-application-brand/1",
+  "brand": "Avila Ops",
+  "separator": " • ",
+  "reference": "https://avilaops.com/logo/",
+  "assets": {
+    "favicon.svg": "944403c7e9008d5af28f71e76c71acd18ed07a0773fa1a039214a6e517d4e673",
+    "favicon.ico": "ba61f87d355b316f5642342d67a4a719185a1b3ce2fb073882ed85e82805a983",
+    "favicon-96x96.png": "62342cfaa7c2c0c17175a816302678e16e8c3c2690b6b2d2425fff556e7a1566",
+    "apple-touch-icon.png": "a16e34bcd0e846db233de4184266f5d03f38e9c424176a92d0bb99a796dcbd76",
+    "icon-192.png": "0fd05c36df36b38d88b05e93f93101da4695355fd6f9f8888ecc81d09b26b3c3",
+    "icon-512.png": "8e40696b1caf933a066e88e0ddfcc87484d58d395dfaec9bd22d7780eb958fd2",
+    "icon-maskable-512.png": "75db94b4efb6493df769f5e35450c656b35dd2e779134a8b1e0493036095bd0a"
+  },
+  "applications": {
+    "erp": {
+      "name": "ERP",
+      "directory": "erp-next-main",
+      "targets": {
+        "favicon.svg": [
+          "apps/web/src/app/icon.svg",
+          "apps/web/public/brand/avila-erp-symbol.svg"
+        ],
+        "favicon.ico": [
+          "apps/web/public/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "apps/web/public/brand/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "apps/web/src/app/apple-icon.png"
+        ],
+        "icon-192.png": [
+          "apps/web/public/brand/avila-erp-192.png"
+        ],
+        "icon-512.png": [
+          "apps/web/public/brand/avila-erp-512.png"
+        ]
+      }
+    },
+    "auth": {
+      "name": "Auth",
+      "alsoServes": [
+        "Conta"
+      ],
+      "directory": "auth.avilaops.com",
+      "targets": {
+        "favicon.svg": [
+          "public/favicon.svg"
+        ],
+        "favicon.ico": [
+          "public/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "public/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "public/apple-touch-icon.png"
+        ]
+      }
+    },
+    "crm": {
+      "name": "CRM",
+      "directory": "crm.avilaops.com",
+      "targets": {
+        "favicon.svg": [
+          "public/favicon.svg",
+          "public/avila-crm-symbol.svg"
+        ],
+        "favicon.ico": [
+          "public/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "public/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "public/apple-touch-icon.png"
+        ],
+        "icon-192.png": [
+          "public/web-app-manifest-192x192.png"
+        ],
+        "icon-512.png": [
+          "public/web-app-manifest-512x512.png"
+        ],
+        "icon-maskable-512.png": [
+          "public/web-app-manifest-maskable-512x512.png"
+        ]
+      }
+    },
+    "mail": {
+      "name": "Mail",
+      "directory": "mail.avilaops.com",
+      "targets": {
+        "favicon.svg": [
+          "webmail/public/favicon.svg"
+        ],
+        "favicon.ico": [
+          "webmail/public/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "webmail/public/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "webmail/public/apple-touch-icon.png"
+        ],
+        "icon-192.png": [
+          "webmail/public/web-app-manifest-192x192.png"
+        ],
+        "icon-512.png": [
+          "webmail/public/web-app-manifest-512x512.png"
+        ],
+        "icon-maskable-512.png": [
+          "webmail/public/web-app-manifest-maskable-512x512.png"
+        ]
+      }
+    },
+    "tms": {
+      "name": "TMS",
+      "directory": "TMS",
+      "targets": {
+        "favicon.svg": [
+          "public/favicon.svg"
+        ],
+        "favicon.ico": [
+          "public/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "public/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "public/apple-touch-icon.png"
+        ],
+        "icon-192.png": [
+          "public/web-app-manifest-192x192.png"
+        ],
+        "icon-512.png": [
+          "public/web-app-manifest-512x512.png"
+        ],
+        "icon-maskable-512.png": [
+          "public/web-app-manifest-maskable-512x512.png",
+          "public/maskable-icon-512x512.png"
+        ]
+      }
+    },
+    "ecommerce": {
+      "name": "E-Commerce",
+      "directory": "lojas.avilaops.com",
+      "scope": "platform_host_only",
+      "targets": {
+        "favicon.svg": [
+          "public/media/lojas/favicon.svg"
+        ],
+        "favicon.ico": [
+          "public/media/lojas/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "public/media/lojas/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "public/media/lojas/apple-touch-icon.png"
+        ],
+        "icon-192.png": [
+          "public/media/lojas/web-app-manifest-192x192.png"
+        ],
+        "icon-512.png": [
+          "public/media/lojas/web-app-manifest-512x512.png"
+        ],
+        "icon-maskable-512.png": [
+          "public/media/lojas/web-app-manifest-maskable-512x512.png"
+        ]
+      }
+    },
+    "cms": {
+      "name": "CMS",
+      "directory": "cms.avilaops.com",
+      "scope": "management_panel_only",
+      "targets": {
+        "favicon.svg": [
+          "crates/web/recursos/brand/favicon.svg"
+        ],
+        "favicon.ico": [
+          "crates/web/recursos/brand/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "crates/web/recursos/brand/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "crates/web/recursos/brand/apple-touch-icon.png"
+        ],
+        "icon-192.png": [
+          "crates/web/recursos/brand/web-app-manifest-192x192.png"
+        ],
+        "icon-512.png": [
+          "crates/web/recursos/brand/web-app-manifest-512x512.png"
+        ],
+        "icon-maskable-512.png": [
+          "crates/web/recursos/brand/web-app-manifest-maskable-512x512.png"
+        ]
+      }
+    },
+    "site": {
+      "name": "Avila Ops",
+      "directory": "avilaops-site",
+      "targets": {
+        "favicon.svg": [
+          "static/favicon.svg"
+        ],
+        "favicon.ico": [
+          "static/favicon.ico"
+        ],
+        "favicon-96x96.png": [
+          "static/favicon-96x96.png"
+        ],
+        "apple-touch-icon.png": [
+          "static/apple-touch-icon.png"
+        ]
+      }
+    }
+  }
+}

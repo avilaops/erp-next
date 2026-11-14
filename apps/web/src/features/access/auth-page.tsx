@@ -14,7 +14,7 @@ function AccessActions({ loginHref, ready, error }: AuthPageProps) {
 
   return (
     <div className="entry-access">
-      <p className="entry-access-label">Acesse com sua conta Ávila Ops</p>
+      <p className="entry-access-label">Acesse com sua conta Avila Ops</p>
       {ready ? (
         <div className="entry-actions">
           <a className="entry-button" href={loginHref} aria-describedby={error ? "access-error" : undefined}>Entrar <ArrowRight aria-hidden="true" size={16} /></a>
@@ -23,7 +23,7 @@ function AccessActions({ loginHref, ready, error }: AuthPageProps) {
       ) : (
         <p role="status">Acesso temporariamente indisponível. Fale com o responsável pelo ERP na sua empresa.</p>
       )}
-      <p className="entry-access-note">O acesso continua no login da Ávila Ops. Recebeu um convite? Use o e-mail convidado.</p>
+      <p className="entry-access-note">O acesso continua no login da Avila Ops. Recebeu um convite? Use o e-mail convidado.</p>
     </div>
   )
 }
@@ -46,9 +46,9 @@ export function AuthPage({ loginHref, ready, error }: AuthPageProps) {
     <div className="entry-page">
       <a className="entry-skip" href="#conteudo">Pular para o conteúdo</a>
       <header className="entry-header entry-container">
-        <a className="entry-brand" href="#inicio" aria-label="Avila ERP: início">
+        <a className="entry-brand" href="#inicio" aria-label="ERP • Início">
           <Image src="/brand/avila-erp-symbol.svg" alt="" width={34} height={34} />
-          <span>Avila ERP<small>por Ávila Ops</small></span>
+          <span>ERP<small>por Avila Ops</small></span>
         </a>
         <nav aria-label="Navegação da apresentação">
           <a href="#quem-somos">Quem somos</a>
@@ -60,7 +60,7 @@ export function AuthPage({ loginHref, ready, error }: AuthPageProps) {
         <EntryContent accessActions={accessActions} />
       </main>
       <footer className="entry-footer entry-container">
-        <span>Avila ERP · Um produto Ávila Ops</span>
+        <span>ERP • Um produto Avila Ops</span>
         <a href="#inicio">Voltar ao início ↑</a>
       </footer>
     </div>

@@ -146,7 +146,7 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
     <div className="erp-workspace" data-collapsed={collapsed} data-preferences={preferences}>
       <TooltipProvider delay={250}>
         <nav ref={navigation} className="erp-sidebar" aria-label="Módulos do ERP">
-          <div className="erp-sidebar-heading"><Link href="/" className="erp-brand" aria-label="Visão geral do Avila ERP"><img className="erp-brand-mark" src="/brand/avila-erp-symbol.svg" alt="" width="32" height="32" /><span className="erp-brand-name"><strong>Avila ERP</strong><small>Avila Ops</small></span></Link>{collapseControl}</div>
+          <div className="erp-sidebar-heading"><Link href="/" className="erp-brand" aria-label="Visão geral do ERP"><img className="erp-brand-mark" src="/brand/avila-erp-symbol.svg" alt="" width="32" height="32" /><span className="erp-brand-name"><strong>ERP</strong><small>Avila Ops</small></span></Link>{collapseControl}</div>
           <div className="erp-sidebar-scroll">
             {homeLinks}
             <p className="erp-nav-caption">Módulos</p>
@@ -169,9 +169,9 @@ export function MenuNavigation({ children }: { children: ReactNode }) {
       <SheetContent side="left" id="erp-mobile-menu" className="erp-navigation-drawer" showCloseButton={false} finalFocus={drawerTrigger}>
         <div className="erp-panel-heading">
           <SheetTitle className="sr-only">Menu do ERP</SheetTitle>
-          <Link href="/empresas" className="erp-drawer-account" onNavigate={() => setOpen(false)} aria-label="Avila ERP, trocar empresa">
+          <Link href="/empresas" className="erp-drawer-account" onNavigate={() => setOpen(false)} aria-label="ERP • Trocar empresa">
             <img src="/brand/avila-erp-symbol.svg" alt="" width="28" height="28" />
-            <span>Avila ERP<small>Trocar empresa</small></span>
+            <span>ERP<small>Trocar empresa</small></span>
             <ChevronsUpDown aria-hidden="true" />
           </Link>
           <SheetClose className="erp-menu-icon" aria-label="Fechar menu"><X aria-hidden="true" /></SheetClose>

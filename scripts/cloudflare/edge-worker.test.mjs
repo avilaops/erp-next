@@ -8,6 +8,39 @@ const PATH = '/_next/static/chunks/app/main-ab12.js';
 const KEY = `releases/${RELEASE}/_next/static/chunks/app/main-ab12.js`;
 const ETAG = '"b1946ac92492d2347c6235b4d2611184"';
 const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+
+for (const [pathname, contentType] of [['/robots.txt', 'text/plain'], ['/sitemap.xml', 'application/xml']]) {
+  test(`public search metadata ${pathname} is available in maintenance without APP, R2 or cache I/O`, async () => {
+    const f = fixture();
+    const expected = await readFile(new URL(`../../apps/web/public${pathname}`, import.meta.url), 'utf8');
+    const response = await f.fetch(`${pathname}?private=never-reflect`, { headers: { Cookie: 'session=secret' } });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('Content-Type'), new RegExp(contentType));
+    assert.equal(await response.text(), expected);
+    assert.equal(response.headers.get('Set-Cookie'), null);
+    assert.deepEqual(f.calls.r2, []);
+    assert.deepEqual(f.calls.matches, []);
+    const head = await f.fetch(pathname, { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal(head.body, null);
+    const post = await f.fetch(pathname, { method: 'POST', body: 'private' });
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.get('Allow'), 'GET, HEAD');
+  });
+}
+
+test('sitemap only advertises the public ERP access page and robots keep private paths excluded', async () => {
+  const f = fixture();
+  const xml = await (await f.fetch('/sitemap.xml')).text();
+  assert.deepEqual([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]), ['https://erp.avilaops.com/entrar']);
+  const robots = await (await f.fetch('/robots.txt')).text();
+  assert.match(robots, /^Disallow: \/$/m);
+  assert.match(robots, /^Allow: \/entrar\$$/m);
+  assert.match(robots, /^Sitemap: https:\/\/erp\.avilaops\.com\/sitemap\.xml$/m);
+  for (const path of ['/api/orders', '/cadastros/produtos', '/vendas/pedidos', '/servicos/contratos']) {
+    assert.equal((await f.fetch(path)).status, 503);
+  }
+});
 afterEach(() => originalCaches ? Object.defineProperty(globalThis, 'caches', originalCaches) : delete globalThis.caches);
 
 function fixture(overrides = {}) {

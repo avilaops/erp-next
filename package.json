@@ -7,6 +7,8 @@
     "apps/web"
   ],
   "scripts": {
+    "check:brand": "node scripts/brand/application-icons.mjs --app erp --check",
+    "test:brand": "node --test scripts/brand/*.test.mjs",
     "check:architecture": "node scripts/architecture/check.mjs",
     "test:architecture": "node --test scripts/architecture/*.test.mjs",
     "test:cloudflare": "node --test scripts/cloudflare/*.test.mjs",

@@ -9,11 +9,16 @@ import subprocess
 import sys
 
 DOMAINS = ("web", "api", "fiscal")
+def signature_path(path):
+    return path.startswith('apps/contract-signature-validator/') or path == 'scripts/contracts/verify-signature-validator.py'
 
 
 def plan(paths):
     scope = dict.fromkeys(DOMAINS, False)
     for path in paths:
+        if signature_path(path):
+            # The mandatory shared project job verifies this independent Python core.
+            continue
         if path.startswith(("docs/", "context/")) or ("/" not in path and path.endswith(".md")):
             continue
         if path.startswith(("apps/web/", "packages/")):
@@ -28,6 +33,20 @@ def plan(paths):
             # Unknown/new infrastructure must not silently bypass validation.
             scope = dict.fromkeys(DOMAINS, True)
     return scope
+
+
+def signature_check_required(paths, *, full=False):
+    paths = tuple(paths)
+    return full or any(signature_path(path) for path in paths) or all(plan(paths).values())
+
+
+def changed_paths():
+    base = os.environ['BASE_SHA']
+    if not re.fullmatch(r'[a-f0-9]{40}', base):
+        raise ValueError('Invalid comparison base SHA')
+    return [path for path in subprocess.check_output([
+        'git', 'diff', '--name-only', '--no-renames', '-z', base, 'HEAD'
+    ]).decode().split('\0') if path]
 
 
 def verdict(jobs):
@@ -70,14 +89,19 @@ def attest(jobs, env):
 
 def main():
     if sys.argv[1] == "plan":
-        paths = subprocess.check_output([
-            "git", "diff", "--name-only", "--no-renames", "-z", os.environ["BASE_SHA"], "HEAD"
-        ]).decode().split("\0")
-        scope = plan([path for path in paths if path])
+        scope = plan(changed_paths())
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
             for domain, selected in scope.items():
                 output.write(f"{domain}={str(selected).lower()}\n")
         print(json.dumps(scope, sort_keys=True))
+    elif sys.argv[1] == 'signatures':
+        full = os.environ.get('VALIDATE_FULL', 'false')
+        if full not in ('true', 'false'):
+            raise ValueError('Invalid full validation flag')
+        required = signature_check_required(() if full == 'true' else changed_paths(), full=full == 'true')
+        with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+            output.write(f'required={str(required).lower()}\n')
+        print(json.dumps({'signatureCoreRequired': required}))
     elif sys.argv[1] == "gate":
         data = attest(json.loads(os.environ["VALIDATION_JOBS"]), os.environ)
         target = Path(sys.argv[2])
@@ -86,7 +110,7 @@ def main():
         print(data["ciGate"], json.dumps(data["validationJobs"], sort_keys=True))
         return 0 if data["ciGate"] == "passed" else 1
     else:
-        raise ValueError("Expected plan or gate")
+        raise ValueError("Expected plan, signatures or gate")
     return 0
 
 

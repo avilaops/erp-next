@@ -26,9 +26,24 @@ jobs:
       with:
         ref: ${{ inputs.source_sha }}
         persist-credentials: false
+        fetch-depth: 2
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
+    - name: Select isolated signature core validation
+      id: signature_scope
+      if: hashFiles('apps/contract-signature-validator/pyproject.toml') != ''
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        VALIDATE_FULL: ${{ inputs.full || github.event_name != 'pull_request' }}
+      run: python scripts/ci/pr-gate.py signatures
+    - name: Verify isolated signature core
+      if: steps.signature_scope.outputs.required == 'true'
+      run: |
+        python scripts/ci/timed.py --label signature-core/install-uv --output "artifacts/timings/$GITHUB_JOB.jsonl" -- python -m pip install uv==0.12.24
+        python scripts/ci/timed.py --label signature-core/frozen-environment --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv sync --frozen --project apps/contract-signature-validator --python 3.13
+        python scripts/ci/timed.py --label signature-core/build --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv build --project apps/contract-signature-validator --out-dir "$RUNNER_TEMP/signature-validator-dist"
+        python scripts/ci/timed.py --label signature-core/offline-wheel-corpus --output "artifacts/timings/$GITHUB_JOB.jsonl" -- uv run --frozen --project apps/contract-signature-validator python scripts/contracts/verify-signature-validator.py --directory "$RUNNER_TEMP/signature-validator-dist"
     - run: 'script_file=$(mktemp)
 
         trap ''rm -f -- "$script_file"'' EXIT

@@ -1,4 +1,5 @@
 //! Transactional internal point of sale. No fiscal or external payment side effects.
+use super::list_sort::SortField;
 use super::{
     DomainChange, DomainError, authorized, command_key, db, decimal, fixed, record, remember,
     replay, response, revision, sales,
@@ -84,6 +85,19 @@ pub struct Filters {
     end_date: Option<String>,
     offset: Option<u32>,
     limit: Option<u32>,
+
+    sort_by: Option<String>,
+    sort_order: Option<String>,
+}
+
+#[derive(Default, Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MovementQuery {
+    offset: Option<u32>,
+    limit: Option<u32>,
+    sort_by: Option<String>,
+    sort_order: Option<String>,
 }
 #[derive(FromRow)]
 struct Session {
@@ -144,6 +158,8 @@ fn pagination(q: &Filters) -> Result<(u32, u32), DomainError> {
     sales::page(sales::OrderQuery {
         offset: q.offset,
         limit: q.limit,
+        sort_by: None,
+        sort_order: None,
     })
 }
 async fn account(
@@ -396,6 +412,21 @@ pub async fn sessions(
     let q = query
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
+    let ordering = crate::domains::list_sort::order_by(
+        q.sort_by.as_deref(),
+        q.sort_order.as_deref(),
+        &[
+            SortField::text("register", "register"),
+            SortField::typed("openedAt", "opened_at"),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'closed' THEN 'Fechado' ELSE 'Aberto' END",
+            ),
+            SortField::typed("closedAt", "closed_at"),
+        ],
+        "opened_at DESC,id DESC",
+        "id",
+    )?;
     let (offset, limit) = pagination(&q)?;
     let start = q.start_date.as_deref().map(sales::date).transpose()?;
     let end = q.end_date.as_deref().map(sales::date).transpose()?;
@@ -410,7 +441,7 @@ pub async fn sessions(
     }
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let data:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'register',register,'cashAccountId',cash_account_id,'openingAmount',(opening_cents::numeric/100)::numeric(16,2)::text,'status',status,'revision',revision,'openedAt',opened_at,'closedAt',closed_at) FROM pos_sessions WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND ($3::text IS NULL OR register=$3) AND ($6::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date >= $6) AND ($7::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date <= $7) ORDER BY opened_at DESC,id DESC LIMIT $4 OFFSET $5").bind(tenant).bind(&q.status).bind(&q.register).bind(i64::from(limit)).bind(i64::from(offset)).bind(start).bind(end).fetch_all(&mut *tx).await.map_err(db)?;
+    let data:Vec<Value>=sqlx::query_scalar(&format!("SELECT jsonb_build_object('id',id,'register',register,'cashAccountId',cash_account_id,'openingAmount',(opening_cents::numeric/100)::numeric(16,2)::text,'status',status,'revision',revision,'openedAt',opened_at,'closedAt',closed_at) FROM pos_sessions WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND ($3::text IS NULL OR register=$3) AND ($6::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date >= $6) AND ($7::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date <= $7) {ordering} LIMIT $4 OFFSET $5")).bind(tenant).bind(&q.status).bind(&q.register).bind(i64::from(limit)).bind(i64::from(offset)).bind(start).bind(end).fetch_all(&mut *tx).await.map_err(db)?;
     let total:i64=sqlx::query_scalar("SELECT count(*) FROM pos_sessions WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND ($3::text IS NULL OR register=$3) AND ($4::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date >= $4) AND ($5::date IS NULL OR (opened_at AT TIME ZONE 'America/Sao_Paulo')::date <= $5)").bind(tenant).bind(&q.status).bind(&q.register).bind(start).bind(end).fetch_one(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(
@@ -419,6 +450,7 @@ pub async fn sessions(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"total":total,"offset":offset,"limit":limit}),
     ))
 }
+
 #[utoipa::path(operation_id="pos_current_session",get,path="/api/v1/pos/sessions/current",tag="Sales",params(("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn current(
     State(state): State<AppState>,
@@ -472,6 +504,68 @@ async fn entry(
     sqlx::query("INSERT INTO financial_account_entries(id,tenant_id,account_id,transfer_id,direction,amount_cents,occurred_on,description,reference) VALUES($1,$2,$3,$4,$5,$6,(CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date,$7,$8)").bind(id).bind(tenant).bind(account).bind(transfer).bind(direction).bind(amount).bind(format!("PDV {reference}")).bind(reference.to_string()).execute(&mut **tx).await.map_err(db)?;
     Ok(id)
 }
+#[utoipa::path(operation_id="pos_list_movements",get,path="/api/v1/pos/sessions/{id}/movements",tag="Sales",params(MovementQuery,("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value),(status=403,description="Sem permissão"),(status=404,description="Caixa não encontrado"),(status=422,description="Filtros inválidos")),security(("bearerAuth"=[])))]
+pub async fn movements(
+    State(state): State<AppState>,
+    Extension(identity): Extension<AuthenticatedIdentity>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    query: Result<Query<MovementQuery>, QueryRejection>,
+) -> Result<Response, DomainError> {
+    let query = query
+        .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
+        .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::typed("createdAt", "created_at"),
+            SortField::text(
+                "type",
+                "concat(CASE direction WHEN 'supply' THEN 'Suprimento' ELSE 'Sangria' END,' · ',reason)",
+            ),
+            SortField::typed("amount", "amount_cents"),
+        ],
+        "created_at DESC,id DESC",
+        "id",
+    )?;
+    let (offset, limit) = sales::page(sales::OrderQuery {
+        offset: query.offset,
+        limit: Some(query.limit.unwrap_or(50)),
+        sort_by: None,
+        sort_order: None,
+    })?;
+    let (tenant, mut tx, can_edit) =
+        authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pos_sessions WHERE tenant_id=$1 AND id=$2)",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    if !exists {
+        return Err(DomainError::NotFound);
+    }
+    let data: Vec<Value> = sqlx::query_scalar(&format!("SELECT jsonb_build_object('id',id,'direction',direction,'amount',(amount_cents::numeric/100)::numeric(16,2)::text,'reason',reason,'createdAt',created_at) FROM pos_cash_movements WHERE tenant_id=$1 AND session_id=$2 {ordering} LIMIT $3 OFFSET $4"))
+        .bind(tenant).bind(id).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let total: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM pos_cash_movements WHERE tenant_id=$1 AND session_id=$2",
+    )
+    .bind(tenant)
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    tx.commit().await.map_err(db)?;
+    Ok(response(
+        StatusCode::OK,
+        None,
+        json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"total":total,"offset":offset,"limit":limit}),
+    ))
+}
+
 #[utoipa::path(operation_id="pos_create_movement",post,path="/api/v1/pos/sessions/{id}/movements",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header),("Idempotency-Key"=Uuid,Header),("If-Match"=String,Header)),request_body=MovementInput,responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn movement(
     State(state): State<AppState>,
@@ -1027,6 +1121,20 @@ pub async fn sales_list(
     let q = query
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
+    let ordering = crate::domains::list_sort::order_by(
+        q.sort_by.as_deref(),
+        q.sort_order.as_deref(),
+        &[
+            SortField::typed("createdAt", "created_at"),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'cancelled' THEN 'Cancelada' ELSE 'Concluída' END",
+            ),
+            SortField::typed("total", "total_cents"),
+        ],
+        "created_at DESC,id DESC",
+        "id",
+    )?;
     let (offset, limit) = pagination(&q)?;
     if q.status
         .as_deref()
@@ -1036,7 +1144,7 @@ pub async fn sales_list(
     }
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let data:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'sessionId',session_id,'status',status,'total',(total_cents::numeric/100)::numeric(16,2)::text,'revision',revision,'createdAt',created_at,'cancelledAt',cancelled_at) FROM pos_sales WHERE tenant_id=$1 AND ($2::uuid IS NULL OR session_id=$2) AND ($3::text IS NULL OR status=$3) ORDER BY created_at DESC,id DESC LIMIT $4 OFFSET $5").bind(tenant).bind(q.session_id).bind(&q.status).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let data:Vec<Value>=sqlx::query_scalar(&format!("SELECT jsonb_build_object('id',id,'sessionId',session_id,'status',status,'total',(total_cents::numeric/100)::numeric(16,2)::text,'revision',revision,'createdAt',created_at,'cancelledAt',cancelled_at) FROM pos_sales WHERE tenant_id=$1 AND ($2::uuid IS NULL OR session_id=$2) AND ($3::text IS NULL OR status=$3) {ordering} LIMIT $4 OFFSET $5")).bind(tenant).bind(q.session_id).bind(&q.status).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total:i64=sqlx::query_scalar("SELECT count(*) FROM pos_sales WHERE tenant_id=$1 AND ($2::uuid IS NULL OR session_id=$2) AND ($3::text IS NULL OR status=$3)").bind(tenant).bind(q.session_id).bind(&q.status).fetch_one(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(
@@ -1045,6 +1153,7 @@ pub async fn sales_list(
         json!({"tenantId":tenant,"canEdit":can_edit,"data":data,"total":total,"offset":offset,"limit":limit}),
     ))
 }
+
 #[utoipa::path(operation_id="pos_get_sale",get,path="/api/v1/pos/sales/{id}",tag="Sales",params(("id"=Uuid,Path),("X-Tenant-Id"=Uuid,Header)),responses((status=200,body=Value)),security(("bearerAuth"=[])))]
 pub async fn get_sale(
     State(state): State<AppState>,
@@ -1081,6 +1190,16 @@ pub async fn products(
     let q = query
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
+    let ordering = crate::domains::list_sort::order_by(
+        q.sort_by.as_deref(),
+        q.sort_order.as_deref(),
+        &[
+            SortField::text("name", "p.name"),
+            SortField::typed("price", "calculated.price_cents"),
+        ],
+        "p.name,p.id",
+        "p.id",
+    )?;
     let (offset, limit) = pagination(&q)?;
     let destination = q
         .destination
@@ -1096,14 +1215,53 @@ pub async fn products(
     }
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
-    let rows:Vec<(Uuid,String,String,String,i64)>=sqlx::query_as("SELECT p.id,p.sku,p.name,p.unit,COALESCE(b.quantity_micros,0) FROM products p LEFT JOIN stock_balances b ON b.tenant_id=p.tenant_id AND b.product_id=p.id WHERE p.tenant_id=$1 AND p.status='active' AND ($2='' OR p.name ILIKE '%'||$2||'%' OR p.sku ILIKE '%'||$2||'%') ORDER BY p.name,p.id LIMIT $3 OFFSET $4").bind(tenant).bind(search).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    // The commercial calculator is authoritative. Calculate the complete matching set
+    // before SQL orders numeric cents and applies the requested page.
+    let mut priced_quotes = std::collections::HashMap::new();
+    let (priced_ids, priced_cents) = if q.sort_by.as_deref() == Some("price") {
+        let ids: Vec<Uuid> = sqlx::query_scalar("SELECT p.id FROM products p WHERE p.tenant_id=$1 AND p.status='active' AND ($2='' OR p.name ILIKE '%'||$2||'%' OR p.sku ILIKE '%'||$2||'%')")
+            .bind(tenant).bind(search).fetch_all(&mut *tx).await.map_err(db)?;
+        let mut prices: Vec<Option<i64>> = Vec::with_capacity(ids.len());
+        for id in &ids {
+            let quote = sales::pos_price(&mut tx, tenant, *id, 1_000_000, destination, taxpayer)
+                .await
+                .map(|(price, _, _)| price);
+            let price = match quote {
+                Ok(price) => {
+                    priced_quotes.insert(*id, Ok(price));
+                    (price > 0).then_some(price)
+                }
+                Err(
+                    error @ (DomainError::Conflict(_)
+                    | DomainError::Invalid(_)
+                    | DomainError::NotFound),
+                ) => {
+                    priced_quotes.insert(*id, Err(error));
+                    None
+                }
+                Err(error) => return Err(error),
+            };
+            prices.push(price);
+        }
+        (ids, prices)
+    } else {
+        (Vec::new(), Vec::new())
+    };
+    let rows: Vec<(Uuid,String,String,String,i64)> = sqlx::query_as(&format!("SELECT p.id,p.sku,p.name,p.unit,COALESCE(b.quantity_micros,0) FROM products p LEFT JOIN stock_balances b ON b.tenant_id=p.tenant_id AND b.product_id=p.id LEFT JOIN unnest($5::uuid[],$6::bigint[]) AS calculated(product_id,price_cents) ON calculated.product_id=p.id WHERE p.tenant_id=$1 AND p.status='active' AND ($2='' OR p.name ILIKE '%'||$2||'%' OR p.sku ILIKE '%'||$2||'%') {ordering} LIMIT $3 OFFSET $4"))
+        .bind(tenant).bind(search).bind(i64::from(limit)).bind(i64::from(offset)).bind(&priced_ids).bind(&priced_cents).fetch_all(&mut *tx).await.map_err(db)?;
     let total:i64=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND status='active' AND ($2='' OR name ILIKE '%'||$2||'%' OR sku ILIKE '%'||$2||'%')").bind(tenant).bind(search).fetch_one(&mut *tx).await.map_err(db)?;
     let mut data = Vec::new();
     for (id, sku, name, unit, balance) in rows {
         let reserved = sales::reserved(&mut tx, tenant, id).await?;
         let mut product = json!({"id":id,"sku":sku,"name":name,"unit":unit,"available":decimal(balance.saturating_sub(reserved).max(0),6)});
-        match sales::pos_price(&mut tx, tenant, id, 1_000_000, destination, taxpayer).await {
-            Ok((price, _, _)) => {
+        let quote = match priced_quotes.remove(&id) {
+            Some(quote) => quote,
+            None => sales::pos_price(&mut tx, tenant, id, 1_000_000, destination, taxpayer)
+                .await
+                .map(|(price, _, _)| price),
+        };
+        match quote {
+            Ok(price) => {
                 product["unitPrice"] = json!(decimal(price, 2));
                 product["pricingAvailable"] = json!(price > 0);
             }

@@ -4,7 +4,8 @@ import { decimalPattern } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/feedback/session-recovery"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { listNavigationHref } from "@/lib/list-navigation"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/page-header"
@@ -66,7 +67,7 @@ function PurchaseForm({ initial, tenantId, etag, reload }: { initial?: PurchaseD
         if (!supplier || !complete || total <= BigInt(0)) { setError("Selecione um fornecedor, produtos com quantidades positivas e custos válidos. O total deve ser positivo."); return }
         const body = { supplierId: supplier.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity)!, unitCost: fixedText(fixedValue(item.unitCost, 2)!, 2) })) }
         const value = await command.send<PurchaseDetail>(`/api/erp/purchase-orders${initial ? `/${initial.data.id}` : ""}`, tenantId, body, initial ? etag : "", initial ? "PUT" : "POST")
-        if (value) { setDirty(false); router.replace(`/compras/pedidos/${value.data.id}`) }
+        if (value) { setDirty(false); router.replace(listNavigationHref(`/compras/pedidos/${value.data.id}`, window.location.pathname, window.location.search.slice(1))) }
       }}>
         <fieldset disabled={frozen} className="min-w-0 space-y-4">
           <p className="break-words"><strong>Fornecedor:</strong> {supplier?.legalName || "Selecione um fornecedor acima"}</p>

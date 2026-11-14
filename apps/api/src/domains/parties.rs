@@ -1,3 +1,4 @@
+use super::list_sort::{SortField, order_by};
 use super::party_complements::{self, PartyAddress, PartyContact};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
@@ -261,6 +262,10 @@ pub struct PartyList {
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct PartyQuery {
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
     q: Option<String>,
     status: Option<String>,
     role: Option<String>,
@@ -327,7 +332,29 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows = sqlx::query_as::<_, PartyRow>("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts,fiscal FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier)) ORDER BY legal_name,id LIMIT $5 OFFSET $6")
+    let sort = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("legalName", "legal_name"),
+            SortField::text("taxId", "tax_id"),
+            SortField::text(
+                "relationship",
+                "CASE WHEN is_customer AND is_supplier THEN 'Cliente e fornecedor' WHEN is_customer THEN 'Cliente' ELSE 'Fornecedor' END",
+            ),
+            SortField::text(
+                "contact",
+                "COALESCE(NULLIF(concat_ws(' ',NULLIF(email,''),NULLIF(phone,'')),''),'Não informado')",
+            ),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'active' THEN 'Ativo' ELSE 'Arquivado' END",
+            ),
+        ],
+        "legal_name,id",
+        "id",
+    )?;
+    let rows = sqlx::query_as::<_, PartyRow>(&format!("SELECT id,revision,person_type,legal_name,trade_name,tax_id,email,phone,is_customer,is_supplier,status,addresses,contacts,fiscal FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier)) {sort} LIMIT $5 OFFSET $6"))
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar("SELECT count(*) FROM parties WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(legal_name),lower($3))>0 OR strpos(lower(COALESCE(trade_name,'')),lower($3))>0 OR strpos(tax_id,upper($3))>0) AND ($4::text IS NULL OR ($4='customer' AND is_customer) OR ($4='supplier' AND is_supplier))")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).fetch_one(&mut *tx).await.map_err(db)?;

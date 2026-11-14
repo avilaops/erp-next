@@ -1,3 +1,4 @@
+use super::list_sort::SortField;
 use super::{
     DomainChange, DomainError, authorized, catalog, command_key, db, decimal, fixed, record,
     remember, replay, response, revision, sales, settlements::reference,
@@ -324,11 +325,25 @@ pub async fn list(
     headers: HeaderMap,
     query: Result<Query<sales::OrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
-    let (offset, limit) = sales::page(
-        query
-            .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
-            .0,
+    let query = query
+        .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
+        .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("supplierName", "supplier_name"),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'draft' THEN 'Rascunho' WHEN 'confirmed' THEN 'Confirmado' WHEN 'partially_received' THEN 'Recebido parcialmente' WHEN 'received' THEN 'Recebido' WHEN 'closed' THEN 'Saldo encerrado' WHEN 'cancelled' THEN 'Cancelado' ELSE status END",
+            ),
+            SortField::typed("dueDate", "purchase_orders.due_date"),
+            SortField::typed("amount", "amount_cents"),
+        ],
+        "created_at DESC,id DESC",
+        "purchase_orders.id",
     )?;
+    let (offset, limit) = sales::page(query)?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -339,7 +354,7 @@ pub async fn list(
     )
     .await?;
     let data = sqlx::query_as::<_, PurchaseSummary>(&format!(
-        "{SUMMARY} WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3"
+        "{SUMMARY} WHERE tenant_id=$1 {ordering} LIMIT $2 OFFSET $3"
     ))
     .bind(tenant)
     .bind(i64::from(limit))

@@ -114,10 +114,10 @@ test("lista reúne notas sem duplicação, filtra e mantém ações nos detalhes
  await page.getByLabel("Situação", { exact: true }).selectOption("draft")
  await expect(page.getByText("Cliente autorizado", { exact: true })).toHaveCount(0)
  await expect(page.getByRole("link", { name: "Editar rascunho" })).toBeVisible()
- await page.getByRole("button", { name: "Limpar filtros" }).click()
+ await page.getByRole("button", { name: "Limpar", exact: true }).click()
  await page.getByLabel("Buscar nota", { exact: true }).fill("11.222.333/0001-81")
  await expect(page.getByText("1 nota(s)", { exact: true })).toBeVisible()
- await page.getByRole("button", { name: "Limpar filtros" }).click()
+ await page.getByRole("button", { name: "Limpar", exact: true }).click()
  await page.getByLabel("De", { exact: true }).fill("2026-11-08")
  await expect(page.getByText("Cliente rascunho", { exact: true })).toHaveCount(0)
  for (const width of [390, 1280]) {

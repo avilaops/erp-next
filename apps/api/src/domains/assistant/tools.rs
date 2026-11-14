@@ -216,6 +216,8 @@ pub(super) async fn execute(
                     offset: Some(0),
                     limit: Some(5),
                     q: None,
+                    sort_by: None,
+                    sort_order: None,
                 })),
             )
             .await?;
@@ -308,6 +310,8 @@ pub(super) async fn execute(
         );
     }
     let query = Ok(Query(catalog::ProductQuery {
+        sort_by: None,
+        sort_order: None,
         category_id: None,
         q: Some(args.q),
         status: None,

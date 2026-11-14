@@ -1,3 +1,4 @@
+use super::list_sort::{SortField, order_by};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
     revision,
@@ -236,6 +237,10 @@ pub struct StaffList {
 #[serde(deny_unknown_fields)]
 #[into_params(parameter_in = Query)]
 pub struct StaffQuery {
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
     q: Option<String>,
     status: Option<String>,
     role: Option<String>,
@@ -300,7 +305,29 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows = sqlx::query_as::<_, StaffRow>("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status,profile FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller)) ORDER BY name,id LIMIT $5 OFFSET $6")
+    let sort = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("code", "code"),
+            SortField::text("name", "name"),
+            SortField::text(
+                "jobTitle",
+                "COALESCE(NULLIF(job_title,''),CASE WHEN is_seller THEN 'Vendedor' ELSE 'Não informado' END)",
+            ),
+            SortField::text(
+                "contact",
+                "COALESCE(NULLIF(concat_ws(' ',NULLIF(email,''),NULLIF(phone,'')),''),'Não informado')",
+            ),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'active' THEN 'Ativo' ELSE 'Desligado' END",
+            ),
+        ],
+        "name,id",
+        "id",
+    )?;
+    let rows = sqlx::query_as::<_, StaffRow>(&format!("SELECT id,revision,code,name,job_title,email,phone,is_employee,is_seller,status,profile FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller)) {sort} LIMIT $5 OFFSET $6"))
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar("SELECT count(*) FROM staff WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(COALESCE(job_title,'')),lower($3))>0 OR strpos(code,upper($3))>0) AND ($4::text IS NULL OR ($4='employee' AND is_employee) OR ($4='seller' AND is_seller))")
         .bind(tenant).bind(&query.status).bind(q).bind(&query.role).fetch_one(&mut *tx).await.map_err(db)?;

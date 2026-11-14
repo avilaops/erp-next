@@ -7,17 +7,19 @@ const order = { id: record, number: "17", customerName: "Cliente da pesquisa", c
 
 test.beforeEach(async ({ context }) => { await installFrontendFixture(context) })
 
-test("lista de pedidos mantém identificação e valor visíveis sem rolagem lateral no celular", async ({ page }, info) => {
+test("lista de pedidos mantém todas as colunas ordenáveis com rolagem contida no celular", async ({ page }, info) => {
   await page.route(/\/api\/erp\/orders\?/, route => route.fulfill({ json: { tenantId: tenant, canEdit: true, total: 1, data: [{ ...order, customerName: "COLISEU EQUIPAMENTOS PARA MUSCULACAO LTDA" }] } }))
   await page.goto("/vendas/pedidos")
   const region = page.getByRole("region", { name: "Lista de pedidos", exact: true })
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(region).toBeVisible()
-    expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+    expect(await region.evaluate(element => getComputedStyle(element).overflowX === "auto")).toBe(true)
     const amount = region.getByText("R$ 199.128,86", { exact: true })
+    await amount.scrollIntoViewIfNeeded()
     await expect(amount).toBeInViewport()
-    if (width < 640) await expect(region.getByRole("columnheader")).toHaveText(["Cliente", "Valor"])
+    for (const name of ["Pedido", "Cliente", "Situação", "Vencimento", "Valor"]) await expect(region.getByRole("columnheader").getByRole("button", { name, exact: true })).toHaveCount(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: info.outputPath("orders-list-responsive-390.png"), fullPage: true })
@@ -121,7 +123,7 @@ test("pedidos usam tabela e pesquisa no servidor, preservando filtro ao paginar"
   await expect(page.getByRole("navigation", { name: "Caminho de navegação" })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveAttribute("href", "/vendas/pedidos/novo")
   const table = page.getByRole("table", { name: "Pedidos de venda" })
-  await expect(table.getByRole("columnheader")).toHaveText(["Pedido", "Cliente", "Situação", "Vencimento", "Valor"])
+  await expect(table.getByRole("columnheader")).toHaveText([/^Pedido/, /^Cliente/, /^Situação/, /^Vencimento/, /^Valor/])
   await expect(table.getByRole("link", { name: "PV-000017", exact: true })).toHaveAttribute("href", `/vendas/pedidos/${record}`)
   await expect(table.getByRole("link", { name: order.customerName, exact: true })).toHaveAttribute("href", `/vendas/pedidos/${record}`)
   await expect(table).not.toContainText("Pedido de ")
@@ -133,8 +135,8 @@ test("pedidos usam tabela e pesquisa no servidor, preservando filtro ao paginar"
   await expect.poll(() => requests.at(-1)?.get("offset")).toBe("25")
   expect(requests.at(-1)?.get("q")).toBe("Cliente")
   await page.getByLabel("Buscar pedidos", { exact: true }).fill("ausente")
-  await page.getByRole("button", { name: "Pesquisar", exact: true }).click()
-  await expect(page.getByText("Nenhum pedido encontrado para esta pesquisa.")).toBeVisible()
+  await page.getByRole("button", { name: "Buscar", exact: true }).click()
+  await expect(page.getByText("Nenhum resultado encontrado", { exact: true })).toBeVisible()
   expect(requests.at(-1)?.get("offset")).toBe("0")
   await page.getByRole("button", { name: "Limpar", exact: true }).click()
   await expect(table).toBeVisible()
@@ -283,7 +285,7 @@ test("falha de pesquisa mantém os filtros e permite repetir em modo de consulta
   await expect(page.getByRole("link", { name: "Novo pedido", exact: true })).toHaveCount(0)
   failing = true
   await page.getByLabel("Buscar pedidos", { exact: true }).fill("Cliente")
-  await page.getByRole("button", { name: "Pesquisar", exact: true }).click()
+  await page.getByRole("button", { name: "Buscar", exact: true }).click()
   await expect(page.locator("main").getByRole("alert")).toContainText("Consulta temporariamente indisponível")
   await expect(page.getByLabel("Buscar pedidos", { exact: true })).toHaveValue("Cliente")
   failing = false

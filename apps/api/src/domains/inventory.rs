@@ -1,3 +1,4 @@
+use super::list_sort::{SortField, order_by};
 use super::{
     DomainChange, DomainError, authorized, catalog, command_key, db, decimal, fixed, record,
     remember, replay, response,
@@ -225,6 +226,18 @@ pub async fn balances(
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
     let (q, offset, limit) = catalog::page(&query)?;
+    let sort = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("name", "name"),
+            SortField::typed("quantity", "quantity_micros"),
+            SortField::typed("reserved", "reserved_micros"),
+            SortField::typed("available", "(quantity_micros - reserved_micros)"),
+        ],
+        "name,product_id",
+        "product_id",
+    )?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -234,7 +247,7 @@ pub async fn balances(
         false,
     )
     .await?;
-    let rows=sqlx::query_as::<_,StockRow>("SELECT p.id AS product_id,p.sku,p.name,p.unit,p.status,COALESCE(b.quantity_micros,0) AS quantity_micros,COALESCE((SELECT sum(l.quantity_micros) FROM sales_order_lines l JOIN sales_orders o ON o.tenant_id=l.tenant_id AND o.id=l.order_id WHERE l.tenant_id=p.tenant_id AND l.product_id=p.id AND o.status='confirmed'),0)::bigint AS reserved_micros FROM products p LEFT JOIN stock_balances b ON b.tenant_id=p.tenant_id AND b.product_id=p.id WHERE p.tenant_id=$1 AND ($2::text IS NULL OR p.status=$2) AND (strpos(lower(p.name),lower($3))>0 OR strpos(lower(p.sku),lower($3))>0) ORDER BY p.name,p.id LIMIT $4 OFFSET $5")
+    let rows=sqlx::query_as::<_,StockRow>(&format!("SELECT * FROM (SELECT p.id AS product_id,p.sku,p.name,p.unit,p.status,COALESCE(b.quantity_micros,0) AS quantity_micros,COALESCE((SELECT sum(l.quantity_micros) FROM sales_order_lines l JOIN sales_orders o ON o.tenant_id=l.tenant_id AND o.id=l.order_id WHERE l.tenant_id=p.tenant_id AND l.product_id=p.id AND o.status='confirmed'),0)::bigint AS reserved_micros FROM products p LEFT JOIN stock_balances b ON b.tenant_id=p.tenant_id AND b.product_id=p.id WHERE p.tenant_id=$1 AND ($2::text IS NULL OR p.status=$2) AND (strpos(lower(p.name),lower($3))>0 OR strpos(lower(p.sku),lower($3))>0)) stock {sort} LIMIT $4 OFFSET $5"))
         .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0)")
         .bind(tenant).bind(&query.status).bind(q).fetch_one(&mut *tx).await.map_err(db)?;

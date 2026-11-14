@@ -3,22 +3,25 @@
 import type { Schema } from "@/lib/api/types"
 
 import { useSuggestedPaymentMethod } from "@/features/finance/settings/use-suggested-payment-method"
-import { commercialMoney } from "@/features/sales/order-presentation"
+import { commercialMoney, orderNumber } from "@/features/sales/order-presentation"
 
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/feedback/session-recovery"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/page-header"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { EntityListPage, StatusBadge, EmptyState, ResponsiveTable, CurrencyCell, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { DataTable } from "@/components/workspace/data-table"
 import { Pagination } from "@/components/workspace/pagination"
 import { useCommand, useResource } from "../../hooks/use-operation"
 
-type Receivable = Schema<"Receivable"> & { installmentKind?: string | null; installmentNumber?: number | null }
+type Receivable = Schema<"Receivable"> & { orderNumber?: string | null; installmentKind?: string | null; installmentNumber?: number | null }
 type Detail = Schema<"ReceivableSnapshot">
 type Listing = Schema<"ReceivableList">
 type FinancialAccounts = { data: { id: string; code: string; name: string }[] }
@@ -35,34 +38,36 @@ export function Receivables({ id }: { id?: string }) {
   return id ? <ReceivableDetail key={id} id={id} /> : <ReceivableList />
 }
 function ReceivableList() {
-  const [offset, setOffset] = useState(0)
-  const result = useResource<Listing>(`/api/erp/receivables?offset=${offset}&limit=25`)
+  const router = useRouter()
+  const url = useSearchParams()
+  const offsetValue = Number(url.get("offset") || 0)
+  const offset = Number.isSafeInteger(offsetValue) && offsetValue >= 0 && offsetValue <= 100000 ? Math.floor(offsetValue / 25) * 25 : 0
+  const { sort, toggle, query: sortQuery } = useTableSort(["customerName", "dueDate", "amount", "outstandingAmount", "status", "orderNumber"], { by: "", order: "asc" })
+  function navigate(patch: Record<string, string | number>) {
+    const next = new URLSearchParams(window.location.search)
+    for (const [key, value] of Object.entries(patch)) { if (String(value)) next.set(key, String(value)); else next.delete(key) }
+    router.push(`${window.location.pathname}?${next}${window.location.hash}`, { scroll: false })
+  }
+
+  const result = useResource<Listing>(`/api/erp/receivables?offset=${offset}&limit=25&${sortQuery}`)
   const total = result.value?.total || 0
-  return <>
-    <PageHeader eyebrow="Financeiro" title="Contas a receber" description="Consulte vencimentos, saldos e recebimentos declarados dos pedidos de venda." actions={<Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos">Consultar pedidos</Link>} />
-    <section className="min-w-0 space-y-3" aria-label="Consulta de contas a receber">
+  return <EntityListPage title="Contas a receber" description="Consulte vencimentos, saldos e recebimentos declarados dos pedidos de venda." actions={<Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos">Consultar pedidos</Link>} summary={!result.loading && !result.error && (<p className="text-sm text-muted-foreground">{total} conta(s) a receber</p>)} footer={!result.loading && !result.error && ((total > 25 || offset > 0) && <Pagination offset={offset} pageSize={25} total={total} onOffsetChange={offset => navigate({ offset })} />)}>
       {result.loading ? <p role="status">Carregando contas…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p className="text-sm text-muted-foreground">{total} conta(s) a receber</p>
-        {result.value?.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de contas a receber" tabIndex={0}>
-          <DataTable aria-label="Contas a receber" className="table-fixed md:table-auto">
-            <thead><tr><th scope="col" className="w-[65%] md:w-auto">Cliente</th><th scope="col" className="hidden md:table-cell">Vencimento</th><th scope="col" className="hidden md:table-cell">Valor</th><th scope="col" className="text-right">Saldo restante</th><th scope="col" className="hidden md:table-cell">Situação</th><th scope="col" className="hidden md:table-cell">Pedido</th></tr></thead>
-            <tbody>{result.value.data.map((account: Receivable) => <tr key={account.id}>
-              <th scope="row" className="align-top"><Link className={`${linkClass} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link>{installmentLabel(account) && <p className="mt-1 text-xs font-normal text-muted-foreground">{installmentLabel(account)}</p>}<div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground md:hidden"><p>Vencimento: {account.dueDate.split("-").reverse().join("/")}</p><p>Valor: {commercialMoney(account.amount)}</p><p>{situation(account)}</p></div></th>
-              <td className="hidden whitespace-nowrap md:table-cell">{account.dueDate.split("-").reverse().join("/")}</td>
-              <td className="hidden whitespace-nowrap md:table-cell">{commercialMoney(account.amount)}</td>
-              <td className="text-right align-top font-medium [overflow-wrap:anywhere] md:whitespace-nowrap">{commercialMoney(account.outstandingAmount)}</td>
-              <td className="hidden md:table-cell">{situation(account)}</td>
-              <td className="hidden max-w-44 break-all text-xs text-muted-foreground md:table-cell">{account.orderId}</td>
-            </tr>)}</tbody>
+        <ResponsiveTable label="Lista de contas a receber">
+          <DataTable aria-label="Contas a receber" className="min-w-[56rem]">
+            <thead><tr><SortableTableHeader field="customerName" sort={sort} onSort={toggle} className="w-[65%] md:w-auto">Cliente</SortableTableHeader><SortableTableHeader field="dueDate" sort={sort} onSort={toggle} className="">Vencimento</SortableTableHeader><SortableTableHeader field="amount" sort={sort} onSort={toggle} className="">Valor</SortableTableHeader><SortableTableHeader field="outstandingAmount" sort={sort} onSort={toggle} className="text-right">Saldo restante</SortableTableHeader><SortableTableHeader field="status" sort={sort} onSort={toggle} className="">Situação</SortableTableHeader><SortableTableHeader field="orderNumber" sort={sort} onSort={toggle} className="">Pedido</SortableTableHeader></tr></thead>
+            <tbody>{result.value?.data.map((account: Receivable) => <tr key={account.id}>
+              <th scope="row" className="align-top"><Link className={`${linkClass} block [overflow-wrap:anywhere]`} href={`/financeiro/contas-receber/${account.id}`}>Conta de {account.customerName}</Link>{installmentLabel(account) && <p className="mt-1 text-xs font-normal text-muted-foreground">{installmentLabel(account)}</p>}</th>
+              <td className="whitespace-nowrap">{account.dueDate.split("-").reverse().join("/")}</td>
+              <CurrencyCell>{commercialMoney(account.amount)}</CurrencyCell>
+              <CurrencyCell className="align-top font-medium">{commercialMoney(account.outstandingAmount)}</CurrencyCell>
+              <td className=""><StatusBadge tone={account.status === "paid" ? "success" : account.status === "cancelled" ? "neutral" : "warning"}>{situation(account)}</StatusBadge></td>
+              <td className="max-w-44 break-all text-xs text-muted-foreground">{account.orderNumber ? orderNumber(account.orderNumber) : account.orderId}</td>
+            </tr>)}{!result.value?.data.length && <tr><td colSpan={6}><EmptyState filtered={false} title="Nenhuma conta a receber encontrada" description="Consulte os pedidos de venda para conferir a origem dos títulos e as condições de pagamento." /></td></tr>}</tbody>
           </DataTable>
-        </div> : <div className="form-section space-y-2">
-          <h2>Nenhuma conta a receber encontrada</h2>
-          <p className="text-sm text-muted-foreground">Consulte os pedidos de venda para conferir a origem dos títulos e as condições de pagamento.</p>
-        </div>}
-        {(total > 25 || offset > 0) && <Pagination offset={offset} pageSize={25} total={total} onOffsetChange={setOffset} />}
+        </ResponsiveTable>
       </>}
-    </section>
-  </>
+  </EntityListPage>
 }
 function ReceivableDetail({ id }: { id: string }) {
   const result = useResource<Detail>(`/api/erp/receivables/${id}`)

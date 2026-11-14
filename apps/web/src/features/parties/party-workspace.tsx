@@ -1,5 +1,8 @@
 "use client"
 
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
+import { registryQueryString, registrySortFields } from "@/features/records/registry-query"
 import { useRegistryQuery } from "@/features/records/use-registry-query"
 import { useResource } from "@/hooks/use-operation"
 import { Pagination } from "@/components/workspace/pagination"
@@ -44,38 +47,36 @@ function relationship(party: Pick<PartyInput, "isCustomer" | "isSupplier">) { re
 
 export function PartyList() {
   const { query, navigate } = useRegistryQuery("party")
-  const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
-  if (query.role) params.set("role", query.role)
-  if (query.status) params.set("status", query.status)
+  const { sort, toggle } = useTableSort(registrySortFields.party, { by: "legalName", order: "asc" })
+  const params = new URLSearchParams(registryQueryString(query))
+  params.set("limit", "25")
   const resource = useResource<Page>(`/api/erp/parties?${params}`)
   const { value: result, loading, error, status: responseStatus } = resource
   function search(value: typeof query) { if (!navigate(value)) resource.reload() }
-
-  return <>
-
-    <section className="compact-records form-section min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Pessoas cadastradas</h2>{result?.canEdit && <Link className={linkClass} href="/cadastros/clientes-fornecedores/novo">Nova pessoa</Link>}</div>
-      <form className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget)
-        search({ q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
-      }}>
-        <div className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2"><label className="min-w-0 space-y-1">Buscar nome ou documento<SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; search({ q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" defaultValue={query.q} maxLength={160} placeholder="Documento sem máscara" /></label><Button className="h-9 px-3" type="submit" disabled={loading}>Buscar</Button></div>
-        <label className="min-w-0 space-y-1">Relacionamento<select key={query.role} name="role" defaultValue={query.role} className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></label>
-        <label className="min-w-0 space-y-1">Situação no ERP<select key={query.status} name="status" defaultValue={query.status} className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-      </form>
-      {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button></div> : result && <>
-        <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de clientes e fornecedores" tabIndex={0}><DataTable aria-label="Clientes e fornecedores" className="table-fixed lg:table-auto">
-          <thead><tr><th scope="col" className="w-[55%] lg:w-auto">Nome</th><th scope="col" className="hidden lg:table-cell">CPF / CNPJ</th><th scope="col" className="hidden lg:table-cell">Relacionamento</th><th scope="col">Contato</th><th scope="col" className="hidden lg:table-cell">Situação no ERP</th></tr></thead>
-          <tbody>{result.data.map(party => <tr key={party.id}>
-            <th scope="row" className="align-top font-medium"><Link className={`${linkClass} line-clamp-2 [overflow-wrap:anywhere] lg:line-clamp-none`} title={party.legalName} href={`/cadastros/clientes-fornecedores/${party.id}`}>{party.legalName}</Link><div className="mt-1 space-y-0.5 text-xs font-normal text-muted-foreground lg:hidden"><p className="[overflow-wrap:anywhere]">{party.taxId}</p><p>{relationship(party)}</p><p>{party.status === "active" ? "Ativo" : "Arquivado"}</p></div></th>
-            <td className="hidden whitespace-nowrap lg:table-cell">{party.taxId}</td><td className="hidden lg:table-cell">{relationship(party)}</td><td className="align-top [overflow-wrap:anywhere]">{party.email && <p>{party.email}</p>}{party.phone && <p className="mt-1 text-xs text-muted-foreground">{party.phone}</p>}{!party.email && !party.phone && "Não informado"}</td><td className="hidden lg:table-cell">{party.status === "active" ? "Ativo" : "Arquivado"}</td>
-          </tr>)}</tbody>
-        </DataTable></div> : <p>Nenhuma pessoa encontrada.</p>}
-        <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => search({ ...query, offset })} />
-      </>}
-    </section>
-  </>
+  const filtered = !!(query.q || query.role || query.status)
+  const create = result?.canEdit ? <Link className={linkClass} href="/cadastros/clientes-fornecedores/novo">Nova pessoa</Link> : undefined
+  return <EntityListPage title="Pessoas cadastradas" actions={create} toolbar={
+    <SearchToolbar pending={loading} canClear={filtered} onClear={() => search({ ...query, q: "", status: "", role: "", offset: 0 })} onSubmit={event => {
+      event.preventDefault(); const form = new FormData(event.currentTarget)
+      search({ ...query, q: String(form.get("q") || ""), role: String(form.get("role") || ""), status: String(form.get("status") || ""), offset: 0 })
+    }}>
+      <FilterField label="Buscar nome ou documento"><SearchInput onSearch={(q, form) => { const fields = form ? new FormData(form) : null; search({ ...query, q, role: String(fields?.get("role") || ""), status: String(fields?.get("status") || ""), offset: 0 }) }} name="q" defaultValue={query.q} maxLength={160} placeholder="Documento sem máscara" /></FilterField>
+      <FilterField label="Relacionamento"><select key={query.role} name="role" defaultValue={query.role} className={selectClass}><option value="">Todos</option><option value="customer">Clientes</option><option value="supplier">Fornecedores</option></select></FilterField>
+      <FilterField label="Situação no ERP"><select key={query.status} name="status" defaultValue={query.status} className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></FilterField>
+    </SearchToolbar>
+  } summary={!loading && !error && result && <p className="text-sm text-muted-foreground">{result.total} pessoa(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>}
+    footer={!loading && !error && result && <Pagination offset={query.offset} pageSize={25} total={result.total} onOffsetChange={offset => search({ ...query, offset })} />}>
+    {loading ? <p role="status">Carregando pessoas…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={linkClass}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button></div> : result && <>
+      <ResponsiveTable label="Lista de clientes e fornecedores"><DataTable aria-label="Clientes e fornecedores">
+        <thead><tr>{[["legalName", "Nome"], ["taxId", "CPF / CNPJ"], ["relationship", "Relacionamento"], ["contact", "Contato"], ["status", "Situação no ERP"]].map(([field, label]) => <SortableTableHeader key={field} field={field} sort={sort} onSort={toggle}>{label}</SortableTableHeader>)}</tr></thead>
+        <tbody>{result.data.map(party => <tr key={party.id}>
+          <th scope="row" className="min-w-52 align-top font-medium"><Link className={`${linkClass} [overflow-wrap:anywhere]`} title={party.legalName} href={`/cadastros/clientes-fornecedores/${party.id}`}>{party.legalName}</Link></th>
+          <td className="whitespace-nowrap">{party.taxId}</td><td>{relationship(party)}</td><td className="align-top [overflow-wrap:anywhere]">{party.email && <p>{party.email}</p>}{party.phone && <p className="mt-1 text-xs text-muted-foreground">{party.phone}</p>}{!party.email && !party.phone && "Não informado"}</td><td><StatusBadge tone={party.status === "active" ? "success" : "neutral"}>{party.status === "active" ? "Ativo" : "Arquivado"}</StatusBadge></td>
+        </tr>)}</tbody>
+      </DataTable></ResponsiveTable>
+      {!result.data.length && <EmptyState filtered={filtered} action={create} />}
+    </>}
+  </EntityListPage>
 }
 
 export function PartyEditor({ id, view = false, draftScope, tenantId }: { id?: string; view?: boolean; draftScope: string; tenantId: string }) {

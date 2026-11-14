@@ -4,14 +4,14 @@ import { installFrontendFixture, tenant } from "./helpers/frontend-fixture"
 const product = "33333333-3333-4333-8333-333333333333"
 const version = "55555555-5555-4555-8555-555555555555"
 const name = "HammerForce Pro · Desenvolvimento de ombros articulado"
-const structureColors = ["Piano Black", "Titanium Grey", "Matte Graphite Black"]
+const structureColors = ["Piano Black", "Light Grey", "Matte Graphite Black"]
 
 for (const width of [320, 390, 768, 1280]) test(`navegação conserva negociação e acabamentos em ${width}px`, async ({ context, page }) => {
   await page.setViewportSize({ width, height: 900 })
   await installFrontendFixture(context)
   await page.route("**/api/erp/me", route => route.fulfill({ json: { tenant: { id: tenant }, permissions: ["sales.orders.read", "sales.orders.manage"] } }))
   await page.route("**/api/erp/commercial/tables/imported", route => route.fulfill({ json: { tenantId: tenant, line: "imported", canManage: false, data: { id: version, version: 6, originState: "SP", freeDiscountBps: 2000, minimumDownPaymentBps: 7000, items: [{ productId: product, sku: "HF-101", name, unit: "UN", priceWithoutIpiCents: 20000, priceWithIpiCents: 22600 }] } } }))
-  await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ json: { tenantId: tenant, data: { structureColors, upholsteryColors: ["Preto", "Vermelho"], plateHolderColors: ["Piano Black"], plateHolderTypes: ["Olímpico"] } } }))
+  await page.route(`**/api/erp/products/${product}`, route => route.fulfill({ json: { tenantId: tenant, data: { finishingPalette: "dhz-hammerforce-pro", structureColors, swingArmColors: ["Piano Black", "Performance Red"], upholsteryColors: ["Black", "Mocha"], plateHolderTypes: ["Olímpico"] } } }))
   let sent: Record<string, unknown> | undefined
   await page.route("**/api/erp/commercial/simulate", route => {
     sent = route.request().postDataJSON()
@@ -31,12 +31,12 @@ for (const width of [320, 390, 768, 1280]) test(`navegação conserva negociaç�
   await expect(page.getByLabel(`Cor da estrutura de ${name}`, { exact: true })).toBeHidden()
   await finishes.focus()
   await page.keyboard.press("Enter")
-  await page.getByLabel(`Cor da estrutura de ${name}`, { exact: true }).selectOption("Titanium Grey")
+  await page.getByLabel(`Cor da estrutura de ${name}`, { exact: true }).selectOption("Light Grey")
   await expect(page.getByLabel(`Cor dos anilheiros de ${name}`, { exact: true })).toHaveCount(0)
   await expect(page.getByLabel(`Tipo de anilheiro de ${name}`, { exact: true }).getByRole("option")).toHaveText(["Não se aplica", "Standard", "Olímpico"])
   const photos = page.getByRole("group", { name: `Cor dos braços de ${name}: fotos do catálogo DHZ`, exact: true })
-  await expect(photos.getByRole("button", { name: "Vermelho", exact: true })).toBeVisible()
-  await photos.getByRole("button", { name: "Vermelho", exact: true }).click()
+  await expect(photos.getByRole("button", { name: "Performance Red", exact: true })).toBeVisible()
+  await photos.getByRole("button", { name: "Performance Red", exact: true }).click()
   await expect(photos.locator("[style*='background-image']").first()).toHaveCSS("background-image", /dhz-hammerforce-pro-original-colors\.jpeg/)
   await page.screenshot({ path: test.info().outputPath(`simulator-finishes-${width}.png`) })
   await finishes.click()
@@ -50,12 +50,12 @@ for (const width of [320, 390, 768, 1280]) test(`navegação conserva negociaç�
   await expect(page.getByRole("heading", { name: "Equipamentos", exact: true })).toBeFocused()
   await expect(page.getByLabel(`Quantidade de ${name}`, { exact: true })).toHaveValue("3")
   await finishes.click()
-  await expect(page.getByLabel(`Cor da estrutura de ${name}`, { exact: true })).toHaveValue("Titanium Grey")
-  await expect(page.getByLabel(`Cor dos braços de ${name}`, { exact: true })).toHaveValue("Vermelho")
+  await expect(page.getByLabel(`Cor da estrutura de ${name}`, { exact: true })).toHaveValue("Light Grey")
+  await expect(page.getByLabel(`Cor dos braços de ${name}`, { exact: true })).toHaveValue("Performance Red")
   await finishes.click()
   await page.getByRole("button", { name: "Simular", exact: true }).click()
   await expect(page.getByRole("region", { name: "Resultado da simulação", exact: true })).toContainText("R$ 678,00")
-  expect(sent).toMatchObject({ discount: { kind: "percent", value: 500 }, items: [{ productId: product, quantity: 3, structureColor: "Titanium Grey", upholsteryColor: "Vermelho" }] })
+  expect(sent).toMatchObject({ discount: { kind: "percent", value: 500 }, items: [{ productId: product, quantity: 3, structureColor: "Light Grey", swingArmColor: "Performance Red" }] })
   await navigation.getByRole("link", { name: "Cliente", exact: true }).click()
   await expect(page.getByLabel("Vencimento da conta a receber", { exact: true })).toHaveValue("2026-12-30")
   if (width >= 1024) await expect(page.getByRole("heading", { name: "Resultado", exact: true })).toBeInViewport()

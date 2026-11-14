@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const tenant = "11111111-1111-4111-8111-111111111111";
 const other = "22222222-2222-4222-8222-222222222222";
-async function proxyFor(tenantId) {
+async function proxyFor(tenantId, fiscal = false) {
   const identity = { tenantId, accessToken: "fixture-only" };
   const sessionModule = "data:text/javascript;base64," + Buffer.from(`
     export const currentIdentitySession = async () => (${JSON.stringify(identity)});
@@ -14,17 +14,68 @@ async function proxyFor(tenantId) {
   `).toString("base64");
   const fiscalSource = readFileSync(new URL("../src/lib/api/local-fiscal-origin.ts", import.meta.url), "utf8");
   const fiscalModule = "data:text/javascript;base64," + Buffer.from(ts.transpileModule(fiscalSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText).toString("base64");
-  const source = readFileSync(new URL("../src/server/bff/erp-proxy.ts", import.meta.url), "utf8")
+  const source = readFileSync(new URL(fiscal ? "../src/server/bff/erp-fiscal-proxy.ts" : "../src/server/bff/erp-proxy.ts", import.meta.url), "utf8")
     .replace('import "server-only"', "")
     .replace('"@/lib/api/local-fiscal-origin"', JSON.stringify(fiscalModule))
-    .replace('"@/server/auth/erp-session"', JSON.stringify(sessionModule));
+    .replace('"@/server/auth/erp-session"', JSON.stringify(sessionModule))
+    .replace('"../auth/erp-session"', JSON.stringify(sessionModule));
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-  return (await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"))).forwardErp;
+  const proxyModule = await import("data:text/javascript;base64," + Buffer.from(compiled).toString("base64"));
+  return fiscal ? proxyModule.forwardFiscal : proxyModule.forwardErp;
 }
 const request = tenantId => new Request("http://fixture.local/api/erp/registry-lookups", {
   method: "POST",
   headers: { origin: "http://fixture.local", "content-type": "application/json", ...(tenantId ? { "x-tenant-id": tenantId } : {}) },
   body: JSON.stringify({ kind: "cep", value: "01001000", context: "company" }),
+});
+
+test("sortable collections forward one sort pair without losing paging or filters", async () => {
+  const forward = await proxyFor(tenant);
+  const previous = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async url => { calls.push(new URL(String(url))); return Response.json({ tenantId: tenant }); };
+  const collections = ["products", "parties", "staff", "product-categories", "financial-categories", "financial-accounts", "payment-methods", "warehouses", "product-groups", "tag-groups", "tags", "orders", "proposals", "opportunities", "receivables", "financial-payables", "payables", "purchase-orders", "stock", "price-lists", "pos/products", "pos/sessions", "pos/sales", `pos/sessions/${other}/movements`];
+  try {
+    for (const collection of collections) {
+      const resource = `/${collection}`;
+      const query = "sortBy=name&sortOrder=desc&offset=25&limit=25";
+      const response = await forward(new Request(`http://fixture.local/api/erp${resource}?${query}`), resource);
+      assert.equal(response.status, 200, resource);
+      assert.equal(calls.at(-1).searchParams.get("sortBy"), "name", resource);
+      assert.equal(calls.at(-1).searchParams.get("sortOrder"), "desc", resource);
+      assert.equal(calls.at(-1).searchParams.get("offset"), "25", resource);
+      assert.equal(calls.at(-1).searchParams.get("limit"), "25", resource);
+    }
+    const before = calls.length;
+    for (const query of ["sortBy=name&sortBy=sku", "sortOrder=asc&sortOrder=desc", "sortBy=name&unexpected=1"]) {
+      assert.equal((await forward(new Request(`http://fixture.local/api/erp/products?${query}`), "/products")).status, 400);
+    }
+    assert.equal((await forward(new Request("http://fixture.local/api/erp/company-account/invoices?subscriptionId=fixture&sortBy=name"), "/company-account/invoices")).status, 400);
+    assert.equal(calls.length, before);
+    const query = "q=Árvore&status=active&category_id=22222222-2222-4222-8222-222222222222&offset=25&limit=50&sortBy=price&sortOrder=asc";
+    assert.equal((await forward(new Request(`http://fixture.local/api/erp/products?${query}`), "/products")).status, 200);
+    assert.equal(calls.at(-1).searchParams.get("q"), "Árvore");
+    assert.equal(calls.at(-1).searchParams.get("category_id"), "22222222-2222-4222-8222-222222222222");
+    assert.equal(calls.at(-1).searchParams.get("limit"), "50");
+  } finally { globalThis.fetch = previous; }
+});
+
+test("fiscal offset listings forward sorting while cursor collections keep their contract", async () => {
+  const forward = await proxyFor(tenant, true);
+  const previous = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async url => { calls.push(new URL(String(url))); return Response.json({ tenantId: tenant }); };
+  try {
+    const query = "q=Cliente&from=2026-01-01&to=2026-12-31&offset=25&limit=25&sortBy=totalCents&sortOrder=desc";
+    assert.equal((await forward(new Request(`http://fixture.local/api/erp/fiscal/outgoing-imports?${query}`), "/outgoing-imports")).status, 200);
+    assert.equal(calls[0].search, `?${query}`);
+    const before = calls.length;
+    for (const resource of ["/nfe", "/issued-nfes", "/config"]) {
+      assert.equal((await forward(new Request(`http://fixture.local/api/erp/fiscal${resource}?sortBy=number&sortOrder=asc`), resource)).status, 400);
+    }
+    assert.equal((await forward(new Request("http://fixture.local/api/erp/fiscal/outgoing-imports?sortBy=number&sortBy=totalCents"), "/outgoing-imports")).status, 400);
+    assert.equal(calls.length, before);
+  } finally { globalThis.fetch = previous; }
 });
 
 test("commercial table forwards only a single destination and contributor filter", async () => {

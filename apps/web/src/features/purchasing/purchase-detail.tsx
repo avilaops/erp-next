@@ -4,7 +4,7 @@ import { decimalPattern } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/feedback/session-recovery"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useState, type FormEvent } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"

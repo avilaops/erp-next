@@ -128,3 +128,37 @@ body:has(.erp-workspace) {
 /* Records stay in rows on every viewport; overflow belongs to the list. */
 .workspace-list-scroll { position: relative; max-width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
 .workspace-list-scroll:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Shared record lists keep controls outside the table's horizontal scrolling. */
+.workspace-entity-list, .workspace-list-card, .workspace-list-toolbar { min-width: 0; max-width: 100%; }
+.workspace-list-card { border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.workspace-list-toolbar, .workspace-list-summary, .workspace-list-footer { padding: 16px; }
+.workspace-list-summary { padding-top: 0; color: var(--muted-foreground); font-size: 14px; }
+.workspace-list-footer .workspace-pagination { padding-block: 0; }
+.workspace-list-card > .workspace-list-scroll { border-inline: 0; border-radius: 0; }
+.workspace-list-card > .workspace-list-scroll:last-child { border-bottom: 0; border-radius: 0 0 12px 12px; }
+.workspace-search-toolbar { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: 12px; }
+.workspace-filter-field { display: flex; flex: 1 1 160px; min-width: 0; max-width: 100%; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; }
+.workspace-filter-field > :is(input, select) { width: 100%; min-width: 0; }
+.workspace-search-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workspace-responsive-table > table { min-width: 640px; }
+.workspace-sort-button { display: inline-flex; max-width: 100%; align-items: center; gap: 8px; border-radius: 4px; background: transparent; color: inherit; text-align: inherit; font: inherit; cursor: pointer; }
+.workspace-sort-button:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.workspace-sort-header.text-right .workspace-sort-button { justify-content: end; }
+.workspace-sort-arrow { display: inline-block; flex: 0 0 1em; width: 1em; text-align: center; }
+.workspace-currency-cell, .workspace-currency-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.workspace-currency-cell { text-align: right; }
+.workspace-status-badge { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--muted); color: var(--muted-foreground); font-size: 12px; line-height: 18px; }
+.workspace-status-badge[data-tone=success] { background: color-mix(in srgb, #15803d 12%, var(--card)); color: light-dark(#166534, #86efac); }
+.workspace-status-badge[data-tone=warning] { background: color-mix(in srgb, #ca8a04 12%, var(--card)); color: light-dark(#854d0e, #fde047); }
+.workspace-status-badge[data-tone=danger] { background: color-mix(in srgb, var(--destructive) 12%, var(--card)); color: var(--destructive); }
+.workspace-status-badge[data-tone=info] { background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
+.workspace-list-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 16px; text-align: center; }
+.workspace-list-empty-action { margin-top: 8px; }
+@media (max-width: 639px) {
+  .workspace-list-toolbar, .workspace-list-summary, .workspace-list-footer { padding: 12px; }
+  .workspace-list-summary { padding-top: 0; }
+  .workspace-search-toolbar { gap: 8px; }
+  .workspace-filter-field { flex-basis: 100%; }
+  .workspace-list-empty { padding: 24px 12px; }
+}

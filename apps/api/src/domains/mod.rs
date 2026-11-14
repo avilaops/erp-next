@@ -13,6 +13,7 @@ pub mod fixed_expenses;
 pub mod inventory;
 pub mod inventory_counts;
 pub mod legacy;
+pub mod list_sort;
 pub mod logistics;
 pub mod logistics_checkout;
 pub mod logistics_dispatch;

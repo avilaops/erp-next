@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SearchInput } from "@/components/search-input"
 import { DataTable } from "@/components/workspace/data-table"
+import { CurrencyCell, EmptyState, FilterField, ResponsiveTable, SearchToolbar, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { useNavigationGuard } from "@/components/shell/navigation-guard"
 import { normalizeDecimal } from "@/lib/decimal-input"
@@ -45,7 +48,17 @@ function Opening({ register, tenant, accounts, reload }: { register: string; ten
 
 function Checkout({ snapshot, initialDestination, accounts, reload }: { snapshot: Envelope<CashSession>; initialDestination: string; accounts: Account[]; reload: () => void }) {
   const session = snapshot.data
-  const [search, setSearch] = useState("")
+  const params = useSearchParams()
+  const router = useRouter()
+  const table = useTableSort(["name", "price"], { by: "name", order: "asc" }, "products")
+  const search = params.get("productSearch") || ""
+  const rawOffset = Number(params.get("productOffset") || 0)
+  const offset = Number.isSafeInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0
+  function updateProducts(values: { productSearch?: string; productOffset?: number }) {
+    const next = new URLSearchParams(window.location.search)
+    for (const [key, value] of Object.entries(values)) { if (value !== "" && value !== 0) next.set(key, String(value)); else next.delete(key) }
+    router.replace(`${window.location.pathname}${next.size ? `?${next}` : ""}${window.location.hash}`, { scroll: false })
+  }
   const [destination, setDestination] = useState(initialDestination)
   const [taxpayer, setTaxpayer] = useState("false")
   const [cart, setCart] = useState<CartItem[]>([])
@@ -56,8 +69,9 @@ function Checkout({ snapshot, initialDestination, accounts, reload }: { snapshot
   const [error, setError] = useState("")
   const [refreshingPrices, setRefreshingPrices] = useState(false)
   const command = useCommand()
-  const [offset, setOffset] = useState(0)
-  const page = useResource<Listing<Product>>(`/api/erp/pos/products?${new URLSearchParams({ search, destination, taxpayer, offset: String(offset), limit: "15" })}`)
+  const productParams = new URLSearchParams(table.query)
+  for (const [key, value] of Object.entries({ search, destination, taxpayer, offset: String(offset), limit: "15" })) productParams.set(key, value)
+  const page = useResource<Listing<Product>>(`/api/erp/pos/products?${productParams}`)
   const frozen = !snapshot.canEdit || session.status !== "open" || command.busy || command.uncertain || command.stale || refreshingPrices
   const total = cartCents(cart)
   const payValue = (payment: Payment) => payment.amount === null && payments.length === 1 ? decimal(total || 0) : payment.amount || ""
@@ -104,8 +118,10 @@ function Checkout({ snapshot, initialDestination, accounts, reload }: { snapshot
     {receipt && <div ref={receiptRef} tabIndex={-1} className="scroll-mt-20 outline-none" aria-label="Venda registrada"><SaleReceipt sale={receipt} register={session.register} onClose={() => setReceipt(null)} /></div>}
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,1fr)]">
       <div className="min-w-0 space-y-5"><section className="space-y-3" aria-label="Catálogo do PDV">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)]"><label className="grid min-w-0 gap-1.5 text-xs font-medium">Buscar produto<SearchInput disabled={frozen} onSearch={value => { setSearch(value); setOffset(0) }} placeholder="Nome ou código" /></label><label className="grid gap-1.5 text-xs font-medium">Destino<select className={controlClass} disabled={frozen || cart.length > 0} value={destination} onChange={e => setDestination(e.target.value)}><option value="">Selecione a UF</option>{states.map(state => <option key={state}>{state}</option>)}</select></label><label className="grid min-w-0 gap-1.5 text-xs font-medium">Cliente contribuinte<select className={controlClass} disabled={frozen || cart.length > 0} value={taxpayer} onChange={e => setTaxpayer(e.target.value)}><option value="false">Sem inscrição estadual</option><option value="true">Com inscrição estadual</option></select></label></div>
-        {!destination ? <p className="text-sm text-muted-foreground">Selecione a UF de destino para consultar os produtos e preços.</p> : page.loading ? <p role="status">Consultando produtos e preços…</p> : page.error || page.value?.tenantId !== snapshot.tenantId ? <Failure message={page.error || "Não foi possível conferir os produtos desta empresa"} retry={page.reload} /> : <><div className="max-w-full overflow-x-auto rounded-lg border"><DataTable aria-label="Produtos disponíveis no PDV"><thead><tr><th>Produto</th><th className="text-right">Preço</th><th><span className="sr-only">Adicionar</span></th></tr></thead><tbody>{page.value?.data.map(product => <tr key={product.id}><td><span className="font-medium">{product.name}</span><span className="block text-xs text-muted-foreground">{product.sku} · Disponível: {Number(product.available).toLocaleString("pt-BR")} {product.unit}</span>{!product.pricingAvailable && <span className="block text-xs text-destructive">{product.pricingError || "Preço indisponível"}</span>}</td><td className="whitespace-nowrap text-right tabular-nums">{product.pricingAvailable ? money(product.unitPrice) : "—"}</td><td><Button size="sm" variant="outline" disabled={frozen || !product.pricingAvailable || Number(product.available) <= 0} aria-label={`Adicionar ${product.name}`} onClick={() => add(product)}>Adicionar</Button></td></tr>)}</tbody></DataTable></div>{!page.value?.data.length && <p>Nenhum produto encontrado.</p>}<div className="flex items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={!offset} onClick={() => setOffset(value => Math.max(0, value - 15))}>Anterior</Button><span className="text-xs text-muted-foreground">{page.value?.total || 0} produto(s)</span><Button variant="outline" size="sm" disabled={offset + 15 >= (page.value?.total || 0)} onClick={() => setOffset(value => value + 15)}>Próxima</Button></div></>}
+        <SearchToolbar pending={frozen || page.loading} canClear={!!search} onClear={() => updateProducts({ productSearch: "", productOffset: 0 })} onSubmit={event => { event.preventDefault(); updateProducts({ productSearch: String(new FormData(event.currentTarget).get("productSearch") || "").trim(), productOffset: 0 }) }}>
+          <FilterField label="Buscar produto"><SearchInput name="productSearch" defaultValue={search} disabled={frozen} onSearch={value => updateProducts({ productSearch: value, productOffset: 0 })} placeholder="Nome ou código" /></FilterField><FilterField label="Destino"><select className={controlClass} disabled={frozen || cart.length > 0} value={destination} onChange={e => setDestination(e.target.value)}><option value="">Selecione a UF</option>{states.map(state => <option key={state}>{state}</option>)}</select></FilterField><FilterField label="Cliente contribuinte"><select className={controlClass} disabled={frozen || cart.length > 0} value={taxpayer} onChange={e => setTaxpayer(e.target.value)}><option value="false">Sem inscrição estadual</option><option value="true">Com inscrição estadual</option></select></FilterField>
+        </SearchToolbar>
+        {!destination ? <p className="text-sm text-muted-foreground">Selecione a UF de destino para consultar os produtos e preços.</p> : page.loading ? <p role="status">Consultando produtos e preços…</p> : page.error || page.value?.tenantId !== snapshot.tenantId ? <Failure message={page.error || "Não foi possível conferir os produtos desta empresa"} retry={page.reload} /> : <><ResponsiveTable label="Produtos disponíveis no PDV"><DataTable aria-label="Produtos disponíveis no PDV"><thead><tr><SortableTableHeader field="name" sort={table.sort} onSort={table.toggle}>Produto</SortableTableHeader><SortableTableHeader field="price" sort={table.sort} onSort={table.toggle}>Preço</SortableTableHeader><th scope="col"><span className="sr-only">Adicionar</span></th></tr></thead><tbody>{page.value?.data.map(product => <tr key={product.id}><td><span className="font-medium">{product.name}</span><span className="block text-xs text-muted-foreground">{product.sku} · Disponível: {Number(product.available).toLocaleString("pt-BR")} {product.unit}</span>{!product.pricingAvailable && <span className="block text-xs text-destructive">{product.pricingError || "Preço indisponível"}</span>}</td><CurrencyCell>{product.pricingAvailable ? money(product.unitPrice) : "—"}</CurrencyCell><td><Button size="sm" variant="outline" disabled={frozen || !product.pricingAvailable || Number(product.available) <= 0} aria-label={`Adicionar ${product.name}`} onClick={() => add(product)}>Adicionar</Button></td></tr>)}{!page.value?.data.length && <tr><td colSpan={3}><EmptyState filtered={!!search} title={search ? undefined : "Nenhum produto disponível"} description="Nenhum produto encontrado para este destino e esta pesquisa." /></td></tr>}</tbody></DataTable></ResponsiveTable><div className="flex items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={!offset} onClick={() => updateProducts({ productOffset: Math.max(0, offset - 15) })}>Anterior</Button><span className="text-xs text-muted-foreground">{page.value?.total || 0} produto(s)</span><Button variant="outline" size="sm" disabled={offset + 15 >= (page.value?.total || 0)} onClick={() => updateProducts({ productOffset: offset + 15 })}>Próxima</Button></div></>}
       </section>
       <section className="space-y-3" aria-label="Venda em andamento"><h2 className="font-semibold">Itens da venda</h2>{!cart.length ? <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">Adicione os produtos para iniciar a venda.</p> : <div className="max-w-full overflow-x-auto rounded-lg border"><DataTable aria-label="Itens da venda"><thead><tr><th>Produto</th><th>Quantidade</th><th className="text-right">Total</th><th><span className="sr-only">Remover</span></th></tr></thead><tbody>{cart.map(item => <tr key={item.id}><td className="min-w-36">{item.name}<span className="block text-xs text-muted-foreground">{item.sku} · {money(item.unitPrice)}</span></td><td><Input className="w-24" inputMode="decimal" aria-label={`Quantidade de ${item.name}`} disabled={frozen} value={item.quantity} onChange={e => { setCart(values => values.map(value => value.id === item.id ? { ...value, quantity: e.target.value } : value)); command.reset() }} /></td><td className="whitespace-nowrap text-right">{money(lineCents(item))}</td><td><Button size="sm" variant="ghost" disabled={frozen} aria-label={`Remover ${item.name}`} onClick={() => { setCart(values => values.filter(value => value.id !== item.id)); command.reset() }}>Remover</Button></td></tr>)}</tbody></DataTable></div>}</section>
       <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Identificar cliente (opcional)</summary><div className="pt-3"><Lookup endpoint="parties" label="cliente" searchOnly selectedName={customer?.legalName} choose={setCustomer} disabled={frozen} />{customer && <Button variant="ghost" onClick={() => setCustomer(null)}>Consumidor sem identificação</Button>}</div></details>

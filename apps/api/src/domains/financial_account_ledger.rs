@@ -179,6 +179,8 @@ pub async fn list(
     let (offset, limit) = sales::page(sales::OrderQuery {
         offset: query.offset,
         limit: query.limit,
+        sort_by: None,
+        sort_order: None,
     })?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,

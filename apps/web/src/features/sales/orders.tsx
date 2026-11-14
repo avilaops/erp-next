@@ -1,5 +1,7 @@
 "use client"
 import { Pagination } from "@/components/workspace/pagination"
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, CurrencyCell, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { DataTable } from "@/components/workspace/data-table"
 
 import { erpFetch } from "@/lib/api/client"
@@ -10,11 +12,10 @@ import { decimalPattern } from "@/lib/decimal-input"
 
 import { RequestError } from "@/components/feedback/session-recovery"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { PageHeader } from "@/components/page-header"
-import { PageTitle } from "@/components/workspace/page-title"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
@@ -33,6 +34,7 @@ import { OrderDetailCommercial } from "./order-detail-commercial"
 import { OrderEmail } from "./order-email"
 import type { CheckoutSnapshot } from "./commercial-payment-model"
 import { OrderWeightSummary } from "./order-weight-summary"
+import { listNavigationHref } from "@/lib/list-navigation"
 
 type Detail = Schema<"OrderSnapshot"> & { pricingOrigin?: boolean; checkout?: CheckoutSnapshot | null }
 type Listing = Schema<"OrderList">
@@ -137,47 +139,43 @@ export function Orders({ id, create = false, edit = false }: { id?: string; crea
 }
 
 function OrderList() {
-  const [search, setSearch] = useState("")
-  const [query, setQuery] = useState({ q: "", offset: 0 })
-  const params = new URLSearchParams({ offset: String(query.offset), limit: "25" })
-  if (query.q) params.set("q", query.q)
+  const router = useRouter()
+  const url = useSearchParams()
+  const offsetValue = Number(url.get("offset") || 0)
+  const offset = Number.isSafeInteger(offsetValue) && offsetValue >= 0 && offsetValue <= 100000 ? Math.floor(offsetValue / 25) * 25 : 0
+  const { sort, toggle, query: sortQuery } = useTableSort(["number", "customerName", "status", "dueDate", "amount"], { by: "", order: "asc" })
+  function navigate(patch: Record<string, string | number>) {
+    const next = new URLSearchParams(window.location.search)
+    for (const [key, value] of Object.entries(patch)) { if (String(value)) next.set(key, String(value)); else next.delete(key) }
+    router.push(`${window.location.pathname}?${next}${window.location.hash}`, { scroll: false })
+  }
+  const q = (url.get("q") || "").slice(0, 160)
+  const params = new URLSearchParams({ offset: String(offset), limit: "25" })
+  if (q) params.set("q", q)
+  for (const [key, value] of sortQuery) params.set(key, value)
   const result = useResource<Listing>(`/api/erp/orders?${params}`)
-  return <><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><PageTitle>Pedidos de venda</PageTitle><div className="flex flex-wrap gap-2">{result.value && <Link className={buttonVariants({ variant: "outline" })} href="/vendas/tabela-precos">Tabela de preços</Link>}{result.value?.canEdit && <>
-    <Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos/novo?modo=catalogo">Pedido pelo catálogo</Link>
-    <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>
-  </>}</div></div>
-    <section className="min-w-0 space-y-3" aria-label="Pedidos de venda">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <form className="flex min-w-0 flex-1 basis-full flex-wrap items-end gap-2 sm:basis-0" role="search" aria-label="Pesquisar pedidos" onSubmit={event => {
-          event.preventDefault()
-          const q = search.trim()
-          if (q === query.q && query.offset === 0) result.reload()
-          else setQuery({ q, offset: 0 })
-        }}>
-          <label className="grid min-w-0 flex-1 basis-full gap-2 sm:basis-0">Buscar pedidos<SearchInput onSearch={q => setQuery({ q: q.trim(), offset: 0 })} type="search" name="q" maxLength={160} placeholder="Número do pedido, cliente ou CPF/CNPJ" value={search} onChange={event => setSearch(event.target.value)} /></label>
-          <Button type="submit" disabled={result.loading}>Pesquisar</Button>
-          {(search || query.q) && <Button type="button" variant="outline" onClick={() => { setSearch(""); setQuery({ q: "", offset: 0 }) }}>Limpar</Button>}
-        </form>
-      </div>
+  const createAction = result.value?.canEdit && <Link className={buttonVariants()} href="/vendas/pedidos/novo">Novo pedido</Link>
+  return <EntityListPage title="Pedidos de venda" actions={<><Link className={buttonVariants({ variant: "outline" })} href="/vendas/tabela-precos">Tabela de preços</Link>{result.value?.canEdit && <Link className={buttonVariants({ variant: "outline" })} href="/vendas/pedidos/novo?modo=catalogo">Pedido pelo catálogo</Link>}{createAction}</>} toolbar={
+    <SearchToolbar pending={result.loading} canClear={Boolean(q)} onClear={() => navigate({ q: "", offset: 0 })} onSubmit={event => { event.preventDefault(); const nextQ = String(new FormData(event.currentTarget).get("q") || "").trim(); if (nextQ === q && !offset) result.reload(); else navigate({ q: nextQ, offset: 0 }) }}>
+      <FilterField label="Buscar pedidos"><SearchInput name="q" maxLength={160} defaultValue={q} onSearch={q => navigate({ q: q.trim(), offset: 0 })} placeholder="Número, cliente ou CPF/CNPJ" /></FilterField>
+    </SearchToolbar>
+  } summary={!result.loading && !result.error && (<p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){q && " encontrado(s)"}</p>)} footer={!result.loading && !result.error && (<Pagination offset={offset} pageSize={25} total={result.value?.total || 0} maxOffset={100000} onOffsetChange={offset => navigate({ offset })} />)}>
       {result.loading ? <p role="status">Carregando pedidos…</p> : result.error ? <div role="alert"><p><RequestError message={result.error} status={result.status} /></p><Button onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} pedido(s){query.q && " encontrado(s)"}</p>
-        {result.value?.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de pedidos" tabIndex={0}>
-          <DataTable className="table-fixed text-left text-sm sm:table-auto">
+        <ResponsiveTable label="Lista de pedidos">
+          <DataTable className="min-w-[52rem] text-left text-sm">
             <caption className="sr-only">Pedidos de venda</caption>
-            <thead className="bg-muted/50"><tr><th scope="col" className="hidden p-3 sm:table-cell">Pedido</th><th scope="col" className="w-[60%] p-2 sm:w-auto sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="hidden p-3 lg:table-cell">Vencimento</th><th scope="col" className="w-[40%] p-2 text-right sm:w-auto sm:p-3">Valor</th></tr></thead>
-            <tbody>{result.value.data.map(order => <tr className="border-t hover:bg-muted/30" key={order.id}>
-              <td className="hidden whitespace-nowrap p-3 sm:table-cell"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
-              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="hidden text-xs text-muted-foreground sm:block">{order.customerTaxId}</span><div className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground sm:hidden"><Link className="underline underline-offset-2" href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link><span>{labels[order.status] || order.status}</span></div><p className="mt-1 text-xs text-muted-foreground lg:hidden">Vence {order.dueDate ? order.dueDate.split("-").reverse().join("/") : "—"}</p></td>
-              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{labels[order.status] || order.status}</td>
-              <td className="hidden whitespace-nowrap p-3 lg:table-cell">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "Não informado"}</td>
-              <td className="whitespace-nowrap p-2 text-right align-top tabular-nums sm:p-3">{commercialMoney(order.amount)}</td>
-            </tr>)}</tbody>
+            <thead className="bg-muted/50"><tr><SortableTableHeader field="number" sort={sort} onSort={toggle} className="p-3">Pedido</SortableTableHeader><SortableTableHeader field="customerName" sort={sort} onSort={toggle} className="w-[60%] p-2 sm:w-auto sm:p-3">Cliente</SortableTableHeader><SortableTableHeader field="status" sort={sort} onSort={toggle} className="p-3">Situação</SortableTableHeader><SortableTableHeader field="dueDate" sort={sort} onSort={toggle} className="p-3">Vencimento</SortableTableHeader><SortableTableHeader field="amount" sort={sort} onSort={toggle} className="w-[40%] p-2 text-right sm:w-auto sm:p-3">Valor</SortableTableHeader></tr></thead>
+            <tbody>{result.value?.data.map(order => <tr className="border-t hover:bg-muted/30" key={order.id}>
+              <td className="whitespace-nowrap p-3"><Link className={linkClass} href={`/vendas/pedidos/${order.id}`}>{orderNumber(order.number)}</Link></td>
+              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere] sm:line-clamp-none`} title={order.customerName} href={`/vendas/pedidos/${order.id}`}>{order.customerName}</Link><span className="hidden text-xs text-muted-foreground sm:block">{order.customerTaxId}</span></td>
+              <td className="whitespace-nowrap p-3"><StatusBadge tone={order.status === "completed" ? "success" : order.status === "cancelled" ? "neutral" : "info"}>{labels[order.status] || order.status}</StatusBadge></td>
+              <td className="whitespace-nowrap p-3">{order.dueDate ? order.dueDate.split("-").reverse().join("/") : "Não informado"}</td>
+              <CurrencyCell className="p-3 align-top">{commercialMoney(order.amount)}</CurrencyCell>
+            </tr>)}{!result.value?.data.length && <tr><td colSpan={5}><EmptyState filtered={Boolean(q)} action={result.value?.canEdit && <Link href="/vendas/pedidos/novo">Criar pedido</Link>} /></td></tr>}</tbody>
           </DataTable>
-        </div> : <p>{query.q ? "Nenhum pedido encontrado para esta pesquisa." : "Nenhum pedido cadastrado."}</p>}
-        <Pagination offset={query.offset} pageSize={25} total={result.value?.total || 0} maxOffset={100000} onOffsetChange={offset => setQuery(value => ({ ...value, offset }))} />
+        </ResponsiveTable>
       </>}
-    </section>
-  </>
+  </EntityListPage>
 }
 
 function OrderEditor({ id }: { id?: string }) {
@@ -243,7 +241,7 @@ function OrderForm({ initial, etag, tenantId, reload }: { initial?: Detail; etag
           event.preventDefault(); setError("")
           if (!customer || !items.length || items.some(item => !quantity(item.quantity))) { setError("Selecione cliente e itens com quantidades decimais válidas."); return }
           const value = await command.send<Detail>(initial ? `/api/erp/orders/${initial.data.id}` : "/api/erp/orders", tenantId, { customerId: customer.id, dueDate, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), structureColor: item.structureColor, swingArmColor: item.swingArmColor || null, upholsteryColor: item.upholsteryColor, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
-          if (value) { setDirty(false); router.replace(`/vendas/pedidos/${value.data.id}`) }
+          if (value) { setDirty(false); router.replace(listNavigationHref(`/vendas/pedidos/${value.data.id}`, window.location.pathname, window.location.search.slice(1))) }
         }}>
           <fieldset disabled={frozen} className="min-w-0 space-y-2 sm:space-y-4">
             <label className="block min-w-0 space-y-2">Vencimento da conta a receber<Input type="date" required value={dueDate} onChange={event => { setDueDate(event.target.value); setDirty(true) }} /></label>

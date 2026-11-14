@@ -1,3 +1,4 @@
+use super::list_sort::SortField;
 use super::{
     DomainChange, DomainError, authorized, db, decimal,
     finance::{Payment, PaymentInput, ReversalInput},
@@ -127,11 +128,29 @@ pub async fn list_all(
     headers: HeaderMap,
     query: Result<Query<sales::OrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
-    let (offset, limit) = sales::page(
-        query
-            .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
-            .0,
+    let query = query
+        .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
+        .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("supplierName", "r.supplier_name"),
+            SortField::typed("dueDate", "r.due_date"),
+            SortField::typed("amount", "r.amount_cents"),
+            SortField::typed(
+                "outstandingAmount",
+                "CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.paid END",
+            ),
+            SortField::text(
+                "status",
+                "CASE WHEN r.status='cancelled' THEN 'Cancelado' WHEN r.status='paid' THEN 'Pagamento integral declarado' WHEN totals.paid=0 THEN 'Em aberto' ELSE 'Pagamento parcial declarado' END",
+            ),
+        ],
+        "r.due_date,r.id",
+        "r.id",
     )?;
+    let (offset, limit) = sales::page(query)?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -142,7 +161,7 @@ pub async fn list_all(
     )
     .await?;
     let data = sqlx::query_as::<_, UnifiedPayable>(&format!(
-        "{ACCOUNT_SELECT} WHERE r.tenant_id=$1 ORDER BY r.due_date,r.id LIMIT $2 OFFSET $3"
+        "{ACCOUNT_SELECT} WHERE r.tenant_id=$1 {ordering} LIMIT $2 OFFSET $3"
     ))
     .bind(tenant)
     .bind(i64::from(limit))
@@ -340,11 +359,29 @@ pub async fn list(
     headers: HeaderMap,
     query: Result<Query<sales::OrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
-    let (offset, limit) = sales::page(
-        query
-            .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
-            .0,
+    let query = query
+        .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
+        .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("supplierName", "r.supplier_name"),
+            SortField::typed("dueDate", "r.due_date"),
+            SortField::typed("amount", "r.amount_cents"),
+            SortField::typed(
+                "outstandingAmount",
+                "CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.paid END",
+            ),
+            SortField::text(
+                "status",
+                "CASE WHEN r.status='cancelled' THEN 'Cancelado' WHEN r.status='paid' THEN 'Pagamento integral declarado' WHEN totals.paid=0 THEN 'Em aberto' ELSE 'Pagamento parcial declarado' END",
+            ),
+        ],
+        "r.due_date,r.id",
+        "r.id",
     )?;
+    let (offset, limit) = sales::page(query)?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -355,7 +392,7 @@ pub async fn list(
     )
     .await?;
     let data = sqlx::query_as::<_, Payable>(&format!(
-        "{ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.receipt_id IS NOT NULL ORDER BY r.due_date,r.id LIMIT $2 OFFSET $3"
+        "{ACCOUNT_SELECT} WHERE r.tenant_id=$1 AND r.receipt_id IS NOT NULL {ordering} LIMIT $2 OFFSET $3"
     ))
     .bind(tenant)
     .bind(i64::from(limit))

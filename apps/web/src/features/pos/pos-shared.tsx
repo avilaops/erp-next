@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { DataTable } from "@/components/workspace/data-table"
 import { Button } from "@/components/ui/button"
 import { RequestError } from "@/components/feedback/session-recovery"

@@ -52,6 +52,7 @@ export async function forwardFiscal(request: Request, resource: string) {
     const query = new URL(request.url).searchParams
     for (const [key, value] of query) {
       const allowed = resource === "/nfe-events" ? ["kind", "cursor", "limit"] : cteCommercialRead && resource.endsWith("/commercial-options") ? ["kind", "offset", "limit"] : ["/received-nfes", "/outgoing-imports"].includes(resource) ? ["q", "from", "to", "offset", "limit"] : ["/nfe", "/issued-nfes"].includes(resource) ? ["cursor", "limit"] : resource === "/manifestations" ? ["offset", "limit", "accessKey"] : ["/distribution/documents", "/cte-distribution/documents", "/received-nfses", "/monitor"].includes(resource) ? ["offset", "limit"] : []
+      if (resource === "/outgoing-imports") allowed.push("sortBy", "sortOrder")
       if (!allowed.includes(key) || query.getAll(key).length !== 1) return failure("Filtro fiscal inválido", 400)
       upstream.searchParams.set(key, value)
     }

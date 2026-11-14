@@ -1,3 +1,4 @@
+use super::list_sort::SortField;
 use super::{
     DomainChange, DomainError, authorized, catalog, command_key, db, decimal, fixed, record,
     remember, replay, response, revision,
@@ -172,6 +173,11 @@ pub struct OrderSnapshot {
 pub struct OrderQuery {
     pub offset: Option<u32>,
     pub limit: Option<u32>,
+
+    #[serde(rename = "sortBy")]
+    pub sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: Option<String>,
 }
 #[derive(Default, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
@@ -181,6 +187,11 @@ pub struct SalesOrderQuery {
     pub limit: Option<u32>,
     /// Busca por nome do cliente, CPF/CNPJ ou identificação do pedido.
     pub q: Option<String>,
+
+    #[serde(rename = "sortBy")]
+    pub sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: Option<String>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -303,9 +314,27 @@ pub async fn list(
     query: Result<Query<SalesOrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
     let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros inválidos"))?;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::typed("number", "sales_orders.number"),
+            SortField::text("customerName", "customer_name"),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'draft' THEN 'Rascunho' WHEN 'confirmed' THEN 'Reservado' WHEN 'completed' THEN 'Concluído' WHEN 'cancelled' THEN 'Cancelado' ELSE status END",
+            ),
+            SortField::typed("dueDate", "sales_orders.due_date"),
+            SortField::typed("amount", "amount_cents"),
+        ],
+        "created_at DESC,id DESC",
+        "sales_orders.id",
+    )?;
     let (offset, limit) = page(OrderQuery {
         offset: query.offset,
         limit: query.limit,
+        sort_by: None,
+        sort_order: None,
     })?;
     let search = query.q.unwrap_or_default();
     let search = search.trim();
@@ -337,7 +366,7 @@ pub async fn list(
         .ok()
         .filter(|number| *number > 0);
     let filter = "WHERE tenant_id=$1 AND ($2='' OR strpos(lower(customer_name),lower($2))>0 OR strpos(id::text,lower($2))>0 OR ($3<>'' AND strpos(customer_tax_id,$3)>0) OR number=$4)";
-    let data=sqlx::query_as::<_,OrderSummary>(&format!("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders {filter} ORDER BY created_at DESC,id DESC LIMIT $5 OFFSET $6"))
+    let data=sqlx::query_as::<_,OrderSummary>(&format!("SELECT id,number::text AS number,customer_id,customer_name,customer_tax_id,due_date::text AS due_date,(amount_cents::numeric/100)::numeric(16,2)::text AS amount,status,revision FROM sales_orders {filter} {ordering} LIMIT $5 OFFSET $6"))
         .bind(tenant).bind(search).bind(&tax_id).bind(number).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar(&format!("SELECT count(*) FROM sales_orders {filter}"))
         .bind(tenant)

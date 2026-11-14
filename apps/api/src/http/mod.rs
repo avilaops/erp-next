@@ -5,6 +5,8 @@ mod assistant_tests;
 #[cfg(test)]
 mod audit_tests;
 #[cfg(test)]
+mod business_list_sort_tests;
+#[cfg(test)]
 mod certificate_tests;
 #[cfg(test)]
 mod commercial_table_tests;
@@ -54,6 +56,8 @@ mod label_templates_tests;
 #[cfg(test)]
 mod legacy_tests;
 #[cfg(test)]
+mod list_sort_tests;
+#[cfg(test)]
 mod mcp_tests;
 #[cfg(test)]
 mod monitor_tests;
@@ -74,6 +78,8 @@ mod parties_tests;
 mod pos_tests;
 #[cfg(test)]
 mod preferences_tests;
+#[cfg(test)]
+mod price_lists_sort_tests;
 #[cfg(test)]
 mod price_lists_tests;
 #[cfg(test)]
@@ -532,7 +538,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/pos/sessions", get(pos::sessions).post(pos::open))
         .route("/api/v1/pos/sessions/current", get(pos::current))
         .route("/api/v1/pos/sessions/{id}", get(pos::get_session))
-        .route("/api/v1/pos/sessions/{id}/movements", post(pos::movement))
+        .route(
+            "/api/v1/pos/sessions/{id}/movements",
+            get(pos::movements).post(pos::movement),
+        )
         .route("/api/v1/pos/sessions/{id}/sales", post(pos::checkout))
         .route("/api/v1/pos/sessions/{id}/close", post(pos::close))
         .route("/api/v1/pos/sales", get(pos::sales_list))

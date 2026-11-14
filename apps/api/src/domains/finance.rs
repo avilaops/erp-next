@@ -1,3 +1,4 @@
+use super::list_sort::SortField;
 pub mod settings;
 
 use super::{DomainChange, DomainError, authorized, db, decimal, fixed, record, response, sales};
@@ -44,6 +45,7 @@ pub(super) async fn originate_order_receivable(
 pub struct Receivable {
     id: Uuid,
     order_id: Uuid,
+    order_number: Option<String>,
     customer_name: String,
     due_date: String,
     amount: String,
@@ -63,7 +65,7 @@ pub struct Receivable {
 }
 
 // Totals come from the append-only ledger, not a second mutable balance.
-const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id,r.order_installment_id,i.number AS installment_number,i.kind AS installment_kind,i.payment_method_id AS planned_payment_method_id FROM receivables r LEFT JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
+const ACCOUNT_SELECT: &str = "SELECT r.id,r.order_id,(SELECT o.number::text FROM sales_orders o WHERE o.tenant_id=r.tenant_id AND o.id=r.order_id) AS order_number,r.customer_name,r.due_date::text AS due_date,(r.amount_cents::numeric/100)::numeric(16,2)::text AS amount,(totals.received::numeric/100)::numeric(16,2)::text AS received_amount,((CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END)::numeric/100)::numeric(16,2)::text AS outstanding_amount,r.status,r.revision,r.payment_id,r.order_installment_id,i.number AS installment_number,i.kind AS installment_kind,i.payment_method_id AS planned_payment_method_id FROM receivables r LEFT JOIN sales_order_installments i ON i.tenant_id=r.tenant_id AND i.id=r.order_installment_id CROSS JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN p.kind='receipt' THEN p.amount_cents ELSE -p.amount_cents END),0)::bigint AS received FROM receivable_payments p WHERE p.tenant_id=r.tenant_id AND p.receivable_id=r.id) totals";
 #[derive(Clone, FromRow, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Payment {
@@ -148,11 +150,33 @@ pub async fn list(
     headers: HeaderMap,
     query: Result<Query<sales::OrderQuery>, QueryRejection>,
 ) -> Result<Response, DomainError> {
-    let (offset, limit) = sales::page(
-        query
-            .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
-            .0,
+    let query = query
+        .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
+        .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("customerName", "r.customer_name"),
+            SortField::typed("dueDate", "r.due_date"),
+            SortField::typed("amount", "r.amount_cents"),
+            SortField::typed(
+                "outstandingAmount",
+                "CASE WHEN r.status='cancelled' THEN 0 ELSE r.amount_cents-totals.received END",
+            ),
+            SortField::text(
+                "status",
+                "CASE WHEN r.status='cancelled' THEN 'Cancelado' WHEN r.status='paid' THEN 'Recebimento declarado' WHEN totals.received=0 THEN 'Em aberto' ELSE 'Recebimento parcial declarado' END",
+            ),
+            SortField::typed(
+                "orderNumber",
+                "(SELECT o.number FROM sales_orders o WHERE o.tenant_id=r.tenant_id AND o.id=r.order_id)",
+            ),
+        ],
+        "r.due_date,r.id",
+        "r.id",
     )?;
+    let (offset, limit) = sales::page(query)?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -162,9 +186,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let query = format!(
-        "{ACCOUNT_SELECT} WHERE r.tenant_id=$1 ORDER BY r.due_date,r.id LIMIT $2 OFFSET $3"
-    );
+    let query = format!("{ACCOUNT_SELECT} WHERE r.tenant_id=$1 {ordering} LIMIT $2 OFFSET $3");
     let data = sqlx::query_as::<_, Receivable>(&query)
         .bind(tenant)
         .bind(i64::from(limit))

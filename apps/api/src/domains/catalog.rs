@@ -1,3 +1,4 @@
+use super::list_sort::{SortField, order_by};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, decimal, fixed, record, remember,
     replay, response, revision,
@@ -326,6 +327,10 @@ pub struct ProductList {
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct ProductQuery {
+    #[serde(rename = "sortBy")]
+    pub sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    pub sort_order: Option<String>,
     pub category_id: Option<Uuid>,
     pub q: Option<String>,
     pub status: Option<String>,
@@ -412,6 +417,22 @@ pub async fn list(
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
     let (q, offset, limit) = page(&query)?;
+    let sort = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("name", "name"),
+            SortField::text("sku", "sku"),
+            SortField::text("unit", "unit"),
+            SortField::typed("price", "price_cents"),
+            SortField::text(
+                "status",
+                "CASE status WHEN 'active' THEN 'Ativo' ELSE 'Arquivado' END",
+            ),
+        ],
+        "name,id",
+        "id",
+    )?;
     let (tenant, mut tx, can_edit) = authorized(
         &state,
         &headers,
@@ -421,7 +442,7 @@ pub async fn list(
         false,
     )
     .await?;
-    let rows=sqlx::query_as::<_,ProductRow>("SELECT (SELECT main_media_id FROM product_catalog_profiles WHERE tenant_id=products.tenant_id AND product_id=products.id) AS main_media_id,COALESCE((SELECT (data->>'upholsteryConfigurable')::boolean FROM registration_settings WHERE tenant_id=products.tenant_id AND section='products'),true) AS upholstery_configurable,id,sku,name,unit,ncm,cest,price_cents,status,revision,category_id,structure_colors,swing_arm_colors,finishing_palette,upholstery_colors,plate_holder_colors,plate_holder_types,plate_holder_type,NULL::text AS photo_data_url,(COALESCE(photo_data_url,'')<>'' OR EXISTS(SELECT 1 FROM product_catalog_profiles WHERE tenant_id=products.tenant_id AND product_id=products.id AND main_media_id IS NOT NULL)) AS has_photo FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) AND ($6::uuid IS NULL OR category_id=$6) ORDER BY name,id LIMIT $4 OFFSET $5")
+    let rows=sqlx::query_as::<_,ProductRow>(&format!("SELECT (SELECT main_media_id FROM product_catalog_profiles WHERE tenant_id=products.tenant_id AND product_id=products.id) AS main_media_id,COALESCE((SELECT (data->>'upholsteryConfigurable')::boolean FROM registration_settings WHERE tenant_id=products.tenant_id AND section='products'),true) AS upholstery_configurable,id,sku,name,unit,ncm,cest,price_cents,status,revision,category_id,structure_colors,swing_arm_colors,finishing_palette,upholstery_colors,plate_holder_colors,plate_holder_types,plate_holder_type,NULL::text AS photo_data_url,(COALESCE(photo_data_url,'')<>'' OR EXISTS(SELECT 1 FROM product_catalog_profiles WHERE tenant_id=products.tenant_id AND product_id=products.id AND main_media_id IS NOT NULL)) AS has_photo FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) AND ($6::uuid IS NULL OR category_id=$6) {sort} LIMIT $4 OFFSET $5"))
         .bind(tenant).bind(&query.status).bind(&q).bind(i64::from(limit)).bind(i64::from(offset)).bind(query.category_id).fetch_all(&mut *tx).await.map_err(db)?;
     let (_, settings) = super::registration_settings::load(&mut tx, tenant, "products").await?;
     let total=sqlx::query_scalar("SELECT count(*) FROM products WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(sku),lower($3))>0) AND ($4::uuid IS NULL OR category_id=$4)")

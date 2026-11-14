@@ -54,6 +54,8 @@ export async function forwardErp(request: Request, resource: string) {
   const invitationResource = /^\/invitations(?:\/[a-f0-9-]{36}\/(?:resend|revoke))?$/i.test(resource)
   const referenceCollection = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods|warehouses|product-groups|tag-groups|tags)$/i.test(resource)
   const referenceResource = /^\/(?:product-categories|financial-categories|financial-accounts|payment-methods|warehouses|product-groups|tag-groups|tags)(?:\/[a-f0-9-]{36})?$/i.test(resource)
+  const posMovements = /^\/pos\/sessions\/[a-f0-9-]{36}\/movements$/i.test(resource)
+  const sortableCollection = request.method === "GET" && (referenceCollection || posMovements || ["/products", "/parties", "/staff", "/orders", "/proposals", "/opportunities", "/receivables", "/financial-payables", "/payables", "/purchase-orders", "/stock", "/price-lists", "/pos/products", "/pos/sessions", "/pos/sales"].includes(resource))
   const financialAccountEntriesResource = resource === "/financial-account-entries" && ["GET", "POST"].includes(request.method)
   const financialAccountTransfersResource = resource === "/financial-account-transfers" && request.method === "POST"
   const inventoryCountResource = request.method === "GET" && /^\/inventory-counts(?:\/[a-f0-9-]{36})?$/.test(resource)
@@ -61,7 +63,7 @@ export async function forwardErp(request: Request, resource: string) {
   const serviceKeyResource = /^\/integrations\/service-keys(?:\/[a-f0-9-]{36})?$/i.test(resource)
   const productCatalogResource = /^\/products\/[a-f0-9-]{36}\/catalog$/i.test(resource) && ["GET", "PUT"].includes(request.method)
   const documentEmailResource = /^\/(?:orders|proposals)\/[a-f0-9-]{36}\/email$/i.test(resource)
-  const posReadResource = /^\/pos\/(?:products|sessions(?:\/current|\/[a-f0-9-]{36})?|sales(?:\/[a-f0-9-]{36})?)$/i.test(resource)
+  const posReadResource = posMovements || /^\/pos\/(?:products|sessions(?:\/current|\/[a-f0-9-]{36})?|sales(?:\/[a-f0-9-]{36})?)$/i.test(resource)
   const posWriteResource = /^\/pos\/(?:sessions(?:\/[a-f0-9-]{36}\/(?:movements|sales|close))?|sales\/[a-f0-9-]{36}\/cancel)$/i.test(resource)
   const posResource = resource.startsWith("/pos/")
   if (posResource && !(request.method === "GET" && posReadResource || request.method === "POST" && posWriteResource)) return Response.json({ title: "Operação de caixa inválida" }, { status: 405 })
@@ -111,6 +113,7 @@ export async function forwardErp(request: Request, resource: string) {
     if (opportunityResource) {
       const query = new URL(request.url).searchParams
       const allowed = request.method === "GET" && resource === "/opportunities" ? ["q", "stage", "offset", "limit"] : []
+      if (sortableCollection) allowed.push("sortBy", "sortOrder")
       for (const [key,value] of query) {
         if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key,value)
@@ -142,6 +145,7 @@ export async function forwardErp(request: Request, resource: string) {
     if (proposalResource) {
       const query = new URL(request.url).searchParams
       const allowed = request.method !== "GET" ? [] : proposalCollection ? ["q", "status", "offset", "limit"] : proposalDetail ? ["version"] : []
+      if (sortableCollection) allowed.push("sortBy", "sortOrder")
       for (const [key, value] of query) {
         if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key, value)
@@ -176,10 +180,11 @@ export async function forwardErp(request: Request, resource: string) {
         upstream.searchParams.set(key, value)
       }
     }
-    if (dashboardResource || auditResource || resource === "/system/files" || referenceCollection || purchaseResource || financialAccountEntriesResource || inventoryCountResource && (resource === "/inventory-counts") || ["/staff", "/products", "/products/export", "/stock", "/stock/movements", "/parties", "/orders", "/receivables"].includes(resource)) {
+    if (dashboardResource || auditResource || resource === "/system/files" || referenceCollection || purchaseResource || financialAccountEntriesResource || inventoryCountResource && (resource === "/inventory-counts") || ["/staff", "/products", "/products/export", "/stock", "/stock/movements", "/parties", "/orders", "/receivables", "/price-lists"].includes(resource)) {
       const query = new URL(request.url).searchParams
       const allowed = dashboardResource ? ["period"] : auditResource ? ["q", "action", "entity", "startDate", "endDate", "before"] : resource === "/system/files" ? ["q", "origin", "status", "offset", "limit"] : purchaseResource ? purchaseCollection ? ["offset", "limit"] : [] : financialAccountEntriesResource ? ["accountId", "offset", "limit"] : inventoryCountResource ? ["offset", "limit"] : resource === "/stock/movements" ? ["productId", "offset", "limit"] : resource === "/products/export" ? ["q", "status"] : ["/parties", "/staff"].includes(resource) ? ["q", "status", "role", "offset", "limit"] : resource === "/orders" ? ["q", "offset", "limit"] : resource === "/receivables" ? ["offset", "limit"] : ["q", "status", "offset", "limit"]
       if (resource === "/products") allowed.push("category_id")
+      if (sortableCollection) allowed.push("sortBy", "sortOrder")
       for (const [key, value] of query) {
         if (!allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key, value)
@@ -187,7 +192,8 @@ export async function forwardErp(request: Request, resource: string) {
     }
     if (posResource || documentEmailResource) {
       const query = new URL(request.url).searchParams
-      const allowed = resource === "/pos/products" ? ["search", "destination", "taxpayer", "offset", "limit"] : resource === "/pos/sessions/current" ? ["register"] : resource === "/pos/sessions" ? ["status", "register", "startDate", "endDate", "offset", "limit"] : resource === "/pos/sales" ? ["sessionId", "status", "offset", "limit"] : []
+      const allowed = resource === "/pos/products" ? ["search", "destination", "taxpayer", "offset", "limit"] : resource === "/pos/sessions/current" ? ["register"] : resource === "/pos/sessions" ? ["status", "register", "startDate", "endDate", "offset", "limit"] : resource === "/pos/sales" ? ["sessionId", "status", "offset", "limit"] : posMovements ? ["offset", "limit"] : []
+      if (sortableCollection) allowed.push("sortBy", "sortOrder")
       for (const [key, value] of query) {
         if (request.method !== "GET" || !allowed.includes(key) || query.getAll(key).length !== 1) return Response.json({ title: "Filtro inválido" }, { status: 400 })
         upstream.searchParams.set(key, value)

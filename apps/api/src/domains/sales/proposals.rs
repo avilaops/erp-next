@@ -1,3 +1,4 @@
+use crate::domains::list_sort::SortField;
 #[path = "proposal_email.rs"]
 pub mod email;
 
@@ -153,6 +154,11 @@ pub struct ProposalQuery {
     limit: Option<u32>,
     q: Option<String>,
     status: Option<String>,
+
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
 }
 
 const SUMMARY: &str = "SELECT p.id,p.number::text AS number,v.version,p.revision,v.customer_id,v.customer_name,v.customer_tax_id,v.valid_until::text AS valid_until,v.payment_terms,v.delivery_terms,v.notes,(v.amount_cents::numeric/100)::numeric(16,2)::text AS amount,v.status,(v.status='sent' AND v.valid_until < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date) AS expired,p.order_id,(v.version=p.current_version) AS is_current,v.created_at::text AS created_at,v.sent_at::text AS sent_at,v.decided_at::text AS decided_at,v.decided_by,v.decision_reason FROM sales_proposals p JOIN sales_proposal_versions v ON v.tenant_id=p.tenant_id AND v.proposal_id=p.id";
@@ -212,9 +218,27 @@ pub async fn list(
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros inválidos"))?;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("customerName", "v.customer_name"),
+            SortField::text(
+                "status",
+                "CASE WHEN v.status='sent' AND v.valid_until < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::date THEN 'Expirada' ELSE CASE v.status WHEN 'draft' THEN 'Rascunho' WHEN 'sent' THEN 'Enviada' WHEN 'accepted' THEN 'Aceita' WHEN 'rejected' THEN 'Rejeitada' WHEN 'cancelled' THEN 'Cancelada' WHEN 'superseded' THEN 'Substituída' ELSE v.status END END",
+            ),
+            SortField::typed("version", "v.version"),
+            SortField::typed("validUntil", "v.valid_until"),
+            SortField::typed("amount", "v.amount_cents"),
+        ],
+        "p.created_at DESC,p.id DESC",
+        "p.id",
+    )?;
     let (offset, limit) = super::page(super::OrderQuery {
         offset: query.offset,
         limit: query.limit,
+        sort_by: None,
+        sort_order: None,
     })?;
     let search = rules::text(query.q.as_deref().unwrap_or(""), 160, false)?;
     let status = query.status.unwrap_or_default();
@@ -242,7 +266,7 @@ pub async fn list(
     .await
     .map_err(db)?;
     let data = sqlx::query_as::<_, ProposalSummary>(&format!(
-        "{SUMMARY}{filter} ORDER BY p.created_at DESC,p.id DESC LIMIT $4 OFFSET $5"
+        "{SUMMARY}{filter} {ordering} LIMIT $4 OFFSET $5"
     ))
     .bind(tenant)
     .bind(search)

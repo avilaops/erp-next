@@ -1,10 +1,12 @@
 "use client"
 
 import { Pagination } from "@/components/workspace/pagination"
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, CurrencyCell, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { DataTable } from "@/components/workspace/data-table"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useState, type ComponentProps } from "react"
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { PageHeader } from "@/components/page-header"
@@ -22,6 +24,7 @@ import { ProposalDocument, type ProposalIssuer } from "./proposal-document"
 import { ProposalEmail } from "./proposal-email"
 import { catalogPaletteFor } from "@/features/catalog/catalog-color-photo-model"
 import { CatalogPaletteReference } from "@/features/catalog/catalog-color-photos"
+import { listNavigationHref } from "@/lib/list-navigation"
 import "./proposals-print.css"
 
 type Detail = Schema<"ProposalSnapshot">
@@ -45,41 +48,46 @@ export function Proposals({ id, create = false, edit = false }: { id?: string; c
 }
 
 function ProposalList() {
-  const statusId = useId()
-  const [query, setQuery] = useState({ q: "", status: "", offset: 0 })
-  const params = new URLSearchParams({ q: query.q, status: query.status, offset: String(query.offset), limit: "25" })
+  const router = useRouter()
+  const url = useSearchParams()
+  const offsetValue = Number(url.get("offset") || 0)
+  const offset = Number.isSafeInteger(offsetValue) && offsetValue >= 0 && offsetValue <= 100000 ? Math.floor(offsetValue / 25) * 25 : 0
+  const { sort, toggle, query: sortQuery } = useTableSort(["customerName", "status", "version", "validUntil", "amount"], { by: "", order: "asc" })
+  function navigate(patch: Record<string, string | number>) {
+    const next = new URLSearchParams(window.location.search)
+    for (const [key, value] of Object.entries(patch)) { if (String(value)) next.set(key, String(value)); else next.delete(key) }
+    router.push(`${window.location.pathname}?${next}${window.location.hash}`, { scroll: false })
+  }
+  const q = (url.get("q") || "").slice(0, 160)
+  const status = url.get("status") !== "superseded" && Object.hasOwn(labels, url.get("status") || "") ? url.get("status") || "" : ""
+  const params = new URLSearchParams({ q, offset: String(offset), limit: "25", status })
+  for (const [key, value] of sortQuery) params.set(key, value)
   const result = useResource<Listing>(`/api/erp/proposals?${params}`)
-  return <>
-    <div className="mb-4 flex flex-wrap justify-end gap-3">
-      {result.value?.canEdit && <Link className={buttonVariants({ size: "sm" })} href="/vendas/propostas/novo">Nova proposta</Link>}
-    </div>
-    <section className="min-w-0 space-y-3 text-sm" aria-label="Propostas comerciais">
-      <form role="search" aria-label="Pesquisar propostas" className="grid min-w-0 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); setQuery({ q: String(data.get("q") || ""), status: String(data.get("status") || ""), offset: 0 }) }}>
-        <label className="grid min-w-0 gap-1.5 text-xs font-medium">Cliente ou número<SearchInput className="h-9 text-sm" onSearch={(q, form) => setQuery({ q, status: form ? String(new FormData(form).get("status") || "") : query.status, offset: 0 })} name="q" maxLength={160} /></label>
-        <label className="grid min-w-0 gap-1.5 text-xs font-medium" htmlFor={statusId}>Situação<select id={statusId} aria-label="Situação" name="status" className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm font-normal"><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <Button type="submit" className="h-9">Pesquisar propostas</Button>
-      </form>
+  const createAction = result.value?.canEdit && <Link className={buttonVariants()} href="/vendas/propostas/novo">Nova proposta</Link>
+  return <EntityListPage title="Propostas" actions={<>{createAction}</>} toolbar={
+    <SearchToolbar pending={result.loading} canClear={Boolean(q || status)} onClear={() => navigate({ q: "", status: "", offset: 0 })} onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); const nextQ = String(form.get("q") || "").trim(), nextStatus = String(form.get("status") || ""); if (nextQ === q && nextStatus === status && !offset) result.reload(); else navigate({ q: nextQ, status: nextStatus, offset: 0 }) }}>
+      <FilterField label="Cliente ou número"><SearchInput name="q" maxLength={160} defaultValue={q} onSearch={(q, form) => navigate({ q, status: form ? String(new FormData(form).get("status") || "") : status, offset: 0 })} placeholder="Número, cliente ou CPF/CNPJ" /></FilterField>
+      <FilterField label="Situação"><select key={status} name="status" defaultValue={status} className="h-9 rounded-lg border bg-background px-3" onChange={event => navigate({ q: event.currentTarget.form ? String(new FormData(event.currentTarget.form).get("q") || "").trim() : q, status: event.target.value, offset: 0 })}><option value="">Todas</option>{Object.entries(labels).filter(([key]) => key !== "superseded").map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></FilterField>
+    </SearchToolbar>
+  } summary={!result.loading && !result.error && (<p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} proposta(s)</p>)} footer={!result.loading && !result.error && (<Pagination offset={offset} pageSize={25} total={result.value?.total || 0} onOffsetChange={offset => navigate({ offset })} />)}>
       {result.loading ? <p role="status">Carregando propostas…</p> : result.error ? <div role="alert"><RequestError message={result.error} status={result.status} /><Button variant="outline" size="sm" onClick={result.reload}>Tentar novamente</Button></div> : <>
-        <p role="status" className="text-sm text-muted-foreground">{result.value?.total || 0} proposta(s)</p>
-        {result.value?.data.length ? <div className="max-w-full rounded-lg border" role="region" aria-label="Lista de propostas" tabIndex={0}>
-          <DataTable className="table-fixed sm:table-auto">
+        <ResponsiveTable label="Lista de propostas">
+          <DataTable className="min-w-[48rem]">
             <caption className="sr-only">Propostas comerciais</caption>
             <thead className="bg-muted/50"><tr>
-              <th scope="col" className="p-2 sm:p-3">Cliente</th><th scope="col" className="hidden p-3 sm:table-cell">Situação</th><th scope="col" className="hidden p-3 text-right sm:table-cell">Versão</th><th scope="col" className="hidden p-3 sm:table-cell">Validade</th><th scope="col" className="w-32 p-2 text-right sm:w-auto sm:p-3">Valor</th>
+              <SortableTableHeader field="customerName" sort={sort} onSort={toggle} className="p-2 sm:p-3">Cliente</SortableTableHeader><SortableTableHeader field="status" sort={sort} onSort={toggle} className="p-3">Situação</SortableTableHeader><SortableTableHeader field="version" sort={sort} onSort={toggle} className="p-3 text-right">Versão</SortableTableHeader><SortableTableHeader field="validUntil" sort={sort} onSort={toggle} className="p-3">Validade</SortableTableHeader><SortableTableHeader field="amount" sort={sort} onSort={toggle} className="w-32 p-2 text-right sm:w-auto sm:p-3">Valor</SortableTableHeader>
             </tr></thead>
-            <tbody>{result.value.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
-              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere]`} title={item.customerName} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link><div className="mt-1 space-y-0.5 text-xs text-muted-foreground sm:hidden"><p className="flex flex-wrap gap-x-2"><span>{labels[item.expired ? "expired" : item.status] || item.status}</span><span>v{item.version}</span></p><p>Validade: <span>{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informada"}</span></p></div></td>
-              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{labels[item.expired ? "expired" : item.status] || item.status}</td>
-              <td className="hidden whitespace-nowrap p-3 text-right tabular-nums sm:table-cell">{item.version}</td>
-              <td className="hidden whitespace-nowrap p-3 sm:table-cell">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
-              <td className="p-2 text-right align-top tabular-nums [overflow-wrap:anywhere] sm:whitespace-nowrap sm:p-3">{money(item.amount)}</td>
-            </tr>)}</tbody>
+            <tbody>{result.value?.data.map(item => <tr className="border-t hover:bg-muted/30" key={item.id}>
+              <td className="min-w-0 p-2 align-top sm:p-3"><Link className={`${linkClass} line-clamp-2 break-words [overflow-wrap:anywhere]`} title={item.customerName} href={`/vendas/propostas/${item.id}`}>{item.customerName}</Link></td>
+              <td className="whitespace-nowrap p-3"><StatusBadge tone={item.expired ? "warning" : item.status === "accepted" ? "success" : "neutral"}>{labels[item.expired ? "expired" : item.status] || item.status}</StatusBadge></td>
+              <td className="whitespace-nowrap p-3 text-right tabular-nums">{item.version}</td>
+              <td className="whitespace-nowrap p-3">{item.validUntil ? item.validUntil.split("-").reverse().join("/") : "Não informado"}</td>
+              <CurrencyCell className="p-3 align-top">{money(item.amount)}</CurrencyCell>
+            </tr>)}{!result.value?.data.length && <tr><td colSpan={5}><EmptyState filtered={Boolean(q || status)} action={result.value?.canEdit && <Link href="/vendas/propostas/novo">Criar proposta</Link>} /></td></tr>}</tbody>
           </DataTable>
-        </div> : <p>Nenhuma proposta encontrada para estes filtros.</p>}
-        <Pagination offset={query.offset} pageSize={25} total={result.value?.total || 0} onOffsetChange={offset => setQuery(value => ({ ...value, offset }))} />
+        </ResponsiveTable>
       </>}
-    </section>
-  </>
+  </EntityListPage>
 }
 
 function ProposalEditor({ id }: { id?: string }) {
@@ -128,7 +136,7 @@ function ProposalForm({ initial, tenantId, etag, reload }: { initial?: Detail; t
         event.preventDefault(); setError("")
         if (!customer || !items.length || items.some(item => !quantity(item.quantity) || !normalizeCommercialMoney(item.basePrice || ""))) { setError("Selecione cliente e itens com quantidades e preços válidos."); return }
         const value = await command.send<Detail>(initial ? `/api/erp/proposals/${initial.data.id}` : "/api/erp/proposals", tenantId, { customerId: customer.id, validUntil, paymentTerms, deliveryTerms, notes, items: items.map(item => ({ productId: item.id, quantity: quantity(item.quantity), unitPrice: normalizeCommercialMoney(item.basePrice || ""), structureColor: item.structureColor || null, swingArmColor: item.swingArmColor || null, upholsteryColor: item.upholsteryColor || null, plateHolderColor: null, plateHolderType: item.plateHolderType || null })) }, initial ? etag : "", initial ? "PUT" : "POST")
-        if (value) { setDirty(false); router.replace(`/vendas/propostas/${value.data.id}`) }
+        if (value) { setDirty(false); router.replace(listNavigationHref(`/vendas/propostas/${value.data.id}`, window.location.pathname, window.location.search.slice(1))) }
       }}>
         <fieldset disabled={frozen} className="min-w-0 space-y-2" onChange={() => setDirty(true)}>
           <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Produtos</h2><span className="text-xs text-muted-foreground">{items.length} item(ns)</span></div>

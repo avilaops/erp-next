@@ -1,13 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DataTable } from "@/components/workspace/data-table"
+import { CurrencyCell, EmptyState, ResponsiveTable, SortableTableHeader, StatusBadge } from "@/components/workspace/list-layout"
+import { Pagination } from "@/components/workspace/pagination"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { useCommand, useResource } from "@/hooks/use-operation"
 import { AccountSelect, CashNav, Failure, SessionSummary } from "./pos-shared"
-import { amount, cents, money, when, type Account, type CashSession, type Envelope, type Listing } from "./pos-model"
+import { amount, cents, money, when, type Account, type CashSession, type Envelope, type Listing, type Movement } from "./pos-model"
 import { SessionSales } from "./cash-history"
 
 export function CashClosing() {
@@ -19,6 +22,19 @@ export function CashClosing() {
 function ClosingEditor({ snapshot, reload }: { snapshot: Envelope<CashSession>; reload: () => void }) {
   const [closed, setClosed] = useState<CashSession | null>(null)
   const session = closed || snapshot.data
+  const params = useSearchParams()
+  const router = useRouter()
+  const table = useTableSort(["createdAt", "type", "amount"], { by: "createdAt", order: "desc" }, "movements")
+  const rawOffset = Number(params.get("movementsOffset") || 0)
+  const offset = Number.isSafeInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0
+  const movementParams = new URLSearchParams(table.query)
+  movementParams.set("offset", String(offset)); movementParams.set("limit", "50")
+  const movements = useResource<Listing<Movement>>(`/api/erp/pos/sessions/${encodeURIComponent(session.id)}/movements?${movementParams}`)
+  function movementOffset(nextOffset: number) {
+    const next = new URLSearchParams(window.location.search)
+    if (nextOffset) next.set("movementsOffset", String(nextOffset)); else next.delete("movementsOffset")
+    router.push(`${window.location.pathname}${next.size ? `?${next}` : ""}${window.location.hash}`, { scroll: false })
+  }
   const [counted, setCounted] = useState("")
   const [reason, setReason] = useState("")
   const rights = useResource<{ permissions: string[] }>("/api/erp/me")
@@ -31,7 +47,7 @@ function ClosingEditor({ snapshot, reload }: { snapshot: Envelope<CashSession>; 
     <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-3"><div><h2 className="font-semibold">Caixa {session.register}</h2><p className="mt-1 text-xs text-muted-foreground">Aberto em {when(session.openedAt)}{session.closedAt && ` · Fechado em ${when(session.closedAt)}`}</p></div><span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">{session.status === "closed" ? "Caixa fechado" : "Caixa aberto"}</span></div>
     <SessionSummary session={session} />
     {session.status === "open" && <>
-      {snapshot.canEdit && <CashMovement session={session} tenant={snapshot.tenantId} reload={reload} />}
+      {snapshot.canEdit && <CashMovement session={session} tenant={snapshot.tenantId} reload={() => { reload(); movements.reload() }} />}
       <form className="max-w-xl space-y-4 rounded-lg border bg-muted/20 p-4" onSubmit={async e => { e.preventDefault(); const value = amount(counted); if (!value || difference !== 0 && reason.trim().length < 3) return; const result = await command.send<Envelope<CashSession>>(`/api/erp/pos/sessions/${session.id}/close`, snapshot.tenantId, { countedCash: value, reason: reason.trim() || null }, `"${session.revision}"`); if (result?.tenantId === snapshot.tenantId && result.data.id === session.id) { setClosed(result.data) } }}>
         <h2 className="font-semibold">Conferência do dinheiro</h2><fieldset disabled={frozen || !canClose} className="space-y-3"><label className="grid gap-1.5 text-xs font-medium">Dinheiro contado (R$)<Input required inputMode="decimal" value={counted} onChange={e => setCounted(e.target.value)} /></label><p role="status" className="text-sm">Diferença: <strong>{money(difference)}</strong></p><label className="grid gap-1.5 text-xs font-medium">Justificativa da diferença<Input required={difference !== null && difference !== 0} minLength={difference !== null && difference !== 0 ? 3 : undefined} maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} placeholder="Obrigatória quando houver diferença" /></label></fieldset>
         <p className="text-xs text-muted-foreground">O fechamento registra o dinheiro contado e a diferença para conferência. Nenhum ajuste de saldo é criado automaticamente.</p>
@@ -40,7 +56,11 @@ function ClosingEditor({ snapshot, reload }: { snapshot: Envelope<CashSession>; 
         <Button type="submit" disabled={!canClose || command.busy || command.stale}>{command.busy ? "Fechando…" : command.uncertain ? "Conferir fechamento" : "Confirmar fechamento"}</Button>
       </form>
     </>}
-    {!!session.movements.length && <section className="space-y-3"><h2 className="font-semibold">Movimentações do caixa</h2><div className="overflow-x-auto rounded-lg border"><DataTable aria-label="Movimentações do caixa"><thead><tr><th>Data</th><th>Tipo e motivo</th><th className="text-right">Valor</th></tr></thead><tbody>{session.movements.map(movement => <tr key={movement.id}><td className="whitespace-nowrap">{when(movement.createdAt)}</td><td>{movement.direction === "supply" ? "Suprimento" : "Sangria"}<span className="block text-xs text-muted-foreground">{movement.reason}</span></td><td className="whitespace-nowrap text-right">{money(movement.amount)}</td></tr>)}</tbody></DataTable></div></section>}
+    <section className="space-y-3"><h2 className="font-semibold">Movimentações do caixa</h2>{movements.loading ? <p role="status">Consultando movimentações…</p> : movements.error || movements.value?.tenantId !== snapshot.tenantId ? <Failure message={movements.error || "Movimentações indisponíveis"} retry={movements.reload} /> : <>
+      <p role="status" className="text-xs text-muted-foreground">{movements.value.total} movimentação(ões)</p>
+      <ResponsiveTable label="Movimentações do caixa"><DataTable aria-label="Movimentações do caixa"><thead><tr>{[["createdAt", "Data"], ["type", "Tipo e motivo"], ["amount", "Valor"]].map(([field, label]) => <SortableTableHeader field={field} sort={table.sort} onSort={table.toggle} key={field}>{label}</SortableTableHeader>)}</tr></thead><tbody>{movements.value.data.map(movement => <tr key={movement.id}><td className="whitespace-nowrap">{when(movement.createdAt)}</td><td><StatusBadge tone={movement.direction === "supply" ? "success" : "warning"}>{movement.direction === "supply" ? "Suprimento" : "Sangria"}</StatusBadge><span className="block text-xs text-muted-foreground">{movement.reason}</span></td><CurrencyCell>{money(movement.amount)}</CurrencyCell></tr>)}{!movements.value.data.length && <tr><td colSpan={3}><EmptyState filtered={false} title="Nenhuma movimentação registrada" description="Suprimentos e sangrias deste caixa aparecerão aqui." /></td></tr>}</tbody></DataTable></ResponsiveTable>
+      <Pagination offset={offset} pageSize={50} total={movements.value.total} loading={movements.loading} onOffsetChange={movementOffset} />
+    </>}</section>
     <SessionSales id={session.id} tenant={snapshot.tenantId} onChanged={reload} />
   </div>
 }

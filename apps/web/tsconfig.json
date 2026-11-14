@@ -51,7 +51,9 @@
     ".next-outgoing-tests/types/**/*.ts",
     ".next-outgoing-tests/dev/types/**/*.ts",
     ".next-release-candidate/types/**/*.ts",
-    ".next-release-candidate/dev/types/**/*.ts"
+    ".next-release-candidate/dev/types/**/*.ts",
+    ".next-shared-lists-release/types/**/*.ts",
+    ".next-shared-lists-release/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

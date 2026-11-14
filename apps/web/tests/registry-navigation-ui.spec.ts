@@ -25,12 +25,12 @@ test("pessoas preservam filtros e página ao abrir e voltar de um cadastro",asyn
  expect(new URL(page.url()).searchParams.get("offset")).toBe("25")
 })
 
-for(const width of [320,360,393,1280]) test(`categorias mostram hierarquia sem rolagem horizontal em ${width}px`,async({page},info)=>{
+for(const width of [320,360,393,1280]) test(`categorias mostram hierarquia com rolagem contida em ${width}px`,async({page},info)=>{
  await fixture(page);await page.setViewportSize({width,height:852})
  await page.goto("/cadastros/categorias-produtos")
  await expect(page.getByText("Premium / Pro",{exact:true})).toBeVisible()
  const region=page.getByRole("region",{name:"Lista de Categorias de produtos",exact:true})
- expect(await region.evaluate(element=>element.scrollWidth<=element.clientWidth)).toBe(true)
+ expect(await region.evaluate(element=>element.getBoundingClientRect().right<=innerWidth+1)).toBe(true)
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
   expect(await page.locator("main form").first().evaluate(form => {
    const bounds = form.getBoundingClientRect()

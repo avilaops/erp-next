@@ -5,11 +5,14 @@ import { erpFetch } from "@/lib/api/client"
 
 import type { Schema } from "@/lib/api/types"
 
-import Link from "next/link"
+import { GuardedLink as Link } from "@/components/shell/navigation-guard"
 import { useEffect, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { Input } from "@/components/ui/input"
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { DataTable } from "@/components/workspace/data-table"
 import { decimalPattern, normalizeDecimal } from "@/lib/decimal-input"
 import { commercialQuantity } from "@/features/sales/order-presentation"
@@ -23,9 +26,27 @@ const blank: Draft = { direction: "receipt", quantity: "", reason: "" }
 const selectClass = "block h-9 w-full min-w-0 rounded-lg border bg-background px-3 text-sm"
 
 export function StockWorkspace() {
-  const [query, setQuery] = useState({ q: "", offset: 0 })
+  const router = useRouter()
+  const url = useSearchParams()
+  const offsetValue = Number(url.get("offset") || 0)
+  const offset = Number.isSafeInteger(offsetValue) && offsetValue >= 0 && offsetValue <= 100000 ? Math.floor(offsetValue / 25) * 25 : 0
+  const { sort, toggle, query: sortQuery } = useTableSort(["name", "quantity", "reserved", "available"], { by: "", order: "asc" })
+  function navigate(patch: Record<string, string | number>) {
+    const next = new URLSearchParams(window.location.search)
+    for (const [key, value] of Object.entries(patch)) { if (String(value)) next.set(key, String(value)); else next.delete(key) }
+    router.push(`${window.location.pathname}?${next}${window.location.hash}`, { scroll: false })
+  }
+  const q = (url.get("q") || "").slice(0, 160)
+  const query = { q, offset }
+  const stockParams = new URLSearchParams({ q, offset: String(offset), limit: "25" })
+  for (const [key, value] of sortQuery) stockParams.set(key, value)
+  const stockRequest = `/api/erp/stock?${stockParams}`
+  const [loadedRequest, setLoadedRequest] = useState("")
+  const [search, setSearch] = useState(q)
+
   const [stocks, setStocks] = useState<StockList | null>(null)
   const [loading, setLoading] = useState(true)
+  const listPending = loading || loadedRequest !== stockRequest
   const [listError, setListError] = useState("")
   const [selected, setSelected] = useState<Stock | null>(null)
   const [history, setHistory] = useState<History | null>(null)
@@ -45,15 +66,14 @@ export function StockWorkspace() {
 
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
-    erpFetch(`/api/erp/stock?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    erpFetch(stockRequest, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json()
       if (!response.ok) throw new Error(value.title || "Estoque indisponível")
       if (!controller.signal.aborted) { setStocks(value); setListError("") }
     }).catch(error => { if (!controller.signal.aborted) { setStocks(null); setListError(error.message) } })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+      .finally(() => { if (!controller.signal.aborted) { setLoading(false); setLoadedRequest(stockRequest) } })
     return () => controller.abort()
-  }, [query, refresh])
+  }, [stockRequest, refresh])
 
   useEffect(() => {
     if (!selected) return
@@ -118,32 +138,25 @@ export function StockWorkspace() {
 
   return <div className="workspace-page-frame">
 
-    <section className="form-section min-w-0 space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Saldos por produto</h2><Link className="text-primary underline" href="/cadastros/produtos">Consultar catálogo</Link></div>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
-        event.preventDefault(); setLoading(true)
-        setQuery({ q: String(new FormData(event.currentTarget).get("q") || ""), offset: 0 })
-      }}>
-        <label className="min-w-0 flex-1 space-y-2">Buscar produto ou SKU<SearchInput onSearch={q => { setLoading(true); setQuery({ q, offset: 0 }) }} name="q" maxLength={160} /></label>
-        <Button type="submit" disabled={loading}>Buscar</Button>
-      </form>
-      <Link className="inline-flex min-h-11 w-fit items-center font-medium text-primary underline underline-offset-4" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar produto</Link>
-      {loading ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>
-        <p className="text-sm text-muted-foreground">{stocks.total} produto(s) · {stocks.canEdit ? "Consulta e movimentação" : "Somente consulta"}</p>
-        {stocks.data.length ? <div className="workspace-list-scroll" role="region" aria-label="Lista de saldos" tabIndex={0}><DataTable aria-label="Saldos por produto" className="table-fixed [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
-          <thead><tr><th scope="col" className="w-[54%] lg:w-[46%]">Produto</th><th scope="col" className="w-[46%] text-right lg:w-[18%]">Saldo</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Reservado</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[18%]">Disponível</th></tr></thead>
+    <EntityListPage title="Saldos por produto" actions={<><Link className="text-primary underline" href="/cadastros/produtos">Consultar catálogo</Link>{stocks?.canEdit && <Link className="text-primary underline" href="/cadastros/produtos/novo" target="_blank" rel="noopener noreferrer">Cadastrar produto</Link>}</>} toolbar={
+      <SearchToolbar pending={listPending} canClear={Boolean(q || search)} onClear={() => { setSearch(""); navigate({ q: "", offset: 0 }) }} onSubmit={event => { event.preventDefault(); const nextQ = String(new FormData(event.currentTarget).get("q") || ""); if (nextQ === q && !offset) { setLoading(true); setRefresh(value => value + 1) } else navigate({ q: nextQ, offset: 0 }) }}>
+        <FilterField label="Buscar produto ou SKU"><SearchInput name="q" maxLength={160} defaultValue={q} onChange={event => setSearch(event.target.value)} onSearch={q => navigate({ q, offset: 0 })} /></FilterField>
+      </SearchToolbar>
+    } summary={!listPending && !listError && (<p className="text-sm text-muted-foreground">{stocks?.total} produto(s) · {stocks?.canEdit ? "Consulta e movimentação" : "Somente consulta"}</p>)} footer={!listPending && !listError && (<Pagination offset={query.offset} pageSize={25} total={stocks?.total || 0} onOffsetChange={offset => navigate({ offset })} />)}>
+      {listPending ? <p role="status">Carregando saldos…</p> : listError ? <div role="alert" className="space-y-3"><p>{listError}</p><Button variant="outline" onClick={() => { setLoading(true); setRefresh(value => value + 1) }}>Tentar novamente</Button></div> : stocks && <>
+        <ResponsiveTable label="Lista de saldos"><DataTable aria-label="Saldos por produto" className="min-w-[48rem] [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
+          <thead><tr><SortableTableHeader field="name" sort={sort} onSort={toggle} className="w-[54%] lg:w-[46%]">Produto</SortableTableHeader><SortableTableHeader field="quantity" sort={sort} onSort={toggle} className="w-[46%] text-right lg:w-[18%]">Saldo</SortableTableHeader><SortableTableHeader field="reserved" sort={sort} onSort={toggle} className="text-right lg:w-[18%]">Reservado</SortableTableHeader><SortableTableHeader field="available" sort={sort} onSort={toggle} className="text-right lg:w-[18%]">Disponível</SortableTableHeader></tr></thead>
           <tbody>{stocks.data.map(stock => <tr key={stock.productId} className={selected?.productId === stock.productId ? "bg-primary/5" : undefined}>
             <th scope="row" className="text-left align-top"><button type="button" className="min-h-11 w-full rounded-sm text-left font-normal outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [overflow-wrap:anywhere]" disabled={saving || uncertain} aria-pressed={selected?.productId === stock.productId} onClick={() => choose(stock)}>
-              <strong className="block font-medium">{stock.name}</strong><span className="mt-1 block text-xs text-muted-foreground">SKU {stock.sku} · {stock.status === "active" ? "Ativo" : "Arquivado"}</span>
+              <strong className="block font-medium">{stock.name}</strong><span className="mt-1 block text-xs text-muted-foreground">SKU {stock.sku} · <StatusBadge tone={stock.status === "active" ? "success" : "neutral"}>{stock.status === "active" ? "Ativo" : "Arquivado"}</StatusBadge></span>
               <span className="mt-1 block text-xs font-medium text-primary underline underline-offset-4">Ver movimentos</span>
             </button></th>
-            <td className="text-right align-top tabular-nums [overflow-wrap:anywhere]"><span className="font-medium">{commercialQuantity(stock.quantity)} {stock.unit}</span><dl className="mt-2 space-y-1 text-xs lg:hidden"><div><dt className="text-muted-foreground">Reservado</dt><dd>{commercialQuantity(stock.reserved)}</dd></div><div><dt className="text-muted-foreground">Disponível</dt><dd>{commercialQuantity(stock.available)}</dd></div></dl></td>
-            <td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.reserved)}</td><td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{commercialQuantity(stock.available)}</td>
-          </tr>)}</tbody>
-        </DataTable></div> : <p>Nenhum produto encontrado. Cadastre um produto para movimentar o estoque.</p>}
-        <Pagination offset={query.offset} pageSize={25} total={stocks.total} onOffsetChange={offset => { setLoading(true); setQuery(value => ({ ...value, offset })) }} />
+            <td className="text-right align-top tabular-nums [overflow-wrap:anywhere]"><span className="font-medium">{commercialQuantity(stock.quantity)} {stock.unit}</span></td>
+            <td className="text-right tabular-nums">{commercialQuantity(stock.reserved)}</td><td className="text-right tabular-nums">{commercialQuantity(stock.available)}</td>
+          </tr>)}{!stocks.data.length && <tr><td colSpan={4}><EmptyState filtered={Boolean(q)} action={stocks.canEdit && <Link href="/cadastros/produtos/novo">Cadastrar produto</Link>} /></td></tr>}</tbody>
+        </DataTable></ResponsiveTable>
       </>}
-    </section>
+    </EntityListPage>
 
     {selected && <section className="form-section mt-5 min-w-0 space-y-5" aria-label="Movimentos do produto">
       <h2 className="break-words font-semibold">Movimentos de {selected.name}</h2>

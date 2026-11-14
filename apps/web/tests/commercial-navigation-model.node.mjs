@@ -42,3 +42,44 @@ test("return path and destination parser reject external navigation and invalid 
   assert.equal(query.taxpayer, false)
   assert.equal(query.offset, 0)
 })
+
+test("sorting survives line, search, destination, cart and simulator navigation", () => {
+  const query = navigation.readCommercialTableQuery(new URLSearchParams({ q: "Treino", offset: "28", sortBy: "priceWithIpiCents", sortOrder: "desc", destinationState: "MG", itens: `${first}:2` }))
+  const href = navigation.commercialTableHref({ ...query, line: "national", q: "Treino 10", destinationState: "SP" })
+  const params = new URL(href, "https://erp.local").searchParams
+  assert.equal(params.get("sortBy"), "priceWithIpiCents")
+  assert.equal(params.get("sortOrder"), "desc")
+  assert.equal(params.get("offset"), "28")
+  assert.equal(params.get("itens"), `${first}:2`)
+  const simulation = new URL(navigation.commercialSimulationHref(query), "https://erp.local")
+  const back = new URL(navigation.commercialTableReturn(simulation.searchParams.get("returnTo"), "imported"), "https://erp.local")
+  assert.equal(back.searchParams.get("sortBy"), "priceWithIpiCents")
+  assert.equal(back.searchParams.get("sortOrder"), "desc")
+})
+
+test("invalid commercial sort parameters are discarded safely", () => {
+  for (const values of [{ sortBy: "price;delete", sortOrder: "desc" }, { sortBy: "name", sortOrder: "DROP" }, { sortOrder: "desc" }]) {
+    const href = navigation.commercialTableHref(navigation.readCommercialTableQuery(new URLSearchParams(values)))
+    assert.equal(new URL(href, "https://erp.local").searchParams.has("sortBy"), false)
+    assert.equal(new URL(href, "https://erp.local").searchParams.has("sortOrder"), false)
+  }
+})
+
+test("complete commercial prices sort numerically before the fourteen-row page and keep unavailable values last", () => {
+  assert.equal(typeof navigation.commercialTableRows, "function")
+  const rows = Array.from({ length: 20 }, (_, index) => ({ productId: String(index).padStart(2, "0"), name: `Árvore ${20 - index}`, sku: `EQ-${20 - index}`, priceWithIpiCents: (20 - index) * 100, minOwnPriceWithIpiCents: index === 0 ? null : (20 - index) * 100 }))
+  const query = navigation.readCommercialTableQuery(new URLSearchParams({ sortBy: "priceWithIpiCents", offset: "14" }))
+  const sorted = navigation.commercialTableRows(rows, query)
+  assert.deepEqual(sorted.slice(14, 20).map(row => row.priceWithIpiCents), [1500, 1600, 1700, 1800, 1900, 2000])
+  assert.equal(rows[0].priceWithIpiCents, 2000)
+  const descending = navigation.readCommercialTableQuery(new URLSearchParams({ sortBy: "minOwnPriceWithIpiCents", sortOrder: "desc" }))
+  assert.equal(navigation.commercialTableRows(rows, descending).at(-1).minOwnPriceWithIpiCents, null)
+  const names = navigation.readCommercialTableQuery(new URLSearchParams({ sortBy: "name", q: "árvore" }))
+  assert.deepEqual(navigation.commercialTableRows(rows, names).slice(0, 3).map(row => row.name), ["Árvore 1", "Árvore 2", "Árvore 3"])
+})
+
+test("unsorted commercial results preserve original publication order", () => {
+  assert.equal(typeof navigation.commercialTableRows, "function")
+  const rows = [{ productId: "b", name: "Zeta", sku: "2" }, { productId: "a", name: "Alfa", sku: "1" }]
+  assert.deepEqual(navigation.commercialTableRows(rows, navigation.readCommercialTableQuery(new URLSearchParams())), rows)
+})

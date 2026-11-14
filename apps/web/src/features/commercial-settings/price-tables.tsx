@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { PageHeader } from "@/components/page-header"
-import { DataTable } from "@/components/workspace/data-table"
+import { useMemo, useState } from "react"
+import { DataTable, SortableTableHeader } from "@/components/workspace/data-table"
+import { CurrencyCell, EntityListPage, FilterField, ResponsiveTable } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
+import { sortTableRows } from "@/components/workspace/table-sort-model"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { RequestError } from "@/components/feedback/session-recovery"
@@ -18,10 +20,10 @@ export function PriceTables({ initialLine = "imported" }: { initialLine?: "impor
   const [line, setLine] = useState<"imported" | "national">(initialLine)
   const [locked, setLocked] = useState(false)
   return <main className="mx-auto min-w-0 max-w-5xl space-y-3 px-4 pb-12 pt-4 [--workspace-control-height:2.25rem]">
-    <PageHeader eyebrow="Vendas / Tabelas de preços" title="Nova tabela de preços" description="Escolha a linha, confira os preços calculados e publique uma nova versão." />
-    <div className="flex flex-wrap gap-3"><Link href="/vendas/simulador" className="text-primary underline">Simular negociação</Link><Link href="/preferencias/comercial" className="text-primary underline">Parâmetros comerciais</Link><Link href="/preferencias/despesas-fixas" className="text-primary underline">Despesas fixas</Link></div>
-    <label className="grid max-w-xs gap-1">Linha comercial<select disabled={locked} className="min-h-10 rounded-lg border bg-background px-2" value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="imported">Importada</option><option value="national">Nacional</option></select></label>
+    <EntityListPage title="Nova tabela de preços" description="Escolha a linha, confira os preços calculados e publique uma nova versão." actions={<div className="flex flex-wrap gap-3"><Link href="/vendas/simulador" className="text-primary underline">Simular negociação</Link><Link href="/preferencias/comercial" className="text-primary underline">Parâmetros comerciais</Link><Link href="/preferencias/despesas-fixas" className="text-primary underline">Despesas fixas</Link></div>}>
+    <FilterField label="Linha comercial" className="max-w-xs"><select disabled={locked} className="min-h-10 rounded-lg border bg-background px-2" value={line} onChange={e => setLine(e.target.value as typeof line)}><option value="imported">Importada</option><option value="national">Nacional</option></select></FilterField>
     <Publication key={line} line={line} onLocked={setLocked} />
+    </EntityListPage>
   </main>
 }
 
@@ -56,18 +58,23 @@ function Publication({ line, onLocked }: { line: "imported" | "national"; onLock
   return <div className="min-w-0 space-y-3">
     <p>Publicar cria uma versão da tabela com os custos dos produtos ativos e os parâmetros salvos. Produtos e pedidos existentes mantêm os preços cadastrados.</p>
     <Button variant="outline" disabled={!current.value || preparing || command.busy || command.uncertain} onClick={prepare}>{preparing ? "Preparando…" : "Preparar prévia"}</Button>
-    {preview && <section className="form-section min-w-0 space-y-2"><h2 className="font-semibold">Conferência antes de publicar</h2><p>{preview.items.length} produtos · revisão {preview.revision}</p><Prices items={preview.items} /><Button disabled={command.busy || command.stale} onClick={publish}>{command.uncertain ? "Repetir confirmação" : "Confirmar publicação"}</Button></section>}
+    {preview && <section className="form-section min-w-0 space-y-2"><h2 className="font-semibold">Conferência antes de publicar</h2><p>{preview.items.length} produtos · revisão {preview.revision}</p><Prices items={preview.items} prefix="preview" label="Preços da prévia" /><Button disabled={command.busy || command.stale} onClick={publish}>{command.uncertain ? "Repetir confirmação" : "Confirmar publicação"}</Button></section>}
     {notice && <p role="status">{notice}</p>}{(error || command.error) && <p role="alert">{error || command.error}</p>}
     {command.stale && <p>Os dados mudaram. Prepare nova prévia e confira os valores.</p>}
-    <section className="form-section min-w-0 space-y-2"><h2 className="font-semibold">Versão publicada</h2>{current.loading ? <p role="status">Carregando…</p> : current.error ? <p role="alert"><RequestError message={current.error} status={current.status} /></p> : current.value?.data ? <><p>Versão {current.value.data.version} · {new Date(current.value.data.publishedAt).toLocaleString("pt-BR")}</p><Prices items={current.value.data.items} /></> : <p>Nenhuma versão publicada nesta linha.</p>}</section>
+    <section className="form-section min-w-0 space-y-2"><h2 className="font-semibold">Versão publicada</h2>{current.loading ? <p role="status">Carregando…</p> : current.error ? <p role="alert"><RequestError message={current.error} status={current.status} /></p> : current.value?.data ? <><p>Versão {current.value.data.version} · {new Date(current.value.data.publishedAt).toLocaleString("pt-BR")}</p><Prices items={current.value.data.items} prefix="published" label="Preços da versão publicada" /></> : <p>Nenhuma versão publicada nesta linha.</p>}</section>
   </div>
 }
 
-function Prices({ items }: { items: Item[] }) {
-  return <div className="min-w-0 rounded-lg border"><DataTable aria-label="Produtos da tabela de preços" className="table-fixed [&_td]:px-2 [&_th]:px-2"><thead><tr><th scope="col" className="w-[54%] lg:w-[40%]">Equipamento</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[22%]">Sem IPI</th><th scope="col" className="hidden text-right lg:table-cell lg:w-[10%]">IPI</th><th scope="col" className="w-[46%] text-right lg:w-[28%]">Com IPI</th></tr></thead><tbody>{items.map(item => <tr key={item.productId}>
-    <th scope="row" className="text-left align-top font-normal [overflow-wrap:anywhere]"><span className="font-medium">{item.name}</span><p className="mt-1 text-xs text-muted-foreground">{item.sku}</p><p className="mt-1 text-xs text-muted-foreground lg:hidden">IPI <span>{(item.ipiBps / 100).toLocaleString("pt-BR")}%</span></p></th>
-    <td className="hidden text-right tabular-nums [overflow-wrap:anywhere] lg:table-cell">{money(item.priceWithoutIpiCents)}</td><td className="hidden text-right lg:table-cell">{(item.ipiBps / 100).toLocaleString("pt-BR")}%</td>
-    <td className="text-right align-top tabular-nums [overflow-wrap:anywhere]"><span className="font-semibold">{money(item.priceWithIpiCents)}</span><dl className="mt-2 text-xs lg:hidden"><dt className="text-muted-foreground">Sem IPI</dt><dd>{money(item.priceWithoutIpiCents)}</dd></dl></td>
-  </tr>)}</tbody></DataTable></div>
+const priceSortFields = ["name", "priceWithoutIpiCents", "ipiBps", "priceWithIpiCents"] as const
+const priceAccessors = { name: (item: Item) => item.name, priceWithoutIpiCents: (item: Item) => item.priceWithoutIpiCents, ipiBps: (item: Item) => item.ipiBps, priceWithIpiCents: (item: Item) => item.priceWithIpiCents }
+function Prices({ items, prefix, label }: { items: Item[]; prefix: string; label: string }) {
+  const { sort, toggle } = useTableSort(priceSortFields, { by: "", order: "asc" }, prefix)
+  const { by, order, explicit } = sort
+  const rows = useMemo(() => explicit ? sortTableRows(items, { by, order, explicit }, priceAccessors, item => item.productId) : items, [items, by, order, explicit])
+  return <ResponsiveTable label={label} className="rounded-lg border"><DataTable aria-label="Produtos da tabela de preços" className="min-w-[48rem] [&_td]:px-3 [&_th]:px-3"><thead><tr><SortableTableHeader field="name" sort={sort} onSort={toggle} className="min-w-[18rem]">Equipamento</SortableTableHeader><SortableTableHeader field="priceWithoutIpiCents" sort={sort} onSort={toggle} className="min-w-40 text-right">Sem IPI</SortableTableHeader><SortableTableHeader field="ipiBps" sort={sort} onSort={toggle} className="min-w-24 text-right">IPI</SortableTableHeader><SortableTableHeader field="priceWithIpiCents" sort={sort} onSort={toggle} className="min-w-40 text-right">Com IPI</SortableTableHeader></tr></thead><tbody>{rows.map(item => <tr key={item.productId}>
+    <th scope="row" className="min-w-[18rem] max-w-[26rem] break-words text-left align-top font-normal"><span className="font-medium">{item.name}</span><p className="mt-1 text-xs text-muted-foreground">{item.sku}</p></th>
+    <CurrencyCell>{money(item.priceWithoutIpiCents)}</CurrencyCell><td className="whitespace-nowrap text-right tabular-nums">{(item.ipiBps / 100).toLocaleString("pt-BR")}%</td>
+    <CurrencyCell className="font-semibold">{money(item.priceWithIpiCents)}</CurrencyCell>
+  </tr>)}</tbody></DataTable></ResponsiveTable>
 }
 

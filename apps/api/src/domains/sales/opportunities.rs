@@ -1,3 +1,4 @@
+use crate::domains::list_sort::SortField;
 use crate::{
     domains::{
         DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
@@ -123,6 +124,11 @@ pub struct OpportunityQuery {
     stage: Option<String>,
     offset: Option<u32>,
     limit: Option<u32>,
+
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
 }
 
 #[utoipa::path(get,path="/api/v1/opportunities",operation_id="list_sales_opportunities",tag="Sales",params(OpportunityQuery,("X-Tenant-Id"=Uuid,Header)),security(("bearerAuth"=[])),responses((status=200,body=Value)))]
@@ -135,6 +141,24 @@ pub async fn list(
     let query = query
         .map_err(|_| DomainError::Invalid("Filtros do funil inválidos"))?
         .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::text("title", "o.data->>'title'"),
+            SortField::text(
+                "companyName",
+                "COALESCE(p.legal_name,o.data->>'companyName')",
+            ),
+            SortField::text(
+                "stage",
+                "CASE o.data->>'stage' WHEN 'new' THEN 'Novo' WHEN 'contacted' THEN 'Contato feito' WHEN 'proposed' THEN 'Proposta enviada' WHEN 'negotiation' THEN 'Negociação' WHEN 'won' THEN 'Ganho' WHEN 'lost' THEN 'Perdido' ELSE o.data->>'stage' END",
+            ),
+            SortField::typed("estimatedCents", "(o.data->>'estimatedCents')::bigint"),
+        ],
+        "o.created_at DESC,o.id DESC",
+        "o.id",
+    )?;
     let q = query.q.unwrap_or_default();
     let stage = query.stage.unwrap_or_default();
     let offset = query.offset.unwrap_or(0);
@@ -161,17 +185,16 @@ pub async fn list(
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, READ, MANAGE, false).await?;
     let filter = "WHERE o.tenant_id=$1 AND ($2='' OR strpos(lower(concat(o.data->>'title',' ',o.data->>'companyName',' ',o.data->>'contactName',' ',p.legal_name)),lower($2))>0) AND ($3='' OR o.data->>'stage'=$3)";
-    let data: Vec<Value> = sqlx::query_scalar(&format!(
-        "{SELECT} {filter} ORDER BY o.created_at DESC,o.id DESC LIMIT $4 OFFSET $5"
-    ))
-    .bind(tenant)
-    .bind(&q)
-    .bind(&stage)
-    .bind(i64::from(limit))
-    .bind(i64::from(offset))
-    .fetch_all(&mut *tx)
-    .await
-    .map_err(db)?;
+    let data: Vec<Value> =
+        sqlx::query_scalar(&format!("{SELECT} {filter} {ordering} LIMIT $4 OFFSET $5"))
+            .bind(tenant)
+            .bind(&q)
+            .bind(&stage)
+            .bind(i64::from(limit))
+            .bind(i64::from(offset))
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(db)?;
     let total:i64=sqlx::query_scalar(&format!("SELECT count(*) FROM sales_opportunities o LEFT JOIN parties p ON p.tenant_id=o.tenant_id AND p.id=o.customer_id {filter}")).bind(tenant).bind(&q).bind(&stage).fetch_one(&mut *tx).await.map_err(db)?;
     let totals:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('stage',data->>'stage','count',count(*),'estimatedCents',COALESCE(sum((data->>'estimatedCents')::bigint),0)) FROM sales_opportunities WHERE tenant_id=$1 GROUP BY data->>'stage'").bind(tenant).fetch_all(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;

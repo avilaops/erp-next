@@ -1,4 +1,6 @@
 "use client"
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, SortableTableHeader, CurrencyCell } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { Pagination } from "@/components/workspace/pagination"
 import { DataTable } from "@/components/workspace/data-table"
 
@@ -48,65 +50,52 @@ export function CatalogList() {
   return <>{preferences.error && <p role="status" className="mb-4 text-sm text-muted-foreground">Preferência pessoal indisponível. O catálogo usa 25 produtos por página.</p>}<CatalogResults key={size} query={query} pageSize={size} /></>
 }
 
+const catalogSortFields = ["name", "sku", "unit", "price", "status"] as const
+
 function CatalogResults({ query, pageSize }: { query: CatalogQuery; pageSize: number }) {
   const { q, status, offset, categoryId } = query
-  const [result, setResult] = useState<ProductList | null>(null)
-  const [error, setError] = useState("")
-  const [responseStatus, setResponseStatus] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [retry, setRetry] = useState(0)
-  useEffect(() => {
-    const controller = new AbortController()
-    let requestStatus = 0
-    const params = new URLSearchParams({ q, offset: String(offset), limit: String(pageSize) })
-    if (status) params.set("status", status)
-    if (categoryId) params.set("category_id", categoryId)
-    erpFetch(`/api/erp/products?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
-      requestStatus = response.status
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.title || "Catálogo indisponível")
-      if (!controller.signal.aborted) { setResult(data); setError("") }
-    }).catch(reason => { if (!controller.signal.aborted) { setResult(null); setError(reason.message); setResponseStatus(requestStatus) } })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
-    return () => controller.abort()
-  }, [q, status, offset, retry, pageSize, categoryId])
+  const { sort, toggle } = useTableSort(catalogSortFields, { by: "name", order: "asc" })
+  const params = new URLSearchParams(catalogQueryString(query))
+  params.set("limit", String(pageSize))
+  const resource = useResource<ProductList>(`/api/erp/products?${params}`)
+  const { value: result, error, status: responseStatus, loading } = resource
   function navigate(next: CatalogQuery) {
     const search = catalogQueryString(next)
-    if (search === catalogQueryString(query)) { setLoading(true); setRetry(value => value + 1); return }
-    setLoading(true); window.history.pushState(null, "", `/cadastros/produtos${search ? `?${search}` : ""}`)
+    if (search === catalogQueryString(query)) { resource.reload(); return }
+    const params = new URLSearchParams(window.location.search)
+    for (const key of ["q", "status", "offset", "category_id", "sortBy", "sortOrder"]) params.delete(key)
+    new URLSearchParams(search).forEach((value, key) => params.set(key, value))
+    window.history.pushState(null, "", `/cadastros/produtos${params.size ? `?${params}` : ""}${window.location.hash}`)
   }
-  return <div className="catalog-workspace">
-    <section className="form-section space-y-3 sm:space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2 sm:gap-3 sm:pb-4"><div><h2 className="text-lg font-semibold tracking-tight">Catálogo de produtos</h2><p className="mt-1 hidden text-sm text-muted-foreground sm:block">Localize, consulte e edite os produtos da empresa ativa.</p></div>{result?.canEdit && <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link>}</div>
-      <form className="grid min-w-0 grid-cols-2 items-end gap-2 sm:gap-3 xl:grid-cols-[minmax(18rem,1fr)_minmax(12rem,0.45fr)_9rem_auto]" onSubmit={event => {
-        event.preventDefault(); const form = new FormData(event.currentTarget)
-        navigate(parseCatalogQuery(new URLSearchParams({ q: String(form.get("q") || ""), status: String(form.get("status") || ""), category_id: categoryId || "" })))
-      }}>
-        <label className="col-span-2 min-w-0 space-y-1 xl:col-span-1">Buscar nome ou SKU<SearchInput onSearch={(q, form) => navigate(parseCatalogQuery(new URLSearchParams({ q, status: form ? String(new FormData(form).get("status") || "") : status, category_id: categoryId || "" })))} name="q" maxLength={160} defaultValue={q} /></label>
-        <ProductCategory all tenantId={result?.tenantId} value={categoryId || ""} onChange={categoryId => navigate({ ...query, categoryId, offset: 0 })} />
-        <label className="space-y-2">Situação<select key={status} name="status" defaultValue={status} className="block h-10 w-full rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-        <Button className="col-span-2 h-10 justify-self-end xl:col-span-1" type="submit" disabled={loading}>Buscar</Button>
-      </form>
-      {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={catalogLink}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={() => { setLoading(true); setRetry(value => value + 1) }}>Tentar novamente</Button></div> : result && <>
-        <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>
-        {result.data.length ? <>
-          <div className="workspace-list-scroll" role="region" aria-label="Lista de produtos" tabIndex={0}><DataTable aria-label="Catálogo de produtos" className="catalog-product-table table-fixed [&_td]:px-2 [&_th]:px-2 lg:[&_td]:px-4 lg:[&_th]:px-4">
-            <thead><tr><th scope="col" className="w-[59%] lg:w-[42%]">Produto</th><th scope="col" className="hidden lg:table-cell lg:w-[18%]">SKU</th><th scope="col" className="hidden lg:table-cell lg:w-[10%]">Unidade</th><th scope="col" className="w-[41%] text-right lg:w-[18%]">Preço base</th><th scope="col" className="hidden lg:table-cell lg:w-[12%]">Situação</th></tr></thead>
-            <tbody>{result.data.map(product => <tr key={product.id}>
-              <th scope="row" className="text-left align-top font-normal"><div className="flex min-w-0 items-start gap-2 lg:items-center lg:gap-3">
-                <span className="shrink-0 [&>span]:size-10 [&_img]:size-10 lg:[&>span]:size-14 lg:[&_img]:size-14"><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} decorative /></span>
-                <div className="min-w-0 [overflow-wrap:anywhere]"><Link className={`${catalogLink} catalog-product-name`} href={`/cadastros/produtos/${product.id}`} title={product.name}>{product.name}</Link></div>
-              </div><p className="mt-1 text-xs font-normal text-muted-foreground [overflow-wrap:anywhere] lg:hidden">SKU {product.sku} · {product.unit} · {product.status === "active" ? "Ativo" : "Arquivado"}</p></th>
-              <td className="hidden text-muted-foreground [overflow-wrap:anywhere] lg:table-cell">{product.sku}</td><td className="hidden [overflow-wrap:anywhere] lg:table-cell">{product.unit}</td>
-              <td className="text-right align-top font-semibold tabular-nums [overflow-wrap:anywhere]">{commercialMoney(product.basePrice)}</td><td className="hidden text-sm text-muted-foreground lg:table-cell">{product.status === "active" ? "Ativo" : "Arquivado"}</td>
-            </tr>)}</tbody>
-          </DataTable></div>
-        </> : <p>Nenhum produto encontrado.</p>}
-        <Pagination offset={offset} pageSize={pageSize} total={result.total} maxOffset={catalogMaxOffset} showPageSize onOffsetChange={offset => navigate({ ...query, offset })} />
-        {offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}
-      </>}
-    </section>
-  </div>
+  function search(q: string, form: HTMLFormElement | null) {
+    const fields = form ? new FormData(form) : null
+    navigate({ ...query, ...parseCatalogQuery(new URLSearchParams({ q, status: fields ? String(fields.get("status") || "") : status, category_id: categoryId || "" }), pageSize) })
+  }
+  const filtered = !!(q || status || categoryId)
+  const create = result?.canEdit ? <Link className={catalogLink} href="/cadastros/produtos/novo">Novo produto</Link> : undefined
+  return <EntityListPage title="Catálogo de produtos" description="Localize, consulte e edite os produtos da empresa ativa." actions={create} toolbar={
+    <SearchToolbar pending={loading} canClear={filtered} onClear={() => navigate({ ...query, q: "", status: "", categoryId: undefined, offset: 0 })} onSubmit={event => { event.preventDefault(); search(String(new FormData(event.currentTarget).get("q") || ""), event.currentTarget) }}>
+      <FilterField label="Buscar nome ou SKU"><SearchInput onSearch={search} name="q" maxLength={160} defaultValue={q} /></FilterField>
+      <ProductCategory all tenantId={result?.tenantId} value={categoryId || ""} onChange={categoryId => navigate({ ...query, categoryId, offset: 0 })} />
+      <FilterField label="Situação"><select key={status} name="status" defaultValue={status} className="block h-10 w-full rounded-lg border bg-background px-3"><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></FilterField>
+    </SearchToolbar>
+  } summary={!loading && !error && result && <p className="text-sm text-muted-foreground">{result.total} produto(s) · {result.canEdit ? "Consulta e edição" : "Somente consulta"}</p>}
+    footer={!loading && !error && result && <><Pagination offset={offset} pageSize={pageSize} total={result.total} maxOffset={catalogMaxOffset} showPageSize onOffsetChange={offset => navigate({ ...query, offset })} />{offset >= catalogMaxOffset && offset + pageSize < result.total && <p role="status">Refine a busca para acessar outros resultados.</p>}</>}>
+    {loading ? <p role="status">Carregando produtos…</p> : error ? <div role="alert" className="space-y-3"><p>{error}</p>{responseStatus === 401 && <AccessLink className={catalogLink}>Entrar com Avila Ops</AccessLink>}<Button variant="outline" onClick={resource.reload}>Tentar novamente</Button></div> : result && <>
+      <ResponsiveTable label="Lista de produtos"><DataTable aria-label="Catálogo de produtos">
+        <thead><tr>{[["name", "Produto"], ["sku", "SKU"], ["unit", "Unidade"], ["price", "Preço base"], ["status", "Situação"]].map(([field, label]) => <SortableTableHeader key={field} field={field} sort={sort} onSort={toggle} className={field === "price" ? "text-right" : undefined}>{label}</SortableTableHeader>)}</tr></thead>
+        <tbody>{result.data.map(product => <tr key={product.id}>
+          <th scope="row" className="min-w-64 text-left align-top font-normal"><div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 [&>span]:size-10 [&_img]:size-10"><ProductThumbnail key={`${product.id}:${product.revision}`} id={product.id} name={product.name} hasPhoto={product.hasPhoto} tenantId={result.tenantId} decorative /></span>
+            <Link className={`${catalogLink} [overflow-wrap:anywhere]`} href={`/cadastros/produtos/${product.id}`} title={product.name}>{product.name}</Link>
+          </div></th>
+          <td className="text-muted-foreground [overflow-wrap:anywhere]">{product.sku}</td><td>{product.unit}</td>
+          <CurrencyCell className="align-top font-semibold">{commercialMoney(product.basePrice)}</CurrencyCell><td><StatusBadge tone={product.status === "active" ? "success" : "neutral"}>{product.status === "active" ? "Ativo" : "Arquivado"}</StatusBadge></td>
+        </tr>)}</tbody>
+      </DataTable></ResponsiveTable>
+      {!result.data.length && <EmptyState filtered={filtered} action={create} />}
+    </>}
+  </EntityListPage>
 }
 
 export function CatalogEditor({ id, view = false, draftScope }: { id?: string; view?: boolean; draftScope: string }) {

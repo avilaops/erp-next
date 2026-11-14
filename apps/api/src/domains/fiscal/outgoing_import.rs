@@ -1,4 +1,5 @@
 use super::{FiscalError, danfe, input, problem};
+use crate::domains::list_sort::SortField;
 use crate::{
     domains::{DomainError, authorized, db, response},
     platform::{auth::AuthenticatedIdentity, state::AppState},
@@ -62,6 +63,11 @@ pub struct OutgoingQuery {
     to: Option<String>,
     offset: Option<u32>,
     limit: Option<u32>,
+
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
 }
 #[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -132,6 +138,22 @@ pub async fn list(
     let query = query
         .map_err(|_| DomainError::Invalid("Filtros inválidos"))?
         .0;
+    let ordering = crate::domains::list_sort::order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &[
+            SortField::typed("number", "fiscal_outgoing_imports.number"),
+            SortField::text("recipientName", "recipient_name"),
+            SortField::typed("issuedAt", "issued_at"),
+            SortField::typed("totalCents", "total_cents"),
+            SortField::text(
+                "environment",
+                "CASE environment WHEN 2 THEN 'Homologação · sem valor fiscal' ELSE 'Produção declarada no XML' END",
+            ),
+        ],
+        "issued_at DESC,id DESC",
+        "fiscal_outgoing_imports.id",
+    )?;
     let q = query.q.unwrap_or_default().trim().to_lowercase();
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(25);
@@ -152,9 +174,9 @@ pub async fn list(
         false,
     )
     .await?;
-    let data = sqlx::query_as::<_, OutgoingNfeSnapshot>(
-        "SELECT id,access_key,issuer_document,issuer_name,recipient_document,recipient_name,number,series,issued_at,total_cents,item_count,environment,xml_sha256,created_at FROM fiscal_outgoing_imports WHERE tenant_id=$1 AND strpos(lower(recipient_name || ' ' || coalesce(recipient_document,'') || ' ' || issuer_name || ' ' || issuer_document || ' ' || access_key || ' ' || number::text),$2)>0 AND ($3::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date >= $3) AND ($4::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date <= $4) ORDER BY issued_at DESC,id DESC LIMIT $5 OFFSET $6"
-    ).bind(tenant).bind(&q).bind(from).bind(to).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let data = sqlx::query_as::<_, OutgoingNfeSnapshot>(&format!(
+        "SELECT id,access_key,issuer_document,issuer_name,recipient_document,recipient_name,number,series,issued_at,total_cents,item_count,environment,xml_sha256,created_at FROM fiscal_outgoing_imports WHERE tenant_id=$1 AND strpos(lower(recipient_name || ' ' || coalesce(recipient_document,'') || ' ' || issuer_name || ' ' || issuer_document || ' ' || access_key || ' ' || number::text),$2)>0 AND ($3::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date >= $3) AND ($4::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date <= $4) {ordering} LIMIT $5 OFFSET $6"
+    )).bind(tenant).bind(&q).bind(from).bind(to).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
     let total = sqlx::query_scalar(
         "SELECT count(*) FROM fiscal_outgoing_imports WHERE tenant_id=$1 AND strpos(lower(recipient_name || ' ' || coalesce(recipient_document,'') || ' ' || issuer_name || ' ' || issuer_document || ' ' || access_key || ' ' || number::text),$2)>0 AND ($3::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date >= $3) AND ($4::date IS NULL OR (issued_at AT TIME ZONE 'America/Sao_Paulo')::date <= $4)"
     ).bind(tenant).bind(&q).bind(from).bind(to).fetch_one(&mut *tx).await.map_err(db)?;

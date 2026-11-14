@@ -1,3 +1,4 @@
+use super::list_sort::{SortField, order_by};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, decimal, fixed, record, remember,
     replay, response, revision,
@@ -17,6 +18,21 @@ use sqlx::{FromRow, Postgres, Transaction};
 use std::collections::HashSet;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
+
+const SORT_FIELDS: &[SortField] = &[
+    SortField::text("code", "l.code"),
+    SortField::text("name", "l.name"),
+    SortField::text(
+        "status",
+        "CASE l.status WHEN 'active' THEN 'Ativa' WHEN 'archived' THEN 'Arquivada' END",
+    ),
+    SortField::typed("validFrom", "l.valid_from"),
+    SortField::typed("validUntil", "l.valid_until"),
+    SortField::typed(
+        "itemCount",
+        "(SELECT count(*) FROM price_list_items i WHERE i.tenant_id=l.tenant_id AND i.price_list_id=l.id)",
+    ),
+];
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -159,6 +175,10 @@ pub struct PriceListQuery {
     status: Option<String>,
     offset: Option<u32>,
     limit: Option<u32>,
+    #[serde(rename = "sortBy")]
+    sort_by: Option<String>,
+    #[serde(rename = "sortOrder")]
+    sort_order: Option<String>,
 }
 async fn load(
     tx: &mut Transaction<'_, Postgres>,
@@ -239,6 +259,13 @@ pub async fn list(
     let q = query.q.as_deref().unwrap_or("").trim();
     let offset = query.offset.unwrap_or(0);
     let limit = query.limit.unwrap_or(25);
+    let ordering = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        SORT_FIELDS,
+        "l.name,l.id",
+        "l.id",
+    )?;
     if q.chars().count() > 160
         || offset > 100000
         || !(1..=100).contains(&limit)
@@ -260,7 +287,18 @@ pub async fn list(
         false,
     )
     .await?;
-    let data=sqlx::query_as::<_,PriceListSummary>("SELECT l.id,l.revision,l.code,l.name,l.status,l.valid_from::text,l.valid_until::text,(SELECT count(*) FROM price_list_items i WHERE i.tenant_id=l.tenant_id AND i.price_list_id=l.id) AS item_count FROM price_lists l WHERE l.tenant_id=$1 AND ($2::text IS NULL OR l.status=$2) AND (strpos(lower(l.name),lower($3))>0 OR strpos(l.code,upper($3))>0) ORDER BY l.name,l.id LIMIT $4 OFFSET $5").bind(tenant).bind(&query.status).bind(q).bind(i64::from(limit)).bind(i64::from(offset)).fetch_all(&mut *tx).await.map_err(db)?;
+    let sql = format!(
+        "SELECT l.id,l.revision,l.code,l.name,l.status,l.valid_from::text,l.valid_until::text,(SELECT count(*) FROM price_list_items i WHERE i.tenant_id=l.tenant_id AND i.price_list_id=l.id) AS item_count FROM price_lists l WHERE l.tenant_id=$1 AND ($2::text IS NULL OR l.status=$2) AND (strpos(lower(l.name),lower($3))>0 OR strpos(l.code,upper($3))>0) {ordering} LIMIT $4 OFFSET $5"
+    );
+    let data = sqlx::query_as::<_, PriceListSummary>(&sql)
+        .bind(tenant)
+        .bind(&query.status)
+        .bind(q)
+        .bind(i64::from(limit))
+        .bind(i64::from(offset))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(db)?;
     let total=sqlx::query_scalar("SELECT count(*) FROM price_lists WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(code,upper($3))>0)").bind(tenant).bind(&query.status).bind(q).fetch_one(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(response(

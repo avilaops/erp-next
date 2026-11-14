@@ -1,4 +1,4 @@
-export type CatalogQuery = { q: string; status: string; offset: number; categoryId?: string }
+export type CatalogQuery = { q: string; status: string; offset: number; categoryId?: string; sortBy?: string; sortOrder?: "asc" | "desc" }
 export const catalogMaxOffset = 100_000
 
 export function catalogReturnHref(value: string | null) {
@@ -18,7 +18,10 @@ export function parseCatalogQuery(params: Pick<URLSearchParams, "get">, pageSize
   const size = [10, 25, 50, 100].includes(pageSize) ? pageSize : 25
   const offset = number <= catalogMaxOffset ? Math.floor(number / size) * size : 0
   const categoryId = params.get("category_id") || ""
-  return { q, status, offset, ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId) ? { categoryId } : {}) }
+  const sortBy = params.get("sortBy") || ""
+  const sortOrder = params.get("sortOrder")
+  const sort = ["name", "sku", "unit", "price", "status"].includes(sortBy) && (sortOrder === null || sortOrder === "asc" || sortOrder === "desc") ? { sortBy, sortOrder: (sortOrder || "asc") as "asc" | "desc" } : {}
+  return { q, status, offset, ...sort, ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId) ? { categoryId } : {}) }
 }
 
 export function catalogQueryString(query: CatalogQuery) {
@@ -27,5 +30,6 @@ export function catalogQueryString(query: CatalogQuery) {
   if (query.status) params.set("status", query.status)
   if (query.categoryId) params.set("category_id", query.categoryId)
   if (query.offset) params.set("offset", String(query.offset))
+  if (query.sortBy) { params.set("sortBy", query.sortBy); params.set("sortOrder", query.sortOrder || "asc") }
   return params.toString()
 }

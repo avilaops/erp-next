@@ -19,11 +19,11 @@ for (const width of [320, 390]) test(`listas de pessoas e equipe mantêm identid
   ]) {
     await page.goto(url)
     const table = page.getByRole("table", { name, exact: true })
-    await expect(table.getByRole("columnheader")).toHaveText(["Nome", "Contato"])
+    await expect(table.getByRole("columnheader")).toHaveCount(5)
     await expect(table.getByRole("link", { name: identity, exact: true })).toHaveAttribute("title", identity)
     await expect(table.getByText(email, { exact: true })).toBeVisible()
     await expect(table.getByText(metadata, { exact: true }).filter({ visible: true })).toBeVisible()
-    expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await table.evaluate(element => element.parentElement!.getBoundingClientRect().right <= innerWidth + 1)).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true })
   }

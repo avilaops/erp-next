@@ -1,6 +1,9 @@
 "use client"
 import { useReferenceHierarchy } from "./use-reference-hierarchy"
 import { availableParents } from "./reference-hierarchy"
+import { EntityListPage, SearchToolbar, FilterField, StatusBadge, EmptyState, ResponsiveTable, SortableTableHeader } from "@/components/workspace/list-layout"
+import { useTableSort } from "@/components/workspace/use-table-sort"
+import { registryQueryString, registrySortFields } from "../registry-query"
 import { useRegistryQuery } from "../use-registry-query"
 import "../compact-form.css"
 import { Pagination } from "@/components/workspace/pagination"
@@ -26,42 +29,47 @@ export function ReferenceWorkspace({ kind, id, mode }: { kind: ReferenceKind; id
   return mode === "list" ? <List kind={kind} /> : <RecordAccess kind={kind} id={id} mode={mode} />
 }
 
+const warehouseSortFields = [...registrySortFields.reference, "location"]
+
 function List({ kind }: { kind: ReferenceKind }) {
  const config = referenceConfigs[kind]
- const { query, navigate } = useRegistryQuery("reference")
- const params = new URLSearchParams({ q: query.q, offset: String(query.offset), limit: "25" })
- if (query.status) params.set("status", query.status)
+ const allowedSort = kind === "depositos" ? warehouseSortFields : registrySortFields.reference
+ const { query, navigate } = useRegistryQuery("reference", allowedSort)
+ const { sort, toggle } = useTableSort(allowedSort, { by: "name", order: "asc" })
+ const params = new URLSearchParams(registryQueryString(query))
+ params.set("limit", "25")
  const result = useResource<ReferenceList>(`/api/erp/${config.endpoint}?${params}`)
  const hierarchical = kind === "categorias-produtos" || kind === "categorias-financeiras"
  const tree = useReferenceHierarchy(kind === "categorias-financeiras" ? "financial-categories" : "product-categories", hierarchical ? result.value?.tenantId : undefined)
  const paths = new Map(tree.options.map(row => [row.id, row.path]))
  const total = result.value?.total ?? 0
+ const filtered = !!(query.q || query.status)
+ const create = result.value?.canEdit ? <Link className={linkClass} href={`${referencePath(kind)}/novo`}>Novo cadastro</Link> : undefined
  function search(value: typeof query) { if (!navigate(value)) result.reload() }
- function searchForm(q: string, form: HTMLFormElement | null) { search({ q, role: "", status: String(form ? new FormData(form).get("status") || "" : query.status), offset: 0 }) }
- return <section className="compact-records form-section min-w-0 space-y-3" aria-label={config.title}>
-  <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{config.title}</h2>{result.value?.canEdit && <Link className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground" href={`${referencePath(kind)}/novo`}>Novo cadastro</Link>}</div>
-  <form className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2 lg:grid-cols-[minmax(0,1fr)_10rem_auto_auto]" onSubmit={event => { event.preventDefault(); const fields = new FormData(event.currentTarget); search({ q: String(fields.get("q") || ""), status: String(fields.get("status") || ""), role: "", offset: 0 }) }}>
-   <label className="col-span-3 min-w-0 space-y-1 text-sm lg:col-span-1">Buscar nome ou código<SearchInput defaultValue={query.q} onSearch={searchForm} name="q" placeholder="Nome ou código" maxLength={160} /></label>
-   <label className="min-w-0 space-y-1 text-sm">Situação<select key={query.status} name="status" defaultValue={query.status} className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></label>
-   <div className="contents"><Button type="submit" className="h-9 px-3" disabled={result.loading}>Buscar</Button><Button type="button" variant="outline" className="h-9 px-3" disabled={result.loading} onClick={event => { event.currentTarget.form?.reset(); search({ q: "", status: "", role: "", offset: 0 }) }}>Limpar</Button></div>
-  </form>
+ function searchForm(q: string, form: HTMLFormElement | null) { search({ ...query, q, role: "", status: String(form ? new FormData(form).get("status") || "" : query.status), offset: 0 }) }
+ return <EntityListPage title={config.title} description={config.description} actions={create} toolbar={
+  <SearchToolbar pending={result.loading} canClear={filtered} onClear={() => search({ ...query, q: "", status: "", role: "", offset: 0 })} onSubmit={event => { event.preventDefault(); const fields = new FormData(event.currentTarget); search({ ...query, q: String(fields.get("q") || ""), status: String(fields.get("status") || ""), role: "", offset: 0 }) }}>
+   <FilterField label="Buscar nome ou código"><SearchInput defaultValue={query.q} onSearch={searchForm} name="q" placeholder="Nome ou código" maxLength={160} /></FilterField>
+   <FilterField label="Situação"><select key={query.status} name="status" defaultValue={query.status} className={selectClass}><option value="">Todas</option><option value="active">Ativos</option><option value="archived">Arquivados</option></select></FilterField>
+  </SearchToolbar>
+ } summary={!result.loading && !result.error && result.value && <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><p role="status">{total} registro(s)</p><span className="text-muted-foreground">{result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</span></div>}
+  footer={!result.loading && !result.error && result.value && <Pagination offset={query.offset} pageSize={25} total={total} onOffsetChange={offset => search({ ...query, offset })} />}>
   {result.loading ? <p role="status" className="py-5 text-center text-sm text-muted-foreground">Carregando cadastros…</p> : result.error ? <div className="space-y-2 rounded-lg border border-destructive/30 p-3" role="alert"><RequestError message={result.error} status={result.status} /><Button onClick={result.reload}>Tentar novamente</Button></div> : result.value && <>
-   <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><p role="status">{total} registro(s)</p><span className="text-muted-foreground">{result.value.canEdit ? "Consulta e edição" : "Somente consulta"}</span></div>
    {hierarchical && tree.error && <div role="status" className="space-y-1 text-xs text-muted-foreground"><p>{tree.error}</p><Button type="button" variant="outline" className="h-8 text-xs" onClick={tree.reload}>Atualizar hierarquia</Button></div>}
-   {!result.value.data.length ? <p className="rounded-lg border border-dashed p-5 text-center text-sm">Nenhum cadastro encontrado. Revise os filtros ou adicione um registro.</p> : <div className="workspace-list-scroll" role="region" aria-label={`Lista de ${config.title}`} tabIndex={0}><DataTable className="w-full table-fixed text-left text-sm [&_td]:px-2 [&_th]:px-2 lg:table-auto lg:[&_td]:px-4 lg:[&_th]:px-4">
+   <ResponsiveTable label={`Lista de ${config.title}`}><DataTable>
     <caption className="sr-only">{config.title} da empresa ativa</caption>
-    <thead><tr><th scope="col" className="hidden lg:table-cell">Código</th><th scope="col" className="w-[66%] lg:w-auto">Nome</th>{kind === "depositos" && <th scope="col" className="hidden lg:table-cell">Localização</th>}<th scope="col">Situação</th><th scope="col" className="hidden lg:table-cell"><span className="sr-only">Ações</span></th></tr></thead>
+    <thead><tr><SortableTableHeader field="code" sort={sort} onSort={toggle}>Código</SortableTableHeader><SortableTableHeader field="name" sort={sort} onSort={toggle}>Nome</SortableTableHeader>{kind === "depositos" && <SortableTableHeader field="location" sort={sort} onSort={toggle}>Localização</SortableTableHeader>}<SortableTableHeader field="status" sort={sort} onSort={toggle}>Situação</SortableTableHeader><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
     <tbody>{result.value.data.map(item => <tr key={item.id}>
-     <td className="hidden font-mono text-xs [overflow-wrap:anywhere] lg:table-cell">{item.code}</td>
-     <th scope="row" className="align-top font-medium [overflow-wrap:anywhere]"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{paths.get(item.id) && paths.get(item.id) !== item.name && <p className="mt-1 text-xs font-normal text-muted-foreground">{paths.get(item.id)}</p>}<div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs font-normal text-muted-foreground lg:hidden"><span>{item.code}</span>{result.value?.canEdit && <Link className="inline-flex min-h-8 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}{kind === "depositos" && <span>{item.location || "Localização não informada"}</span>}</div></th>
-     {kind === "depositos" && <td className="hidden [overflow-wrap:anywhere] lg:table-cell">{item.location || "Não informada"}</td>}
-     <td className="align-top"><span className={`inline-flex rounded-full border px-2 py-1 text-xs ${item.status === "active" ? "border-primary/20 bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{item.status === "active" ? "Ativo" : "Arquivado"}</span></td>
-     <td className="hidden lg:table-cell">{result.value?.canEdit && <Link className="inline-flex min-h-9 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td>
+     <td className="font-mono text-xs [overflow-wrap:anywhere]">{item.code}</td>
+     <th scope="row" className="min-w-52 align-top font-medium [overflow-wrap:anywhere]"><Link className={linkClass} href={`${referencePath(kind)}/${item.id}`}>{item.name}</Link>{paths.get(item.id) && paths.get(item.id) !== item.name && <p className="mt-1 text-xs font-normal text-muted-foreground">{paths.get(item.id)}</p>}</th>
+     {kind === "depositos" && <td className="[overflow-wrap:anywhere]">{item.location || "Não informada"}</td>}
+     <td className="align-top"><StatusBadge tone={item.status === "active" ? "success" : "neutral"}>{item.status === "active" ? "Ativo" : "Arquivado"}</StatusBadge></td>
+     <td>{result.value?.canEdit && <Link className="inline-flex min-h-9 items-center text-primary underline" aria-label={`Editar ${item.name}`} href={`${referencePath(kind)}/${item.id}/editar`}>Editar</Link>}</td>
     </tr>)}</tbody>
-   </DataTable></div>}
-   <Pagination offset={query.offset} pageSize={25} total={total} onOffsetChange={offset => search({ ...query, offset })} />
+   </DataTable></ResponsiveTable>
+   {!result.value.data.length && <EmptyState filtered={filtered} action={create} />}
   </>}
- </section>
+ </EntityListPage>
 }
 
 function RecordAccess({ kind, id, mode }: { kind: ReferenceKind; id?: string; mode: "view" | "edit" | "create" }) {

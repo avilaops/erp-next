@@ -1,4 +1,5 @@
 //! Typed auxiliary catalogs. Operational stock and financial ledgers remain in their domains.
+use super::list_sort::{SortField, order_by};
 use super::{
     DomainChange, DomainError, authorized, command_key, db, record, remember, replay, response,
     revision,
@@ -390,12 +391,30 @@ async fn list_records(
 ) -> Result<Response, DomainError> {
     let Query(query) = query.map_err(|_| DomainError::Invalid("Filtros inválidos"))?;
     let (q, offset, limit) = super::catalog::page(&query)?;
+    let mut fields = vec![
+        SortField::text("code", "code"),
+        SortField::text("name", "name"),
+        SortField::text(
+            "status",
+            "CASE status WHEN 'active' THEN 'Ativo' ELSE 'Arquivado' END",
+        ),
+    ];
+    if matches!(kind, Kind::Warehouse) {
+        fields.push(SortField::text("location", "location"));
+    }
+    let sort = order_by(
+        query.sort_by.as_deref(),
+        query.sort_order.as_deref(),
+        &fields,
+        "name,id",
+        "id",
+    )?;
     let (read, manage) = kind.permissions();
     let (tenant, mut tx, can_edit) =
         authorized(&state, &headers, &identity, read, manage, false).await?;
     let filter = "WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) AND (strpos(lower(name),lower($3))>0 OR strpos(lower(code),lower($3))>0)";
     let data = sqlx::query_as::<_, Reference>(&format!(
-        "{} {filter} ORDER BY name,id LIMIT $4 OFFSET $5",
+        "{} {filter} {sort} LIMIT $4 OFFSET $5",
         select(kind)
     ))
     .bind(tenant)
